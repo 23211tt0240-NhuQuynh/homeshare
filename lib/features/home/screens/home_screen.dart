@@ -5,6 +5,7 @@ import '../../auth/providers/user_provider.dart';
 import '../../profile/screens/account_settings_screen.dart';
 import '../../profile/screens/cccd_verification_screen.dart';
 import '../../renter/screens/renter_bookings_screen.dart';
+import '../../admin/screens/admin_main_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -263,6 +264,20 @@ class HomeScreen extends ConsumerWidget {
                     title: 'Báo cáo sự cố phòng trọ',
                     subtitle: 'Máy lạnh, điện nước, wifi',
                     onTap: () {},
+                  ),
+                  _buildMenuDivider(),
+                  _buildMenuRow(
+                    icon: Icons.admin_panel_settings_outlined,
+                    title: 'Quản trị hệ thống (Admin Portal)',
+                    subtitle: 'Báo cáo doanh thu, giải ngân, duyệt tin',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AdminMainScreen(),
+                        ),
+                      );
+                    },
                   ),
                   _buildMenuDivider(),
                   _buildMenuRow(

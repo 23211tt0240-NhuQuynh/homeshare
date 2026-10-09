@@ -51,6 +51,7 @@ class UserProfile {
   String get vaiTro => role;
   bool get isRenter => role == 'renter';
   bool get isHost => role == 'host';
+  bool get isAdmin => role == 'admin' || role == 'quantri';
   DateTime? get ngaySinh => birthDate;
   DateTime? get ngayTao => createdAt;
   bool get daXacThucCccd => isCccdVerified;
@@ -136,7 +137,7 @@ class UserProfile {
       email: data['email'] ?? '',
       displayName: data['displayName'] ?? data['hoTen'] ?? 'Người dùng HomeShare',
       phoneNumber: data['phoneNumber'] ?? data['soDienThoai'] ?? '',
-      role: 'renter', // Cố định role người dùng/người thuê
+      role: (data['role'] ?? data['vaiTro'] ?? 'renter').toString(),
       avatarUrl: data['avatarUrl'] ?? data['anhDaiDien'] ?? '',
       gender: data['gender'] ?? data['gioiTinh'] ?? 'Nam',
       address: data['address'] ?? data['diaChi'] ?? '',

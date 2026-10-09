@@ -1082,3 +1082,36 @@ Thực hiện yêu cầu của người dùng: *"làm phần chi tiết ở ghé
      - Đã thêm remote 
 huquynh: https://github.com/23211tt0240-NhuQuynh/homeshare.git.
      - Đẩy mã nguồn đăng ký/đăng nhập hoàn thiện lên repository theo yêu cầu.
+
+
+---
+
+### Phase 2.22: Phát Triển Hệ Thống Quản Trị Admin & Dashboard Báo Cáo Tài Chính Chuẩn Mockup
+* **Ngày hoàn thành:** 08/10/2026
+* **Yêu cầu người dùng:** "làm chức năng admin, bắt đầu từ dashboard, đẹp như giao diện lib dashboard mình đã gửi"
+* **Phân tích yêu cầu & Kết quả triển khai:**
+  1. **Tạo Cụm Module Admin Hoàn Chỉnh (`lib/features/admin/`):**
+     - [`AdminMainScreen`](file:///d:/homeshare/lib/features/admin/screens/admin_main_screen.dart): Khung điều hướng Bottom Navigation Bar với 4 tab chuẩn hình ảnh thiết kế:
+       + **Tổng quan**: Dashboard KPI, biểu đồ doanh thu và thẻ giải ngân cọc khẩn.
+       + **BÀI ĐĂNG**: Quản lý duyệt/khóa/ẩn bài đăng phòng trọ và lọc theo trạng thái.
+       + **Quản lý đơn**: Quản lý đơn đặt phòng, tiền cọc và tìm kiếm đối soát theo mã 5 ký tự (`userCode`, vd `382AN`).
+       + **Lịch sử**: Lịch sử thu phí hoa hồng sàn, giải ngân cọc và nhật ký tài chính.
+  2. **Tái Thiết Kế Màn Hình Admin Dashboard ([`AdminDashboardScreen`](file:///d:/homeshare/lib/features/admin/screens/admin_dashboard_screen.dart)):**
+     - **Header Quản trị**: Tiêu đề in đậm `QUẢN TRỊ ADMIN`, phụ đề `Dữ liệu tổng quan & Báo cáo tài chính`, huy hiệu Admin và chuông thông báo có chấm đỏ.
+     - **Bộ 4 Thẻ KPI Grid (2x2)**:
+       + `TỔNG DÒNG TIỀN`: Hiển thị số tiền kèm huy hiệu tăng trưởng xanh `▲ +18.4% YOY` / `+14.3%`.
+       + `DOANH THU SÀN (THỰC NHẬN)`: Số tiền xanh nổi bật `#155EEF` trên nền xanh mềm `#F5F8FF`, chú thích `Hoa hồng cọc & Phí tin`.
+       + `GIAO DỊCH THÀNH CÔNG`: Thống kê số lượt giao dịch màu cam hổ phách `#D97706`, phụ chú `99.2% khớp tự động`.
+       + `TỔNG USER TOÀN SÀN`: Số lượng người dùng, huy hiệu xanh `▲ +320 chủ trọ mới`.
+     - **Biểu Đồ Doanh Thu Tương Tác ([`RevenueLineChart`](file:///d:/homeshare/lib/features/admin/widgets/revenue_line_chart.dart) & [`RevenueBarChart`](file:///d:/homeshare/lib/features/admin/widgets/revenue_bar_chart.dart)):**
+       + Thanh chuyển chế độ Pill Switcher: `Tuần` | `Tháng` | `Năm`.
+       + **Chế độ Tuần/Tháng**: Đường cong Bézier mềm mại (`CustomPainter`) có dải màu gradient mờ dưới chân biểu đồ, điểm nút dữ liệu (T2 -> CN) có hiệu ứng phát sáng tại điểm đỉnh T7.
+       + **Chế độ Năm**: 12 cột tháng (T1 -> T12) chuẩn sắc độ xanh tăng dần, nhãn tooltip nổi `● T9: 18.5M đ (Cao nhất)`, các tháng tương lai (T10-T12) hiển thị khung nét đứt, dòng tổng kết `⚡ TB mỗi tháng: 14.020.000 đ`.
+     - **Thẻ Hành Động Khẩn Cấp ([`AdminAlertCard`](file:///d:/homeshare/lib/features/admin/widgets/admin_alert_card.dart)):**
+       + Cảnh báo `!` giải ngân cọc `#DH8821 ➔ CT0089` (Chủ trọ Đặng Thu Hà • 4.250.000 đ).
+       + Nút xanh **"Xử lý ngay"** mở Bottom Sheet xác nhận chuyển tiền đối soát tức thì.
+  3. **Tích Hợp Điểm Truy Cập Admin:**
+     - Đã gắn lối vào "Cổng Quản Trị Hệ Thống (Admin)" trong [`AccountSettingsScreen`](file:///d:/homeshare/lib/features/profile/screens/account_settings_screen.dart) và [`HomeScreen`](file:///d:/homeshare/lib/features/home/screens/home_screen.dart).
+  4. **Kiểm Thử & Đảm Bảo Chất Lượng:**
+     - Bổ sung bộ kiểm thử tự động [`test/admin_dashboard_test.dart`](file:///d:/homeshare/test/admin_dashboard_test.dart): **4/4 test cases PASSED 100%**.
+     - Toàn bộ test suite dự án: **71/71 test cases PASSED 100%**.

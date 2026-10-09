@@ -4,8 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/providers/auth_provider.dart';
+import 'features/auth/providers/user_provider.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/renter/screens/renter_main_screen.dart';
+import 'features/host/screens/host_main_screen.dart';
+import 'features/admin/screens/admin_main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,7 +46,13 @@ class AuthGate extends ConsumerWidget {
     return authState.when(
       data: (user) {
         if (user != null) {
-          // Luồng giao diện Người dùng (Renter / Ở ghép)
+          final profile = ref.watch(userProfileProvider).value;
+          if (profile?.isAdmin == true) {
+            return const AdminMainScreen();
+          }
+          if (profile?.isHost == true) {
+            return const HostMainScreen();
+          }
           return const RenterMainScreen();
         }
         return const LoginScreen();
