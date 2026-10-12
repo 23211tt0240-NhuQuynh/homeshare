@@ -35,6 +35,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
       AdminDashboardScreen(
         onNavigateToOrders: () => _onSelectTab(2),
         onNavigateToPosts: () => _onSelectTab(1),
+        onNavigateToHistory: () => _onSelectTab(3),
       ),
       const AdminPostsScreen(),
       const AdminOrdersScreen(),

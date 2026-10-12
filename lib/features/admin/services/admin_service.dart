@@ -215,6 +215,17 @@ class AdminService {
           monthlyAverage: 14020000,
         );
       }
+    }).handleError((error) {
+      debugPrint('Error in getDashboardStatsStream: $error');
+      return const AdminDashboardStats(
+        totalFlow: 1748500000,
+        netRevenue: 168250000,
+        successfulTransactions: 45600,
+        totalUsers: 5880,
+        newHosts: 320,
+        growthYoy: 18.4,
+        monthlyAverage: 14020000,
+      );
     });
   }
 
@@ -339,6 +350,16 @@ class AdminService {
           monthlyAverage: 14020000,
         );
       }
+    }).handleError((error) {
+      debugPrint('Error in getRevenueChartDataStream: $error');
+      return const AdminRevenueChartData(
+        weeklyData: [2.5, 4.2, 3.1, 2.0, 5.8, 12.4, 7.6],
+        monthlyWeeksData: [28.0, 36.5, 42.0, 48.2],
+        yearlyData: [6.2, 4.0, 7.5, 9.8, 11.2, 13.5, 15.0, 16.2, 18.5, null, null, null],
+        peakYearlyMonthIndex: 8,
+        peakYearlyAmount: 18.5,
+        monthlyAverage: 14020000,
+      );
     });
   }
 
@@ -406,13 +427,29 @@ class AdminService {
 
     return firestore
         .collection('transactions')
-        .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) {
       if (snapshot.docs.isEmpty) {
         return _getDefaultTransactions();
       }
-      return snapshot.docs.map((doc) => AdminTransactionModel.fromFirestore(doc)).toList();
+      final list = snapshot.docs.map((doc) {
+        try {
+          return AdminTransactionModel.fromFirestore(doc);
+        } catch (e) {
+          debugPrint('Error parsing transaction ${doc.id}: $e');
+          return null;
+        }
+      }).whereType<AdminTransactionModel>().toList();
+
+      if (list.isEmpty) {
+        return _getDefaultTransactions();
+      }
+
+      list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return list;
+    }).handleError((error) {
+      debugPrint('Error in getTransactionsHistoryStream: $error');
+      return _getDefaultTransactions();
     });
   }
 

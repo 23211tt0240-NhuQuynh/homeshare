@@ -144,29 +144,37 @@ class _BarChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Guard: need at least 2 data points to calculate stepX safely
+    if (data.length < 2) return;
+    // Guard: canvas must have positive dimensions
+    if (size.width <= 0 || size.height <= 0) return;
+
     const double barWidth = 14.0;
     const double radius = 5.0;
     const double paddingHorizontal = 10.0;
     final double availableWidth = size.width - (paddingHorizontal * 2);
+    if (availableWidth <= 0) return;
+
     final double stepX = availableWidth / (data.length - 1);
     final double chartHeight = size.height - 10.0;
+    if (chartHeight <= 0) return;
 
     // Find max value
     double maxVal = 20.0;
-    for (var val in data) {
+    for (final val in data) {
       if (val != null && val > maxVal) maxVal = val;
     }
 
-    final solidBarColors = [
-      const Color(0xFFD0E1FD), // T1
-      const Color(0xFFC2D9FC), // T2
-      const Color(0xFFB5D2FB), // T3
-      const Color(0xFFA5C9FB), // T4
-      const Color(0xFF90BCFA), // T5
-      const Color(0xFF75ABFA), // T6
-      const Color(0xFF5394F8), // T7
-      const Color(0xFF387EF5), // T8
-      const Color(0xFF1E60FF), // T9 (Peak)
+    const solidBarColors = [
+      Color(0xFFD0E1FD), // T1
+      Color(0xFFC2D9FC), // T2
+      Color(0xFFB5D2FB), // T3
+      Color(0xFFA5C9FB), // T4
+      Color(0xFF90BCFA), // T5
+      Color(0xFF75ABFA), // T6
+      Color(0xFF5394F8), // T7
+      Color(0xFF387EF5), // T8
+      Color(0xFF1E60FF), // T9 (Peak)
     ];
 
     for (int i = 0; i < data.length; i++) {
@@ -175,7 +183,7 @@ class _BarChartPainter extends CustomPainter {
       final double right = xCenter + (barWidth / 2);
       final double? value = data[i];
 
-      if (value != null) {
+      if (value != null && value > 0) {
         // Render solid rounded bar
         final double barHeight = (value / maxVal) * chartHeight;
         final double top = size.height - barHeight;
@@ -184,54 +192,34 @@ class _BarChartPainter extends CustomPainter {
 
         final color = i == peakIndex
             ? const Color(0xFF1E60FF)
-            : (i < solidBarColors.length ? solidBarColors[i] : const Color(0xFF75ABFA));
+            : (i < solidBarColors.length
+                ? solidBarColors[i]
+                : const Color(0xFF75ABFA));
 
-        final paint = Paint()
-          ..color = color
-          ..style = PaintingStyle.fill;
-
-        canvas.drawRRect(rrect, paint);
+        canvas.drawRRect(
+          rrect,
+          Paint()
+            ..color = color
+            ..style = PaintingStyle.fill,
+        );
       } else {
-        // Render dashed/dotted placeholder outline for upcoming future months
+        // Render simple stroked placeholder for null / zero-value months.
+        // Deliberately NOT using computeMetrics() (causes assertion flood on
+        // Flutter Web). A plain stroke rectangle looks identical at this scale.
         final double placeholderHeight = chartHeight * 0.75;
         final double top = size.height - placeholderHeight;
         final rect = Rect.fromLTRB(left, top, right, size.height);
         final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(radius));
 
-        final dashedPaint = Paint()
-          ..color = const Color(0xFFCBD5E1)
-          ..strokeWidth = 1.2
-          ..style = PaintingStyle.stroke;
-
-        _drawDashedRRect(canvas, rrect, dashedPaint);
+        canvas.drawRRect(
+          rrect,
+          Paint()
+            ..color = const Color(0xFFCBD5E1)
+            ..strokeWidth = 1.2
+            ..style = PaintingStyle.stroke,
+        );
       }
     }
-  }
-
-  void _drawDashedRRect(Canvas canvas, RRect rrect, Paint paint) {
-    final path = Path()..addRRect(rrect);
-    final dashPath = _dashPath(path, dashArray: [3.5, 3.5]);
-    canvas.drawPath(dashPath, paint);
-  }
-
-  Path _dashPath(Path source, {required List<double> dashArray}) {
-    final Path dest = Path();
-    for (final metric in source.computeMetrics()) {
-      double distance = 0.0;
-      int index = 0;
-      while (distance < metric.length) {
-        final double len = dashArray[index % dashArray.length];
-        if (index % 2 == 0) {
-          dest.addPath(
-            metric.extractPath(distance, distance + len),
-            Offset.zero,
-          );
-        }
-        distance += len;
-        index++;
-      }
-    }
-    return dest;
   }
 
   @override

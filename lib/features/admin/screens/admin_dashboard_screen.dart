@@ -7,26 +7,66 @@ import '../widgets/admin_alert_card.dart';
 import '../widgets/admin_kpi_card.dart';
 import '../widgets/revenue_bar_chart.dart';
 import '../widgets/revenue_line_chart.dart';
+import 'settlement_invoice_screen.dart';
 
 enum RevenueTimeRange { week, month, year }
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   final VoidCallback? onNavigateToOrders;
   final VoidCallback? onNavigateToPosts;
+  final VoidCallback? onNavigateToHistory;
 
   const AdminDashboardScreen({
     super.key,
     this.onNavigateToOrders,
     this.onNavigateToPosts,
+    this.onNavigateToHistory,
   });
 
   @override
-  ConsumerState<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+  ConsumerState<AdminDashboardScreen> createState() =>
+      _AdminDashboardScreenState();
 }
 
 class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   RevenueTimeRange _selectedTimeRange = RevenueTimeRange.year;
   final currencyFormatter = NumberFormat('#,###', 'vi_VN');
+
+  void _showNotice(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _handleNavigateToPosts() {
+    if (widget.onNavigateToPosts != null) {
+      widget.onNavigateToPosts!();
+    } else {
+      _showNotice('Chuyển sang trang Duyệt Bài Đăng');
+    }
+  }
+
+  void _handleNavigateToOrders() {
+    if (widget.onNavigateToOrders != null) {
+      widget.onNavigateToOrders!();
+    } else {
+      _showNotice('Chuyển sang trang Quản Lý Đơn Cọc');
+    }
+  }
+
+  void _handleNavigateToHistory() {
+    if (widget.onNavigateToHistory != null) {
+      widget.onNavigateToHistory!();
+    } else {
+      _showNotice('Chuyển sang trang Lịch Sử');
+    }
+  }
 
   void _showDisbursementDialog(AdminActionItem item) {
     showModalBottomSheet(
@@ -107,7 +147,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   const Divider(height: 16),
                   _buildDetailRow('Số điện thoại:', item.hostPhone),
                   const Divider(height: 16),
-                  _buildDetailRow('Ngân hàng thụ hưởng:', '${item.hostBankName} (${item.hostAccountNumber})'),
+                  _buildDetailRow(
+                    'Ngân hàng thụ hưởng:',
+                    '${item.hostBankName} (${item.hostAccountNumber})',
+                  ),
                   const Divider(height: 16),
                   _buildDetailRow('Phòng liên kết:', item.roomTitle),
                   const Divider(height: 16),
@@ -134,7 +177,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     ),
                     child: const Text(
                       'Đóng',
-                      style: TextStyle(color: Color(0xFF344054), fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: Color(0xFF344054),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -143,26 +189,33 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   child: ElevatedButton(
                     onPressed: () async {
                       Navigator.pop(ctx);
-                      await ref.read(adminServiceProvider).approveBookingDisbursement(
-                            bookingId: item.id,
-                            orderCode: item.highlightCode.split(' → ').first,
-                            hostName: item.hostName,
-                            amount: item.amount,
-                          );
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            backgroundColor: const Color(0xFF12B76A),
-                            behavior: SnackBarBehavior.floating,
-                            content: Row(
-                              children: [
-                                const Icon(Icons.check_circle, color: Colors.white),
-                                const SizedBox(width: 8),
-                                Text('Đã giải ngân thành công ${currencyFormatter.format(item.amount)} đ cho ${item.hostName}!'),
-                              ],
+                      try {
+                        await ref
+                            .read(adminServiceProvider)
+                            .approveBookingDisbursement(
+                              bookingId: item.id,
+                              orderCode: item.highlightCode.split(' → ').first,
+                              hostName: item.hostName,
+                              amount: item.amount,
+                            );
+                        if (mounted) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => SettlementInvoiceScreen(
+                                hostName: item.hostName,
+                                hostPhone: item.hostPhone,
+                                hostBankName: item.hostBankName,
+                                hostAccountNumber: item.hostAccountNumber,
+                                totalDeposit: item.amount,
+                                platformFee: item.amount * 0.1,
+                                netSettlement: item.amount * 0.9,
+                              ),
                             ),
-                          ),
-                        );
+                          );
+                        }
+                      } catch (e) {
+                        _showNotice('Không thể giải ngân: $e');
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -188,7 +241,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value, {bool isHighlight = false}) {
+  Widget _buildDetailRow(
+    String label,
+    String value, {
+    bool isHighlight = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -203,7 +260,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             style: TextStyle(
               fontSize: isHighlight ? 15 : 13,
               fontWeight: isHighlight ? FontWeight.w800 : FontWeight.w600,
-              color: isHighlight ? const Color(0xFF155EEF) : const Color(0xFF101828),
+              color: isHighlight
+                  ? const Color(0xFF155EEF)
+                  : const Color(0xFF101828),
             ),
           ),
         ),
@@ -211,48 +270,46 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     );
   }
 
-  void _showNotice(String message) {
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    // Lấy dữ liệu an toàn từ Riverpod
     final profile = ref.watch(userProfileProvider).value;
     final statsAsync = ref.watch(adminDashboardStatsStreamProvider);
     final chartDataAsync = ref.watch(adminRevenueChartDataProvider);
     final actionItemsAsync = ref.watch(adminPendingActionsProvider);
 
-    final stats = statsAsync.value ?? const AdminDashboardStats(
-      totalFlow: 1748500000,
-      netRevenue: 168250000,
-      successfulTransactions: 45600,
-      totalUsers: 5880,
-      newHosts: 320,
-      growthYoy: 18.4,
-      monthlyAverage: 14020000,
-    );
+    final stats = statsAsync.value ??
+        const AdminDashboardStats(
+          totalFlow: 1748500000,
+          netRevenue: 168250000,
+          successfulTransactions: 45600,
+          totalUsers: 5880,
+          newHosts: 320,
+          growthYoy: 18.4,
+          monthlyAverage: 14020000,
+        );
 
-    final chartData = chartDataAsync.value ?? const AdminRevenueChartData(
-      weeklyData: [2.5, 4.2, 3.1, 2.0, 5.8, 12.4, 7.6],
-      monthlyWeeksData: [28.0, 36.5, 42.0, 48.2],
-      yearlyData: [6.2, 4.0, 7.5, 9.8, 11.2, 13.5, 15.0, 16.2, 18.5, null, null, null],
-      peakYearlyMonthIndex: 8,
-      peakYearlyAmount: 18.5,
-      monthlyAverage: 14020000,
-    );
+    // Xử lý an toàn cho mảng yearlyData — giữ null cho tháng tương lai (dashed bar)
+    final rawChartData = chartDataAsync.value;
+    final List<double?> safeYearlyData = rawChartData?.yearlyData.toList() ??
+        const [6.2, 4.0, 7.5, 9.8, 11.2, 13.5, 15.0, 16.2, 18.5, null, null, null];
+
+    final chartData = rawChartData ??
+        AdminRevenueChartData(
+          weeklyData: const [2.5, 4.2, 3.1, 2.0, 5.8, 12.4, 7.6],
+          monthlyWeeksData: const [28.0, 36.5, 42.0, 48.2],
+          yearlyData: safeYearlyData,
+          peakYearlyMonthIndex: 8,
+          peakYearlyAmount: 18.5,
+          monthlyAverage: 14020000,
+        );
 
     final actionItems = actionItemsAsync.value ?? [];
 
     final isYearView = _selectedTimeRange == RevenueTimeRange.year;
     final displayFlow = isYearView ? stats.totalFlow : (stats.totalFlow / 12);
-    final displayRevenue = isYearView ? stats.netRevenue : (stats.netRevenue / 12);
+    final displayRevenue =
+        isYearView ? stats.netRevenue : (stats.netRevenue / 12);
     final displayTx = isYearView
         ? '${currencyFormatter.format(stats.successfulTransactions)} lượt'
         : '${currencyFormatter.format((stats.successfulTransactions / 12).round())} Giao dịch';
@@ -281,8 +338,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             const SizedBox(height: 2),
             Text(
               isYearView
-                  ? 'Dữ liệu tổng quan & Báo cáo tài chính (Realtime)'
-                  : 'Dữ liệu tổng quan toàn hệ thống (Realtime)',
+                  ? 'Dữ liệu tổng quan & Báo cáo tài chính'
+                  : 'Dữ liệu tổng quan toàn hệ thống',
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -296,9 +353,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             padding: const EdgeInsets.only(right: 16.0),
             child: Row(
               children: [
-                // Quick notifications / status badge
                 InkWell(
-                  onTap: () => _showNotice('Mở thông báo hệ thống'),
+                  onTap: () => _showNotice('Mở danh sách thông báo hệ thống'),
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
                     width: 38,
@@ -333,7 +389,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                // Admin avatar
                 InkWell(
                   onTap: () => _showNotice('Mở thông tin tài khoản Admin'),
                   borderRadius: BorderRadius.circular(19),
@@ -362,21 +417,20 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ==========================================
-            // 1. KPI 2x2 METRIC CARDS (REAL-TIME FIRESTORE)
-            // ==========================================
+            // 1. THẺ THỐNG KÊ 2x2
             Row(
               children: [
-                // Top Left: TỔNG DÒNG TIỀN
                 Expanded(
                   child: InkWell(
                     onTap: () => _showNotice('Chi tiết Tổng dòng tiền'),
                     borderRadius: BorderRadius.circular(16),
                     child: AdminKpiCard(
-                      title: 'Tổng dòng tiền',
+                      title: 'TỔNG DÒNG TIỀN',
                       value: '${currencyFormatter.format(displayFlow)} đ',
                       valueColor: const Color(0xFF101828),
-                      badgeText: isYearView ? '+18.4% YOY' : '+14.3% so với tháng trước',
+                      badgeText: isYearView
+                          ? '+18.4% YOY'
+                          : '+14.3% so với tháng trước',
                       badgeIcon: Icons.arrow_drop_up,
                       badgeColor: const Color(0xFFECFDF3),
                       badgeTextColor: const Color(0xFF027A48),
@@ -384,16 +438,19 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Top Right: DOANH THU SÀN
                 Expanded(
                   child: InkWell(
                     onTap: () => _showNotice('Chi tiết Doanh thu sàn'),
                     borderRadius: BorderRadius.circular(16),
                     child: AdminKpiCard(
-                      title: isYearView ? 'Doanh thu sàn' : 'Doanh thu sàn (Thực nhận)',
+                      title: isYearView
+                          ? 'DOANH THU SÀN'
+                          : 'DOANH THU SÀN (THỰC NHẬN)',
                       value: '${currencyFormatter.format(displayRevenue)} đ',
                       valueColor: const Color(0xFF155EEF),
-                      subtext: isYearView ? 'Hoa hồng cọc & Phí tin' : 'Hoa hồng & Phí bán gói',
+                      subtext: isYearView
+                          ? 'Hoa hồng cọc & Phí tin'
+                          : 'Hoa hồng & Phí bán gói',
                       subtextColor: const Color(0xFF2E90FA),
                       backgroundColor: const Color(0xFFF5F8FF),
                       borderColor: const Color(0xFFD1E0FF),
@@ -406,13 +463,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
             Row(
               children: [
-                // Bottom Left: GIAO DỊCH THÀNH CÔNG
                 Expanded(
                   child: InkWell(
                     onTap: () => _showNotice('Chi tiết Giao dịch thành công'),
                     borderRadius: BorderRadius.circular(16),
                     child: AdminKpiCard(
-                      title: 'Giao dịch thành công',
+                      title: 'GIAO DỊCH THÀNH CÔNG',
                       value: displayTx,
                       valueColor: const Color(0xFFD97706),
                       subtext: isYearView ? '99.2% khớp tự động' : null,
@@ -421,16 +477,18 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Bottom Right: TỔNG USER TOÀN SÀN
                 Expanded(
                   child: InkWell(
                     onTap: () => _showNotice('Chi tiết Tổng user hệ thống'),
                     borderRadius: BorderRadius.circular(16),
                     child: AdminKpiCard(
-                      title: isYearView ? 'Tổng user toàn sàn' : 'Tổng user hệ thống',
-                      value: '${currencyFormatter.format(stats.totalUsers)} Users',
+                      title: isYearView
+                          ? 'TỔNG USER TOÀN SÀN'
+                          : 'TỔNG USER HỆ THỐNG',
+                      value:
+                          '${currencyFormatter.format(stats.totalUsers)} Users',
                       valueColor: const Color(0xFF101828),
-                      badgeText: '+${stats.newHosts} chủ trọ',
+                      badgeText: '+${stats.newHosts} chủ trọ mới',
                       badgeIcon: Icons.arrow_drop_up,
                       badgeColor: const Color(0xFFECFDF3),
                       badgeTextColor: const Color(0xFF027A48),
@@ -441,9 +499,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             ),
             const SizedBox(height: 18),
 
-            // ==========================================
-            // 2. INTERACTIVE REVENUE CHART (REAL-TIME FIRESTORE)
-            // ==========================================
+            // 2. BIỂU ĐỒ THỐNG KÊ DOANH THU
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -461,7 +517,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Chart Header & Pill Switcher
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -493,8 +548,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-
-                      // Pill Switcher [ Tuần | Tháng | Năm ]
                       Container(
                         padding: const EdgeInsets.all(3),
                         decoration: BoxDecoration(
@@ -514,36 +567,58 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Chart Body (Dynamic Spline Line Chart & 12-Month Bar Chart)
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: _selectedTimeRange == RevenueTimeRange.year
-                        ? RevenueBarChart(
-                            key: const ValueKey('year_chart'),
-                            monthlyData: chartData.yearlyData,
-                            peakIndex: chartData.peakYearlyMonthIndex,
-                            peakTooltipText: '● T${chartData.peakYearlyMonthIndex + 1}: ${chartData.peakYearlyAmount.toStringAsFixed(1)}M đ (Cao nhất)',
-                            averageMonthlyText: 'TB mỗi tháng: ${currencyFormatter.format(chartData.monthlyAverage)} đ',
-                          )
-                        : RevenueLineChart(
-                            key: ValueKey('line_chart_$_selectedTimeRange'),
-                            weeklyData: _selectedTimeRange == RevenueTimeRange.week
-                                ? chartData.weeklyData
-                                : chartData.monthlyWeeksData,
-                            labels: _selectedTimeRange == RevenueTimeRange.week
-                                ? const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
-                                : const ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'],
-                            activeIndex: _selectedTimeRange == RevenueTimeRange.week ? 5 : 3,
-                          ),
+                  ClipRect(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: _selectedTimeRange == RevenueTimeRange.year
+                          ? Column(
+                              key: const ValueKey('year_chart_container'),
+                              children: [
+                                RevenueBarChart(
+                                  monthlyData: safeYearlyData,
+                                  peakIndex: chartData.peakYearlyMonthIndex,
+                                  peakTooltipText:
+                                      '● T${chartData.peakYearlyMonthIndex + 1}: ${chartData.peakYearlyAmount.toStringAsFixed(1)}M đ (Cao nhất)',
+                                  averageMonthlyText:
+                                      'TB mỗi tháng: ${currencyFormatter.format(chartData.monthlyAverage)} đ',
+                                ),
+                              ],
+                            )
+                          : RevenueLineChart(
+                              key: ValueKey('line_chart_$_selectedTimeRange'),
+                              weeklyData:
+                                  _selectedTimeRange == RevenueTimeRange.week
+                                      ? chartData.weeklyData
+                                      : chartData.monthlyWeeksData,
+                              labels: _selectedTimeRange == RevenueTimeRange.week
+                                  ? const [
+                                      'T2',
+                                      'T3',
+                                      'T4',
+                                      'T5',
+                                      'T6',
+                                      'T7',
+                                      'CN',
+                                    ]
+                                  : const [
+                                      'Tuần 1',
+                                      'Tuần 2',
+                                      'Tuần 3',
+                                      'Tuần 4',
+                                    ],
+                              activeIndex:
+                                  _selectedTimeRange == RevenueTimeRange.week
+                                      ? 5
+                                      : 3,
+                            ),
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 18),
 
-            // ==========================================
-            // 3. VIỆC CẦN XỬ LÝ (GỢI Ý HÀNH ĐỘNG / ACTION ITEMS REALTIME)
-            // ==========================================
+            // 3. VIỆC CẦN XỬ LÝ
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -560,14 +635,17 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFEF3F2),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: const Color(0xFFFECDCA)),
                       ),
                       child: Text(
-                        '${actionItems.length} việc chờ',
+                        '${actionItems.isEmpty ? 1 : actionItems.length} việc chờ',
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -578,7 +656,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   ],
                 ),
                 TextButton(
-                  onPressed: widget.onNavigateToOrders ?? () => _showNotice('Chuyển đến trang Quản lý đơn cọc'),
+                  onPressed: _handleNavigateToOrders,
                   style: TextButton.styleFrom(
                     padding: EdgeInsets.zero,
                     minimumSize: Size.zero,
@@ -605,26 +683,90 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                       ? actionItems[i].highlightCode.split(' → ').last
                       : 'CT0089',
                   hostName: actionItems[i].hostName,
-                  amount: '${currencyFormatter.format(actionItems[i].amount)} đ',
+                  amount:
+                      '${currencyFormatter.format(actionItems[i].amount)} đ',
                   onProcess: () => _showDisbursementDialog(actionItems[i]),
                 ),
-                if (i < actionItems.length - 1 && i < 2) const SizedBox(height: 10),
+                if (i < actionItems.length - 1 && i < 2)
+                  const SizedBox(height: 10),
               ],
             ] else ...[
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0xFFEAECF0)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.check_circle_outline, color: Color(0xFF12B76A), size: 22),
-                    SizedBox(width: 10),
-                    Text(
-                      'Tuyệt vời! Không có việc nào đang tồn đọng cần xử lý.',
-                      style: TextStyle(fontSize: 12.5, color: Color(0xFF475467), fontWeight: FontWeight.w500),
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3F2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '!',
+                          style: TextStyle(
+                            color: Color(0xFFF04438),
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Giải ngân cọc #DH8821 → CT0089',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF101828),
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Chủ trọ: Đặng Thu Hà • Quyết toán...',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF667085),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        _showNotice('Vui lòng chọn đơn cọc thực tế để xử lý');
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF12B76A),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'Xử lý ngay',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -632,52 +774,85 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             ],
             const SizedBox(height: 20),
 
-            // ==========================================
-            // 4. QUICK PORTAL SHORTCUTS
-            // ==========================================
+            // 4. LỐI TẮT ĐIỀU HƯỚNG NHANH
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: widget.onNavigateToPosts ?? () => _showNotice('Chuyển đến trang Duyệt Bài Đăng'),
-                    icon: const Icon(Icons.apartment_outlined, size: 18, color: Color(0xFF155EEF)),
+                    onPressed: _handleNavigateToPosts,
+                    icon: const Icon(
+                      Icons.apartment_outlined,
+                      size: 16,
+                      color: Color(0xFF155EEF),
+                    ),
                     label: const Text(
-                      'Duyệt Bài Đăng',
+                      'Duyệt Bài',
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF155EEF),
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                       side: const BorderSide(color: Color(0xFFD1E0FF)),
                       backgroundColor: const Color(0xFFF5F8FF),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: widget.onNavigateToOrders ?? () => _showNotice('Chuyển đến trang Quản Lý Đơn Cọc'),
-                    icon: const Icon(Icons.receipt_long_outlined, size: 18, color: Color(0xFF027A48)),
+                    onPressed: _handleNavigateToOrders,
+                    icon: const Icon(
+                      Icons.receipt_long_outlined,
+                      size: 16,
+                      color: Color(0xFF027A48),
+                    ),
                     label: const Text(
-                      'Quản Lý Đơn Cọc',
+                      'Quản Lý Đơn',
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF027A48),
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                       side: const BorderSide(color: Color(0xFFA6F4C5)),
                       backgroundColor: const Color(0xFFECFDF3),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _handleNavigateToHistory,
+                    icon: const Icon(
+                      Icons.history_rounded,
+                      size: 16,
+                      color: Color(0xFF475467),
+                    ),
+                    label: const Text(
+                      'Lịch Sử',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF475467),
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      side: const BorderSide(color: Color(0xFFEAECF0)),
+                      backgroundColor: const Color(0xFFF8FAFC),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                   ),
@@ -709,7 +884,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: const Color(0xFF1E60FF).withOpacity(0.2),
+                    color: const Color(0xFF1E60FF).withValues(alpha: 0.2),
                     blurRadius: 4,
                     offset: const Offset(0, 1),
                   ),

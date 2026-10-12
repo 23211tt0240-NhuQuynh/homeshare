@@ -5,7 +5,6 @@ import 'package:home_share/features/admin/screens/admin_dashboard_screen.dart';
 import 'package:home_share/features/admin/screens/admin_main_screen.dart';
 import 'package:home_share/features/admin/widgets/revenue_line_chart.dart';
 import 'package:home_share/features/admin/widgets/revenue_bar_chart.dart';
-import 'package:home_share/features/admin/widgets/admin_kpi_card.dart';
 import 'package:home_share/features/admin/widgets/admin_alert_card.dart';
 
 void main() {
