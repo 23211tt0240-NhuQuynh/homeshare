@@ -1574,3 +1574,17 @@ huquynh: https://github.com/23211tt0240-NhuQuynh/homeshare.git.
      - `flutter analyze`: **0 issues found** (Clean 100%).
      - `flutter test`: **128/128 tests PASSED 100%**.
      - Đẩy mã nguồn lên nhánh `dev-TOAN` của repository `https://github.com/23211tt0240-NhuQuynh/homeshare`.
+
+---
+
+### Phase 2.40: Cấu Hình ProGuard ML Kit Text Recognition & Tối Ưu Bộ Nhớ Gradle Android
+* **Ngày hoàn thành:** 12/10/2026
+* **Các cải tiến kỹ thuật chính:**
+  1. **Cấu hình ProGuard Rules (`android/app/proguard-rules.pro`):**
+     - Bổ sung `-dontwarn com.google.mlkit.vision.text.**` và `-dontwarn com.google.mlkit.**` nhằm loại bỏ các cảnh báo missing class không sử dụng (gói ngôn ngữ Chinese, Japanese, Korean, Devanagari) khi build release/debug với thư viện nhận diện ký tự CCCD on-device Google ML Kit.
+  2. **Kích hoạt ProGuard Files trong `android/app/build.gradle.kts`:**
+     - Khai báo `proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")` trong `buildTypes.getByName("release")`.
+  3. **Tối ưu cấu hình bộ nhớ Gradle (`android/gradle.properties`):**
+     - Điều chỉnh `org.gradle.jvmargs` phù hợp (-Xmx2048m -XX:MaxMetaspaceSize=512m) đảm bảo tiến trình build Gradle trên môi trường phát triển mượt mà, ổn định và không bị tràn RAM.
+  4. **Đồng bộ nhánh Git:**
+     - Commit và đẩy mã nguồn hoàn thiện lên nhánh `dev-TOAN` của repository `https://github.com/23211tt0240-NhuQuynh/homeshare`.
