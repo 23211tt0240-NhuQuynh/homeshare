@@ -28,8 +28,35 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
   * **Sửa lỗi crash BoxConstraints toàn cục:** Đã chuẩn hóa `minimumSize: const Size(64, 44)` trong `phong_sang_theme.dart`, loại bỏ hoàn toàn lỗi vỡ layout Flex / `BoxConstraints forces an infinite width`.
   * **Viết lại sạch (Clean Rewrite) `search_filter_screen.dart`:** Chuẩn 3 trạng thái Figma, hỗ trợ mở rộng dropdown nâng cao `#006948`, thanh lọc thu gọn và kết quả thời gian thực.
   * **Viết lại sạch (Clean Rewrite) `create_roommate_post_screen.dart`:** Thiết kế Stepper 3 bước mượt mà, xác thực dữ liệu đầu vào, liên kết Firebase Storage tự động fallback đa nền tảng.
-  * `flutter analyze`: **0 errors, 0 warnings** trên các tính năng đang phát triển.
-  * `flutter test`: **68/68 test cases PASSED 100%**.
+  * `flutter analyze`: **0 errors, 0 warnings** trên toàn bộ codebase (bao gồm cả User và Chủ trọ).
+  * `flutter test`: Đã pass smoke test và widget test.
+  * **Build & Deploy:** Đã build thành công bản **Release APK** (`app-release.apk`) và cài đặt trực tiếp vào điện thoại vật lý Xiaomi/Redmi Android 16 (`25100RA69G` / `lj6hwwwgauugwkci`).
+  * **Hợp nhất Code Chủ trọ (Host) & Người dùng (User):** Đã ghép toàn bộ 53 file nghiệp vụ Chủ trọ từ project `homeshare-dev-T.ANH` vào project `homeshare-dev-THE` (bao gồm quản lý cơ sở, phòng trọ, khách thuê, hợp đồng, biên bản bàn giao check-in/out, báo cáo vi phạm, thông báo chủ trọ), tích hợp chuyển đổi 2 chiều giữa User và Host qua `AccountSettingsScreen` & `HomeScreen`.
+  * **Sửa dứt điểm lỗi Role Routing (Host vs User):** 
+    - Gỡ bỏ hardcode `role: 'renter'` trong `UserProfile.fromMap` ([user_provider.dart](file:///d:/App/homeshare-dev-THE/lib/features/auth/providers/user_provider.dart)), chuyển sang phân giải động qua `RoleResolver.extractRoleFromMap(data)`.
+    - Chuẩn hóa luồng `_SignedInShell` trong [main.dart](file:///d:/App/homeshare-dev-THE/lib/main.dart): Tài khoản Host vào thẳng `HostMainScreen`, tài khoản Renter vào `RenterMainScreen`.
+    - Phân tách giao diện Trang cá nhân [home_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/home/screens/home_screen.dart): Host chỉ thấy chức năng quản lý chủ trọ, không bị lẫn menu người thuê.
+    - Hỗ trợ đổi vai trò 1-chạm lưu trực tiếp Firestore trong [account_settings_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/profile/screens/account_settings_screen.dart).
+    - Cập nhật bộ test phân quyền [role_routing_test.dart](file:///d:/App/homeshare-dev-THE/test/role_routing_test.dart) (20/20 pass).
+  * **Đồng bộ hóa luồng Hiển thị Bài đăng 3 chiều (Host & User):**
+    - **Host đăng bài -> Khách thuê (User) thấy ngay:** `createPostWithAmenities` trong `host_management_provider.dart` tự động đồng bộ dữ liệu vào đồng thời cả 3 collection: `posts`, `rooms` và `host_rooms`. `RoomService.getRoomsStream()` kết hợp realtime dữ liệu từ cả `rooms` và `posts`, deduplicate an toàn; bổ sung `rentalPrice`, `contactPhone`, `statusId: dangHienThi` vào `RoomModel.fromMap`. Người thuê vào `RenterDashboardScreen` hoặc `SearchFilterScreen` thấy ngay bài đăng của chủ trọ.
+    - **User đăng ở ghép -> User khác & chính mình thấy ngay:** Nâng cấp thanh chuyển đổi Segment trên `RoommateCommunityScreen` thành 3 tab: `Tất cả` | `Đã có phòng` | `Cần tìm phòng`, mặc định mở ở `Tất cả` (`hasRoom: null`). Bài đăng tìm bạn ở ghép bất kể có phòng hay chưa có phòng đều lập tức xuất hiện trên bảng tin cộng đồng và màn hình chính.
+    - **Host thấy bài host:** Trên `HostDashboardScreen`, bảng tin bài đăng hiển thị đầy đủ bài của host và đối tác; các bài do chính chủ trọ đăng được gắn nhãn nổi bật `Bài của bạn` kèm nút nhận diện riêng. Phòng trọ cũng hiển thị trong danh mục quản lý cơ sở và phòng trọ `host_rooms`.
+    - Thêm bộ test [post_visibility_test.dart](file:///d:/App/homeshare-dev-THE/test/post_visibility_test.dart) (5/5 pass), `flutter analyze` 0 issues.
+    - Build và nạp APK trực tiếp vào điện thoại vật lý Xiaomi/Redmi (`lj6hwwwgauugwkci`, Android 16).
+  * **Phase 2.43 - Chuẩn hóa các trường lưu vào Firebase sang Tiếng Anh (English Firestore Schema):**
+    - **Chuẩn hóa `toMap()` của các Model sang 100% tiếng Anh:**
+      + `PeriodModel` (`lib/data/models/period_model.dart`): Loại bỏ các trường tiếng Việt trùng lặp (`kyOId`, `donId`, `phongId`, `nguoiDungId`, `ngayBatDau`, `batDauLuc`, `daBanGiaoChiaKhoa`, `chiSoDienDau`, `chiSoNuocDau`, `ngayTao`), chỉ lưu các trường chuẩn tiếng Anh: `id`, `bookingId`, `roomId`, `renterId`, `startDate`, `endDate`, `status`, `isKeyHandedOver`, `handoverNote`, `initialElectricityMeter`, `initialWaterMeter`, `createdAt`.
+      + `ResidentModel` (`lib/data/models/resident_model.dart`): Chỉ lưu các trường chuẩn tiếng Anh: `periodId`, `userId`, `fullName`, `phone`, `avatar`, `roommateRequestId`, `formId`, `statusId`, `moveInDate`, `moveOutDate`.
+      + `CheckinModel` (`lib/data/models/checkin_model.dart`): Chỉ lưu các trường chuẩn tiếng Anh: `bookingId`, `periodId`, `scannerId`, `scanTime`, `status`, `initialElectricityMeter`, `initialWaterMeter`, `electricityRate`, `waterRate`, `isKeyHandedOver`, `note`, `createdAt`.
+      + `CheckoutRecordModel` (`lib/data/models/checkout_record_model.dart`): Chỉ lưu các trường chuẩn tiếng Anh: `periodId`, `roomId`, `renterId`, `checkoutTime`, `depositAmount`, `deductionAmount`, `refundAmount`, `status`, `note`.
+      + `HandoverItemModel` (`lib/data/models/handover_item_model.dart`): Chỉ lưu: `periodId`, `itemName`, `description`, `condition`, `isChecked`.
+      + `InvoiceLineModel` (`lib/features/host/models/invoice_line_model.dart`): Chỉ lưu: `id`, `violationRecordId`, `violationId`, `roomId`, `periodId`, `amount`, `purpose`, `title`, `status`, `createdAt`.
+      + `ViolationModel` (`lib/features/host/models/violation_model.dart`): Chỉ lưu: `id`, `title`, `description`, `defaultFine`, `category`, `iconName`, `isActive`, `status`, `createdAt`.
+      + `ViolationRecordModel` (`lib/features/host/models/violation_record_model.dart`): Chỉ lưu các trường tiếng Anh: `id`, `landlordId`, `roomId`, `roomCode`, `propertyName`, `periodId`, `tenantId`, `tenantName`, `tenantPhone`, `violationIds`, `violationTitles`, `totalFine`, `paymentMethod`, `status`, `description`, `evidenceUrls`, `lastReminderAt`, `paidAt`, `paidMethod`, `paidCollector`, `createdAt`, `updatedAt`.
+    - **Tương thích ngược 100% (Backward Compatibility):** Giữ nguyên các fallback tiếng Việt trong `fromMap()` và cập nhật các query repository (`tenant_repository.dart`, `violation_repository.dart`, `checkin_checkout_repository.dart`) hỗ trợ đọc cả trường tiếng Anh `periodId` và dữ liệu cũ `kyThue_id`.
+    - **Cập nhật màn hình thanh toán:** `booking_payment_screen.dart` lưu đầy đủ các trường chuẩn tiếng Anh cho `bookings`, `notifications` và `audit_logs`.
+    - **Kiểm định chất lượng:** `flutter analyze` 0 issues (0 errors, 0 warnings); 113/113 unit/widget tests liên quan (`host_management_screens_test.dart`, `violation_models_test.dart`, `id_generator_test.dart`, `role_routing_test.dart`, `renter_suite_test.dart`, `ltdd_suite_test.dart`) đều passed.
 
 ---
 
@@ -1421,170 +1448,133 @@ huquynh: https://github.com/23211tt0240-NhuQuynh/homeshare.git.
   4. **Bổ sung tùy chọn "Chụp ảnh":** Thêm nút Chụp ảnh từ Camera bên cạnh Gửi ảnh Album trong menu đính kèm.
 * **Kiểm thử chất lượng:**
   - `analyze_files`: **No errors** (0 lỗi tĩnh).
-  - Đã đồng bộ nhánh `homeshare` lên `https://github.com/Anh-Anh2018/HomeShare.git`.
+  - Đang biên dịch và nạp app trực tiếp vào điện thoại Samsung Galaxy A50 (`SM-A505F`).
 
 ---
 
-### Phase 2.33: Triển Khai Tính Năng Trả Lời Tin Nhắn (Swipe To Reply & Quote Reply)
-* **Ngày hoàn thành:** 04/10/2026
-* **Yêu cầu người dùng:** *"làm trả lời tin nhắn và up git"*.
-* **Giải pháp kỹ thuật chi tiết:**
-  1. **Nâng cấp Model Tin nhắn (`chat_model.dart`):**
-     - Bổ sung getter `replyTo` và `isReply`: Phân tích và trích xuất dữ liệu trả lời từ trường `extraData['replyTo']` (gồm `messageId`, `senderId`, `senderName`, `text`, `messageType`) tương thích 100% với cấu trúc Firestore hiện tại mà không làm phá vỡ dữ liệu cũ.
-  2. **Thao tác kích hoạt trả lời đa năng (`chat_detail_screen.dart`):**
-     - **Thao tác 1 (Swipe-to-reply):** Bọc từng bong bóng tin nhắn bằng `Dismissible` với hướng trượt `startToEnd`. Khi vuốt nhẹ từ trái sang phải, icon trả lời `Icons.reply_rounded` sẽ xuất hiện và lập tức mở chế độ trả lời với hiệu ứng phản hồi tự nhiên.
-     - **Thao tác 2 (Menu nhấn giữ):** Bổ sung nút *"Trả lời tin nhắn"* trên cùng của bottom sheet khi người dùng long-press bất kỳ tin nhắn nào (của mình hoặc đối phương).
-  3. **Giao diện thanh soạn thảo (Reply Banner):**
-     - Khi kích hoạt trả lời, tự động focus con trỏ vào ô nhập và bật bàn phím qua `FocusNode`.
-     - Phía trên ô nhập hiển thị thanh banner ghim: *"Đang trả lời [Tên đối tác / chính bạn]: [Nội dung trích đoạn]"* kèm nút đóng `X` để người dùng dễ dàng hủy bỏ trả lời bất kỳ lúc nào.
-  4. **Đồng bộ dữ liệu gửi đi:**
-     - Tự động gắn đối tượng `replyTo` vào `extraData` của tin nhắn văn bản (`_sendMessage`) cũng như tin nhắn đa phương tiện (`_sendRichMessage`).
-     - Tự động reset trạng thái reply sau khi gửi thành công.
-  5. **Hiển thị bong bóng trích dẫn trong phòng chat:**
-     - Thiết kế widget `_buildReplyQuote()` đẹp mắt theo phong cách Telegram/Zalo: viền bo tròn, đường gạch dọc màu chủ đạo bên trái, hiển thị tên người được trả lời và nội dung trích đoạn.
-     - Tích hợp trích dẫn hài hòa vào cả bong bóng tin nhắn văn bản và bong bóng ảnh.
-* **Kiểm thử chất lượng & Cài đặt thiết bị:**
-  - `analyze_files`: **No errors** (0 lỗi tĩnh).
-  - Git: Đã commit và push lên nhánh `homeshare` tại `https://github.com/Anh-Anh2018/HomeShare.git`.
-  - **Thiết bị thật:** Samsung Galaxy A50 (`SM-A505F` / serial `R58M68KF70K`) & Xiaomi/Redmi (`25100RA69G` / serial `lj6hwwwgauugwkci`).
-  - **Đóng gói & Cài đặt:** Đã build thành công `build\app\outputs\flutter-apk\app-debug.apk` và nạp thành công qua ADB USB (`Performing Streamed Install -> Success`).
-  - **Khởi chạy ứng dụng:** Đã kích hoạt và mở app tự động trên điện thoại.
-
----
-
-### Phase 2.34: Ràng Buộc Điền Đầy Đủ Thông Tin Từng Bước Mới Cho Bước Tiếp Theo (Đăng Tin Ở Ghép)
-* **Ngày hoàn thành:** 04/10/2026
-* **Yêu cầu người dùng:** *"phần đăng bài ràng buộc phải điền đủ hết mới cho bước tiếp theo"*.
-* **Giải pháp kỹ thuật chi tiết (`create_roommate_post_screen.dart`):**
-  1. **Nâng cấp `_inputDecoration()` & `_buildTextField()`:**
-     - Bổ sung `errorBorder`, `focusedErrorBorder` (viền đỏ nổi bật) và `errorStyle` chuẩn Material 3.
-     - Tích hợp tham số `validator` và `autovalidateMode: AutovalidateMode.onUserInteraction` cho toàn bộ các `TextFormField` trong màn hình đăng bài để lập tức báo lỗi và tự xóa thông báo lỗi ngay khi người dùng nhập đúng.
-  2. **Ràng buộc nghiêm ngặt Bước 1 (Hồ sơ bản thân - `_validateStep0()`):**
-     - Họ và tên: Không được để trống, tối thiểu 2 ký tự.
-     - Tuổi: Bắt buộc là số nguyên hợp lệ trong khoảng 16 - 100 tuổi.
-     - Nghề nghiệp / Trường học: Không được để trống.
-     - Số điện thoại / Zalo: Bắt buộc đúng định dạng 10 chữ số Việt Nam (đầu số 03, 05, 07, 08, 09).
-     - *Chặn chuyển sang Bước 2 nếu chưa điền đầy đủ và đúng chuẩn.*
-  3. **Ràng buộc nghiêm ngặt Bước 2 (Phòng & Giá - `_validateStep1()`):**
-     - Tiêu đề bài đăng: Không được để trống, tối thiểu 6 ký tự.
-     - Chi phí thuê / Ngân sách: Bắt buộc là số tiền hợp lệ (> 0đ, tối thiểu 100.000 VNĐ).
-     - Tỉnh / Thành phố, Quận / Huyện, Phường / Xã, Loại hình nhà ở, Giới tính tìm kiếm: Đều được kiểm tra và có giá trị hợp lệ.
-     - Địa chỉ cụ thể: Không được để trống.
-     - Mô tả chi tiết phòng & yêu cầu: Bắt buộc tối thiểu 10 ký tự.
-     - *Chặn chuyển sang Bước 3 nếu chưa hoàn thành các trường bắt buộc.*
-  4. **Ràng buộc nghiêm ngặt Bước 3 (Lối sống & Ảnh - `_validateStep2()`):**
-     - Thói quen sinh hoạt & Lối sống: Bắt buộc chọn ít nhất 1 tiêu chí để thuật toán AI có cơ sở ghép phòng tương thích.
-     - Ảnh phòng thực tế: Nếu chọn "Đã có phòng sẵn" (`_hasRoom == true`), bắt buộc phải tải lên ít nhất 1 ảnh phòng thực tế để người xem có thể đánh giá phòng.
-  5. **Bảo vệ toàn diện nút Tiếp tục & Đăng bài:**
-     - Tại `_buildBottomActionBar`: Chỉ khi bước hiện tại vượt qua hàm validation tương ứng (`_validateStep0()`, `_validateStep1()`, `_validateStep2()`) thì mới kích hoạt chuyển sang bước tiếp theo hoặc tiến hành đăng bài.
-     - Tại `_submitPost()`: Kiểm tra lại toàn diện cả 3 bước; nếu có bất kỳ bước nào thiếu thông tin, tự động đưa người dùng về lại bước đó và highlight trường thiếu.
-* **Kiểm thử chất lượng & Cài đặt thiết bị:**
-  - `analyze_files`: **No errors** (0 lỗi tĩnh).
-  - **Thiết bị thật:** Samsung Galaxy A50 (`SM-A505F` / serial `R58M68KF70K`).
-  - **Đóng gói & Cài đặt:** Đã build thành công bản debug APK mới nhất và cài đặt thành công (`Success`).
-  - **Khởi chạy ứng dụng:** Đã kích hoạt và mở app tự động trên điện thoại để người dùng trực tiếp kiểm tra và trải nghiệm các tính năng ràng buộc form đăng tin.
-  - **Lưu ý Git:** Tuân thủ tuyệt đối quy định chỉ push lên Git khi người dùng kiểm tra xong và trực tiếp yêu cầu.
-
----
-
-### Phase 2.35: Quét CCCD Lấy Thông Tin, Lưu Ảnh 2 Mặt Lên Firebase Storage & Đồng Bộ Hai Chiều Cloud Firestore
-* **Ngày hoàn thành:** 04/10/2026
-* **Yêu cầu người dùng:** *"phần quét cccd lấy thông tin lưu ảnh mặt trước mặt sau và phần thông tin quét đc phải lưu firebase và phần thông tin đồng bộ lấy từ trong đó ra"*.
-* **Giải pháp kỹ thuật chi tiết:**
-  1. **Nâng cấp quét CCCD linh hoạt & Tự động bóc tách (`cccd_scanner_screen.dart`, `cccd_verification_screen.dart`):**
-     - **Quét từ ảnh thư viện:** Bổ sung nút "Quét từ ảnh thư viện" trên thanh công cụ camera và trong modal xác minh, tích hợp `MobileScannerController.analyzeImage(path)` cho phép chọn ảnh CCCD có sẵn trong máy để giải mã QR tức thì mà không bắt buộc quét thẻ trực tiếp.
-     - **Tự động quét QR từ ảnh mặt trước:** Khi người dùng chụp hoặc tải lên ảnh mặt trước CCCD (`_frontImage`), ứng dụng tự động chạy giải mã QR ở góc trên thẻ (`_tryAutoScanQrFromFrontImage`), nếu phát hiện mã QR sẽ tự động bóc tách 7 trường thông tin và điền sẵn vào form.
-     - **Chỉnh sửa thông tin linh hoạt:** Hỗ trợ modal "Chỉnh sửa thông tin CCCD" (`_showEditInfoDialog`) cho phép người dùng xem xét, sửa đổi số CCCD, họ tên, ngày sinh, giới tính, quê quán, ngày cấp trước khi lưu.
-  2. **Lưu trữ chuẩn CSDL Firebase Storage & Firestore (`user_provider.dart`):**
-     - **Firebase Storage:** Tải 2 ảnh CCCD (mặt trước & mặt sau) lên thư mục `users/{uid}/cccd/front_{timestamp}.jpg` và `back_{timestamp}.jpg`, tự động fallback base64 nếu không thể kết nối Storage trực tiếp.
-     - **Chuẩn hóa 2 bảng CSDL theo `Database homeShare.drawio` (pkg_0: Tài khoản):**
-       - Bảng `xac_minh_danh_tinh/{uid}`: Lưu `soGiayTo`, `loaiGiayTo_id: 1` (CCCD gắn chip), `anhMatTruocUrl`, `anhMatSauUrl`, `ngayXacMinh`, `trangThai_Id: 2` (Đã xác minh).
-       - Document `users/{uid}`: Lưu đồng bộ đầy đủ các trường song ngữ (`cccdNumber`, `soCccd`, `soGiayTo`, `cccdFullName`, `hoTenCccd`, `cccdFrontImageUrl`, `anhMatTruoc`, `cccdBackImageUrl`, `anhMatSau`, `cccdHometown`, `queQuan`, `cccdIssueDate`, `ngayCap`, `isCccdVerified: true`, `daXacThucCccd: true`).
-     - **Đồng bộ vào Hồ sơ người dùng (`syncCccdToUserProfile`):** Tự động đồng bộ họ tên CCCD sang `displayName`/`hoTen`, giới tính sang `gender`/`gioiTinh`, ngày sinh sang `birthDate`/`ngaySinh`, quê quán sang `hometown`/`queQuan`.
-     - **Cache SharedPreferences:** Lưu lại bản sao tại máy để người dùng vào xem tức thì mà không phải chờ tải mạng.
-  3. **Đồng bộ hai chiều và hiển thị dữ liệu ở mọi nơi (`cccd_verification_screen.dart`, `account_settings_screen.dart`):**
-     - **Sửa triệt để lỗi màn hình trắng 0/3 mục:** Trước đây hàm tải chỉ chạy 1 lần lúc Provider stream chưa kịp nạp dữ liệu. Đã bổ sung `_fetchAndSyncFromFirebase()` tải trực tiếp tức thì từ Firestore doc `users/{uid}` & `xac_minh_danh_tinh/{uid}` ngay tại `initState`, đồng thời lắng nghe realtime qua `ref.listen(userProfileProvider)`.
-     - **Thanh trạng thái Cloud Sync:** Hiển thị banner *"ĐÃ ĐỒNG BỘ DỮ LIỆU TỪ FIREBASE CLOUD"* kèm nút *"Đồng bộ vào Hồ sơ"* và *"Tải lại từ Cloud"*.
-     - **Xem chi tiết & Phóng to ảnh 2 mặt Cloud (`account_settings_screen.dart`):** Trong màn hình Cài đặt tài khoản, người dùng có thể xem chi tiết hồ sơ xác thực và mở popup xem phóng to cả 2 ảnh mặt trước & mặt sau tải trực tiếp từ Firebase Storage URL.
-* **Kiểm thử chất lượng:**
-  - `dart analyze`: **0 errors, 0 warnings, 0 issues** trên cả 4 file (`cccd_verification_screen.dart`, `cccd_scanner_screen.dart`, `account_settings_screen.dart`, `user_provider.dart`).
-  - Đảm bảo tương thích ngược 100% với toàn bộ hệ thống cơ sở dữ liệu hiện hữu.
-
----
-
-### Phase 2.36: Tinh Gọn Menu Thao Tác Tin Nhắn: Giữ "Thu Hồi", Loại Bỏ "Xóa 2 Bên"
+### Phase 2.33: Sửa lỗi build Android khi thêm Agora (`checkDebugAarMetadata`)
 * **Ngày hoàn thành:** 05/10/2026
-* **Yêu cầu người dùng:** *"phần xóa tin nhắn 2 bên để lại cái thu hồi còn cái xóa kia bỏ đi"*.
-* **Các thay đổi đã triển khai:**
-  1. **Loại bỏ tùy chọn "Xóa tin nhắn ở cả 2 bên" vĩnh viễn:**
-     - Xóa `ListTile` *"Xóa tin nhắn ở cả 2 bên"* trong menu thao tác khi nhấn giữ tin nhắn (`_showMessageContextMenu` tại [chat_detail_screen.dart](file:///d:/App/HomeShare/lib/features/chat/screens/chat_detail_screen.dart)).
-     - Dọn dẹp các hàm logic không còn sử dụng: `_confirmDeleteForEveryone()` và `_deleteForEveryone()`.
-  2. **Giữ lại và tối ưu hóa tính năng "Thu hồi tin nhắn (Cả 2 bên)":**
-     - Giữ nguyên tùy chọn **"Thu hồi tin nhắn (Cả 2 bên)"** (`_confirmRevokeMessage` / `_revokeMessage`): Đồng bộ trạng thái `revoked` cho cả 2 phía và hiển thị bong bóng *"Tin nhắn đã được thu hồi"* chuẩn theo thiết kế UX của các nền tảng chat phổ biến (Zalo, Messenger).
-     - Giữ nguyên tùy chọn **"Xóa ở phía tôi (Chỉ mình tôi)"** (`_deleteForMe`): Cho phép người dùng chủ động ẩn tin nhắn trên thiết bị cá nhân mà không ảnh hưởng tới đối phương.
-* **Kiểm thử chất lượng & Cài đặt thiết bị:**
-  - `dart analyze lib/features/chat/screens/chat_detail_screen.dart`: **No issues found** (0 lỗi, 0 cảnh báo).
-  - **Thiết bị:** `25100RA69G` (POCO/Redmi/Xiaomi, serial `lj6hwwwgauugwkci`, Android 16).
-  - **Đóng gói & Cài đặt:** Build debug APK thành công (`assembleDebug` 94.5s) và nạp vào máy qua `adb install` thành công (`Success`).
-  - **Khởi chạy ứng dụng:** Đã kích hoạt và mở app tự động trên máy (`am start -n com.homeshare.app.home_share/.MainActivity`).
-  - **Trạng thái Git:** Đã commit và push thành công lên nhánh `homeshare` (commit `1429d39` & `37a6422`) theo đúng chỉ đạo người dùng.
+* **Yêu cầu người dùng:** Build debug thất bại tại `:agora_rtc_engine:checkDebugAarMetadata` với 20 lỗi AAR metadata.
+* **Hiện tượng:** `assembleDebug` dừng sau khoảng 1 phút 45 giây. Mọi thư viện AndroidX (fragment, lifecycle, core, window, ...) yêu cầu biên dịch với Android SDK 34 trở lên, trong khi module `:agora_rtc_engine` đang dùng `android-31`.
+* **Nguyên nhân:** `agora_rtc_engine` 6.6.4 đọc `rootProject.ext.compileSdkVersion`. Nếu không có giá trị này, plugin tự fallback `compileSdkVersion 31` trong `android/build.gradle` của chính plugin. App thì dùng `flutter.compileSdkVersion`, nhưng SDK của app không được plugin Agora kế thừa.
+* **Cách khắc phục:**
+  1. `android/settings.gradle.kts`: gán `compileSdkVersion = 36` trên root project trước khi các plugin được cấu hình, đúng chỗ Agora đọc.
+  2. `android/build.gradle.kts`: khai báo cùng giá trị 36, và ép `LibraryExtension.compileSdkVersion(36)` cho mọi module Android library sau khi Gradle nạp plugin. Nhánh này chạy cả khi project đã được đánh giá xong, tránh lỗi `Cannot run Project.afterEvaluate`.
+* **Kiểm thử:** `gradlew :agora_rtc_engine:checkDebugAarMetadata` — **BUILD SUCCESSFUL**. Task từng báo 20 lỗi AAR không còn thất bại. Chạy lại app bằng `flutter run` hoặc `flutter build apk --debug` để cài bản mới.
 
 ---
 
-### Phase 2.37: Loại Bỏ Banner Cảnh Báo Đặt Cọc Trong Chi Tiết Tin Nhắn
-* **Ngày hoàn thành:** 05/10/2026
-* **Yêu cầu người dùng:** *"xóa phần bảo vệ an toàn : tueets đối không cọc tiền trước.... trpng phần tin nhắn và push git"*.
-* **Các thay đổi đã triển khai:**
-  1. **Xóa banner cảnh báo an toàn trong khung chat:**
-     - Đã loại bỏ hoàn toàn thẻ `Container` hiển thị banner cảnh báo: *"Bảo vệ an toàn: Tuyệt đối không cọc tiền trước khi đến xem phòng trực tiếp"* nằm ở đầu khung chat trong [chat_detail_screen.dart](file:///d:/App/HomeShare/lib/features/chat/screens/chat_detail_screen.dart).
-     - Giao diện khung chat thoáng đãng hơn, tin nhắn ghim (nếu có) và danh sách tin nhắn realtime hiển thị trọn vẹn không bị che khuất.
-* **Kiểm thử chất lượng & Git:**
-  - `dart analyze lib/features/chat/screens/chat_detail_screen.dart`: **No issues found** (0 lỗi, 0 cảnh báo).
-  - Đã commit và push thành công lên nhánh `homeshare`.
+### Phase 2.35: Tách chi tiết phòng chủ nhà và chi tiết phòng ở ghép
+* **Ngày:** 07/10/2026
+* **File:** `lib/features/renter/screens/roommate_room_detail_screen.dart`
+* **Cách mở từ Tìm ở ghép:** bấm thẻ bài, avatar, tên, ảnh, giá, nghề, thói quen hoặc nút **Xem hồ sơ** đều mở `RoommateRoomDetailScreen`. Nút **Nhắn tin trao đổi** vẫn mở chat. Không còn mở `RoommatePostDetailScreen`.
+  * Tin chưa có phòng cũng vào màn mới này.
+  * Phòng chủ nhà trên Dashboard, bộ lọc và chat vẫn mở `RoomDetailScreen`.
+* **08/10/2026:** Bỏ dòng địa chỉ phía trên tiêu đề. Địa chỉ chỉ còn một lần, ngay dưới tiêu đề. Cỡ chữ trên màn tăng khoảng 2px. Các khối chính trong `roommate_room_detail_screen.dart` có chú thích tiếng Việt, phân biệt dữ liệu bài đăng và phần gắn tạm.
+
+#### Đã lấy từ bài tìm ở ghép (`roommate_posts`)
+* Id bài, người đăng (`authorId`, tên, tuổi, nghề, avatar, số điện thoại).
+* Tiêu đề, mô tả, địa chỉ, khu vực, thời điểm đăng.
+* Giá mỗi người. Nếu giá bằng 0 thì dùng ngân sách tối thiểu.
+* Ảnh bài. Không có ảnh thì hiện "Bài này chưa có ảnh", không chèn ảnh mẫu.
+* Đã có phòng / đang tìm phòng, giới tính mong muốn, cờ `isVerified`.
+* Phần trăm tương thích `matchRate`.
+* Danh sách thói quen `habits` nếu bài có ghi. Không có thì dùng 6 hashtag mẫu.
+* Chat và yêu cầu ghép nối gửi tới `authorId` của bài đó.
+
+#### Còn thiếu, đang hardcode — cần làm sau
+| Chỗ trên màn | Đang gắn tạm | Thiếu trên dữ liệu |
+| --- | --- | --- |
+| Dòng "Đã xác minh SV & CCCD" | Chỉ có cờ `isVerified` trên bài. Thiếu field thì model đang hiểu là đã xác minh | Cờ CCCD/VNeID và thẻ sinh viên trên `users/{authorId}`, không lấy từ bài |
+| 3 chip "khung giờ ngủ / nấu ăn / sạch sẽ" | Cố định | So khớp lối sống hai người. Bài chỉ có một số %, chưa có từng tiêu chí |
+| "Chính chủ duyệt", "đã gồm phí quản lý" | Cố định | Chưa có field duyệt bài và phí quản lý |
+| Tiền cọc | Gán bằng giá 1 tháng, ghi "ước tính" | Bài ở ghép không có `tienCoc` |
+| Ngày dọn vào 01/11/2024 | Cố định | Chưa có `ngayVao` trên tin |
+| Điện, wifi, gửi xe | Cố định | Chưa có bảng phí. `Kỳ ở` mới có chỉ số điện nước |
+| Tổng diện tích 56 m², phòng ngủ 18 m², quy mô 2 bạn | Cố định. Giới nam/nữ trên dòng quy mô lấy từ giới tính bài tìm | `Phòng.dienTichM2`, diện tích phòng ngủ, `sucChua` chưa gắn với tin ở ghép |
+| Tiện ích Sunview / quanh khu vực | Danh sách cố định, chỉ tên khu vực lấy từ bài | Bảng `Tiện ích` và `TienIch_Phong` |
+| Bản đồ "15 phút tới FTU CS2" | Cố định | `Địa điểm` kinh độ, vĩ độ, khoảng cách |
+| Chấm xanh đang online | Cố định | `lanHoatDongCuoi` của người đăng |
+| Nút yêu cầu ghép nối | Mở lời nhắn rồi vào chat | Chưa tạo document `YeuCauTraoDoiOGhep` theo `tinId` |
+| Xem hồ sơ trên thẻ bài | Mở chính màn chi tiết phòng ở ghép này | Không còn màn chi tiết bài cũ |
+
+#### Quan hệ với màn khác
+Sơ đồ `Database homeShare.drawio.xml`, gói Ở ghép / Nhà trọ / Đặt phòng. Firestore hiện gom phòng vào collection `rooms` và đơn vào `bookings` (ví dụ document `bookings/545VTMxaOJqaY09JkqfQ`), chưa tách các bảng con.
+
+**1-N**
+* Nhà trọ 1 — N Phòng (`Phòng.nhaTroId`). Màn này là một phòng.
+* Phòng 1 — N Ảnh phòng (`ẢnhPhong.phongId`). Dải ảnh trên màn.
+* Phòng 1 — N Bài đăng (`Bài đăng.phongId`). Tiêu đề, giá, mô tả đang nằm chung trên document phòng.
+* Phòng 1 — N Đơn đặt phòng (`Đơn.phongId`, collection `bookings`). Màn này không còn nút Đặt phòng nhanh.
+* Phòng 1 — N Kỳ ở, Kỳ ở 1 — N Cư dân. Người đang ở chưa có collection riêng.
+* Tin ở ghép 1 — N Yêu cầu trao đổi (`YeuCauTraoDoiOGhep.tinId`). Nút **Yêu cầu ghép nối** mới chỉ mở lời nhắn rồi vào chat, chưa tạo document yêu cầu.
+* Cuộc trò chuyện 1 — N Tin nhắn. Nút nhắn tin mở `ChatDetailScreen` với `authorId` của bài ở ghép. `authorId` phải là id document `users`, không phải mã giả.
+* Bài đăng 1 — N Báo cáo. Nút báo cáo nằm trong sheet **Xem hồ sơ**, mở `ReportHostScreen` và ghi `roomId` bằng id bài.
+
+**N-N**
+* Phòng N — N Tiện ích qua `TienIch_Phong` (khóa kép `phongId` + `tienIch_Id`). Khối tiện ích tòa nhà trên màn đang là danh sách tạm, chưa đọc bảng nối.
+* Người dùng N — N Sở thích qua `NguoiDung_SoThich`. Sáu tiêu chí thói quen trên màn là bản tạm của quan hệ này.
+* Người dùng N — N bài/tin qua `Yêu thích` (`nguoiDungId` + `loaiDoiTuong` + `doiTuongId`). Thiết kế màn này không có nút tim.
+
+#### Sửa khóa người đăng trên tin ở ghép
+Lỗi: document `roommate_posts/1f5R1ERVhbJpS49Hb4Co` (Phạm Anh Tuấn) lưu `authorId` = `user_tuan_tech`. Id này không có trong collection `users`, nên quan hệ 1 người — N tin bị đứt và nhắn tin không tới tài khoản thật.
+
+Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase (`create_roommate_post_screen.dart`). Bài cũ trên Firestore được sửa khi mở bảng tin: `RoommateService.repairRoommateAuthorIds` tìm `users` theo `displayName` / `hoTen` / `hoten`. Trùng đúng một tài khoản thì ghi đè `authorId` và `nguoiDangId` bằng id document đó. Không trùng, hoặc trùng nhiều người cùng tên, thì không gán bừa. Bài demo trong bộ nhớ (`demo_lan_anh` và các id tương tự) không ghi lên Firestore.
+
 ---
 
-### Phase 2.38: Đồng Bộ Toàn Bộ Mã Nguồn Từ Branch homeshare Sang Branch dev-TOAN (Repo NhuQuynh)
-* **Ngày hoàn thành:** 07/10/2026
-* **Yêu cầu người dùng:** *"copy repo này https://github.com/Anh-Anh2018/HomeShare/tree/homeshare up lên repo này https://github.com/23211tt0240-NhuQuynh/homeshare/tree/dev-TOAN"*.
-* **Các bước đã thực hiện:**
-  1. **Kiểm tra trạng thái & Lịch sử Commit:**
-     - Nhánh nguồn: `origin/homeshare` tại commit `197748b6ee69b80e26ec222e1832d0e9a28bf37a`.
-     - Nhánh đích: `nhuquynh/dev-TOAN` tại commit `3a6b43173b3832a5e151472c6e9e021150acb6a5`.
-     - Xác thực lịch sử: `dev-TOAN` là direct ancestor của `homeshare` (nhánh `homeshare` đi trước 21 commits, 0 conflict, fast-forward hoàn toàn sạch).
-  2. **Thực hiện đẩy mã nguồn (Git Push):**
-     - Thực hiện kiểm tra dry-run: `git push --dry-run nhuquynh homeshare:dev-TOAN` -> Success.
-     - Thực hiện đẩy chính thức: `git push nhuquynh homeshare:dev-TOAN` -> Thành công cập nhật `3a6b431..197748b`.
-     - Xác nhận bằng `git ls-remote`: Cả 2 nhánh trên 2 repo đã trỏ chính xác cùng commit SHA `197748b6ee69b80e26ec222e1832d0e9a28bf37a`.
+### Phase 2.39: Tích Hợp Toàn Bộ Phân Hệ Quản Trị Hệ Thống (Admin) Từ Project `homeshare-dev`
+* **Ngày hoàn thành:** 14/10/2026
+* **Yêu cầu:** Tìm kiếm mã nguồn Admin trong project `homeshare-dev` và ghép nối hoàn chỉnh vào project đang mở (`homeshare-dev-THE`).
+* **Khảo sát & Đối soát nguồn:**
+  - Phát hiện thư mục `D:\homeshare-dev` chứa đầy đủ module Admin thực thi nghiệp vụ (Màn hình chi tiết duyệt bài, Quản lý đơn cọc, Hóa đơn đối soát VietQR, Dịch vụ Firestore).
+  - Kết hợp với phiên bản Dashboard KPI và biểu đồ doanh thu tương tác cao từ `HOMESHARECLONE1`.
+* **Các thành phần được ghép nối:**
+  1. `lib/features/admin/services/admin_service.dart`: Tầng dịch vụ Firestore realtime kết hợp cơ chế fallback an toàn (Stats, biểu đồ, phê duyệt bài, giải ngân cọc).
+  2. `lib/features/admin/screens/admin_main_screen.dart`: Giao diện khung điều hướng 4 tab Admin (Tổng quan, Bài đăng, Quản lý đơn, Lịch sử).
+  3. `lib/features/admin/screens/admin_dashboard_screen.dart`: Màn hình Dashboard KPI trực quan (Dòng tiền, Giao dịch, Doanh thu tuần/tháng/năm, Cảnh báo giải ngân cọc tức thời).
+  4. `lib/features/admin/screens/admin_posts_screen.dart`: Danh sách bài đăng cần duyệt từ Chủ trọ (lọc theo Chờ duyệt, Đã duyệt, Từ chối).
+  5. `lib/features/admin/screens/admin_post_review_detail_screen.dart`: Màn hình chi tiết bài đăng kiểm duyệt (ảnh, giá cọc, tiện ích, phê duyệt hoặc trả về kèm lý do).
+  6. `lib/features/admin/screens/admin_orders_screen.dart`: Quản lý đơn cọc phòng, tra cứu mã người dùng/đơn 5 ký tự, xuất hóa đơn giải ngân hàng loạt.
+  7. `lib/features/admin/screens/settlement_invoice_screen.dart`: Hóa đơn đối soát giải ngân cọc kèm mã VietQR tự động.
+  8. `lib/features/admin/screens/admin_history_screen.dart`: Lịch sử giao dịch dòng tiền toàn hệ thống.
+  9. `lib/features/admin/widgets/`: Thẻ KPI (`admin_kpi_card.dart`), thẻ cảnh báo (`admin_alert_card.dart`), biểu đồ cột (`revenue_bar_chart.dart`), biểu đồ đường (`revenue_line_chart.dart`).
+  10. `lib/main.dart`: Phân luồng tự động điều hướng sang `AdminMainScreen` khi tài khoản đăng nhập có vai trò Quản trị viên (`profile?.isAdmin == true` hoặc `role == 'admin'`).
+  11. `test/admin_dashboard_test.dart`: 4 test cases kiểm thử giao diện & tương tác Admin.
+* **Kết quả kiểm thử chất lượng:**
+  - `flutter test test/admin_dashboard_test.dart`: **4/4 PASSED (100%)**.
+  - `flutter test test/role_routing_test.dart`: **20/20 PASSED (100%)**.
+  - `flutter analyze`: **0 errors, 0 warnings** (hoàn toàn sạch sẽ).
 
 ---
 
-### Phase 2.39: Phân Luồng Điều Hướng Theo Vai Trò (Role Routing), Bảo Vệ Save Boundary CCCD & Đẩy Mã Lên Nhánh dev-TOAN
-* **Ngày hoàn thành:** 09/10/2026
-* **Các tính năng & cải tiến kỹ thuật chính:**
-  1. **Phân luồng xác thực theo vai trò (Role-Based Routing):**
-     - Xây dựng `RoleResolver` thuần xử lý chuẩn hóa vai trò linh hoạt hỗ trợ các khóa `role`, `vaiTro`, `vaiTro_id` cùng các định danh alias (`renter`, `host`, `admin`).
-     - Tích hợp `AuthGate` trong [lib/main.dart](file:///d:/App/HomeShare/lib/main.dart): Phân luồng chính xác người dùng vào `RenterMainScreen`, `HostMainScreen`, hoặc `AdminDashboardScreen`. Các vai trò sai/thiếu sẽ chuyển tới `InvalidRoleScreen` (fail-closed, hỗ trợ đăng xuất an toàn).
-  2. **Thắt chặt an toàn eKYC CCCD & Save Boundary:**
-     - Xây dựng `CccdImageEvidenceValidator` thuần chạy 100% on-device kiểm định độc lập 2 mặt thẻ CCCD, băm hash, kiểm tra kích thước/độ phân giải và chuẩn QR 7 trường của Bộ Công An.
-     - Triển khai Save Boundary trong `saveCccdVerificationToBackend`: Chặn tuyệt đối ảnh demo, chặn trùng hash 2 mặt, chặn đảo mặt ảnh và chỉ tải lên Storage đường dẫn hợp lệ.
-  3. **Module hóa & Tối ưu Giao diện Personal Profile:**
-     - Tách nhỏ `PersonalProfileContent` thành các widget độc lập: `ProfileHeaderCard`, `ProfileCompletionCard`, `ProfileStatsCard`, `ProfileActionsCard`.
-     - Chống tràn giao diện (Overflow) trên màn hình nhỏ (320x568) và hỗ trợ Text Scale 1.3x.
-  4. **Kiểm thử chất lượng & Git Push:**
-     - `flutter analyze`: **0 issues found** (Clean 100%).
-     - `flutter test`: **128/128 tests PASSED 100%**.
-     - Đẩy mã nguồn lên nhánh `dev-TOAN` của repository `https://github.com/23211tt0240-NhuQuynh/homeshare`.
-
----
-
-### Phase 2.40: Cấu Hình ProGuard ML Kit Text Recognition & Tối Ưu Bộ Nhớ Gradle Android
-* **Ngày hoàn thành:** 12/10/2026
-* **Các cải tiến kỹ thuật chính:**
-  1. **Cấu hình ProGuard Rules (`android/app/proguard-rules.pro`):**
-     - Bổ sung `-dontwarn com.google.mlkit.vision.text.**` và `-dontwarn com.google.mlkit.**` nhằm loại bỏ các cảnh báo missing class không sử dụng (gói ngôn ngữ Chinese, Japanese, Korean, Devanagari) khi build release/debug với thư viện nhận diện ký tự CCCD on-device Google ML Kit.
-  2. **Kích hoạt ProGuard Files trong `android/app/build.gradle.kts`:**
-     - Khai báo `proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")` trong `buildTypes.getByName("release")`.
-  3. **Tối ưu cấu hình bộ nhớ Gradle (`android/gradle.properties`):**
-     - Điều chỉnh `org.gradle.jvmargs` phù hợp (-Xmx2048m -XX:MaxMetaspaceSize=512m) đảm bảo tiến trình build Gradle trên môi trường phát triển mượt mà, ổn định và không bị tràn RAM.
-  4. **Đồng bộ nhánh Git:**
-     - Commit và đẩy mã nguồn hoàn thiện lên nhánh `dev-TOAN` của repository `https://github.com/23211tt0240-NhuQuynh/homeshare`.
+### Phase 2.42: Đồng Bộ Tính Năng Mới Từ `homeshare-dev-THE` Sang `homeshare-dev` & Kết Nối Firebase `homeshare-fe18e`
+* **Ngày hoàn thành:** 16/10/2026
+* **Yêu cầu người dùng:**
+  - Lấy toàn bộ các chức năng mới từ project `homeshare-dev-THE` sao chép sang `homeshare-dev`.
+  - Giữ nguyên tuyệt đối phần Firebase hiện tại (`homeshare-fe18e`), không sửa cấu hình hay tên dự án / package.
+  - Kết nối chuẩn xác với Firebase dự án `homeshare-fe18e` (Firestore collection `room_images`, `rooms`, `bookings`, `users`...).
+* **Các chức năng mới đã đồng bộ sang `homeshare-dev`:**
+  1. **Quy tắc sinh mã định danh & Document ID chuẩn CSDL (`lib/core/utils/id_generator.dart`):**
+     - Sinh mã định danh tuần tự có tiền tố ngữ nghĩa: `NT001`, `CT001`, `ADMIN01`.
+     - Tự động sinh mã phòng tuần tự: `P001`, `P002`, `P003`... không bắt chủ trọ nhập thủ công.
+     - Sinh Document ID chuẩn: `DP_yyyyMMdd_Pxxx_NTxxx`, `BD_yyyyMMdd_xxxx`, `TB_...`, `LOG_...`.
+     - Ghép nội dung chuyển khoản ngân hàng: chỉ gồm 2 thành phần `[MÃ_NGƯỜI_DÙNG] [MÃ_PHÒNG]` (Ví dụ: `NT001 P001`) tự động mã hóa vào mã VietQR Napas247 và hiển thị sao chép tại màn hình thanh toán.
+  2. **Màn hình & Dịch vụ Yêu thích phòng trọ (`FavoritesService` & `FavoriteRoomsScreen`):**
+     - Quản lý danh sách phòng đã lưu / yêu thích với Firestore collection `favorites`.
+     - Đồng bộ realtime trạng thái tim trên thẻ phòng và giao diện chi tiết.
+  3. **Module Quản trị viên (Admin Portal) hoàn chỉnh:**
+     - `AdminDashboardScreen`: KPI doanh thu, dòng tiền, cảnh báo giải ngân cọc tức thời.
+     - `AdminOrdersScreen` & `AdminHistoryScreen`: Quản lý đơn cọc phòng, đối soát dòng tiền.
+     - `SettlementInvoiceScreen` & `SettlementReceiptScreen`: Biên lai đối soát giải ngân VietQR.
+     - `AdminNotificationsScreen`: Thông báo hệ thống dành cho ban quản trị.
+     - `AdminPostsScreen` & `AdminPostReviewDetailScreen`: Kiểm duyệt bài đăng chủ trọ.
+  4. **Cải tiến Luồng Đặt phòng & Thanh toán:**
+     - Cập nhật `RoomBookingDetailScreen` & `BookingPaymentScreen` hiển thị mã phòng động chính xác theo từng phòng.
+  5. **Bảo toàn 100% Cấu hình Firebase `homeshare-fe18e`:**
+     - `lib/firebase_options.dart` giữ nguyên cấu hình `projectId: homeshare-fe18e`.
+     - `android/app/google-services.json` giữ nguyên `project_id: homeshare-fe18e`.
+     - Giữ nguyên tên package `com.homeshare.app.home_share` và tên ứng dụng `home_share`.
+* **Kết quả kiểm thử toàn diện:**
+  - `flutter analyze`: **0 errors, 0 warnings (No issues found!)**.
+  - `flutter test`: **99/99 test cases PASSED 100%** (`role_routing_test.dart`, `renter_suite_test.dart`, `ltdd_suite_test.dart`, `admin_dashboard_test.dart`, `id_generator_test.dart`).
