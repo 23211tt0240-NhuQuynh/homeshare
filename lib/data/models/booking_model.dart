@@ -19,6 +19,8 @@ class BookingRequestModel {
   final String hostId; // chuNhaId
   final String hostName; // tenChuNha
   final String status; // trangThai: 'choDuyet' (pending), 'daDuyet' (approved), 'dangO' (active), 'daHuy' (cancelled), 'tuChoi' (rejected)
+  final String paymentOption; // 'deposit' (tiền cọc) | 'full' (trả hết)
+  final String? transferNote; // ghi chú chuyển khoản / mã người dùng
   final DateTime moveInDate; // ngayVao / thoiDiem
   final DateTime? acceptedDate; // ngayChapNhan
   final String note; // ghiChu
@@ -42,6 +44,8 @@ class BookingRequestModel {
   String get chuNhaId => hostId;
   String get tenChuNha => hostName;
   String get trangThai => status;
+  String get hinhThucThanhToan => paymentOption;
+  String get ghiChuChuyenKhoan => transferNote ?? renterUserCode;
   DateTime get ngayVao => moveInDate;
   DateTime? get ngayChapNhan => acceptedDate;
   String get ghiChu => note;
@@ -61,9 +65,11 @@ class BookingRequestModel {
     this.deposit = 0.0,
     this.totalAmount = 0.0,
     this.rentalMonths = 1,
-    required this.hostId,
+    this.hostId = '',
     required this.hostName,
     this.status = 'pending',
+    this.paymentOption = 'deposit',
+    this.transferNote,
     required this.moveInDate,
     this.acceptedDate,
     this.note = '',
@@ -87,6 +93,8 @@ class BookingRequestModel {
     String? hostId,
     String? hostName,
     String? status,
+    String? paymentOption,
+    String? transferNote,
     DateTime? moveInDate,
     DateTime? acceptedDate,
     String? note,
@@ -109,6 +117,8 @@ class BookingRequestModel {
       hostId: hostId ?? this.hostId,
       hostName: hostName ?? this.hostName,
       status: status ?? this.status,
+      paymentOption: paymentOption ?? this.paymentOption,
+      transferNote: transferNote ?? this.transferNote,
       moveInDate: moveInDate ?? this.moveInDate,
       acceptedDate: acceptedDate ?? this.acceptedDate,
       note: note ?? this.note,
@@ -123,83 +133,70 @@ class BookingRequestModel {
   factory BookingRequestModel.fromMap(Map<String, dynamic> data, String id) {
     return BookingRequestModel(
       id: id,
-      renterId: data['renterId'] ?? data['nguoiDung_Id'] ?? data['khachXemId'] ?? '',
-      renterUserCode: data['renterUserCode'] ?? data['maNguoiDung'] ?? data['userCode'] ?? '',
-      renterName: data['renterName'] ?? data['tenNguoiO'] ?? data['tenKhach'] ?? '',
-      renterPhone: data['renterPhone'] ?? data['sdtNguoiO'] ?? data['sdtKhach'] ?? '',
-      renterGender: data['renterGender'] ?? data['gioiTinhNguoiO'] ?? 'nam',
-      roomId: data['roomId'] ?? data['phongId'] ?? data['baiDangId'] ?? '',
-      roomTitle: data['roomTitle'] ?? data['tieuDePhong'] ?? data['tieuDe'] ?? '',
-      roomAddress: data['roomAddress'] ?? data['diaChiPhong'] ?? data['diaChi'] ?? '',
-      roomPrice: ((data['roomPrice'] ?? data['giaThue'] ?? data['giaPhong']) as num?)?.toDouble() ?? 0.0,
-      deposit: ((data['deposit'] ?? data['tienCoc']) as num?)?.toDouble() ?? 0.0,
-      totalAmount: ((data['totalAmount'] ?? data['tongPhaiTra']) as num?)?.toDouble() ?? 0.0,
-      rentalMonths: ((data['rentalMonths'] ?? data['soThangThue']) as num?)?.toInt() ?? 1,
-      hostId: data['hostId'] ?? data['chuNhaId'] ?? '',
-      hostName: data['hostName'] ?? data['tenChuNha'] ?? '',
-      status: data['status'] ?? data['trangThai'] ?? 'pending',
-      moveInDate: (data['moveInDate'] is Timestamp)
-          ? (data['moveInDate'] as Timestamp).toDate()
-          : (data['ngayVao'] is Timestamp)
-              ? (data['ngayVao'] as Timestamp).toDate()
-              : (data['thoiDiem'] is Timestamp)
-                  ? (data['thoiDiem'] as Timestamp).toDate()
+      renterId: data['nguoiDungId'] ?? data['nguoiDung_Id'] ?? data['renterId'] ?? data['khachXemId'] ?? '',
+      renterUserCode: data['maNguoiDung'] ?? data['renterUserCode'] ?? data['userCode'] ?? '',
+      renterName: data['tenNguoiO'] ?? data['renterName'] ?? data['tenKhach'] ?? '',
+      renterPhone: data['sdtNguoiO'] ?? data['renterPhone'] ?? data['sdtKhach'] ?? '',
+      renterGender: data['gioiTinhNguoiO'] ?? data['renterGender'] ?? 'nam',
+      roomId: data['phongId'] ?? data['roomId'] ?? data['baiDangId'] ?? '',
+      roomTitle: data['tieuDePhong'] ?? data['roomTitle'] ?? data['tieuDe'] ?? '',
+      roomAddress: data['diaChiPhong'] ?? data['roomAddress'] ?? data['diaChi'] ?? '',
+      roomPrice: ((data['giaThue'] ?? data['giaPhong'] ?? data['roomPrice']) as num?)?.toDouble() ?? 0.0,
+      deposit: ((data['tienCoc'] ?? data['deposit']) as num?)?.toDouble() ?? 0.0,
+      totalAmount: ((data['tongPhaiTra'] ?? data['totalAmount']) as num?)?.toDouble() ?? 0.0,
+      rentalMonths: ((data['soThangThue'] ?? data['rentalMonths']) as num?)?.toInt() ?? 1,
+      hostId: data['chuNhaId'] ?? data['hostId'] ?? '',
+      hostName: data['tenChuNha'] ?? data['hostName'] ?? '',
+      status: data['trangThai'] ?? data['status'] ?? 'pending',
+      paymentOption: (data['hinhThucThanhToan'] ?? data['paymentOption'] ?? data['paymentType'] ?? 'deposit').toString(),
+      transferNote: data['ghiChuChuyenKhoan'] ?? data['maNguoiDung'] ?? data['transferNote'] ?? data['renterUserCode'] ?? data['userCode'],
+      moveInDate: (data['ngayVao'] is Timestamp)
+          ? (data['ngayVao'] as Timestamp).toDate()
+          : (data['thoiDiem'] is Timestamp)
+              ? (data['thoiDiem'] as Timestamp).toDate()
+              : (data['moveInDate'] is Timestamp)
+                  ? (data['moveInDate'] as Timestamp).toDate()
                   : DateTime.now(),
-      acceptedDate: (data['acceptedDate'] is Timestamp)
-          ? (data['acceptedDate'] as Timestamp).toDate()
-          : (data['ngayChapNhan'] is Timestamp)
-              ? (data['ngayChapNhan'] as Timestamp).toDate()
+      acceptedDate: (data['ngayChapNhan'] is Timestamp)
+          ? (data['ngayChapNhan'] as Timestamp).toDate()
+          : (data['acceptedDate'] is Timestamp)
+              ? (data['acceptedDate'] as Timestamp).toDate()
               : null,
-      note: data['note'] ?? data['ghiChu'] ?? '',
-      createdAt: (data['createdAt'] is Timestamp)
-          ? (data['createdAt'] as Timestamp).toDate()
-          : (data['ngayTao'] is Timestamp)
-              ? (data['ngayTao'] as Timestamp).toDate()
+      note: data['ghiChu'] ?? data['note'] ?? '',
+      createdAt: (data['ngayTao'] is Timestamp)
+          ? (data['ngayTao'] as Timestamp).toDate()
+          : (data['createdAt'] is Timestamp)
+              ? (data['createdAt'] as Timestamp).toDate()
               : DateTime.now(),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
+      'bookingId': id,
+      'userId': renterId,
       'renterId': renterId,
       'renterUserCode': renterUserCode,
-      'maNguoiDung': renterUserCode,
-      'userCode': renterUserCode,
-      'nguoiDung_Id': renterId,
       'renterName': renterName,
-      'tenNguoiO': renterName,
       'renterPhone': renterPhone,
-      'sdtNguoiO': renterPhone,
       'renterGender': renterGender,
-      'gioiTinhNguoiO': renterGender,
       'roomId': roomId,
-      'phongId': roomId,
       'roomTitle': roomTitle,
-      'tieuDePhong': roomTitle,
       'roomAddress': roomAddress,
-      'diaChiPhong': roomAddress,
-      'roomPrice': roomPrice,
-      'giaThue': roomPrice,
-      'deposit': deposit,
-      'tienCoc': deposit,
+      'rentalPrice': roomPrice,
+      'depositAmount': deposit,
       'totalAmount': totalAmount,
-      'tongPhaiTra': totalAmount,
       'rentalMonths': rentalMonths,
-      'soThangThue': rentalMonths,
       'hostId': hostId,
-      'chuNhaId': hostId,
       'hostName': hostName,
-      'tenChuNha': hostName,
       'status': status,
-      'trangThai': status,
+      'paymentOption': paymentOption,
+      'transferNote': transferNote ?? renterUserCode,
       'moveInDate': Timestamp.fromDate(moveInDate),
-      'ngayVao': Timestamp.fromDate(moveInDate),
       if (acceptedDate != null) 'acceptedDate': Timestamp.fromDate(acceptedDate!),
-      if (acceptedDate != null) 'ngayChapNhan': Timestamp.fromDate(acceptedDate!),
       'note': note,
-      'ghiChu': note,
       'createdAt': Timestamp.fromDate(createdAt),
-      'ngayTao': Timestamp.fromDate(createdAt),
     };
   }
 }
