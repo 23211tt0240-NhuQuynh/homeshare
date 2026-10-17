@@ -29,7 +29,6 @@ class ChatMessageModel {
   bool get daDoc => isRead || status == 'read';
   String get trangThaiTinNhan => status;
 
-  // Trả lời tin nhắn (Reply)
   Map<String, dynamic>? get replyTo => (extraData['replyTo'] is Map)
       ? Map<String, dynamic>.from(extraData['replyTo'] as Map)
       : null;
@@ -113,23 +112,15 @@ class ChatMessageModel {
   Map<String, dynamic> toMap() {
     return {
       'conversationId': conversationId,
-      'cuocTroChuyenId': conversationId,
       'senderId': senderId,
-      'nguoiGuiId': senderId,
       'senderName': senderName,
       'receiverId': receiverId,
-      'nguoiNhanId': receiverId,
       'text': text,
-      'noiDung': text,
       'attachmentUrl': attachmentUrl,
-      'duongDan': attachmentUrl,
       'messageType': messageType,
-      'loaiTinNhan_id': messageType,
       'timestamp': Timestamp.fromDate(timestamp),
-      'ngayGui': Timestamp.fromDate(timestamp),
       'isRead': isRead,
       'status': status,
-      'trangThaiTinNhan_id': status,
       'extraData': extraData,
     };
   }
