@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/vietnam_locations.dart';
 import '../../../core/services/room_service.dart';
+import '../../../core/services/favorites_service.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
@@ -121,7 +122,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _LocationSearchBottomSheet(
+      builder: (ctx) => LocationSearchBottomSheet(
         title: 'Chọn Tỉnh / Thành phố',
         searchHint: 'Tìm kiếm tỉnh hoặc thành phố...',
         items: const ['Tất cả', ...VietnamLocations.provinces],
@@ -152,7 +153,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _LocationSearchBottomSheet(
+      builder: (ctx) => LocationSearchBottomSheet(
         title: 'Chọn Quận / Huyện ($_selectedCity)',
         searchHint: 'Tìm quận, huyện, thị xã...',
         items: districts,
@@ -183,7 +184,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _LocationSearchBottomSheet(
+      builder: (ctx) => LocationSearchBottomSheet(
         title: 'Chọn Phường / Xã ($_selectedDistrict)',
         searchHint: 'Tìm phường, xã, thị trấn...',
         items: wards,
@@ -1451,6 +1452,44 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 6),
+
+                      // Nút tròn Yêu thích ❤️
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final isFav = ref.watch(favoritesProvider).favoriteRoomIds.contains(room.id);
+                          return Material(
+                            color: isFav ? const Color(0xFFFEE2E2) : const Color(0xFFF1F5F9),
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: () async {
+                                final added = await ref.read(favoritesProvider.notifier).toggleFavoriteRoom(room);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(added
+                                          ? 'Đã lưu phòng vào danh sách yêu thích ❤️'
+                                          : 'Đã bỏ lưu phòng khỏi danh sách yêu thích'),
+                                      duration: const Duration(seconds: 1),
+                                      backgroundColor: added ? AppColors.primary : const Color(0xFF334155),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(7),
+                                child: Icon(
+                                  isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                  size: 16,
+                                  color: isFav ? const Color(0xFFEF4444) : const Color(0xFF64748B),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ],
@@ -1464,7 +1503,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
 }
 
 /// Bottom Sheet tìm kiếm địa điểm với Search Bar mượt mà
-class _LocationSearchBottomSheet extends StatefulWidget {
+class LocationSearchBottomSheet extends StatefulWidget {
   final String title;
   final String searchHint;
   final List<String> items;
@@ -1472,7 +1511,8 @@ class _LocationSearchBottomSheet extends StatefulWidget {
   final String allLabel;
   final ValueChanged<String> onSelected;
 
-  const _LocationSearchBottomSheet({
+  const LocationSearchBottomSheet({
+    super.key,
     required this.title,
     required this.searchHint,
     required this.items,
@@ -1482,10 +1522,10 @@ class _LocationSearchBottomSheet extends StatefulWidget {
   });
 
   @override
-  State<_LocationSearchBottomSheet> createState() => _LocationSearchBottomSheetState();
+  State<LocationSearchBottomSheet> createState() => LocationSearchBottomSheetState();
 }
 
-class _LocationSearchBottomSheetState extends State<_LocationSearchBottomSheet> {
+class LocationSearchBottomSheetState extends State<LocationSearchBottomSheet> {
   final TextEditingController _controller = TextEditingController();
   late List<String> _filteredItems;
 
@@ -1582,12 +1622,12 @@ class _LocationSearchBottomSheetState extends State<_LocationSearchBottomSheet> 
                     displayName,
                     style: TextStyle(
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected ? const Color(0xFF006948) : AppColors.textDark,
+                      color: isSelected ? AppColors.primary : AppColors.textDark,
                       fontSize: 14,
                     ),
                   ),
                   trailing: isSelected
-                      ? const Icon(Icons.check, color: Color(0xFF006948), size: 20)
+                      ? const Icon(Icons.check, color: AppColors.primary, size: 20)
                       : null,
                   onTap: () {
                     widget.onSelected(item);

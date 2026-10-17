@@ -6,6 +6,7 @@ import '../../../data/models/room_model.dart';
 import '../../../data/models/roommate_post_model.dart';
 import '../../../core/services/room_service.dart';
 import '../../../core/services/roommate_service.dart';
+import '../../../core/services/favorites_service.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'room_detail_screen.dart';
@@ -203,6 +204,7 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
               ),
               const SizedBox(height: 20),
 
+
               // 4. Phòng trọ gợi ý hôm nay (Realtime Firestore)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -319,6 +321,7 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
     );
   }
 
+
   Widget _buildRoomCard(RoomModel room, NumberFormat formatter) {
     final priceStr = '${formatter.format(room.price)} đ';
 
@@ -373,6 +376,52 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                         room.roomType,
                         style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                       ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Consumer(
+                      builder: (context, ref, _) {
+                        final isFav = ref.watch(favoritesProvider).favoriteRoomIds.contains(room.id);
+                        return InkWell(
+                          onTap: () async {
+                            final added = await ref.read(favoritesProvider.notifier).toggleFavoriteRoom(room);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(added
+                                      ? 'Đã lưu phòng vào danh sách yêu thích ❤️'
+                                      : 'Đã bỏ lưu phòng khỏi danh sách yêu thích'),
+                                  duration: const Duration(seconds: 1),
+                                  backgroundColor: added ? AppColors.primary : const Color(0xFF334155),
+                                ),
+                              );
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                              color: isFav ? const Color(0xFFEF4444) : const Color(0xFF64748B),
+                              size: 18,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],

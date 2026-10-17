@@ -450,6 +450,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                           if (item.roomTitle != null && item.roomPrice != null) {
                             pinnedRoom = RoomModel(
                               id: item.roomCode ?? 'room_sample',
+                              roomCode: item.roomCode ?? '',
                               title: item.roomTitle!,
                               description: 'Phòng trọ tiện nghi, an ninh 24/7.',
                               price: item.roomPrice!,

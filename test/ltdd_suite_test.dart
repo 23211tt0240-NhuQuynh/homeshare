@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:home_share/data/models/room_model.dart';
 import 'package:home_share/data/models/roommate_post_model.dart';
@@ -7,10 +10,11 @@ import 'package:home_share/core/services/chat_service.dart';
 import 'package:home_share/core/services/room_service.dart';
 import 'package:home_share/core/constants/vietnam_locations.dart';
 import 'package:home_share/features/auth/providers/user_provider.dart';
-import 'package:home_share/features/profile/models/cccd_data.dart';
+import 'package:home_share/features/profile/screens/cccd_scanner_screen.dart';
 import 'package:home_share/core/utils/vietqr_helper.dart';
 import 'package:home_share/core/services/roommate_service.dart';
 import 'package:home_share/core/services/image_storage_service.dart';
+import 'package:image/image.dart' as img;
 import 'package:home_share/core/constants/app_colors.dart';
 import 'package:home_share/core/theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -91,12 +95,12 @@ void main() {
 
       final map = profile.toMap();
       expect(map['email'], equals('toan@gmail.com'));
-      expect(map['displayName'], equals('Trần Thanh Anh Toàn'));
       expect(map['hoTen'], equals('Trần Thanh Anh Toàn'));
-      expect(map['phoneNumber'], equals('0901234567'));
       expect(map['soDienThoai'], equals('0901234567'));
-      expect(map['role'], equals('renter'));
       expect(map['vaiTro'], equals('renter'));
+      expect(map.containsKey('displayName'), isFalse);
+      expect(map.containsKey('phoneNumber'), isFalse);
+      expect(map.containsKey('role'), isFalse);
     });
 
     test('Tc_INFO2_03 & 04: Xác thực định dạng CCCD chuẩn 12 chữ số', () {
@@ -112,12 +116,12 @@ void main() {
       expect(validateCccd('0792040012345'), isFalse); // Thừa số
     });
 
-    test('Tc_USER_CODE_01: Sinh mã người dùng chuẩn 5 ký tự (3 số đầu + 2 chữ sau) và nội dung chuyển tiền', () {
+    test('Tc_USER_CODE_01: Sinh mã người dùng chuẩn (NT001, CT001) và nội dung chuyển tiền', () {
       // 1. Kiểm tra định dạng mã sinh ngẫu nhiên
       final randomCode = UserProfile.generateUserCode();
       expect(randomCode.length, equals(5));
       expect(UserProfile.isValidUserCode(randomCode), isTrue);
-      expect(RegExp(r'^\d{3}[A-Z]{2}$').hasMatch(randomCode), isTrue);
+      expect(RegExp(r'^(NT\d{3}|CT\d{3}|\d{3}[A-Z]{2})$').hasMatch(randomCode), isTrue);
 
       // 2. Kiểm tra tính tất định (deterministic) khi có seed (UID)
       const uid = 'user_toan_999';
@@ -126,12 +130,13 @@ void main() {
       expect(code1, equals(code2));
       expect(code1.length, equals(5));
       expect(UserProfile.isValidUserCode(code1), isTrue);
-      // 3 ký tự đầu phải là số
-      final digits = code1.substring(0, 3);
-      expect(int.tryParse(digits) != null, isTrue);
-      // 2 ký tự sau phải là chữ cái in hoa
-      final letters = code1.substring(3);
-      expect(RegExp(r'^[A-Z]{2}$').hasMatch(letters), isTrue);
+      expect(code1.startsWith('NT'), isTrue);
+
+      // Kiểm tra mã cho Chủ trọ có tiền tố CT
+      final hostCode = UserProfile.generateUserCode(seed: 'host_999', role: 'host');
+      expect(hostCode.startsWith('CT'), isTrue);
+      expect(hostCode.length, equals(5));
+      expect(UserProfile.isValidUserCode(hostCode), isTrue);
 
       // 3. Kiểm tra UserProfile tích hợp mã người dùng
       final profile = UserProfile(
@@ -146,14 +151,14 @@ void main() {
       expect(profile.maDinhDanh, equals(profile.userCode));
 
       final profileMap = profile.toMap();
-      expect(profileMap['userCode'], equals(profile.userCode));
       expect(profileMap['maNguoiDung'], equals(profile.userCode));
+      expect(profileMap.containsKey('userCode'), isFalse);
 
       // 4. Kiểm tra nội dung chuyển tiền (nội dung chuyển là mã của người dùng để Admin dễ tìm kiếm)
       final transferContent = profile.userCode;
       expect(transferContent, equals(profile.userCode));
       expect(transferContent.length, equals(5));
-      expect(RegExp(r'^\d{3}[A-Z]{2}$').hasMatch(transferContent), isTrue);
+      expect(RegExp(r'^(NT\d{3}|CT\d{3}|\d{3}[A-Z]{2})$').hasMatch(transferContent), isTrue);
     });
   });
 
@@ -565,10 +570,11 @@ void main() {
       expect(booking.note, equals('Tôi muốn hẹn xem phòng vào chiều thứ Năm'));
 
       final map = booking.toMap();
-      expect(map['roomId'], equals('room_123'));
       expect(map['phongId'], equals('room_123'));
-      expect(map['renterName'], equals('Trần Thanh Anh Toàn'));
+      expect(map['tenNguoiO'], equals('Trần Thanh Anh Toàn'));
       expect(map['trangThai'], equals('pending'));
+      expect(map.containsKey('roomId'), isFalse);
+      expect(map.containsKey('renterName'), isFalse);
     });
 
     test('Tc_ACTIONS_02 - 10: Thứ tự nút hành động chi tiết phòng: 1. Báo cáo, 2. Nhắn tin, 3. Đặt phòng nhanh (Bỏ hẹn xem phòng)', () {
@@ -869,62 +875,47 @@ void main() {
       expect(parsed.anhMatSau, equals('/storage/emulated/0/dcim/cccd_back.jpg'));
 
       final serialized = parsed.toMap();
-      expect(serialized['cccdFrontImageUrl'], equals('/storage/emulated/0/dcim/cccd_front.jpg'));
       expect(serialized['anhMatTruoc'], equals('/storage/emulated/0/dcim/cccd_front.jpg'));
-      expect(serialized['cccdBackImageUrl'], equals('/storage/emulated/0/dcim/cccd_back.jpg'));
       expect(serialized['anhMatSau'], equals('/storage/emulated/0/dcim/cccd_back.jpg'));
+      expect(serialized.containsKey('cccdFrontImageUrl'), isFalse);
+      expect(serialized.containsKey('cccdBackImageUrl'), isFalse);
     });
   });
 
   group('Module 13: Màn hình Tìm Ở Ghép & Bộ lọc Lifestyle AI Match (Figma Chuẩn)', () {
-    test('Tc_ROOMMATE_FIGMA_01 - 05: Kiểm tra các bài đăng mẫu chuẩn 100% Figma (Minh Trang, Quốc Bảo, Thùy Dung)', () {
-      final samplePosts = RoommateService.getFigmaSamplePosts();
+    test('Tc_ROOMMATE_FIGMA_01 - 05: Kiểm tra bài đăng dùng để thử tìm kiếm', () {
+      final samplePosts = RoommateService.getDemoRoommatePosts();
       expect(samplePosts.length, greaterThanOrEqualTo(3));
 
-      // 1. Thẻ Minh Trang (Hình 1 - Thẻ đầu tiên)
-      final minhTrang = samplePosts.firstWhere((p) => p.authorName == 'Minh Trang');
-      expect(minhTrang.authorAge, equals(21));
-      expect(minhTrang.authorOccupation, contains('Ngoại Thương'));
-      expect(minhTrang.hasRoom, isTrue);
-      expect(minhTrang.pricePerPerson, equals(1800000));
-      expect(minhTrang.district, equals('TP. Thủ Đức'));
-      expect(minhTrang.isVerified, isTrue);
-      expect(minhTrang.images.length, equals(2));
-      expect(minhTrang.imageCaptions, containsAll(['Phòng ngủ máy lạnh', 'Bếp chung rộng']));
-      expect(minhTrang.habits, containsAll(['Tuyệt đối không thuốc lá', 'Yên tĩnh sau 23h', 'Sạch sẽ, ngăn nắp cao']));
+      final lanAnh = samplePosts.firstWhere((p) => p.authorName == 'Lan Anh');
+      expect(lanAnh.authorAge, equals(21));
+      expect(lanAnh.authorOccupation, contains('Sinh viên'));
+      expect(lanAnh.hasRoom, isTrue);
+      expect(lanAnh.pricePerPerson, equals(1800000));
+      expect(lanAnh.district, equals('Thành phố Thủ Đức'));
+      expect(lanAnh.isVerified, isTrue);
+      expect(lanAnh.habits, containsAll(['Sạch sẽ, ngăn nắp cao', 'Yên tĩnh sau 23h']));
 
-      // 2. Thẻ Quốc Bảo (Hình 1 - Thẻ thứ hai)
-      final quocBao = samplePosts.firstWhere((p) => p.authorName == 'Quốc Bảo');
-      expect(quocBao.authorAge, equals(22));
-      expect(quocBao.authorOccupation, contains('Kỹ sư'));
-      expect(quocBao.hasRoom, isTrue);
-      expect(quocBao.pricePerPerson, equals(2200000));
-      expect(quocBao.district, equals('Bình Thạnh'));
-      expect(quocBao.habits, containsAll(['Giờ giấc tự do 24/7', 'Có xe máy riêng', 'Thích thể thao']));
+      final minhKhoa = samplePosts.firstWhere((p) => p.authorName == 'Minh Khoa');
+      expect(minhKhoa.hasRoom, isTrue);
+      expect(minhKhoa.district, equals('Quận Bình Thạnh'));
 
-      // 3. Thẻ Thùy Dung (Hình 1 - Thẻ thứ ba: Chưa có phòng • Tìm người cùng thuê)
-      final thuyDung = samplePosts.firstWhere((p) => p.authorName == 'Thùy Dung');
-      expect(thuyDung.authorAge, equals(20));
-      expect(thuyDung.authorOccupation, contains('Sư Phạm Kỹ Thuật'));
-      expect(thuyDung.hasRoom, isFalse);
-      expect(thuyDung.budgetMin, equals(1500000));
-      expect(thuyDung.budgetMax, equals(2000000));
-      expect(thuyDung.habits, containsAll(['Chăm học, ít ồn', 'Nấu ăn tại phòng', 'Dậy sớm (Trước 7h)']));
+      final phuongAnh = samplePosts.firstWhere((p) => p.authorName == 'Phương Anh');
+      expect(phuongAnh.hasRoom, isFalse);
+      expect(phuongAnh.district, equals('Quận 7'));
     });
 
     test('Tc_ROOMMATE_FIGMA_06 - 10: Chuyển đổi Segment Tab giữa Đã có phòng và Người cần tìm phòng ghép', () {
-      final samplePosts = RoommateService.getFigmaSamplePosts();
+      final samplePosts = RoommateService.getDemoRoommatePosts();
 
-      // Tab 1: Đang tìm người ghép (Có phòng)
       final withRoom = samplePosts.where((p) => p.hasRoom == true).toList();
-      expect(withRoom.any((p) => p.authorName == 'Minh Trang'), isTrue);
-      expect(withRoom.any((p) => p.authorName == 'Quốc Bảo'), isTrue);
-      expect(withRoom.any((p) => p.authorName == 'Thùy Dung'), isFalse);
+      expect(withRoom.any((p) => p.authorName == 'Lan Anh'), isTrue);
+      expect(withRoom.any((p) => p.authorName == 'Minh Khoa'), isTrue);
+      expect(withRoom.any((p) => p.authorName == 'Phương Anh'), isFalse);
 
-      // Tab 2: Người cần tìm phòng ghép (Chưa có phòng)
       final withoutRoom = samplePosts.where((p) => p.hasRoom == false).toList();
-      expect(withoutRoom.any((p) => p.authorName == 'Thùy Dung'), isTrue);
-      expect(withoutRoom.any((p) => p.authorName == 'Minh Trang'), isFalse);
+      expect(withoutRoom.any((p) => p.authorName == 'Phương Anh'), isTrue);
+      expect(withoutRoom.any((p) => p.authorName == 'Lan Anh'), isFalse);
     });
 
     test('Tc_LIFESTYLE_FILTER_01 - 05: Bộ lọc RoommateFilterParams hỗ trợ đầy đủ các tiêu chí Hình 2', () {
@@ -963,22 +954,20 @@ void main() {
     });
 
     test('Tc_LIFESTYLE_FILTER_06 - 10: Khả năng lọc chính xác và tính tương thích Match Rate', () {
-      final samplePosts = RoommateService.getFigmaSamplePosts();
+      final samplePosts = RoommateService.getDemoRoommatePosts();
 
-      // Lọc các bạn có độ tương thích matchRate >= 80%
       final matched80 = samplePosts.where((p) => p.matchRate >= 80).toList();
       expect(matched80.length, equals(samplePosts.length));
 
-      // Lọc bạn nữ có phòng sẵn tại TP. Thủ Đức (Khớp thẻ Minh Trang)
       final filtered = samplePosts.where((p) {
         if (p.hasRoom != true) return false;
-        if (p.district != 'TP. Thủ Đức') return false;
+        if (p.district != 'Thành phố Thủ Đức') return false;
         if (p.targetGender != 'Nữ') return false;
         return true;
       }).toList();
 
       expect(filtered.length, equals(1));
-      expect(filtered.first.authorName, equals('Minh Trang'));
+      expect(filtered.first.authorName, equals('Lan Anh'));
     });
   });
 
@@ -1018,6 +1007,44 @@ void main() {
 
       expect(fallbackUrl.startsWith('http'), isTrue);
       expect(fallbackUrl, contains('unsplash.com'));
+    });
+
+    test('Tc_SYNC_11b: Ảnh thật trên máy được lưu Base64, không bị thay bằng ảnh mẫu', () async {
+      final service = ImageStorageService(skipRemoteUpload: true);
+      final file = File('${Directory.systemTemp.path}${Platform.pathSeparator}homeshare_post_photo.jpg');
+      // JPEG 1x1 hợp lệ
+      const tinyJpeg = '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
+      await file.writeAsBytes(base64Decode(tinyJpeg));
+
+      final stored = await service.uploadSingleImage(
+        filePath: file.path,
+        folder: 'roommate_posts/test',
+        fileName: 'photo.jpg',
+      );
+
+      expect(stored.startsWith('data:image/jpeg;base64,'), isTrue);
+      expect(stored.contains('unsplash.com'), isFalse);
+      final decoded = base64Decode(stored.split(',').last);
+      expect(decoded, isNotEmpty);
+
+      if (file.existsSync()) {
+        await file.delete();
+      }
+    });
+
+    test('Tc_SYNC_11c: Ảnh lớn được nén xuống dưới ngưỡng lưu Firestore', () {
+      final picture = img.Image(width: 1400, height: 1000);
+      for (var y = 0; y < picture.height; y++) {
+        for (var x = 0; x < picture.width; x++) {
+          picture.setPixelRgb(x, y, (x * 13) % 255, (y * 7) % 255, (x + y) % 255);
+        }
+      }
+      final raw = Uint8List.fromList(img.encodeJpg(picture, quality: 90));
+      const limit = 80 * 1024;
+      final compressed = compressJpegToLimit((raw, limit));
+
+      expect(compressed.length, lessThanOrEqualTo(limit));
+      expect(img.decodeJpg(compressed), isNotNull);
     });
 
     test('Tc_SYNC_16 - 20: ConversationModel phân giải chính xác partnerName hai chiều giữa 2 người dùng', () {

@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/favorites_service.dart';
 import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
+import 'roommate_room_detail_screen.dart';
 
 /// Màn hình Chi tiết bài đăng ở ghép chuẩn Figma & Material Design (Không hardcode)
 class RoommatePostDetailScreen extends ConsumerStatefulWidget {
@@ -24,7 +26,6 @@ class RoommatePostDetailScreen extends ConsumerStatefulWidget {
 
 class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScreen> {
   int _currentImageIndex = 0;
-  bool _isBookmarked = false;
   late final PageController _pageController;
 
   @override
@@ -84,6 +85,7 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
   }
 
   Widget _buildRoomImage(String imgUrl) {
+    imgUrl = imgUrl.trim();
     if (imgUrl.isEmpty) {
       return Container(
         color: const Color(0xFFF1F5F9),
@@ -139,13 +141,14 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
     );
   }
 
-  void _onToggleBookmark() {
-    setState(() => _isBookmarked = !_isBookmarked);
+  Future<void> _onToggleBookmark() async {
+    final added = await ref.read(favoritesProvider.notifier).toggleFavoritePost(widget.post);
+    if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(_isBookmarked ? 'Đã lưu bài đăng vào mục yêu thích ✓' : 'Đã bỏ lưu bài đăng'),
-        backgroundColor: AppColors.primary,
+        content: Text(added ? 'Đã lưu bài đăng vào mục yêu thích ❤️' : 'Đã bỏ lưu bài đăng khỏi yêu thích'),
+        backgroundColor: added ? AppColors.primary : const Color(0xFF334155),
         duration: const Duration(seconds: 1),
       ),
     );
@@ -189,6 +192,16 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
             child: const Text('Gửi báo cáo'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _openSharedRoomDetail() {
+    if (!widget.post.hasRoom) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RoommateRoomDetailScreen(post: widget.post),
       ),
     );
   }
@@ -480,29 +493,34 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
               ),
             ),
             actions: [
-              // Nút Bookmark
-              Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: InkWell(
-                  onTap: _onToggleBookmark,
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 6, offset: const Offset(0, 2)),
-                      ],
+              // Nút Bookmark / Yêu thích
+              Consumer(
+                builder: (context, ref, _) {
+                  final isFav = ref.watch(favoritesProvider).favoritePostIds.contains(widget.post.id);
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: InkWell(
+                      onTap: _onToggleBookmark,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 6, offset: const Offset(0, 2)),
+                          ],
+                        ),
+                        child: Icon(
+                          isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                          color: isFav ? const Color(0xFFEF4444) : const Color(0xFF475569),
+                          size: 20,
+                        ),
+                      ),
                     ),
-                    child: Icon(
-                      _isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                      color: _isBookmarked ? AppColors.primary : const Color(0xFF475569),
-                      size: 20,
-                    ),
-                  ),
-                ),
+                  );
+                },
               ),
               // Nút Share
               Padding(
@@ -834,7 +852,9 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
                       children: [
                         Row(
                           children: [
-                            Stack(
+                            GestureDetector(
+                              onTap: _openSharedRoomDetail,
+                              child: Stack(
                               clipBehavior: Clip.none,
                               children: [
                                 CircleAvatar(
@@ -869,12 +889,15 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
                                   ),
                               ],
                             ),
+                            ),
                             const SizedBox(width: 14),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
+                                  GestureDetector(
+                                    onTap: _openSharedRoomDetail,
+                                    child: Row(
                                     children: [
                                       Text(
                                         post.authorName,
@@ -888,6 +911,7 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
                                         ),
                                       ],
                                     ],
+                                    ),
                                   ),
                                   if (post.authorOccupation.isNotEmpty) ...[
                                     const SizedBox(height: 3),

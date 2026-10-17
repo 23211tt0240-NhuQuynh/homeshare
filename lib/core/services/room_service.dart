@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,7 +18,7 @@ class RoomFilterParams {
   final String sortBy; // 'newest', 'price_asc', 'price_desc', 'rating'
 
   const RoomFilterParams({
-    this.city = 'TP. Hồ Chí Minh',
+    this.city = 'Tất cả',
     this.district = 'Tất cả',
     this.rentalType = 'all',
     this.minPrice,
@@ -65,7 +66,7 @@ class RoomFilterParams {
 class RoomService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Stream danh sách phòng theo bộ lọc chi tiết
+  // Stream danh sách phòng realtime, kết hợp cả collection 'rooms' và 'posts' của Chủ trọ
   Stream<List<RoomModel>> getRoomsStream({
     String? city,
     String? district,
@@ -79,36 +80,46 @@ class RoomService {
     String? searchQuery,
     String? sortBy,
   }) {
-    return _firestore.collection('rooms').snapshots().handleError((err) {
-      debugPrint('Firestore room stream error, fallback to local: $err');
-      return const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-    }).map((snapshot) {
-      var list = snapshot.docs.map((doc) {
-        try {
-          return RoomModel.fromFirestore(doc);
-        } catch (e) {
-          debugPrint('Error parsing room doc ${doc.id}: $e');
-          return null;
-        }
-      }).whereType<RoomModel>().toList();
+    late StreamController<List<RoomModel>> controller;
+    StreamSubscription? roomsSub;
+    StreamSubscription? postsSub;
+    List<RoomModel> latestRooms = [];
+    List<RoomModel> latestPosts = [];
 
-      // Nạp dữ liệu phòng mẫu nếu Firestore chưa có dữ liệu
+    List<RoomModel> filterAndSort(List<RoomModel> rawList) {
+      var list = List<RoomModel>.from(rawList);
+
+      // Nạp dữ liệu phòng mẫu nếu Firestore hoàn toàn chưa có dữ liệu phòng nào
       if (list.isEmpty) {
         list = getSampleRooms();
       }
 
       // 1. Lọc theo Thành phố
-      if (city != null && city.isNotEmpty && city != 'Tất cả' && city != 'Chọn Tỉnh/Thành phố') {
-        final cleanCity = city.toLowerCase().replaceFirst('tp. ', '').replaceFirst('thành phố ', '').replaceFirst('tỉnh ', '').trim();
-        list = list.where((r) =>
-            r.city.toLowerCase().contains(city.toLowerCase()) ||
-            r.city.toLowerCase().contains(cleanCity) ||
-            r.address.toLowerCase().contains(city.toLowerCase()) ||
-            r.address.toLowerCase().contains(cleanCity)).toList();
+      if (city != null &&
+          city.isNotEmpty &&
+          city != 'Tất cả' &&
+          city != 'Toàn quốc' &&
+          city != 'Chọn Tỉnh/Thành phố') {
+        final cleanCity = city
+            .toLowerCase()
+            .replaceFirst('tp. ', '')
+            .replaceFirst('thành phố ', '')
+            .replaceFirst('tỉnh ', '')
+            .trim();
+        list = list.where((r) {
+          if (r.city.isEmpty) return true;
+          return r.city.toLowerCase().contains(city.toLowerCase()) ||
+              r.city.toLowerCase().contains(cleanCity) ||
+              r.address.toLowerCase().contains(city.toLowerCase()) ||
+              r.address.toLowerCase().contains(cleanCity);
+        }).toList();
       }
 
       // 2. Lọc theo Phường/Xã hoặc Quận/Huyện
-      if (district != null && district.isNotEmpty && district != 'Tất cả' && district != 'Chọn Phường / Xã') {
+      if (district != null &&
+          district.isNotEmpty &&
+          district != 'Tất cả' &&
+          district != 'Chọn Phường / Xã') {
         final cleanDistrict = district.toLowerCase();
         final rawBaseName = district.split('(').first.trim().toLowerCase();
         final shortWardName = rawBaseName.replaceFirst('phường ', 'p. ').trim();
@@ -117,17 +128,19 @@ class RoomService {
           final rAddr = r.address.toLowerCase();
 
           return rDist.contains(cleanDistrict) ||
-                 rAddr.contains(cleanDistrict) ||
-                 rDist.contains(rawBaseName) ||
-                 rAddr.contains(rawBaseName) ||
-                 rAddr.contains(shortWardName);
+              rAddr.contains(cleanDistrict) ||
+              rDist.contains(rawBaseName) ||
+              rAddr.contains(rawBaseName) ||
+              rAddr.contains(shortWardName);
         }).toList();
       }
 
       // 3. Lọc theo loại phòng / hình thức thuê
       if (roomType != null && roomType.isNotEmpty && roomType != 'Tất cả') {
-        list = list.where((r) =>
-            r.roomType.toLowerCase().contains(roomType.toLowerCase())).toList();
+        list = list
+            .where((r) =>
+                r.roomType.toLowerCase().contains(roomType.toLowerCase()))
+            .toList();
       }
 
       // 4. Lọc theo khoảng giá
@@ -164,11 +177,13 @@ class RoomService {
       // 7. Lọc theo từ khóa tìm kiếm
       if (searchQuery != null && searchQuery.trim().isNotEmpty) {
         final q = searchQuery.toLowerCase().trim();
-        list = list.where((r) =>
-            r.title.toLowerCase().contains(q) ||
-            r.address.toLowerCase().contains(q) ||
-            r.district.toLowerCase().contains(q) ||
-            r.description.toLowerCase().contains(q)).toList();
+        list = list
+            .where((r) =>
+                r.title.toLowerCase().contains(q) ||
+                r.address.toLowerCase().contains(q) ||
+                r.district.toLowerCase().contains(q) ||
+                r.description.toLowerCase().contains(q))
+            .toList();
       }
 
       // 8. Sắp xếp kết quả
@@ -189,7 +204,75 @@ class RoomService {
       }
 
       return list;
-    });
+    }
+
+    void emitMerged() {
+      if (controller.isClosed) return;
+      final Map<String, RoomModel> roomMap = {};
+      // Thêm phòng từ collection 'rooms'
+      for (final r in latestRooms) {
+        roomMap[r.id] = r;
+      }
+      // Hợp nhất bài đăng từ collection 'posts' nếu chưa có trong 'rooms'
+      for (final p in latestPosts) {
+        final exists = roomMap.containsKey(p.id) ||
+            roomMap.values.any((r) =>
+                r.id == p.id ||
+                (p.title.isNotEmpty &&
+                    r.title == p.title &&
+                    r.hostId == p.hostId));
+        if (!exists) {
+          roomMap[p.id] = p;
+        }
+      }
+
+      final merged = filterAndSort(roomMap.values.toList());
+      controller.add(merged);
+    }
+
+    controller = StreamController<List<RoomModel>>(
+      onListen: () {
+        roomsSub = _firestore.collection('rooms').snapshots().listen(
+          (snapshot) {
+            latestRooms = snapshot.docs.map((doc) {
+              try {
+                return RoomModel.fromFirestore(doc);
+              } catch (e) {
+                return null;
+              }
+            }).whereType<RoomModel>().where((r) => r.isAvailable).toList();
+            emitMerged();
+          },
+          onError: (err) {
+            debugPrint('Firestore room stream error: $err');
+            emitMerged();
+          },
+        );
+
+        postsSub = _firestore.collection('posts').snapshots().listen(
+          (snapshot) {
+            latestPosts = snapshot.docs.map((doc) {
+              try {
+                return RoomModel.fromFirestore(doc);
+              } catch (e) {
+                return null;
+              }
+            }).whereType<RoomModel>().where((r) => r.isAvailable).toList();
+            emitMerged();
+          },
+          onError: (err) {
+            debugPrint('Firestore posts stream error: $err');
+            emitMerged();
+          },
+        );
+      },
+      onCancel: () async {
+        await roomsSub?.cancel();
+        await postsSub?.cancel();
+      },
+    );
+
+    return controller.stream;
   }
 
   // Lấy chi tiết 1 phòng
@@ -213,6 +296,7 @@ class RoomService {
     return [
       RoomModel(
         id: 'sample_room_1',
+        roomCode: 'P001',
         title: 'Phòng trọ máy lạnh gần ĐH Nông Lâm',
         description: 'Phòng mới xây gác đúc, máy lạnh Inverter, chỗ để xe miễn phí, an ninh 24/7, giờ giấc tự do.',
         price: 3200000,
@@ -235,6 +319,7 @@ class RoomService {
       ),
       RoomModel(
         id: 'sample_room_2',
+        roomCode: 'P002',
         title: 'Studio ban công thoáng mát Nguyễn Văn Lượng',
         description: 'Căn hộ Studio full nội thất cao cấp phong cách Bắc Âu, có ban công view đẹp, thang máy, máy giặt riêng.',
         price: 4500000,
@@ -257,6 +342,7 @@ class RoomService {
       ),
       RoomModel(
         id: 'sample_room_3',
+        roomCode: 'P003',
         title: 'Phòng trọ duplex cao cấp D2 Hutech',
         description: 'Phòng gác đúc cao 2m2, khóa vân tay thẻ từ ra vào, kệ bếp rộng rãi, vệ sinh riêng khép kín, gần trạm xe buýt và chợ.',
         price: 3800000,
@@ -279,6 +365,7 @@ class RoomService {
       ),
       RoomModel(
         id: 'sample_room_4',
+        roomCode: 'P004',
         title: 'Căn hộ dịch vụ 1PN Mai Chí Thọ có hồ bơi',
         description: 'Căn hộ dịch vụ hạng sang có ban công rộng, đầy đủ tiện ích hồ bơi tràn bờ, phòng gym, bảo vệ 24/7.',
         price: 6500000,

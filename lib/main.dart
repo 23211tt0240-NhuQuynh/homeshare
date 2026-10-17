@@ -2,20 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
+import 'core/services/call_push_service.dart';
 import 'core/theme/app_theme.dart';
-import 'features/admin/screens/admin_dashboard_screen.dart';
+import 'features/admin/screens/admin_main_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/providers/user_provider.dart';
-import 'features/auth/screens/invalid_role_screen.dart';
 import 'features/auth/screens/login_screen.dart';
-import 'features/auth/services/role_resolver.dart';
 import 'features/host/screens/host_main_screen.dart';
 import 'features/renter/screens/renter_main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(const ProviderScope(child: MyApp()));
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  // Tạo kênh chuông "Cuộc gọi" và đăng ký handler khi app ở nền hoặc đã tắt.
+  await CallPushService.prepare();
+  runApp(
+    const ProviderScope(
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -26,6 +33,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'HomeShare',
       debugShowCheckedModeBanner: false,
+      // Để thông báo cuộc gọi mở IncomingCallScreen dù người dùng đang ở trang nào.
+      navigatorKey: navigatorKey,
       theme: AppTheme.lightTheme,
       home: const AuthGate(),
     );
@@ -41,79 +50,77 @@ class AuthGate extends ConsumerWidget {
 
     return authState.when(
       data: (user) {
-        if (user == null) {
-          return const LoginScreen();
+        if (user != null) {
+          // Bọc màn hình chính để lưu fcmToken ngay sau khi đăng nhập.
+          return _SignedInShell(uid: user.uid);
         }
-
-        // Đã xác thực Firebase Auth -> Lắng nghe hồ sơ người dùng từ Firestore
-        final profileAsync = ref.watch(userProfileProvider);
-
-        return profileAsync.when(
-          data: (profile) {
-            final destination = resolveAuthDestination(
-              isAuthenticated: true,
-              isProfileLoading: false,
-              role: profile?.role,
-            );
-
-            switch (destination) {
-              case AuthDestination.renter:
-                return const RenterMainScreen();
-              case AuthDestination.host:
-                return const HostMainScreen();
-              case AuthDestination.admin:
-                return const AdminDashboardScreen();
-              case AuthDestination.invalidRole:
-              default:
-                // Fail-closed: Role không hợp lệ hoặc thiếu -> Màn hình cảnh báo + Đăng xuất
-                return InvalidRoleScreen(role: profile?.role);
-            }
-          },
-          loading: () =>
-              const Scaffold(body: Center(child: CircularProgressIndicator())),
-          error: (error, stack) {
-            debugPrint('UserProfile load error');
-            return Scaffold(
-              body: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 48,
-                        color: Colors.red,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Không thể tải thông tin tài khoản. Vui lòng thử lại sau.',
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: () =>
-                            ref.read(authServiceProvider).signOut(),
-                        child: const Text('Đăng xuất'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
+        return const LoginScreen();
       },
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (error, stack) {
-        debugPrint('Auth state error');
-        return const Scaffold(
-          body: Center(
-            child: Text('Không thể xác thực tài khoản. Vui lòng thử lại sau.'),
-          ),
-        );
+      loading: () => const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      ),
+      error: (error, stack) => Scaffold(
+        body: Center(
+          child: Text('Lỗi xác thực: $error'),
+        ),
+      ),
+    );
+  }
+}
+
+/// Giữ RenterMainScreen hoặc HostMainScreen tùy theo vai trò của người dùng
+/// và gắn mã thông báo của máy vào user đang đăng nhập.
+class _SignedInShell extends ConsumerStatefulWidget {
+  final String uid;
+
+  const _SignedInShell({required this.uid});
+
+  @override
+  ConsumerState<_SignedInShell> createState() => _SignedInShellState();
+}
+
+class _SignedInShellState extends ConsumerState<_SignedInShell> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      CallPushService.bindUser(widget.uid);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profileAsync = ref.watch(userProfileProvider);
+
+    return profileAsync.when(
+      data: (profile) {
+        if (profile?.isAdmin == true ||
+            profile?.role == 'admin' ||
+            profile?.role == 'administrator' ||
+            profile?.role == 'quantri') {
+          return const AdminMainScreen();
+        }
+        if (profile?.isHost == true ||
+            profile?.role == 'host' ||
+            profile?.role == 'landlord' ||
+            profile?.role == 'chutro') {
+          return const HostMainScreen();
+        }
+        return const RenterMainScreen();
       },
+      loading: () => const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      ),
+      error: (error, stack) => Scaffold(
+        body: Center(
+          child: Text('Lỗi tải thông tin tài khoản: $error'),
+        ),
+      ),
     );
   }
 }

@@ -75,29 +75,13 @@ class ChatService {
     final chatId = getChatId(message.senderId, message.receiverId);
     final batch = _firestore.batch();
 
-    // 3. Lưu tin nhắn vào subcollection
-    final msgDoc = message.id.isNotEmpty
-        ? _firestore.collection('chats').doc(chatId).collection('messages').doc(message.id)
-        : _firestore.collection('chats').doc(chatId).collection('messages').doc();
+    // 3. Luôn tạo document tin nhắn mới độc lập (append-only), KHÔNG ghi đè bất kỳ tin nhắn cũ nào
+    final msgDoc = _firestore.collection('chats').doc(chatId).collection('messages').doc();
 
     final messageToSave = message.copyWith(id: msgDoc.id, conversationId: chatId);
     batch.set(msgDoc, messageToSave.toMap());
 
-    // 4. Cập nhật hội thoại tổng quan (recent conversation)
-    final userNames = <String, String>{
-      message.senderId: message.senderName,
-    };
-    if (receiverName != null && receiverName.trim().isNotEmpty) {
-      userNames[message.receiverId] = receiverName.trim();
-    }
-
-    final partnerNames = <String, String>{
-      message.senderId: (receiverName != null && receiverName.trim().isNotEmpty)
-          ? receiverName.trim()
-          : 'Đối tác trao đổi',
-      message.receiverId: message.senderName,
-    };
-
+    // 4. Cập nhật hội thoại tổng quan (recent conversation) bằng dot-notation để bảo toàn dữ liệu
     final chatDoc = _firestore.collection('chats').doc(chatId);
     final convData = <String, dynamic>{
       'chatId': chatId,
@@ -110,23 +94,25 @@ class ChatService {
       'lastSenderId': message.senderId,
       'lastTimestamp': FieldValue.serverTimestamp(),
       'ngayGuiCuoi': FieldValue.serverTimestamp(),
-      'userNames': userNames,
-      'partnerNames': partnerNames,
       'isRead': false,
-      'readBy': {
-        message.senderId: true,
-        message.receiverId: false,
-      },
       'unreadCount': FieldValue.increment(1),
       'unreadFor_${message.receiverId}': FieldValue.increment(1),
       'unreadFor_${message.senderId}': 0,
+      'readBy.${message.senderId}': true,
+      'readBy.${message.receiverId}': false,
+      'userNames.${message.senderId}': message.senderName,
+      'partnerNames.${message.receiverId}': message.senderName,
     };
 
+    if (receiverName != null && receiverName.trim().isNotEmpty) {
+      convData['userNames.${message.receiverId}'] = receiverName.trim();
+      convData['partnerNames.${message.senderId}'] = receiverName.trim();
+    }
     if (receiverAvatar != null && receiverAvatar.isNotEmpty) {
-      convData['userAvatars'] = {message.receiverId: receiverAvatar};
+      convData['userAvatars.${message.receiverId}'] = receiverAvatar;
     }
     if (receiverPhone != null && receiverPhone.isNotEmpty) {
-      convData['userPhones'] = {message.receiverId: receiverPhone};
+      convData['userPhones.${message.receiverId}'] = receiverPhone;
     }
 
     if (roomMetadata != null) {
@@ -279,7 +265,7 @@ class ChatService {
     }
   }
 
-  // Stream tin nhắn an toàn, chỉ truy vấn đúng cuộc hội thoại giữa 2 người
+  // Stream tin nhắn an toàn, realtime tức thì và không bị trễ
   Stream<List<ChatMessageModel>> getMessagesStream(String userA, String userB) {
     final cleanA = userA.trim();
     final cleanB = userB.trim();
@@ -292,9 +278,7 @@ class ChatService {
         .collection('chats')
         .doc(chatId)
         .collection('messages')
-        .orderBy('timestamp', descending: true)
-        .limit(100)
-        .snapshots()
+        .snapshots(includeMetadataChanges: true)
         .map((snapshot) {
       final list = snapshot.docs.map((doc) {
         try {
@@ -307,6 +291,48 @@ class ChatService {
 
       list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
       return list;
+    });
+  }
+
+  /// Gửi thông báo đến chủ nhà khi người được mời chấp nhận lời mời ở ghép
+  Future<void> notifyHostRoommateAccepted({
+    required String hostId,
+    required String roomId,
+    required String roomTitle,
+    required String primaryTenantName,
+    required String primaryTenantId,
+    required String newRoommateName,
+    required String newRoommateId,
+  }) async {
+    if (hostId.isEmpty) return;
+
+    final notifRef = _firestore.collection('notifications').doc();
+    await notifRef.set({
+      'notificationId': notifRef.id,
+      'id': notifRef.id,
+      'receiverId': hostId,
+      'nguoiNhanId': hostId,
+      'senderId': newRoommateId,
+      'nguoiGuiId': newRoommateId,
+      'notificationType': 'pendingAction',
+      'legacyNotificationType': 'pendingAction',
+      'type': 'pendingAction',
+      'title': 'Thông báo có người ở ghép mới',
+      'tieuDe': 'Thông báo có người ở ghép mới',
+      'message': '$newRoommateName đã chấp nhận lời mời ở ghép cùng $primaryTenantName tại phòng $roomTitle. Vui lòng xác nhận và cập nhật danh sách cư dân.',
+      'noiDung': '$newRoommateName đã chấp nhận lời mời ở ghép cùng $primaryTenantName tại phòng $roomTitle. Vui lòng xác nhận và cập nhật danh sách cư dân.',
+      'roomId': roomId,
+      'phongId': roomId,
+      'roomTitle': roomTitle,
+      'renterName': '$primaryTenantName & $newRoommateName',
+      'statusId': 'pending',
+      'status': 'pending',
+      'isRead': false,
+      'daDoc': false,
+      'createdAt': FieldValue.serverTimestamp(),
+      'ngayTao': FieldValue.serverTimestamp(),
+      'bookingCode': '#OG-${DateTime.now().millisecondsSinceEpoch % 10000}',
+      'roomCode': 'OG',
     });
   }
 
