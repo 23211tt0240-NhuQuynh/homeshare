@@ -49,6 +49,7 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
 
   // 3. Lối sống & Thói quen
   final List<String> _selectedHabits = [];
+  final List<String> _customHabits = [];
   final TextEditingController _customHabitController = TextEditingController();
   final List<String> _selectedImages = [];
   final ImagePicker _imagePicker = ImagePicker();
@@ -65,6 +66,8 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
     'Chăm học/Làm việc',
     'Nấu ăn thường xuyên',
   ];
+
+  List<String> get _allHabits => [..._commonHabits, ..._customHabits];
 
   final List<String> _propertyTypes = [
     'Nhà trọ / Phòng trọ',
@@ -110,18 +113,13 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
           _authorGender = 'Khác';
         }
       }
-      if (mounted) setState(() {});
-      if (user != null) {
-        final fromTables = await ref.read(userProfileServiceProvider).loadInterestNames(user.uid);
-        final names = fromTables.isNotEmpty ? fromTables : profile.hobbies;
-        if (names.isNotEmpty && mounted) {
-          setState(() {
-            for (final h in names) {
-              if (!_selectedHabits.contains(h)) _selectedHabits.add(h);
-            }
-          });
-        }
+      final savedHobbies = profile.hobbies.isNotEmpty
+          ? profile.hobbies
+          : await ref.read(userProfileServiceProvider).loadInterestNames(profile.uid);
+      for (final h in savedHobbies) {
+        if (!_selectedHabits.contains(h)) _selectedHabits.add(h);
       }
+      if (mounted) setState(() {});
     } else if (user != null) {
       if (user.displayName != null && user.displayName!.isNotEmpty) {
         _authorNameController.text = user.displayName!;
@@ -171,16 +169,37 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final picked = await _imagePicker.pickImage(
-        source: source,
-        imageQuality: 70,
-        maxWidth: 1024,
-        maxHeight: 1024,
-      );
-      if (picked != null) {
-        setState(() {
-          _selectedImages.add(picked.path);
-        });
+      if (source == ImageSource.gallery) {
+        // Cho phép người dùng chọn cùng lúc nhiều ảnh từ thư viện
+        final pickedList = await _imagePicker.pickMultiImage(
+          imageQuality: 75,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        );
+        if (pickedList.isNotEmpty) {
+          setState(() {
+            for (final file in pickedList) {
+              if (!_selectedImages.contains(file.path)) {
+                _selectedImages.add(file.path);
+              }
+            }
+          });
+        }
+      } else {
+        // Chụp ảnh từ Camera
+        final picked = await _imagePicker.pickImage(
+          source: source,
+          imageQuality: 75,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        );
+        if (picked != null) {
+          setState(() {
+            if (!_selectedImages.contains(picked.path)) {
+              _selectedImages.add(picked.path);
+            }
+          });
+        }
       }
     } catch (e) {
       debugPrint('Lỗi chọn ảnh: $e');
@@ -191,12 +210,70 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
     final text = _customHabitController.text.trim();
     if (text.isNotEmpty) {
       setState(() {
+        if (!_customHabits.contains(text) && !_commonHabits.contains(text)) {
+          _customHabits.add(text);
+        }
         if (!_selectedHabits.contains(text)) {
           _selectedHabits.add(text);
         }
         _customHabitController.clear();
       });
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã thêm tiêu chí: "$text" ✓'),
+          duration: const Duration(seconds: 1),
+          backgroundColor: AppColors.primary,
+        ),
+      );
     }
+  }
+
+  bool _validateStep0() {
+    final formOk = _currentStep != 0 || (_formKey.currentState?.validate() ?? false);
+    final name = _authorNameController.text.trim();
+    final ageStr = _authorAgeController.text.trim();
+    final occ = _authorOccupationController.text.trim();
+    final phone = _phoneController.text.trim().replaceAll(' ', '');
+
+    // Không yêu cầu số ký tự tối thiểu, chỉ cần có nhập và không phải khoảng trắng
+    if (!formOk || name.isEmpty || ageStr.isEmpty || occ.isEmpty || phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng điền thông tin người đăng ở Bước 1!'),
+          backgroundColor: AppColors.danger,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return false;
+    }
+    return true;
+  }
+
+  bool _validateStep1() {
+    final formOk = _currentStep != 1 || (_formKey.currentState?.validate() ?? false);
+    final title = _titleController.text.trim();
+    final rawPrice = _priceController.text.trim();
+    final address = _addressController.text.trim();
+    final desc = _descController.text.trim();
+
+    // Không yêu cầu số ký tự tối thiểu, chỉ cần có nhập và không phải khoảng trắng
+    if (!formOk || title.isEmpty || rawPrice.isEmpty || address.isEmpty || desc.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng điền thông tin bài đăng ở Bước 2!'),
+          backgroundColor: AppColors.danger,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return false;
+    }
+    return true;
+  }
+
+  bool _validateStep2() {
+    // Cho phép đăng linh hoạt, không chặn người dùng
+    return true;
   }
 
   Future<void> _submitPost() async {
@@ -215,30 +292,23 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
       return;
     }
 
-    final title = _titleController.text.trim();
-    if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập tiêu đề bài đăng!'), backgroundColor: AppColors.danger),
-      );
+    if (!_validateStep0()) {
+      setState(() => _currentStep = 0);
+      return;
+    }
+    if (!_validateStep1()) {
+      setState(() => _currentStep = 1);
+      return;
+    }
+    if (!_validateStep2()) {
+      setState(() => _currentStep = 2);
       return;
     }
 
+    final title = _titleController.text.trim();
     final rawPrice = _priceController.text.trim().replaceAll('.', '').replaceAll(',', '');
     final price = double.tryParse(rawPrice) ?? 0.0;
-    if (price <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập số tiền thuê / ngân sách hợp lệ!'), backgroundColor: AppColors.danger),
-      );
-      return;
-    }
-
     final specificAddress = _addressController.text.trim();
-    if (specificAddress.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập địa chỉ cụ thể!'), backgroundColor: AppColors.danger),
-      );
-      return;
-    }
 
     final authorId = user.uid;
     final authorName = _authorNameController.text.trim().isNotEmpty
@@ -280,7 +350,7 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
         address: fullAddress,
         district: _selectedDistrict,
         targetGender: _targetGender,
-        habits: List<String>.from(_selectedHabits),
+        habits: _selectedHabits.isNotEmpty ? _selectedHabits : ['Sạch sẽ', 'Hòa đồng'],
         images: uploadedUrls,
         imageCaptions: uploadedUrls.map((_) => 'Ảnh phòng').toList(),
         isVerified: profile?.isCccdVerified ?? false,
@@ -469,15 +539,31 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
           subtitle: 'Giúp người tìm phòng hiểu rõ hơn về bạn cùng phòng tiềm năng',
           icon: Icons.person_outline,
           children: [
-            _buildTextField(label: 'Họ và tên *', controller: _authorNameController),
+            _buildTextField(
+              label: 'Họ và tên *',
+              controller: _authorNameController,
+              hint: 'Nhập họ và tên đầy đủ',
+              validator: (val) {
+                if (val == null || val.trim().isEmpty) return 'Vui lòng nhập họ và tên của bạn';
+                return null;
+              },
+            ),
             const SizedBox(height: 12),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: _buildTextField(
                     label: 'Tuổi *',
                     controller: _authorAgeController,
                     keyboardType: TextInputType.number,
+                    hint: 'Ví dụ: 21',
+                    validator: (val) {
+                      if (val == null || val.trim().isEmpty) return 'Vui lòng nhập tuổi';
+                      final age = int.tryParse(val.trim());
+                      if (age == null || age <= 0) return 'Tuổi không hợp lệ';
+                      return null;
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -504,12 +590,21 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
               label: 'Nghề nghiệp / Trường học *',
               controller: _authorOccupationController,
               hint: 'Ví dụ: SV Đại học Bách Khoa / Lập trình viên',
+              validator: (val) {
+                if (val == null || val.trim().isEmpty) return 'Vui lòng nhập nghề nghiệp hoặc trường học';
+                return null;
+              },
             ),
             const SizedBox(height: 12),
             _buildTextField(
               label: 'Số điện thoại / Zalo liên hệ *',
               controller: _phoneController,
               keyboardType: TextInputType.phone,
+              hint: 'Ví dụ: 0912345678',
+              validator: (val) {
+                if (val == null || val.trim().isEmpty) return 'Vui lòng nhập số điện thoại liên hệ';
+                return null;
+              },
             ),
           ],
         ),
@@ -557,6 +652,10 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
               label: 'Tiêu đề bài đăng *',
               controller: _titleController,
               hint: 'Ví dụ: Tìm bạn nữ ở ghép căn hộ 2PN',
+              validator: (val) {
+                if (val == null || val.trim().isEmpty) return 'Vui lòng nhập tiêu đề bài đăng';
+                return null;
+              },
             ),
             const SizedBox(height: 12),
             _buildTextField(
@@ -564,6 +663,13 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
               controller: _priceController,
               keyboardType: TextInputType.number,
               hint: 'Ví dụ: 1800000',
+              validator: (val) {
+                if (val == null || val.trim().isEmpty) return 'Vui lòng nhập số tiền chi phí';
+                final raw = val.trim().replaceAll('.', '').replaceAll(',', '');
+                final parsed = double.tryParse(raw);
+                if (parsed == null || parsed <= 0) return 'Số tiền chi phí không hợp lệ';
+                return null;
+              },
             ),
             const SizedBox(height: 12),
             Column(
@@ -680,6 +786,10 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
               label: 'Địa chỉ cụ thể *',
               controller: _addressController,
               hint: 'Ví dụ: Số 10 đường Số 8, P. Linh Trung',
+              validator: (val) {
+                if (val == null || val.trim().isEmpty) return 'Vui lòng nhập địa chỉ cụ thể của phòng';
+                return null;
+              },
             ),
             const SizedBox(height: 12),
             _buildTextField(
@@ -687,6 +797,10 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
               controller: _descController,
               maxLines: 3,
               hint: 'Mô tả không gian, tiện ích có sẵn, giờ giấc, nội quy phòng...',
+              validator: (val) {
+                if (val == null || val.trim().isEmpty) return 'Vui lòng nhập mô tả chi tiết phòng';
+                return null;
+              },
             ),
           ],
         ),
@@ -700,15 +814,16 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionCard(
-          title: 'Thói quen sinh hoạt & Lối sống',
-          subtitle: 'Chọn các tiêu chí giúp AI kết nối bạn cùng phòng tương thích',
+          title: 'Tiêu chí sinh hoạt & Lối sống',
+          subtitle: 'Chọn tiêu chí có sẵn hoặc nhập thêm tiêu chí mong muốn của bạn',
           icon: Icons.interests_outlined,
           children: [
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: _commonHabits.map((habit) {
+              children: _allHabits.map((habit) {
                 final isSelected = _selectedHabits.contains(habit);
+                final isCustom = _customHabits.contains(habit);
                 return FilterChip(
                   label: Text(habit),
                   selected: isSelected,
@@ -721,6 +836,17 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
                       }
                     });
                   },
+                  onDeleted: isCustom
+                      ? () {
+                          setState(() {
+                            _customHabits.remove(habit);
+                            _selectedHabits.remove(habit);
+                          });
+                        }
+                      : null,
+                  deleteIcon: isCustom
+                      ? const Icon(Icons.close_rounded, size: 14, color: Color(0xFF64748B))
+                      : null,
                   selectedColor: AppColors.primarySurface,
                   checkmarkColor: AppColors.primary,
                   backgroundColor: const Color(0xFFF1F5F9),
@@ -729,46 +855,79 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
                     color: isSelected ? AppColors.primaryDark : const Color(0xFF334155),
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
-                  side: BorderSide(color: isSelected ? AppColors.primary.withValues(alpha: 0.3) : const Color(0xFFE2E8F0)),
+                  side: BorderSide(
+                    color: isSelected
+                        ? AppColors.primary.withValues(alpha: 0.3)
+                        : const Color(0xFFE2E8F0),
+                  ),
                 );
               }).toList(),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _customHabitController,
-                    decoration: _inputDecoration(hint: 'Thêm thói quen khác...'),
-                    onSubmitted: (_) => _addCustomHabit(),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Nhập tiêu chí sinh hoạt cho người muốn thêm:',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF334155),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: _addCustomHabit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(72, 44),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _customHabitController,
+                          decoration: _inputDecoration(
+                            hint: 'VD: Thích nuôi mèo, Không nấu ăn đêm...',
+                          ).copyWith(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            isDense: true,
+                          ),
+                          onSubmitted: (_) => _addCustomHabit(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: _addCustomHabit,
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        label: const Text('Thêm tiêu chí'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ],
                   ),
-                  child: const Text('Thêm'),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
         const SizedBox(height: 16),
 
         _buildSectionCard(
-          title: 'Hình ảnh phòng (nếu có)',
-          subtitle: 'Bài đăng có hình ảnh thực tế nhận được nhiều liên hệ hơn 300%',
+          title: 'Hình ảnh phòng thực tế',
+          subtitle: _selectedImages.isNotEmpty
+              ? 'Đã chọn ${_selectedImages.length} ảnh. Bạn có thể chọn thêm nhiều ảnh nữa.'
+              : 'Chọn nhiều ảnh từ thư viện để bài đăng trực quan và thu hút hơn',
           icon: Icons.photo_library_outlined,
           children: [
-            if (_selectedImages.isNotEmpty)
+            if (_selectedImages.isNotEmpty) ...[
               SizedBox(
-                height: 90,
+                height: 95,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   itemCount: _selectedImages.length,
@@ -776,8 +935,8 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
                     return Stack(
                       children: [
                         Container(
-                          width: 90,
-                          height: 90,
+                          width: 95,
+                          height: 95,
                           margin: const EdgeInsets.only(right: 8),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(10),
@@ -804,7 +963,8 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
                   },
                 ),
               ),
-            const SizedBox(height: 10),
+              const SizedBox(height: 12),
+            ],
             Row(
               children: [
                 Expanded(
@@ -819,11 +979,14 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: OutlinedButton.icon(
+                  flex: 2,
+                  child: ElevatedButton.icon(
                     onPressed: () => _pickImage(ImageSource.gallery),
-                    icon: const Icon(Icons.photo_outlined, size: 18),
-                    label: const Text('Từ thư viện'),
-                    style: OutlinedButton.styleFrom(
+                    icon: const Icon(Icons.photo_library_outlined, size: 18),
+                    label: const Text('Chọn nhiều ảnh từ thư viện'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
@@ -860,8 +1023,10 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
             flex: 2,
             child: ElevatedButton(
               onPressed: () {
-                if (_currentStep < 2) {
-                  setState(() => _currentStep++);
+                if (_currentStep == 0) {
+                  if (_validateStep0()) setState(() => _currentStep = 1);
+                } else if (_currentStep == 1) {
+                  if (_validateStep1()) setState(() => _currentStep = 2);
                 } else {
                   _submitPost();
                 }
@@ -972,6 +1137,7 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
     String? hint,
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
+    String? Function(String?)? validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -982,6 +1148,8 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
           controller: controller,
           keyboardType: keyboardType,
           maxLines: maxLines,
+          validator: validator,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           decoration: _inputDecoration(hint: hint),
         ),
       ],
@@ -1008,6 +1176,15 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
       ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppColors.danger, width: 1.2),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppColors.danger, width: 1.5),
+      ),
+      errorStyle: const TextStyle(fontSize: 11, color: AppColors.danger, height: 1.2),
     );
   }
 }

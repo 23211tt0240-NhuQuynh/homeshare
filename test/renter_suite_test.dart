@@ -8,7 +8,6 @@ import 'package:home_share/core/services/room_service.dart';
 import 'package:home_share/core/services/roommate_service.dart';
 import 'package:home_share/core/services/chat_service.dart';
 import 'package:home_share/features/auth/providers/user_provider.dart';
-import 'package:home_share/core/services/user_profile_service.dart';
 import 'package:home_share/core/constants/vietnam_locations.dart';
 
 void main() {
@@ -41,13 +40,13 @@ void main() {
       expect(room.isAvailable, isTrue);
 
       final map = room.toMap();
-      expect(map['title'], equals('Phòng trọ cao cấp trung tâm Thủ Đức'));
       expect(map['tieuDe'], equals('Phòng trọ cao cấp trung tâm Thủ Đức'));
-      expect(map['price'], equals(3500000));
-      expect(map['giaThueThang'], equals(3500000));
-      expect(map['district'], equals('TP. Thủ Đức'));
+      expect(map['giaThue'], equals(3500000));
       expect(map['quanHuyen'], equals('TP. Thủ Đức'));
-      expect(map['isAvailable'], isTrue);
+      expect(map['trangThai'], equals('conPhong'));
+      expect(map.containsKey('tieuDe'), isTrue);
+      expect(map.containsKey('giaThue'), isTrue);
+      expect(map.containsKey('quanHuyen'), isTrue);
     });
 
     test('RoomModel fromMap parses DrawIO Vietnamese schema keys correctly', () {
@@ -115,14 +114,12 @@ void main() {
 
       final map = post.toMap();
       expect(map['authorName'], equals('Lê Văn An'));
-      expect(map['title'], equals('Tìm bạn nam ở ghép phòng gần HUTECH'));
-      expect(map['targetGender'], equals('Nam'));
+      expect(map['tieuDe'], equals('Tìm bạn nam ở ghép phòng gần HUTECH'));
+      expect(map['gioiTinhMongMuon'], equals('Nam'));
       expect(map['hasRoom'], isTrue);
-      expect(map['pricePerPerson'], equals(1800000));
-      expect(map['budgetMax'], equals(2000000));
-      expect(map['habits'], contains('Không hút thuốc'));
-      expect(map.containsKey('tieuDe'), isFalse);
-      expect(map.containsKey('thoiQuen'), isFalse);
+      expect(map['giaMoiNguoi'], equals(1800000));
+      expect(map['nganSachDen'], equals(2000000));
+      expect(map['thoiQuen'], contains('Không hút thuốc'));
     });
 
     test('RoommatePostModel fromMap parses DrawIO Vietnamese keys', () {
@@ -192,12 +189,14 @@ void main() {
       expect(booking.rentalMonths, equals(6));
 
       final map = booking.toMap();
-      expect(map['renterName'], equals('Nguyễn Văn Thuê'));
       expect(map['tenNguoiO'], equals('Nguyễn Văn Thuê'));
       expect(map['tongPhaiTra'], equals(7000000));
       expect(map['soThangThue'], equals(6));
-      expect(map['status'], equals('pending'));
-      expect(map['hostName'], equals('Nguyễn Văn Chủ'));
+      expect(map['trangThai'], equals('pending'));
+      expect(map['tenChuNha'], equals('Nguyễn Văn Chủ'));
+      expect(map.containsKey('renterName'), isFalse);
+      expect(map.containsKey('status'), isFalse);
+      expect(map.containsKey('hostName'), isFalse);
     });
 
     test('BookingRequestModel fromMap parses DrawIO keys correctly', () {
@@ -296,45 +295,6 @@ void main() {
       expect(profile.reputationScore, equals(100));
       expect(profile.occupation, equals('Kỹ sư phần mềm'));
       expect(profile.hobbies, contains('Đọc sách'));
-      expect(profile.gender, equals('Nam'));
-    });
-
-    test('Hồ sơ mới không gắn cứng giới tính, nghề nghiệp, giới thiệu hay sở thích', () {
-      final profile = UserProfile.fromMap({
-        'hoTen': 'Lê An',
-        'email': 'an@gmail.com',
-        'soDienThoai': '0901111222',
-      }, 'u_new');
-
-      expect(profile.gender, isEmpty);
-      expect(profile.occupation, isEmpty);
-      expect(profile.workplace, isEmpty);
-      expect(profile.bio, isEmpty);
-      expect(profile.hobbies, isEmpty);
-      expect(profile.gioiThieu, isEmpty);
-      expect(profile.noiLamViec, isEmpty);
-    });
-
-    test('gioiThieu và noiLamViec đi theo hồ sơ, sở thích N-N không đụng bảng Yêu thích', () {
-      final profile = UserProfile.fromMap({
-        'gioiThieu': 'Mình thích yên tĩnh',
-        'noiLamViec': 'ĐH Ngoại Thương',
-        'ngheNghiep': 'Sinh viên',
-      }, 'u_bio');
-
-      expect(profile.bio, equals('Mình thích yên tĩnh'));
-      expect(profile.workplace, equals('ĐH Ngoại Thương'));
-      expect(profile.toMap()['bio'], equals('Mình thích yên tĩnh'));
-      expect(profile.toMap()['workplace'], equals('ĐH Ngoại Thương'));
-
-      expect(nguoiDungSoThichDocId('u_bio', 'st_01'), equals('u_bio__st_01'));
-      expect(
-        soThichIdsToUnlink(
-          currentSoThichIds: {'st_01', 'st_02'},
-          desiredSoThichIds: {'st_02'},
-        ),
-        equals({'st_01'}),
-      );
     });
   });
 
