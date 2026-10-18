@@ -3,9 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:home_share/core/constants/app_colors.dart';
 
 void main() {
-  testWidgets('App colors and basic theme smoke test', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('App colors and basic theme smoke test', (WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -13,10 +11,7 @@ void main() {
           body: const Center(
             child: Text(
               'HomeShare Renter Suite',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
             ),
           ),
         ),

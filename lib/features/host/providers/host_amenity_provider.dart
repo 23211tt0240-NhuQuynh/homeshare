@@ -32,32 +32,33 @@ final hostAmenitiesProvider =
 
   return FirebaseFirestore.instance.collection('amenities').snapshots().map(
     (snapshot) {
-      // 1. Luôn nạp sẵn danh sách tiện ích mẫu chuẩn (defaultHostAmenities) làm nền tảng
-      final result = <Map<String, String>>[];
-      final seenNames = <String>{};
-
-      for (final def in defaultHostAmenities) {
-        result.add({'id': def.toLowerCase(), 'name': def});
-        seenNames.add(def.toLowerCase());
+      if (snapshot.docs.isEmpty) {
+        return defaultHostAmenities
+            .map((name) => {'id': name.toLowerCase(), 'name': name})
+            .toList();
       }
 
-      // 2. Hợp nhất các tiện ích từ Firestore collection 'amenities' nếu chưa tồn tại
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final name = (data['name'] ??
-                data['ten'] ??
-                data['label'] ??
-                data['tenTienIch'] ??
-                '')
-            .toString()
-            .trim();
-        if (name.isNotEmpty && !seenNames.contains(name.toLowerCase())) {
-          seenNames.add(name.toLowerCase());
-          result.add({'id': doc.id, 'name': name});
-        }
-      }
+      final items = snapshot.docs
+          .map((doc) {
+            final data = doc.data();
+            final name = (data['name'] ??
+                    data['ten'] ??
+                    data['label'] ??
+                    data['tenTienIch'] ??
+                    '')
+                .toString()
+                .trim();
+            return {'id': doc.id, 'name': name};
+          })
+          .where((item) => item['name']!.isNotEmpty)
+          .toList();
 
-      return result;
+      if (items.isEmpty) {
+        return defaultHostAmenities
+            .map((name) => {'id': name.toLowerCase(), 'name': name})
+            .toList();
+      }
+      return items;
     },
   );
 });

@@ -30,33 +30,23 @@ class BookingService {
 
     return _firestore
         .collection('bookings')
-        // Người thuê - Lọc đơn tại Firebase - Luồng đi: Chỉ truy vấn
-        // đơn của tài khoản đang xem để phù hợp Rules theo chủ sở hữu.
-        .where('renterId', isEqualTo: renterId)
         .snapshots()
         .map((snapshot) {
-          final list = snapshot.docs
-              .map((doc) {
-                try {
-                  final data = doc.data();
-                  final docRenterId =
-                      data['renterId'] ??
-                      data['nguoiDung_Id'] ??
-                      data['khachXemId'] ??
-                      '';
-                  if (docRenterId != renterId) return null;
-                  return BookingRequestModel.fromFirestore(doc);
-                } catch (e) {
-                  debugPrint('Error parsing booking ${doc.id}: $e');
-                  return null;
-                }
-              })
-              .whereType<BookingRequestModel>()
-              .toList();
+      final list = snapshot.docs.map((doc) {
+        try {
+          final data = doc.data();
+          final docRenterId = data['renterId'] ?? data['nguoiDung_Id'] ?? data['khachXemId'] ?? '';
+          if (docRenterId != renterId) return null;
+          return BookingRequestModel.fromFirestore(doc);
+        } catch (e) {
+          debugPrint('Error parsing booking ${doc.id}: $e');
+          return null;
+        }
+      }).whereType<BookingRequestModel>().toList();
 
-          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          return list;
-        });
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
+    });
   }
 
   // Hủy đơn thuê (cập nhật cả status và trangThai)
@@ -68,12 +58,9 @@ class BookingService {
   }
 }
 
-final bookingServiceProvider = Provider<BookingService>(
-  (ref) => BookingService(),
-);
+final bookingServiceProvider = Provider<BookingService>((ref) => BookingService());
 
-final renterBookingsStreamProvider = StreamProvider.autoDispose
-    .family<List<BookingRequestModel>, String>((ref, renterId) {
-      final service = ref.watch(bookingServiceProvider);
-      return service.getRenterBookingsStream(renterId);
-    });
+final renterBookingsStreamProvider = StreamProvider.autoDispose.family<List<BookingRequestModel>, String>((ref, renterId) {
+  final service = ref.watch(bookingServiceProvider);
+  return service.getRenterBookingsStream(renterId);
+});

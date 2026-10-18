@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,10 +47,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
   }
 
   Future<void> _pickEvidence() async {
-    final picked = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 80,
-    );
+    final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (picked != null) {
       setState(() => _evidenceImage = picked);
     }
@@ -82,8 +78,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
         'hostName': widget.room.hostName,
         'hostPhone': widget.room.hostPhone,
         'reporterId': user?.uid ?? 'guest',
-        'reporterName':
-            profile?.displayName ?? user?.displayName ?? 'Khách thuê',
+        'reporterName': profile?.displayName ?? user?.displayName ?? 'Khách thuê',
         'reason': _selectedReason,
         'detail': detail,
         'hasEvidenceImage': _evidenceImage != null,
@@ -98,17 +93,12 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
           context: context,
           barrierDismissible: false,
           builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
                 Icon(Icons.shield_outlined, color: AppColors.primary, size: 26),
                 SizedBox(width: 8),
-                Text(
-                  'Đã Tiếp Nhận Báo Cáo',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
+                Text('Đã Tiếp Nhận Báo Cáo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ],
             ),
             content: const Text(
@@ -134,10 +124,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Có lỗi xảy ra: $e'),
-            backgroundColor: AppColors.danger,
-          ),
+          SnackBar(content: Text('Có lỗi xảy ra: $e'), backgroundColor: AppColors.danger),
         );
       }
     } finally {
@@ -177,12 +164,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                       height: 50,
                       color: Colors.grey.shade200,
                       child: widget.room.images.isNotEmpty
-                          ? Image.network(
-                              widget.room.images.first,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(Icons.home),
-                            )
+                          ? Image.network(widget.room.images.first, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => const Icon(Icons.home))
                           : const Icon(Icons.home, color: AppColors.primary),
                     ),
                   ),
@@ -193,21 +175,14 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                       children: [
                         Text(
                           widget.room.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: AppColors.textDark,
-                          ),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 3),
                         Text(
                           'Chủ nhà: ${widget.room.hostName}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textMuted,
-                          ),
+                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                         ),
                       ],
                     ),
@@ -220,11 +195,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
 
             const Text(
               'LÝ DO BÁO CÁO VI PHẠM (*)',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: AppColors.textDark,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
             ),
             const SizedBox(height: 8),
 
@@ -235,34 +206,29 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: Colors.grey.shade200),
               ),
-              child: Column(
-                children: _reportReasons.map((reason) {
-                  return RadioListTile<String>(
-                    value: reason,
-                    groupValue: _selectedReason,
-                    onChanged: (val) {
-                      if (val != null) setState(() => _selectedReason = val);
-                    },
-                    title: Text(
-                      reason,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: _selectedReason == reason
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        color: _selectedReason == reason
-                            ? AppColors.textDark
-                            : AppColors.textSecondary,
+              child: RadioGroup<String>(
+                groupValue: _selectedReason,
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedReason = val);
+                },
+                child: Column(
+                  children: _reportReasons.map((reason) {
+                    return RadioListTile<String>(
+                      value: reason,
+                      title: Text(
+                        reason,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: _selectedReason == reason ? FontWeight.bold : FontWeight.normal,
+                          color: _selectedReason == reason ? AppColors.textDark : AppColors.textSecondary,
+                        ),
                       ),
-                    ),
-                    activeColor: AppColors.primary,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 0,
-                    ),
-                    visualDensity: VisualDensity.compact,
-                  );
-                }).toList(),
+                      activeColor: AppColors.primary,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                      visualDensity: VisualDensity.compact,
+                    );
+                  }).toList(),
+                ),
               ),
             ),
 
@@ -270,11 +236,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
 
             const Text(
               'MÔ TẢ CHI TIẾT NỘI DUNG VI PHẠM',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: AppColors.textDark,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
             ),
             const SizedBox(height: 8),
 
@@ -282,12 +244,8 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
               controller: _detailController,
               maxLines: 4,
               decoration: InputDecoration(
-                hintText:
-                    'Cung cấp thêm chi tiết cụ thể (thời gian, hành vi, tin nhắn...) để HomeShare xử lý nhanh nhất...',
-                hintStyle: const TextStyle(
-                  fontSize: 12.5,
-                  color: Color(0xFF6B7280),
-                ),
+                hintText: 'Cung cấp thêm chi tiết cụ thể (thời gian, hành vi, tin nhắn...) để HomeShare xử lý nhanh nhất...',
+                hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF6B7280)),
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
@@ -309,11 +267,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
               children: [
                 const Text(
                   'HÌNH ẢNH BẰNG CHỨNG (TÙY CHỌN)',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: AppColors.textDark,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
                 ),
                 TextButton.icon(
                   onPressed: _pickEvidence,
@@ -346,11 +300,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                     ),
                     IconButton(
                       tooltip: 'Xóa ảnh bằng chứng',
-                      icon: const Icon(
-                        Icons.close,
-                        size: 18,
-                        color: Colors.red,
-                      ),
+                      icon: const Icon(Icons.close, size: 18, color: Colors.red),
                       onPressed: () => setState(() => _evidenceImage = null),
                     ),
                   ],
@@ -370,32 +320,21 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
               backgroundColor: const Color(0xFFDC2626),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: _isSubmitting ? null : _submitReport,
             child: _isSubmitting
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
                 : const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.report_problem_outlined, size: 18),
                       SizedBox(width: 8),
-                      Text(
-                        'Gửi Báo Cáo Vi Phạm',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
+                      Text('Gửi Báo Cáo Vi Phạm', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     ],
                   ),
           ),

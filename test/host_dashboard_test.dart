@@ -158,94 +158,6 @@ void main() {
       expect(enriched.isVerified, isTrue);
       expect(enriched.isVip, isTrue);
     });
-
-    test('HostPostModel.cleanImageUrl extracts true URLs from map strings, quotes, and objects', () {
-      expect(
-        HostPostModel.cleanImageUrl('{duongDan: https://res.cloudinary.com/test.jpg}'),
-        'https://res.cloudinary.com/test.jpg',
-      );
-      expect(
-        HostPostModel.cleanImageUrl('{"url": "https://firebase.com/photo.png"}'),
-        'https://firebase.com/photo.png',
-      );
-      expect(
-        HostPostModel.cleanImageUrl('"https://example.com/avatar.jpg"'),
-        'https://example.com/avatar.jpg',
-      );
-    });
-
-    test('HostPostModel.fromMap extracts images across all Firestore schema variations', () {
-      final postFromPhotos = HostPostModel.fromMap({
-        'photos': ['https://example.com/photo1.jpg', '{duongDan: https://example.com/photo2.jpg}'],
-        'anhDaiDien': '{duongDan: https://example.com/host_avatar.jpg}',
-      }, 'p-photos');
-
-      expect(postFromPhotos.images.length, 2);
-      expect(postFromPhotos.images[0], 'https://example.com/photo1.jpg');
-      expect(postFromPhotos.images[1], 'https://example.com/photo2.jpg');
-      expect(postFromPhotos.authorAvatar, 'https://example.com/host_avatar.jpg');
-
-      final postFromMapList = HostPostModel.fromMap({
-        'hinhAnh': [
-          {'duongDan': 'https://example.com/img3.jpg'},
-          {'url': 'https://example.com/img4.jpg'},
-        ],
-      }, 'p-maps');
-
-      expect(postFromMapList.images.length, 2);
-      expect(postFromMapList.images[0], 'https://example.com/img3.jpg');
-      expect(postFromMapList.images[1], 'https://example.com/img4.jpg');
-    });
-
-    test('HostPostModel extracts room code and property name from compound title Phòng A102 • Nhà trọ i tê', () {
-      final post = HostPostModel.fromMap({
-        'tieuDe': 'Phòng A102 • Nhà trọ i tê',
-        'giaThue': 1200000,
-        'authorName': 'tienanh pro',
-        'phongId': 'A102',
-      }, 'post-a102');
-
-      expect(post.tieuDe, 'Phòng A102 • Nhà trọ i tê');
-      expect(post.propertyName, 'Nhà trọ i tê');
-      expect(post.phongId, 'A102');
-      expect(post.giaThue, 1200000);
-      expect(post.authorName, 'tienanh pro');
-    });
-
-    test('HostPostModel.withRoom properly inherits room images when post.images is empty', () {
-      final emptyPost = HostPostModel(
-        id: 'p-empty',
-        tieuDe: 'Phòng A102 • Nhà trọ i tê',
-        moTa: 'Mô tả phòng',
-        giaThue: 1200000,
-        ngayDang: DateTime.now(),
-        images: const [],
-      );
-
-      final roomWithImages = RoomModel(
-        id: 'r-a102',
-        title: 'Nhà trọ i tê',
-        description: 'Phòng sạch đẹp',
-        price: 1200000,
-        deposit: 240000,
-        address: 'Thành phố Thủ Đức',
-        district: 'Thành phố Thủ Đức',
-        area: 25.0,
-        roomType: 'Phòng trọ',
-        amenities: const ['Máy lạnh', 'Wifi tốc độ cao'],
-        images: const ['https://example.com/room_a102.jpg', 'https://example.com/facility.jpg'],
-        hostId: 'host-1',
-        hostName: 'tienanh pro',
-        hostPhone: '0901234567',
-        createdAt: DateTime.now(),
-      );
-
-      final enriched = emptyPost.withRoom(roomWithImages);
-      expect(enriched.images, hasLength(2));
-      expect(enriched.images.first, 'https://example.com/room_a102.jpg');
-      expect(enriched.joinedRoom?.images, hasLength(2));
-      expect(enriched.roomArea, 25.0);
-    });
   });
 
   group('Host Home Filter Logic Tests', () {
@@ -639,42 +551,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('Advanced filter pre-populates sample amenities when provider is empty', (
-      tester,
-    ) async {
-      tester.view.physicalSize = const Size(390, 2400);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            hostHomePostsProvider.overrideWith((ref) => Stream.value([])),
-            hostAmenityNamesProvider.overrideWithValue([]),
-          ],
-          child: MaterialApp(
-            theme: AppTheme.lightTheme,
-            home: const HostDashboardScreen(initialLocationExpanded: false),
-          ),
-        ),
-      );
-
-      await tester.pumpAndSettle();
-
-      // Mở bộ lọc nâng cao
-      final filterBtn = find.text('Nâng cao');
-      expect(filterBtn, findsOneWidget);
-      await tester.tap(filterBtn);
-      await tester.pumpAndSettle();
-
-      // Tiện ích mẫu mặc định (Wifi, Máy lạnh, Tủ lạnh, Máy giặt) được hiển thị sẵn
-      expect(find.text('Wifi'), findsOneWidget);
-      expect(find.text('Máy lạnh'), findsOneWidget);
-      expect(find.text('Tủ lạnh'), findsOneWidget);
-      expect(find.text('Máy giặt'), findsOneWidget);
     });
   });
 }

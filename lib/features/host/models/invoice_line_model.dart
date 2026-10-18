@@ -102,26 +102,15 @@ class InvoiceLineModel {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'lineId': id,
       'violationRecordId': violationRecordId,
-      'bienBanId': violationRecordId,
-      'viPhamId': violationId,
       'violationId': violationId,
       'roomId': roomId,
-      'phongId': roomId,
       'periodId': periodId,
-      'kyThue_id': periodId,
-      'kyOId': periodId,
       'amount': amount,
-      'soTien': amount,
       'purpose': purpose,
-      'mucDich': purpose,
       'title': title,
-      'ten': title,
       'status': status,
-      'trangThai': status,
       'createdAt': Timestamp.fromDate(createdAt),
-      'ngayTao': Timestamp.fromDate(createdAt),
     };
   }
 }

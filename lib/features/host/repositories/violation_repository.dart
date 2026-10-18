@@ -388,13 +388,10 @@ class ViolationRepository {
         .doc(recordId)
         .update({
       'status': 'PAID',
-      'trangThai': 'PAID',
       'paidAt': Timestamp.now(),
-      'thanhToanLuc': Timestamp.now(),
       'paidMethod': 'CASH',
       'paidCollector': hostId,
       'updatedAt': Timestamp.now(),
-      'ngayCapNhat': Timestamp.now(),
     });
   }
 
@@ -428,10 +425,8 @@ class ViolationRepository {
         .doc(record.id);
     batch.update(recDocRef, {
       'status': 'ADDED_TO_INVOICE',
-      'trangThai': 'ADDED_TO_INVOICE',
       'paymentMethod': 'NEXT_INVOICE',
       'updatedAt': Timestamp.now(),
-      'ngayCapNhat': Timestamp.now(),
     });
 
     await batch.commit();
@@ -444,9 +439,7 @@ class ViolationRepository {
         .doc(recordId)
         .update({
       'lastReminderAt': Timestamp.now(),
-      'nhacNhoCuoiLuc': Timestamp.now(),
       'updatedAt': Timestamp.now(),
-      'ngayCapNhat': Timestamp.now(),
     });
   }
 }

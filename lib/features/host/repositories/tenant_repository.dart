@@ -137,10 +137,16 @@ class TenantRepository {
           // 4. Lấy cư dân theo từng kỳ ở
           final residentsByPeriod = <String, List<ResidentModel>>{};
           for (final period in hostPeriods) {
-            final resSnap = await _firestore
+            var resSnap = await _firestore
                 .collection(FirestoreCollections.residents)
-                .where('kyThue_id', isEqualTo: period.id)
+                .where('periodId', isEqualTo: period.id)
                 .get();
+            if (resSnap.docs.isEmpty) {
+              resSnap = await _firestore
+                  .collection(FirestoreCollections.residents)
+                  .where('kyThue_id', isEqualTo: period.id)
+                  .get();
+            }
 
             residentsByPeriod[period.id] =
                 resSnap.docs.map(ResidentModel.fromFirestore).toList();
@@ -323,7 +329,7 @@ class TenantRepository {
   }) async {
     final batch = _firestore.batch();
 
-    // 1. Tạo booking
+    // 1. Tạo booking & lưu don_dat_phong theo chuẩn Ảnh 2 & SQL_NHOM4_CHUYENDEDIDONG.sql
     final bookingRef = _firestore.collection(FirestoreCollections.bookings).doc();
     final booking = BookingRequestModel(
       id: bookingRef.id,
@@ -342,7 +348,21 @@ class TenantRepository {
       moveInDate: moveInDate,
       createdAt: DateTime.now(),
     );
-    batch.set(bookingRef, booking.toMap());
+    // 1. Tạo hoặc cập nhật booking
+    final bookingPayload = {
+      'id': bookingRef.id,
+      'roomId': roomId,
+      'renterId': booking.renterId,
+      'renterName': tenantName,
+      'renterPhone': tenantPhone,
+      'deposit': deposit,
+      'rentalMonths': rentalMonths,
+      'moveInDate': Timestamp.fromDate(moveInDate),
+      'status': 'daCoc',
+      'hostId': hostId,
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+    batch.set(bookingRef, bookingPayload);
 
     // 2. Tạo kỳ ở (period)
     final periodRef = _firestore.collection(FirestoreCollections.periods).doc();

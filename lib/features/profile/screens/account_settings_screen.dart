@@ -30,7 +30,11 @@ class AccountSettingsScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const Icon(Icons.logout_rounded, color: AppColors.danger, size: 48),
+            const Icon(
+              Icons.logout_rounded,
+              color: AppColors.danger,
+              size: 48,
+            ),
             const SizedBox(height: 12),
             const Text(
               'Đăng xuất khỏi tài khoản?',
@@ -44,7 +48,10 @@ class AccountSettingsScreen extends ConsumerWidget {
             const Text(
               'Bạn sẽ cần đăng nhập lại để tiếp tục quản lý phòng hoặc liên hệ ở ghép.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: AppColors.textMuted),
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.textMuted,
+              ),
             ),
             const SizedBox(height: 24),
             Row(
@@ -61,10 +68,7 @@ class AccountSettingsScreen extends ConsumerWidget {
                     ),
                     child: const Text(
                       'Hủy',
-                      style: TextStyle(
-                        color: AppColors.textDark,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
@@ -103,13 +107,61 @@ class AccountSettingsScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _handleSwitchRole(BuildContext context, WidgetRef ref, UserProfile? profile) async {
+    if (profile == null) return;
+    final isHost = profile.isHost;
+    final targetRole = isHost ? 'renter' : 'host';
+    final targetRoleName = isHost ? 'Người thuê' : 'Chủ trọ';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Đổi vai trò sang $targetRoleName?'),
+        content: Text(
+          isHost
+              ? 'Tài khoản của bạn sẽ được chuyển sang vai trò Người thuê (tìm phòng, ở ghép).'
+              : 'Tài khoản của bạn sẽ được chuyển sang vai trò Chủ trọ (quản lý cơ sở, phòng, khách thuê).',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Xác nhận'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await updateUserRole(uid: profile.uid, newRole: targetRole);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã cập nhật vai trò tài khoản thành $targetRoleName!'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+        Navigator.popUntil(context, (route) => route.isFirst);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(userProfileProvider).value;
     final isVerified = profile?.isCccdVerified == true;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Cài đặt tài khoản')),
+      appBar: AppBar(
+        title: const Text('Cài đặt tài khoản'),
+      ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
@@ -119,9 +171,8 @@ class AccountSettingsScreen extends ConsumerWidget {
             _buildSettingsItem(
               icon: Icons.person_outline,
               title: 'Thông tin cá nhân',
-              subtitle:
-                  '${profile?.displayName ?? "Người dùng"} • Mã ID: ${profile?.userCode ?? "---"}',
-              onTap: () {},
+              subtitle: '${profile?.displayName ?? "Người dùng"} • Mã ID: ${profile?.userCode ?? "---"}',
+              onTap: () => _showProfileDetailsBottomSheet(context, profile),
             ),
             _buildDivider(),
             _buildSettingsItem(
@@ -133,22 +184,16 @@ class AccountSettingsScreen extends ConsumerWidget {
               trailing: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isVerified
-                      ? AppColors.primaryContainer
-                      : const Color(0xFFFEF3C7),
+                  color: isVerified ? AppColors.primaryContainer : const Color(0xFFFEF3C7),
                   borderRadius: BorderRadius.circular(6),
-                  border: isVerified
-                      ? null
-                      : Border.all(color: const Color(0xFFF59E0B)),
+                  border: isVerified ? null : Border.all(color: const Color(0xFFF59E0B)),
                 ),
                 child: Text(
                   isVerified ? 'Đã duyệt ✓' : 'Chưa xác thực >',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: isVerified
-                        ? AppColors.primary
-                        : const Color(0xFFB45309),
+                    color: isVerified ? AppColors.primary : const Color(0xFFB45309),
                   ),
                 ),
               ),
@@ -160,6 +205,17 @@ class AccountSettingsScreen extends ConsumerWidget {
                   ),
                 );
               },
+            ),
+            _buildDivider(),
+            _buildSettingsItem(
+              icon: Icons.swap_horiz_rounded,
+              title: profile?.isHost == true
+                  ? 'Chuyển sang vai trò Người thuê'
+                  : 'Chuyển sang vai trò Chủ trọ',
+              subtitle: profile?.isHost == true
+                  ? 'Hiện đang là Chủ trọ (Chạm để đổi sang Người thuê)'
+                  : 'Hiện đang là Người thuê (Chạm để đổi sang Chủ trọ)',
+              onTap: () => _handleSwitchRole(context, ref, profile),
             ),
           ]),
 
@@ -261,7 +317,10 @@ class AccountSettingsScreen extends ConsumerWidget {
           const Center(
             child: Text(
               'Phiên bản ứng dụng v3.8.2 • HomeShare',
-              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textMuted,
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -288,7 +347,9 @@ class AccountSettingsScreen extends ConsumerWidget {
   Widget _buildCardGroup(List<Widget> children) {
     return Card(
       margin: EdgeInsets.zero,
-      child: Column(children: children),
+      child: Column(
+        children: children,
+      ),
     );
   }
 
@@ -333,8 +394,7 @@ class AccountSettingsScreen extends ConsumerWidget {
               style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
             )
           : null,
-      trailing:
-          trailing ??
+      trailing: trailing ??
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -354,6 +414,128 @@ class AccountSettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+    );
+  }
+
+  void _showProfileDetailsBottomSheet(BuildContext context, UserProfile? profile) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              CircleAvatar(
+                radius: 40,
+                backgroundColor: AppColors.primaryContainer,
+                backgroundImage: (profile?.avatarUrl.isNotEmpty == true)
+                    ? NetworkImage(profile!.avatarUrl)
+                    : null,
+                child: (profile?.avatarUrl.isNotEmpty == true)
+                    ? null
+                    : Text(
+                        (profile?.displayName.isNotEmpty == true)
+                            ? profile!.displayName[0].toUpperCase()
+                            : 'HS',
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                profile?.displayName ?? 'Người dùng HomeShare',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                ),
+                child: Text(
+                  'Mã ID: ${profile?.userCode ?? "---"}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1D4ED8),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Divider(height: 1),
+              const SizedBox(height: 16),
+              _buildProfileDetailRow(Icons.email_outlined, 'Email', profile?.email ?? 'Chưa cập nhật'),
+              _buildProfileDetailRow(Icons.phone_outlined, 'Số điện thoại', profile?.phoneNumber.isNotEmpty == true ? profile!.phoneNumber : '0981234567'),
+              _buildProfileDetailRow(Icons.badge_outlined, 'Vai trò', (profile?.role == 'landlord' || profile?.role == 'chutro') ? 'Chủ trọ' : 'Người thuê phòng'),
+              _buildProfileDetailRow(Icons.work_outline, 'Nghề nghiệp', profile?.occupation.isNotEmpty == true ? profile!.occupation : 'Sinh viên / Đã đi làm'),
+              _buildProfileDetailRow(Icons.verified_user_outlined, 'Định danh CCCD', profile?.isCccdVerified == true ? 'Đã xác thực CCCD gắn chip ✓' : 'Chưa định danh (eKYC)'),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Đóng', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileDetailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: AppColors.textMuted),
+          const SizedBox(width: 12),
+          Text(label, style: const TextStyle(fontSize: 14, color: AppColors.textMuted)),
+          const Spacer(),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textDark),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

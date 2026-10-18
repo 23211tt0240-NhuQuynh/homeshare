@@ -393,9 +393,9 @@ class HostPropertyManagementScreen extends ConsumerWidget {
                   child: p.images.isEmpty
                       ? _imageFallback()
                       : Image.network(
+                          p.images.first,
                           webHtmlElementStrategy:
                               WebHtmlElementStrategy.fallback,
-                          p.images.first,
                           width: 64,
                           height: 64,
                           fit: BoxFit.cover,

@@ -40,8 +40,8 @@ class HandoverRoomContext {
     this.isVerified = true,
     required this.deposit,
     this.rentalMonths = 12,
-    this.electricityRate = 3500.0,
-    this.waterRate = 20000.0,
+    this.electricityRate = 0.0,
+    this.waterRate = 0.0,
     this.initialElectricityMeter = 1428.0,
     this.initialWaterMeter = 84.0,
     this.items = const [],
@@ -180,8 +180,8 @@ class HandoverRepository {
       isVerified: true,
       deposit: deposit,
       rentalMonths: booking?.rentalMonths ?? 12,
-      electricityRate: room?.electricityRate ?? 3500.0,
-      waterRate: room?.waterRate ?? 20000.0,
+      electricityRate: room?.electricityRate ?? 0.0,
+      waterRate: room?.waterRate ?? 0.0,
       initialElectricityMeter: 1428.0,
       initialWaterMeter: 84.0,
       items: items,
@@ -278,8 +278,6 @@ class HandoverRepository {
           _firestore.collection(FirestoreCollections.bookings).doc(bookingId);
       batch.update(bookingRef, {
         'status': 'dangO',
-        'trangThai': 'dangO',
-        'trangThaiDon_id': 'dangO',
         'acceptedDate': Timestamp.fromDate(now),
         'updatedAt': FieldValue.serverTimestamp(),
       });

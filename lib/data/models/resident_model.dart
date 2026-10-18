@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/constants/firestore_collections.dart';
 
 /// Model Cư dân theo Database homeShare & SDS
 /// Collection: residents/{residentId}
 class ResidentModel {
   final String id;
   final String periodId;
+  final String roomId;
   final String userId;
   final String fullName;
   final String phone;
@@ -17,6 +19,8 @@ class ResidentModel {
 
   // SDS Dual Aliases
   String get residentId => id;
+  String get phongId => roomId;
+  String get phongTroId => roomId;
   // ignore: non_constant_identifier_names
   String get kyThue_id => periodId;
   String get kyOId => periodId;
@@ -35,6 +39,7 @@ class ResidentModel {
   const ResidentModel({
     required this.id,
     required this.periodId,
+    this.roomId = '',
     required this.userId,
     required this.fullName,
     this.phone = '',
@@ -49,6 +54,7 @@ class ResidentModel {
   ResidentModel copyWith({
     String? id,
     String? periodId,
+    String? roomId,
     String? userId,
     String? fullName,
     String? phone,
@@ -62,6 +68,7 @@ class ResidentModel {
     return ResidentModel(
       id: id ?? this.id,
       periodId: periodId ?? this.periodId,
+      roomId: roomId ?? this.roomId,
       userId: userId ?? this.userId,
       fullName: fullName ?? this.fullName,
       phone: phone ?? this.phone,
@@ -85,6 +92,7 @@ class ResidentModel {
     return ResidentModel(
       id: id,
       periodId: data['periodId'] ?? data['kyThue_id'] ?? data['kyOId'] ?? '',
+      roomId: data[CuDanDangOSqlFields.phongTroId] ?? data['roomId'] ?? data['phongId'] ?? '',
       userId: data['userId'] ?? data['nguoiDungId'] ?? '',
       fullName:
           data['fullName'] ?? data['hoTen'] ?? data['ten'] ?? data['name'] ?? '',
@@ -111,29 +119,63 @@ class ResidentModel {
     );
   }
 
-  Map<String, dynamic> toMap() {
+  /// Đường dẫn Sub-collection trên Firestore theo quan hệ 1-N:
+  /// Path: rooms/{roomId}/residents
+  static String subCollectionPath(String roomId) =>
+      HostFirestorePaths.residents(roomId);
+
+  /// Đường dẫn Document trong Sub-collection:
+  /// Path: rooms/{roomId}/residents/{residentId}
+  static String docPath(String roomId, String residentId) =>
+      HostFirestorePaths.residentDoc(roomId, residentId);
+
+  /// CollectionReference cho Sub-collection residents
+  static CollectionReference<Map<String, dynamic>> subColRef(
+    String roomId, [
+    FirebaseFirestore? firestore,
+  ]) => (firestore ?? FirebaseFirestore.instance)
+      .collection(FirestoreCollections.rooms)
+      .doc(roomId)
+      .collection(FirestoreCollections.residents);
+
+  /// Mapper chuẩn theo bảng cu_dan_dang_o (SQL_NHOM4_CHUYENDEDIDONG.sql)
+  Map<String, dynamic> toCuDanDangOSql() => {
+    CuDanDangOSqlFields.id: id,
+    CuDanDangOSqlFields.phongTroId: roomId,
+    CuDanDangOSqlFields.nguoiDungId: userId,
+    CuDanDangOSqlFields.ngayBatDau: Timestamp.fromDate(moveInDate),
+    if (moveOutDate != null)
+      CuDanDangOSqlFields.ngayKetThuc: Timestamp.fromDate(moveOutDate!),
+    CuDanDangOSqlFields.trangThai:
+        statusId == 'dangO' ? 'DANG_O' : 'DA_CHUYEN_DI',
+  };
+
+  /// Factory đọc từ dữ liệu bảng cu_dan_dang_o chuẩn SQL
+  factory ResidentModel.fromCuDanDangOSql(Map<String, dynamic> data, String id) {
+    return ResidentModel.fromMap(data, id);
+  }
+
+  /// Ghi Firestore 100% tiếng Anh chuẩn Firebase Console
+  Map<String, dynamic> toFirestore() {
     return {
-      'periodId': periodId,
-      'kyThue_id': periodId,
-      'kyOId': periodId,
+      'id': id,
+      'roomId': roomId,
       'userId': userId,
-      'nguoiDungId': userId,
+      'periodId': periodId,
       'fullName': fullName,
-      'hoTen': fullName,
       'phone': phone,
-      'soDienThoai': phone,
-      'sdt': phone,
       'avatar': avatar,
       'roommateRequestId': roommateRequestId,
-      'yeuCauOGhepId': roommateRequestId,
       'formId': formId,
-      'hinhThuc_id': formId,
+      'status': statusId == 'dangO' ? 'active' : 'moved_out',
       'statusId': statusId,
-      'trangThai_id': statusId,
       'moveInDate': Timestamp.fromDate(moveInDate),
-      'ngayVao': Timestamp.fromDate(moveInDate),
-      if (moveOutDate != null) 'moveOutDate': Timestamp.fromDate(moveOutDate!),
-      if (moveOutDate != null) 'ngayRoi': Timestamp.fromDate(moveOutDate!),
+      if (moveOutDate != null)
+        'moveOutDate': Timestamp.fromDate(moveOutDate!),
+      'createdAt': FieldValue.serverTimestamp(),
     };
   }
+
+  Map<String, dynamic> toMap() => toFirestore();
 }
+

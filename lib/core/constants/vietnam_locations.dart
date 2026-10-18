@@ -1056,17 +1056,14 @@ class VietnamLocations {
   static void _ensureLoaded() {
     if (_fullHierarchy != null) return;
     try {
-      final decoded =
-          jsonDecode(vietnamDivisionsRawJson) as Map<String, dynamic>;
+      final decoded = jsonDecode(vietnamDivisionsRawJson) as Map<String, dynamic>;
       final map = <String, Map<String, List<String>>>{};
       decoded.forEach((provKey, distMapRaw) {
         final distMap = <String, List<String>>{};
         if (distMapRaw is Map) {
           distMapRaw.forEach((distKey, wardsRaw) {
             if (wardsRaw is List) {
-              distMap[distKey.toString()] = wardsRaw
-                  .map((e) => e.toString())
-                  .toList();
+              distMap[distKey.toString()] = wardsRaw.map((e) => e.toString()).toList();
             }
           });
         }
@@ -1089,9 +1086,7 @@ class VietnamLocations {
     }
     // Fallback sang _districtsMap nếu cần
     final fallback = _districtsMap[province] ?? const [];
-    return fallback
-        .where((d) => d != 'Tất cả' && !d.startsWith('Phường '))
-        .toList();
+    return fallback.where((d) => d != 'Tất cả' && !d.startsWith('Phường ')).toList();
   }
 
   /// Lấy danh sách đầy đủ Phường / Xã / Thị trấn theo Tỉnh / Thành phố và Quận / Huyện
@@ -1135,3 +1130,4 @@ class VietnamLocations {
     return const [];
   }
 }
+

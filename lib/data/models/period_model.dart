@@ -134,33 +134,17 @@ class PeriodModel {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'kyOId': id,
       'bookingId': bookingId,
-      'donId': bookingId,
       'roomId': roomId,
-      'phongId': roomId,
       'renterId': renterId,
-      'nguoiDungId': renterId,
       'startDate': Timestamp.fromDate(startDate),
-      'ngayBatDau': Timestamp.fromDate(startDate),
-      'batDauLuc': Timestamp.fromDate(startDate),
       if (endDate != null) 'endDate': Timestamp.fromDate(endDate!),
-      if (endDate != null) 'ngayKetThuc': Timestamp.fromDate(endDate!),
-      if (endDate != null) 'ketThucLuc': Timestamp.fromDate(endDate!),
       'status': status,
-      'trangThai': status,
       'isKeyHandedOver': isKeyHandedOver,
-      'daBanGiaoChiaKhoa': isKeyHandedOver,
       'handoverNote': handoverNote,
-      'ghiChuBanGiao': handoverNote,
       'initialElectricityMeter': initialElectricityMeter,
-      'chiSoDienDau': initialElectricityMeter,
-      'chiSoDienBanDau': initialElectricityMeter,
       'initialWaterMeter': initialWaterMeter,
-      'chiSoNuocDau': initialWaterMeter,
-      'chiSoNuocBanDau': initialWaterMeter,
       'createdAt': Timestamp.fromDate(createdAt),
-      'ngayTao': Timestamp.fromDate(createdAt),
     };
   }
 }

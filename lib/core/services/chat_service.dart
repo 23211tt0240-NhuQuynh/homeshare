@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/chat_model.dart';
@@ -20,12 +19,7 @@ class ChatParams {
 }
 
 class ChatService {
-  final FirebaseFirestore? _customFirestore;
-
-  ChatService({FirebaseFirestore? firestore}) : _customFirestore = firestore;
-
-  FirebaseFirestore get _firestore =>
-      _customFirestore ?? FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Danh sach tu khoa bi cam loc tu dong theo Tc_CHAT_49
   static const List<String> _prohibitedKeywords = [
@@ -57,9 +51,7 @@ class ChatService {
   static String getChatId(String a, String b) {
     final cleanA = a.trim();
     final cleanB = b.trim();
-    return cleanA.compareTo(cleanB) < 0
-        ? '${cleanA}_$cleanB'
-        : '${cleanB}_$cleanA';
+    return cleanA.compareTo(cleanB) < 0 ? '${cleanA}_$cleanB' : '${cleanB}_$cleanA';
   }
 
   // Gửi tin nhắn mới lưu vào subcollection chats/{chatId}/messages
@@ -70,8 +62,6 @@ class ChatService {
     String? receiverPhone,
     Map<String, dynamic>? roomMetadata,
   }) async {
-    if (Firebase.apps.isEmpty) return;
-
     // 1. Kiểm tra không gửi rỗng / toàn khoảng trắng (Tc_CHAT_24)
     if (message.text.trim().isEmpty && message.messageType == 'text') {
       throw ArgumentError('Nội dung tin nhắn không được để trống.');
@@ -79,9 +69,7 @@ class ChatService {
 
     // 2. Kiểm tra bộ lọc từ khóa cấm / lừa đảo (Tc_CHAT_49)
     if (checkProfanity(message.text)) {
-      throw Exception(
-        'Tin nhắn vi phạm tiêu chuẩn cộng đồng về an toàn thông tin.',
-      );
+      throw Exception('Tin nhắn vi phạm tiêu chuẩn cộng đồng về an toàn thông tin.');
     }
 
     final chatId = getChatId(message.senderId, message.receiverId);
@@ -89,25 +77,16 @@ class ChatService {
 
     // 3. Lưu tin nhắn vào subcollection
     final msgDoc = message.id.isNotEmpty
-        ? _firestore
-              .collection('chats')
-              .doc(chatId)
-              .collection('messages')
-              .doc(message.id)
-        : _firestore
-              .collection('chats')
-              .doc(chatId)
-              .collection('messages')
-              .doc();
+        ? _firestore.collection('chats').doc(chatId).collection('messages').doc(message.id)
+        : _firestore.collection('chats').doc(chatId).collection('messages').doc();
 
-    final messageToSave = message.copyWith(
-      id: msgDoc.id,
-      conversationId: chatId,
-    );
+    final messageToSave = message.copyWith(id: msgDoc.id, conversationId: chatId);
     batch.set(msgDoc, messageToSave.toMap());
 
     // 4. Cập nhật hội thoại tổng quan (recent conversation)
-    final userNames = <String, String>{message.senderId: message.senderName};
+    final userNames = <String, String>{
+      message.senderId: message.senderName,
+    };
     if (receiverName != null && receiverName.trim().isNotEmpty) {
       userNames[message.receiverId] = receiverName.trim();
     }
@@ -134,8 +113,13 @@ class ChatService {
       'userNames': userNames,
       'partnerNames': partnerNames,
       'isRead': false,
+      'readBy': {
+        message.senderId: true,
+        message.receiverId: false,
+      },
       'unreadCount': FieldValue.increment(1),
       'unreadFor_${message.receiverId}': FieldValue.increment(1),
+      'unreadFor_${message.senderId}': 0,
     };
 
     if (receiverAvatar != null && receiverAvatar.isNotEmpty) {
@@ -158,7 +142,7 @@ class ChatService {
   Future<void> markAsRead(String currentUserId, String partnerId) async {
     final cleanA = currentUserId.trim();
     final cleanB = partnerId.trim();
-    if (cleanA.isEmpty || cleanB.isEmpty || Firebase.apps.isEmpty) return;
+    if (cleanA.isEmpty || cleanB.isEmpty) return;
 
     final chatId = getChatId(cleanA, cleanB);
     final chatDoc = _firestore.collection('chats').doc(chatId);
@@ -201,7 +185,6 @@ class ChatService {
     required String messageId,
     required Map<String, dynamic> extraData,
   }) async {
-    if (Firebase.apps.isEmpty) return;
     final chatId = getChatId(senderId, receiverId);
     await _firestore
         .collection('chats')
@@ -211,11 +194,96 @@ class ChatService {
         .set({'extraData': extraData}, SetOptions(merge: true));
   }
 
+  /// Thu hồi tin nhắn ở cả 2 phía (Xóa nội dung tin nhắn và chuyển sang trạng thái đã thu hồi)
+  Future<void> revokeMessageForEveryone({
+    required String senderId,
+    required String receiverId,
+    required String messageId,
+  }) async {
+    final chatId = getChatId(senderId, receiverId);
+    final msgDoc = _firestore
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .doc(messageId);
+
+    await msgDoc.set({
+      'text': 'Tin nhắn đã được thu hồi',
+      'noiDung': 'Tin nhắn đã được thu hồi',
+      'attachmentUrl': '',
+      'duongDan': '',
+      'messageType': 'revoked',
+      'loaiTinNhan_id': 'revoked',
+      'status': 'revoked',
+      'trangThaiTinNhan_id': 'revoked',
+      'isRevoked': true,
+      'revokedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    // Cập nhật tóm tắt cuộc trò chuyện
+    try {
+      final chatDoc = _firestore.collection('chats').doc(chatId);
+      final chatSnap = await chatDoc.get();
+      if (chatSnap.exists) {
+        final data = chatSnap.data();
+        if (data?['lastSenderId'] == senderId) {
+          await chatDoc.set({
+            'lastMessage': 'Tin nhắn đã được thu hồi',
+            'noiDungCuoi': 'Tin nhắn đã được thu hồi',
+          }, SetOptions(merge: true));
+        }
+      }
+    } catch (e) {
+      debugPrint('Error updating lastMessage on revoke: $e');
+    }
+  }
+
+  /// Xóa tin nhắn hoàn toàn khỏi database ở cả 2 phía
+  Future<void> deleteMessagePermanently({
+    required String senderId,
+    required String receiverId,
+    required String messageId,
+  }) async {
+    final chatId = getChatId(senderId, receiverId);
+    final chatDoc = _firestore.collection('chats').doc(chatId);
+
+    // 1. Xóa vĩnh viễn tin nhắn khỏi subcollection messages
+    await chatDoc
+        .collection('messages')
+        .doc(messageId)
+        .delete();
+
+    // 2. Cập nhật lại thông tin lastMessage cho cuộc hội thoại
+    try {
+      final latestMsgs = await chatDoc
+          .collection('messages')
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get();
+
+      if (latestMsgs.docs.isNotEmpty) {
+        final lastData = latestMsgs.docs.first.data();
+        await chatDoc.set({
+          'lastMessage': lastData['text'] ?? lastData['noiDung'] ?? '',
+          'noiDungCuoi': lastData['text'] ?? lastData['noiDung'] ?? '',
+          'lastSenderId': lastData['senderId'] ?? lastData['nguoiGuiId'] ?? '',
+        }, SetOptions(merge: true));
+      } else {
+        await chatDoc.set({
+          'lastMessage': '',
+          'noiDungCuoi': '',
+        }, SetOptions(merge: true));
+      }
+    } catch (e) {
+      debugPrint('Error updating lastMessage on permanent delete: $e');
+    }
+  }
+
   // Stream tin nhắn an toàn, chỉ truy vấn đúng cuộc hội thoại giữa 2 người
   Stream<List<ChatMessageModel>> getMessagesStream(String userA, String userB) {
     final cleanA = userA.trim();
     final cleanB = userB.trim();
-    if (cleanA.isEmpty || cleanB.isEmpty || Firebase.apps.isEmpty) {
+    if (cleanA.isEmpty || cleanB.isEmpty) {
       return Stream.value([]);
     }
 
@@ -228,27 +296,24 @@ class ChatService {
         .limit(100)
         .snapshots()
         .map((snapshot) {
-          final list = snapshot.docs
-              .map((doc) {
-                try {
-                  return ChatMessageModel.fromFirestore(doc);
-                } catch (e) {
-                  debugPrint('Error parsing message ${doc.id}: $e');
-                  return null;
-                }
-              })
-              .whereType<ChatMessageModel>()
-              .toList();
+      final list = snapshot.docs.map((doc) {
+        try {
+          return ChatMessageModel.fromFirestore(doc);
+        } catch (e) {
+          debugPrint('Error parsing message ${doc.id}: $e');
+          return null;
+        }
+      }).whereType<ChatMessageModel>().toList();
 
-          list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-          return list;
-        });
+      list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return list;
+    });
   }
 
   // Stream danh sách cuộc trò chuyện gần đây của người dùng
   Stream<List<ConversationModel>> getConversationsStream(String currentUserId) {
     final cleanUid = currentUserId.trim();
-    if (cleanUid.isEmpty || Firebase.apps.isEmpty) {
+    if (cleanUid.isEmpty) {
       return Stream.value([]);
     }
 
@@ -257,34 +322,29 @@ class ChatService {
         .where('users', arrayContains: cleanUid)
         .snapshots()
         .map((snapshot) {
-          final list = snapshot.docs
-              .map((doc) {
-                try {
-                  return ConversationModel.fromFirestore(doc, cleanUid);
-                } catch (e) {
-                  debugPrint('Error parsing conversation ${doc.id}: $e');
-                  return null;
-                }
-              })
-              .whereType<ConversationModel>()
-              .toList();
+      final list = snapshot.docs.map((doc) {
+        try {
+          return ConversationModel.fromFirestore(doc, cleanUid);
+        } catch (e) {
+          debugPrint('Error parsing conversation ${doc.id}: $e');
+          return null;
+        }
+      }).whereType<ConversationModel>().toList();
 
-          list.sort((a, b) => b.lastMessageTime.compareTo(a.lastMessageTime));
-          return list;
-        });
+      list.sort((a, b) => b.lastMessageTime.compareTo(a.lastMessageTime));
+      return list;
+    });
   }
 }
 
 final chatServiceProvider = Provider<ChatService>((ref) => ChatService());
 
-final messagesStreamProvider = StreamProvider.autoDispose
-    .family<List<ChatMessageModel>, ChatParams>((ref, params) {
-      final service = ref.watch(chatServiceProvider);
-      return service.getMessagesStream(params.userA, params.userB);
-    });
+final messagesStreamProvider = StreamProvider.autoDispose.family<List<ChatMessageModel>, ChatParams>((ref, params) {
+  final service = ref.watch(chatServiceProvider);
+  return service.getMessagesStream(params.userA, params.userB);
+});
 
-final userConversationsStreamProvider = StreamProvider.autoDispose
-    .family<List<ConversationModel>, String>((ref, userId) {
-      final service = ref.watch(chatServiceProvider);
-      return service.getConversationsStream(userId);
-    });
+final userConversationsStreamProvider = StreamProvider.autoDispose.family<List<ConversationModel>, String>((ref, userId) {
+  final service = ref.watch(chatServiceProvider);
+  return service.getConversationsStream(userId);
+});

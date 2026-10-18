@@ -68,7 +68,11 @@ class PhongSangColors {
   static const LinearGradient photoA = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFD5E4F2), Color(0xFF9BB4C9), Color(0xFF5E7C90)],
+    colors: [
+      Color(0xFFD5E4F2),
+      Color(0xFF9BB4C9),
+      Color(0xFF5E7C90),
+    ],
     stops: [0.0, 0.48, 1.0],
   );
 
@@ -76,7 +80,11 @@ class PhongSangColors {
   static const LinearGradient photoB = LinearGradient(
     begin: Alignment.topRight,
     end: Alignment.bottomLeft,
-    colors: [Color(0xFFEEF3F8), Color(0xFFC5D4E2), Color(0xFF6D88A0)],
+    colors: [
+      Color(0xFFEEF3F8),
+      Color(0xFFC5D4E2),
+      Color(0xFF6D88A0),
+    ],
     stops: [0.0, 0.50, 1.0],
   );
 }
@@ -117,83 +125,86 @@ class PhongSangText {
   static double tracking(double fontSize) => fontSize * -0.02;
 
   static TextStyle get display => GoogleFonts.inter(
-    fontSize: 40,
-    fontWeight: FontWeight.w600,
-    height: 1.15,
-    letterSpacing: tracking(40),
-    color: PhongSangColors.ink,
-  );
+        fontSize: 40,
+        fontWeight: FontWeight.w600,
+        height: 1.15,
+        letterSpacing: tracking(40),
+        color: PhongSangColors.ink,
+      );
 
   /// Tiêu đề màn 28 / 600.
   static TextStyle get screenTitle => GoogleFonts.inter(
-    fontSize: 28,
-    fontWeight: FontWeight.w600,
-    height: 1.2,
-    letterSpacing: tracking(28),
-    color: PhongSangColors.ink,
-  );
+        fontSize: 28,
+        fontWeight: FontWeight.w600,
+        height: 1.2,
+        letterSpacing: tracking(28),
+        color: PhongSangColors.ink,
+      );
 
   /// Tên phòng, title app bar 18 / 600.
   static TextStyle get roomName => GoogleFonts.inter(
-    fontSize: 18,
-    fontWeight: FontWeight.w600,
-    height: 1.25,
-    letterSpacing: tracking(18),
-    color: PhongSangColors.ink,
-  );
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        height: 1.25,
+        letterSpacing: tracking(18),
+        color: PhongSangColors.ink,
+      );
 
   /// Giá lớn trên bảng chữ 32 / 600.
   static TextStyle get priceLarge => GoogleFonts.inter(
-    fontSize: 32,
-    fontWeight: FontWeight.w600,
-    height: 1.2,
-    letterSpacing: tracking(32),
-    color: PhongSangColors.price,
-  );
+        fontSize: 32,
+        fontWeight: FontWeight.w600,
+        height: 1.2,
+        letterSpacing: tracking(32),
+        color: PhongSangColors.price,
+      );
 
   /// Giá trên thẻ 15 / 600.
   static TextStyle get price => GoogleFonts.inter(
-    fontSize: 15,
-    fontWeight: FontWeight.w600,
-    height: 1.3,
-    letterSpacing: tracking(15),
-    color: PhongSangColors.price,
-  );
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+        height: 1.3,
+        letterSpacing: tracking(15),
+        color: PhongSangColors.price,
+      );
 
   /// Nội dung 14 / 400.
   static TextStyle get body => GoogleFonts.inter(
-    fontSize: 14,
-    fontWeight: FontWeight.w400,
-    height: 1.5,
-    color: PhongSangColors.muted,
-  );
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        height: 1.5,
+        color: PhongSangColors.muted,
+      );
 
   /// Ô tìm 13 / 500, màu mực.
   static TextStyle get search => GoogleFonts.inter(
-    fontSize: 13,
-    fontWeight: FontWeight.w500,
-    height: 1.4,
-    color: PhongSangColors.ink,
-  );
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        height: 1.4,
+        color: PhongSangColors.ink,
+      );
 
   /// Nút 13 / 600.
   static TextStyle get button => GoogleFonts.inter(
-    fontSize: 13,
-    fontWeight: FontWeight.w600,
-    height: 1.2,
-    color: PhongSangColors.onAccent,
-  );
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        height: 1.2,
+        color: PhongSangColors.onAccent,
+      );
 
   /// Chú thích, meta 12 / 400.
   static TextStyle get caption => GoogleFonts.inter(
-    fontSize: 12,
-    fontWeight: FontWeight.w400,
-    height: 1.4,
-    color: PhongSangColors.muted,
-  );
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        height: 1.4,
+        color: PhongSangColors.muted,
+      );
 
   /// Tag, badge, trạng thái 11–12 / 600.
-  static TextStyle label({required Color color, double fontSize = 12}) {
+  static TextStyle label({
+    required Color color,
+    double fontSize = 12,
+  }) {
     return GoogleFonts.inter(
       fontSize: fontSize,
       fontWeight: FontWeight.w600,
@@ -280,29 +291,29 @@ class PhongSangTokens extends ThemeExtension<PhongSangTokens> {
 
   /// Tag lối sống: nền xám nhạt, chữ mực, bo 4, có viền.
   BoxDecoration get tagDecoration => BoxDecoration(
-    color: tagBackground,
-    borderRadius: BorderRadius.circular(PhongSangRadii.tag),
-    border: Border.all(color: line),
-  );
+        color: tagBackground,
+        borderRadius: BorderRadius.circular(PhongSangRadii.tag),
+        border: Border.all(color: line),
+      );
 
   /// Badge "Chờ duyệt": nền xanh nhạt, chữ xanh, bo 4.
   BoxDecoration get badgeDecoration => BoxDecoration(
-    color: badgeBackground,
-    borderRadius: BorderRadius.circular(PhongSangRadii.badge),
-  );
+        color: badgeBackground,
+        borderRadius: BorderRadius.circular(PhongSangRadii.badge),
+      );
 
   /// Badge "Đã chuyển": nền xanh nhạt, chữ đang ở.
   BoxDecoration get badgeOkDecoration => BoxDecoration(
-    color: badgeOkBackground,
-    borderRadius: BorderRadius.circular(PhongSangRadii.badge),
-  );
+        color: badgeOkBackground,
+        borderRadius: BorderRadius.circular(PhongSangRadii.badge),
+      );
 
   /// Nhãn trạng thái: nền thẻ, viền, không chấm tròn.
   BoxDecoration get statusDecoration => BoxDecoration(
-    color: PhongSangColors.card,
-    borderRadius: BorderRadius.circular(PhongSangRadii.status),
-    border: Border.all(color: line),
-  );
+        color: PhongSangColors.card,
+        borderRadius: BorderRadius.circular(PhongSangRadii.status),
+        border: Border.all(color: line),
+      );
 
   TextStyle statusStyle(Color color) => PhongSangText.label(color: color);
 
@@ -363,16 +374,10 @@ class PhongSangTokens extends ThemeExtension<PhongSangTokens> {
       tagForeground: Color.lerp(tagForeground, other.tagForeground, t)!,
       badgeBackground: Color.lerp(badgeBackground, other.badgeBackground, t)!,
       badgeForeground: Color.lerp(badgeForeground, other.badgeForeground, t)!,
-      badgeOkBackground: Color.lerp(
-        badgeOkBackground,
-        other.badgeOkBackground,
-        t,
-      )!,
-      badgeOkForeground: Color.lerp(
-        badgeOkForeground,
-        other.badgeOkForeground,
-        t,
-      )!,
+      badgeOkBackground:
+          Color.lerp(badgeOkBackground, other.badgeOkBackground, t)!,
+      badgeOkForeground:
+          Color.lerp(badgeOkForeground, other.badgeOkForeground, t)!,
       photoA: LinearGradient.lerp(photoA, other.photoA, t) ?? photoA,
       photoB: LinearGradient.lerp(photoB, other.photoB, t) ?? photoB,
       shadow: BoxShadow.lerpList(shadow, other.shadow, t) ?? shadow,
@@ -459,8 +464,8 @@ class PhongSangTheme {
           disabledBackgroundColor: PhongSangColors.line,
           disabledForegroundColor: PhongSangColors.muted,
           elevation: 0,
-          minimumSize: const Size(0, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          minimumSize: const Size(64, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           shape: shape,
           textStyle: PhongSangText.button,
         ),
@@ -470,8 +475,8 @@ class PhongSangTheme {
           backgroundColor: PhongSangColors.accent,
           foregroundColor: PhongSangColors.onAccent,
           elevation: 0,
-          minimumSize: const Size(0, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          minimumSize: const Size(64, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           shape: shape,
           textStyle: PhongSangText.button,
         ),
@@ -481,8 +486,8 @@ class PhongSangTheme {
           foregroundColor: PhongSangColors.ink,
           backgroundColor: PhongSangColors.card,
           side: const BorderSide(color: PhongSangColors.line),
-          minimumSize: const Size(0, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          minimumSize: const Size(64, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           shape: shape,
           textStyle: PhongSangText.button.copyWith(color: PhongSangColors.ink),
         ),
@@ -520,32 +525,21 @@ class PhongSangTheme {
         fillColor: PhongSangColors.card,
         hintStyle: PhongSangText.search.copyWith(color: PhongSangColors.muted),
         labelStyle: PhongSangText.search,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 10,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         border: const OutlineInputBorder(
-          borderRadius: BorderRadius.all(
-            Radius.circular(PhongSangRadii.control),
-          ),
+          borderRadius: BorderRadius.all(Radius.circular(PhongSangRadii.control)),
           borderSide: BorderSide(color: PhongSangColors.accent),
         ),
         enabledBorder: const OutlineInputBorder(
-          borderRadius: BorderRadius.all(
-            Radius.circular(PhongSangRadii.control),
-          ),
+          borderRadius: BorderRadius.all(Radius.circular(PhongSangRadii.control)),
           borderSide: BorderSide(color: PhongSangColors.accent),
         ),
         focusedBorder: const OutlineInputBorder(
-          borderRadius: BorderRadius.all(
-            Radius.circular(PhongSangRadii.control),
-          ),
+          borderRadius: BorderRadius.all(Radius.circular(PhongSangRadii.control)),
           borderSide: BorderSide(color: PhongSangColors.accent, width: 1.5),
         ),
         errorBorder: const OutlineInputBorder(
-          borderRadius: BorderRadius.all(
-            Radius.circular(PhongSangRadii.control),
-          ),
+          borderRadius: BorderRadius.all(Radius.circular(PhongSangRadii.control)),
           borderSide: BorderSide(color: PhongSangColors.hold),
         ),
       ),
@@ -564,9 +558,7 @@ class PhongSangTheme {
         ),
         behavior: SnackBarBehavior.floating,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(
-            Radius.circular(PhongSangRadii.control),
-          ),
+          borderRadius: BorderRadius.all(Radius.circular(PhongSangRadii.control)),
         ),
       ),
     );
@@ -574,14 +566,14 @@ class PhongSangTheme {
 
   /// Nút mực: "Gửi yêu cầu ở ghép".
   static ButtonStyle get altButton => ElevatedButton.styleFrom(
-    backgroundColor: PhongSangColors.alt,
-    foregroundColor: PhongSangColors.onAlt,
-    elevation: 0,
-    minimumSize: const Size(0, 44),
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.all(Radius.circular(PhongSangRadii.control)),
-    ),
-    textStyle: PhongSangText.button.copyWith(color: PhongSangColors.onAlt),
-  );
+        backgroundColor: PhongSangColors.alt,
+        foregroundColor: PhongSangColors.onAlt,
+        elevation: 0,
+        minimumSize: const Size.fromHeight(44),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(PhongSangRadii.control)),
+        ),
+        textStyle: PhongSangText.button.copyWith(color: PhongSangColors.onAlt),
+      );
 }

@@ -93,23 +93,13 @@ class ViolationModel {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'viPhamId': id,
       'title': title,
-      'ten': title,
       'description': description,
-      'moTa': moTa,
       'defaultFine': defaultFine,
-      'mucPhatMacDinh': defaultFine,
-      'fine_amount': defaultFine,
       'category': category,
-      'nhomViPham': category,
       'iconName': iconName,
       'isActive': isActive,
-      'trangThai': trangThai,
-      'status': trangThai,
       'createdAt': Timestamp.fromDate(createdAt),
-      'ngayTao': Timestamp.fromDate(createdAt),
-      'created_at': Timestamp.fromDate(createdAt),
     };
   }
 }

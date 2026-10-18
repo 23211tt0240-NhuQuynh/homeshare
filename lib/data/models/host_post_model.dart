@@ -1,81 +1,190 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/constants/firestore_collections.dart';
 import '../../features/auth/providers/user_provider.dart';
 import 'room_model.dart';
 
-/// Model Bài đăng Chủ trọ chuẩn hóa theo SDS & Database.docx:
-/// Bài đăng ├── phongId ├── chuNhaId ├── diaDiemId ├── loaiThue_id └── trangThai_id
+/// Model Bài đăng Chủ trọ chuẩn hóa theo Database.docx & quy ước schema:
+/// - Code sử dụng biến tiếng Anh chuẩn (roomId, hostId, rentalPrice, depositAmount, ...)
+/// - Khi ghi Firestore: chỉ trả về các field trong [PostFields] bằng [toFirestore()]
+/// - Cung cấp alias tiếng Việt (phongId, chuNhaId, giaThue, ...) để tương thích giao diện
 class HostPostModel {
-  final String id;
-  final String phongId;
-  final String chuNhaId;
-  final String diaDiemId;
-  final String loaiThueId;
-  final String trangThaiId;
-  final String tieuDe;
-  final String moTa;
-  final double giaThue;
-  final int phanTramTienCoc;
-  final double tienCoc;
-  final String soDienThoaiLienHe;
-  final DateTime ngayDang;
+  // Các trường cốt lõi trong Schema Firestore
+  final String id; // postId / baiDangId
+  final String roomId; // phongId [FK -> rooms]
+  final String hostId; // chuNhaId [FK -> users]
+  final String locationId; // diaDiemId [FK -> locations]
+  final String rentalTypeId; // loaiThue_id
+  final String statusId; // trangThai_id
+  final String title; // tieuDe
+  final String description; // moTa
+  final double rentalPrice; // giaThue
+  final double depositAmount; // tienCoc
+  final int depositPercentage; // phanTramTienCoc (10–100, bước 10)
+  final List<String> amenities; // tienIch
+  final List<String> images; // anhPhong
+  final String address; // diaChi
+  final String contactPhone; // soDienThoaiLienHe
+  final DateTime createdAt; // ngayDang
+  final String status; // trangThai
+
+  // Các trường nghiệp vụ giao diện và ghép nối bộ nhớ (IN-MEMORY ONLY - KHÔNG LƯU FIRESTORE)
   final String authorName;
   final String authorAvatar;
-  final String address;
-  final List<String> images;
-  final List<String> amenities;
+  final String propertyName;
+  final String city;
+  final String district;
+  final double roomArea;
+  final String roomType;
   final String mucDichHopTac;
   final int interestedCount;
   final int responseCount;
   final bool isVerified;
   final bool isVip;
-  final double roomArea;
-  final String roomType;
-  final String propertyName;
-  final String city;
-  final String district;
   final bool isUserInterested;
   final RoomModel? joinedRoom;
   final UserProfile? joinedHost;
 
-  const HostPostModel({
+  HostPostModel({
     required this.id,
-    this.phongId = '',
-    this.chuNhaId = '',
-    this.diaDiemId = '',
-    this.loaiThueId = 'thang',
-    this.trangThaiId = 'dangHienThi',
-    required this.tieuDe,
-    required this.moTa,
-    required this.giaThue,
-    this.phanTramTienCoc = 20,
-    this.tienCoc = 0.0,
-    this.soDienThoaiLienHe = '',
-    required this.ngayDang,
+    String? roomId,
+    String? hostId,
+    String? locationId,
+    String? rentalTypeId,
+    String? statusId,
+    String? title,
+    String? description,
+    double? rentalPrice,
+    double? depositAmount,
+    int? depositPercentage,
+    this.amenities = const [],
+    this.images = const [],
+    this.address = '',
+    String? contactPhone,
+    DateTime? createdAt,
+    this.status = 'dangHienThi',
+    // In-memory UI fields
     this.authorName = '',
     this.authorAvatar = '',
-    this.address = '',
-    this.images = const [],
-    this.amenities = const [],
+    this.propertyName = '',
+    this.city = '',
+    this.district = '',
+    this.roomArea = 0.0,
+    this.roomType = 'Phòng trọ',
     this.mucDichHopTac = 'Chia sẻ khách thuê & Hợp tác quản lý',
     this.interestedCount = 0,
     this.responseCount = 0,
     this.isVerified = false,
     this.isVip = false,
-    this.roomArea = 0.0,
-    this.roomType = 'Phòng trọ',
-    this.propertyName = '',
-    this.city = '',
-    this.district = '',
     this.isUserInterested = false,
     this.joinedRoom,
     this.joinedHost,
-  });
+    // Vietnamese legacy named parameters
+    String? phongId,
+    String? chuNhaId,
+    String? diaDiemId,
+    String? loaiThueId,
+    String? trangThaiId,
+    String? tieuDe,
+    String? moTa,
+    double? giaThue,
+    double? tienCoc,
+    int? phanTramTienCoc,
+    String? soDienThoaiLienHe,
+    DateTime? ngayDang,
+  })  : roomId = roomId ?? phongId ?? '',
+        hostId = hostId ?? chuNhaId ?? '',
+        locationId = locationId ?? diaDiemId ?? '',
+        rentalTypeId = rentalTypeId ?? loaiThueId ?? 'thang',
+        statusId = statusId ?? trangThaiId ?? 'dangHienThi',
+        title = title ?? tieuDe ?? '',
+        description = description ?? moTa ?? '',
+        rentalPrice = rentalPrice ?? giaThue ?? 0.0,
+        depositAmount = depositAmount ?? tienCoc ?? 0.0,
+        depositPercentage = depositPercentage ?? phanTramTienCoc ?? 20,
+        contactPhone = contactPhone ?? soDienThoaiLienHe ?? '',
+        createdAt = createdAt ?? ngayDang ?? DateTime.now();
+
+  // Vietnamese Schema Aliases for backward compatibility in code
+  String get phongId => roomId;
+  String get chuNhaId => hostId;
+  String get diaDiemId => locationId;
+  String get loaiThueId => rentalTypeId;
+  String get trangThaiId => statusId;
+  String get tieuDe => title;
+  String get moTa => description;
+  double get giaThue => rentalPrice;
+  double get tienCoc => depositAmount;
+  int get phanTramTienCoc => depositPercentage;
+  List<String> get tienIch => amenities;
+  List<String> get anhPhong => images;
+  String get diaChi => address;
+  String get soDienThoaiLienHe => contactPhone;
+  DateTime get ngayDang => createdAt;
+  String get trangThai => status;
 
   bool get isActive =>
-      trangThaiId != 'daAn' &&
-      trangThaiId != 'deleted' &&
-      trangThaiId != 'closed' &&
-      trangThaiId != 'hidden';
+      statusId != 'daAn' &&
+      statusId != 'deleted' &&
+      statusId != 'closed' &&
+      statusId != 'hidden' &&
+      status != 'daAn' &&
+      status != 'deleted';
+
+  /// Đường dẫn Sub-collection trên Firestore theo quan hệ 1-N:
+  /// Path: rooms/{roomId}/rental_posts
+  static String subCollectionPath(String roomId) =>
+      HostFirestorePaths.rentalPosts(roomId);
+
+  /// Đường dẫn Document trong Sub-collection:
+  /// Path: rooms/{roomId}/rental_posts/{postId}
+  static String docPath(String roomId, String postId) =>
+      HostFirestorePaths.rentalPostDoc(roomId, postId);
+
+  /// CollectionReference cho Sub-collection rental_posts
+  static CollectionReference<Map<String, dynamic>> subColRef(
+    String roomId, [
+    FirebaseFirestore? firestore,
+  ]) => (firestore ?? FirebaseFirestore.instance)
+      .collection(FirestoreCollections.rooms)
+      .doc(roomId)
+      .collection(FirestoreCollections.rentalPosts);
+
+  /// Mapper chuẩn theo bảng rental_posts (100% tiếng Anh)
+  /// Không lưu nhúng mảng amenities và images vào bài đăng (tách bảng riêng)
+  Map<String, dynamic> toFirestore() {
+    return {
+      'id': id,
+      'roomId': roomId,
+      'hostId': hostId,
+      'title': title,
+      'description': description,
+      'rentalPrice': rentalPrice,
+      'depositAmount': depositAmount,
+      'status': status.isNotEmpty ? status : 'active',
+      'isPinned': false,
+      'createdAt': Timestamp.fromDate(createdAt),
+    };
+  }
+
+  /// Mapper chuẩn bảng bai_dang_cho_thue theo SQL_NHOM4_CHUYENDEDIDONG.sql
+  Map<String, dynamic> toBaiDangChoThueSql() => {
+    BaiDangChoThueSqlFields.id: id,
+    BaiDangChoThueSqlFields.phongTroId: roomId,
+    BaiDangChoThueSqlFields.tieuDe: title,
+    BaiDangChoThueSqlFields.noiDung: description,
+    BaiDangChoThueSqlFields.trangThai: status,
+    BaiDangChoThueSqlFields.laBaiGhim: 0,
+    BaiDangChoThueSqlFields.ngayTao: Timestamp.fromDate(createdAt),
+    BaiDangChoThueSqlFields.chuTroId: hostId,
+  };
+
+  /// Factory đọc từ dữ liệu bảng bai_dang_cho_thue chuẩn SQL
+  factory HostPostModel.fromBaiDangChoThueSql(Map<String, dynamic> data, String id) {
+    return HostPostModel.fromMap(data, id);
+  }
+
+  /// Alias kiểm soát: Không tự gom toàn bộ biến object, ủy thác về [toFirestore]
+  Map<String, dynamic> toMap() => toFirestore();
 
   factory HostPostModel.fromFirestore(
     DocumentSnapshot doc, {
@@ -93,14 +202,26 @@ class HostPostModel {
     String id, {
     String currentUserId = '',
   }) {
-    // Tự động nhận diện và làm sạch tất cả trường ảnh từ Firestore
-    final imagesList = _parseImagesList(data);
+    final imagesList = _parseStringList(
+      data[PostFields.images] ??
+          data['images'] ??
+          data['anhPhong'] ??
+          data['danhSachAnh'] ??
+          data['imageUrls'],
+    );
     final amenitiesList = _parseStringList(
-      data['amenities'] ?? data['tienIch'] ?? data['danhSachTienIch'],
+      data[PostFields.amenities] ??
+          data['amenities'] ??
+          data['tienIch'] ??
+          data['danhSachTienIch'],
     );
 
     DateTime postDate = DateTime.now();
-    final rawDate = data['ngayDang'] ?? data['createdAt'] ?? data['ngayTao'];
+    final rawDate =
+        data[PostFields.createdAt] ??
+        data['createdAt'] ??
+        data['ngayDang'] ??
+        data['ngayTao'];
     if (rawDate is Timestamp) {
       postDate = rawDate.toDate();
     } else if (rawDate is DateTime) {
@@ -109,17 +230,26 @@ class HostPostModel {
       postDate = DateTime.tryParse(rawDate) ?? DateTime.now();
     }
 
-    final double price = (data['giaThue'] ??
+    final double price = (data[PostFields.rentalPrice] ??
+            data['rentalPrice'] ??
+            data['giaThue'] ??
             data['price'] ??
             data['gia'] ??
             data['giaThueThang'] ??
             0.0 as num)
         .toDouble();
-    final double deposit = (data['tienCoc'] ??
+
+    final int depositPct = (data[PostFields.depositPercentage] ??
+            data['depositPercentage'] ??
+            data['phanTramTienCoc'] as num?)
+        ?.toInt() ??
+        20;
+
+    final double deposit = (data[PostFields.depositAmount] ??
+            data['depositAmount'] ??
+            data['tienCoc'] ??
             data['deposit'] ??
-            (price *
-                ((data['phanTramTienCoc'] as num?)?.toInt() ?? 20) /
-                100))
+            (price > 0 ? (price * depositPct / 100) : 0.0) as num)
         .toDouble();
 
     final interestedList = data['interestedUsers'];
@@ -142,321 +272,193 @@ class HostPostModel {
         ?.toInt() ??
         0;
 
-    final rawAvatar = (data['authorAvatar'] ??
-            data['hostAvatar'] ??
-            data['avatarUrl'] ??
-            data['avatar'] ??
-            data['anhDaiDien'] ??
-            data['hinhDaiDien'] ??
-            '')
-        .toString()
-        .trim();
-
-    final rawTitle = (data['tieuDe'] ?? data['title'] ?? '').toString().trim();
-    var propName = (data['propertyName'] ??
-            data['tenNhaTro'] ??
-            data['tenCoSo'] ??
-            data['coSoName'] ??
-            data['property_name'] ??
-            '')
-        .toString()
-        .trim();
-    if (propName.isEmpty && rawTitle.contains('•')) {
-      final parts = rawTitle.split('•');
-      if (parts.length > 1) {
-        propName = parts.last.trim();
-      }
-    }
-
-    final resolvedPhongId = (data['phongId'] ??
-            data['roomId'] ??
-            data['phong_id'] ??
-            data['room_id'] ??
-            data['idPhong'] ??
-            data['maPhong'] ??
-            data['roomCode'] ??
-            '')
-        .toString()
-        .trim();
-
-    final resolvedDiaDiemId = (data['diaDiemId'] ??
-            data['locationId'] ??
-            data['propertyId'] ??
-            data['nhaTroId'] ??
-            data['coSoId'] ??
-            '')
-        .toString()
-        .trim();
+    final effectiveId = id.isNotEmpty
+        ? id
+        : (data[PostFields.postId] ?? data['postId'] ?? data['baiDangId'] ?? '')
+            .toString()
+            .trim();
 
     return HostPostModel(
-      id: id,
-      phongId: resolvedPhongId,
-      chuNhaId:
-          (data['chuNhaId'] ?? data['hostId'] ?? data['userId'] ?? '')
-              .toString()
-              .trim(),
-      diaDiemId: resolvedDiaDiemId,
-      loaiThueId: (data['loaiThue_id'] ?? data['loaiThueId'] ?? 'thang')
+      id: effectiveId,
+      roomId: (data[BaiDangChoThueSqlFields.phongTroId] ??
+              data['phong_tro_id'] ??
+              data[PostFields.roomId] ??
+              data['roomId'] ??
+              data['phongId'] ??
+              '')
           .toString()
           .trim(),
-      trangThaiId:
-          (data['trangThai_id'] ??
-                  data['trangThaiId'] ??
-                  data['status'] ??
-                  'dangHienThi')
-              .toString()
-              .trim(),
-      tieuDe: rawTitle,
-      moTa: (data['moTa'] ?? data['description'] ?? '').toString().trim(),
-      giaThue: price,
-      phanTramTienCoc:
-          (data['phanTramTienCoc'] as num?)?.toInt() ??
-          (price > 0 && deposit > 0
-              ? ((deposit / price) * 100).round()
-              : 20),
-      tienCoc: deposit,
-      soDienThoaiLienHe: (data['soDienThoaiLienHe'] ??
-              data['hostPhone'] ??
+      hostId: (data[BaiDangChoThueSqlFields.chuTroId] ??
+              data['chu_tro_id'] ??
+              data[PostFields.hostId] ??
+              data['hostId'] ??
+              data['chuNhaId'] ??
+              data['userId'] ??
+              '')
+          .toString()
+          .trim(),
+      locationId: (data[PostFields.locationId] ??
+              data['locationId'] ??
+              data['diaDiemId'] ??
+              data['placeId'] ??
+              '')
+          .toString()
+          .trim(),
+      rentalTypeId: (data[PostFields.rentalTypeId] ??
+              data['rentalTypeId'] ??
+              data['loaiThue_id'] ??
+              'thang')
+          .toString()
+          .trim(),
+      statusId: (data[BaiDangChoThueSqlFields.trangThai] ??
+              data['trang_thai'] ??
+              data[PostFields.statusId] ??
+              data['statusId'] ??
+              data['trangThai_id'] ??
+              data['status'] ??
+              'dangHienThi')
+          .toString()
+          .trim(),
+      title: (data[BaiDangChoThueSqlFields.tieuDe] ??
+              data['tieu_de'] ??
+              data[PostFields.title] ??
+              data['title'] ??
+              data['tieuDe'] ??
+              '')
+          .toString()
+          .trim(),
+      description: (data[BaiDangChoThueSqlFields.noiDung] ??
+              data['noi_dung'] ??
+              data[PostFields.description] ??
+              data['description'] ??
+              data['moTa'] ??
+              '')
+          .toString()
+          .trim(),
+      rentalPrice: price,
+      depositAmount: deposit,
+      depositPercentage: depositPct,
+      amenities: amenitiesList,
+      images: imagesList,
+      address: (data[PostFields.address] ??
+              data['address'] ??
+              data['diaChi'] ??
+              '')
+          .toString()
+          .trim(),
+      contactPhone: (data[PostFields.contactPhone] ??
+              data['contactPhone'] ??
+              data['soDienThoaiLienHe'] ??
               data['phone'] ??
               '')
           .toString()
           .trim(),
-      ngayDang: postDate,
+      createdAt: postDate,
+      status: (data[PostFields.status] ??
+              data['status'] ??
+              data['trangThai'] ??
+              'dangHienThi')
+          .toString()
+          .trim(),
+      // In-memory UI/Join properties
       authorName: (data['authorName'] ?? data['hostName'] ?? '')
           .toString()
           .trim(),
-      authorAvatar: cleanImageUrl(rawAvatar),
-      address: (data['address'] ?? data['diaChi'] ?? '').toString().trim(),
-      images: imagesList,
-      amenities: amenitiesList,
-      mucDichHopTac:
-          (data['mucDichHopTac'] ??
-                  data['purpose'] ??
-                  'Chia sẻ khách thuê & Hợp tác quản lý')
-              .toString()
-              .trim(),
-      interestedCount: interestedCount,
-      responseCount: responseCount,
-      isVerified:
-          data['isVerified'] == true ||
-          data['xacThuc'] == true ||
-          data['daXacThuc'] == true,
-      isVip: data['isVip'] == true || data['vip'] == true,
-      roomArea:
-          (data['roomArea'] ?? data['dienTich'] ?? data['area'] ?? 0.0 as num)
-              .toDouble(),
-      roomType: (data['roomType'] ?? data['loaiPhong'] ?? 'Phòng trọ')
+      authorAvatar: (data['authorAvatar'] ?? data['hostAvatar'] ?? '')
           .toString()
           .trim(),
-      propertyName: propName,
+      propertyName: (data['propertyName'] ?? data['tenNhaTro'] ?? '')
+          .toString()
+          .trim(),
       city: (data['city'] ?? data['thanhPho'] ?? '').toString().trim(),
       district: (data['district'] ?? data['quanHuyen'] ?? '')
           .toString()
           .trim(),
+      roomArea: (data['roomArea'] ??
+              data['dienTich'] ??
+              data['area'] ??
+              0.0 as num)
+          .toDouble(),
+      roomType: (data['roomType'] ?? data['loaiPhong'] ?? 'Phòng trọ')
+          .toString()
+          .trim(),
+      mucDichHopTac: (data['mucDichHopTac'] ??
+              data['purpose'] ??
+              'Chia sẻ khách thuê & Hợp tác quản lý')
+          .toString()
+          .trim(),
+      interestedCount: interestedCount,
+      responseCount: responseCount,
+      isVerified: data['isVerified'] == true ||
+          data['xacThuc'] == true ||
+          data['daXacThuc'] == true,
+      isVip: data['isVip'] == true || data['vip'] == true,
       isUserInterested: isUserInterested,
     );
   }
 
-  /// Chuẩn hóa đường dẫn ảnh từ Firestore:
-  /// - Tự động bóc tách chuỗi map dạng `{duongDan: https://...}` hoặc `{"url": "https://..."}`.
-  /// - Loại bỏ dấu ngoặc kép thừa hoặc khoảng trắng.
-  /// - Hỗ trợ cả URL Cloudinary/Firebase Storage, HTTP/HTTPS và Base64 Data URI.
-  static String cleanImageUrl(dynamic raw) {
-    if (raw == null) return '';
-    var s = raw.toString().trim();
-    if (s.isEmpty) return '';
-
-    // 1. Nếu chuỗi chứa URL HTTP/HTTPS ở bất kỳ vị trí nào, bóc tách chính xác URL
-    final urlMatch = RegExp(r"""https?://[^\s,;"'\]\}\)\>]+""").firstMatch(s);
-    if (urlMatch != null) {
-      return urlMatch.group(0)!.trim();
-    }
-
-    // 2. Nếu là Base64 Data URI
-    if (s.startsWith('data:image')) {
-      return s;
-    }
-
-    // 3. Xử lý chuỗi map bị lưu dạng string: ví dụ {duongDan: https://...} hoặc {"url": "https://..."}
-    if (s.startsWith('{') && s.endsWith('}')) {
-      final match = RegExp(
-        r'''["']?(?:duongDan|url|image|photo|duong_dan|hinhAnh|path)["']?\s*:\s*([^,}]+)''',
-        caseSensitive: false,
-      ).firstMatch(s);
-      if (match != null) {
-        s = match.group(1)!.trim().replaceAll('"', '').replaceAll("'", "");
-      }
-    }
-
-    // 4. Loại bỏ dấu nháy bọc ngoài nếu có
-    if ((s.startsWith('"') && s.endsWith('"')) ||
-        (s.startsWith("'") && s.endsWith("'"))) {
-      s = s.substring(1, s.length - 1).trim();
-    }
-
-    return s;
-  }
-
-  /// Trích xuất danh sách ảnh từ nhiều cấu trúc schema Firestore khác nhau:
-  /// - Kiểm tra lần lượt các khóa: images, anhPhong, danhSachAnh, imageUrls, photos, ...
-  /// - Hỗ trợ cả trường hợp lưu dưới dạng List hoặc chuỗi đơn hoặc Map con.
-  static List<String> parseImagesList(Map<String, dynamic> data) =>
-      _parseImagesList(data);
-
-  static List<String> _parseImagesList(Map<String, dynamic> data) {
-    final candidateKeys = [
-      'images',
-      'anhPhong',
-      'danhSachAnh',
-      'imageUrls',
-      'photos',
-      'hinhAnh',
-      'danhSachHinhAnh',
-      'hinhAnhList',
-      'photo',
-      'image',
-      'duongDan',
-      'url',
-      'anh',
-      'thumbnail',
-      'nhaTroImages',
-      'propertyImages',
-      'anhCoSo',
-      'hinhAnhCoSo',
-      'hinhAnhNhaTro',
-      'anhNhaTro',
-      'coverImage',
-      'hinhDaiDien',
-      'hinh',
-    ];
-
-    final collected = <String>[];
-    for (final key in candidateKeys) {
-      if (data.containsKey(key) && data[key] != null) {
-        final parsed = _parseStringList(data[key]);
-        for (final item in parsed) {
-          final clean = cleanImageUrl(item);
-          if (clean.isNotEmpty && !collected.contains(clean)) {
-            collected.add(clean);
-          }
-        }
-      }
-    }
-
-    // Kiểm tra thêm các đối tượng con nếu có (ví dụ: data['property'] hoặc data['room'])
-    for (final subKey in ['property', 'room', 'nhaTro', 'phong']) {
-      final sub = data[subKey];
-      if (sub is Map<String, dynamic>) {
-        final subImages = _parseImagesList(sub);
-        for (final img in subImages) {
-          if (!collected.contains(img)) collected.add(img);
-        }
-      }
-    }
-
-    return collected;
-  }
-
-  /// Phân tích dữ liệu danh sách chuỗi hoặc danh sách đối tượng map từ Firestore
   static List<String> _parseStringList(dynamic raw) {
     if (raw == null) return const [];
     if (raw is List) {
       final list = <String>[];
       for (final item in raw) {
         if (item is String && item.trim().isNotEmpty) {
-          final urlMatches =
-              RegExp(r"""https?://[^\s,;"'\]\}\)\>]+""").allMatches(item);
-          if (urlMatches.isNotEmpty) {
-            for (final m in urlMatches) {
-              final clean = m.group(0)!.trim();
-              if (clean.isNotEmpty && !list.contains(clean)) list.add(clean);
-            }
-          } else {
-            final cleaned = cleanImageUrl(item);
-            if (cleaned.isNotEmpty && !list.contains(cleaned)) {
-              list.add(cleaned);
-            }
-          }
+          list.add(item.trim());
         } else if (item is Map) {
-          final s = cleanImageUrl(
-            item['url'] ??
-                item['duongDan'] ??
-                item['image'] ??
-                item['hinhAnh'] ??
-                item['photo'] ??
-                item['duong_dan'] ??
-                item['path'] ??
-                item['name'] ??
-                item['ten'] ??
-                item['amenityName'] ??
-                item['tenTienIch'] ??
-                '',
-          );
-          if (s.isNotEmpty && !list.contains(s)) list.add(s);
+          final s = (item['url'] ??
+                  item['duongDan'] ??
+                  item['name'] ??
+                  item['ten'] ??
+                  item['amenityName'] ??
+                  '')
+              .toString()
+              .trim();
+          if (s.isNotEmpty) list.add(s);
         }
       }
       return list;
     }
     if (raw is String && raw.trim().isNotEmpty) {
-      final urlMatches =
-          RegExp(r"""https?://[^\s,;"'\]\}\)\>]+""").allMatches(raw);
-      if (urlMatches.isNotEmpty) {
-        return urlMatches.map((m) => m.group(0)!.trim()).toSet().toList();
-      }
-      final cleaned = cleanImageUrl(raw);
-      return cleaned.isNotEmpty ? [cleaned] : const [];
-    }
-    if (raw is Map) {
-      final s = cleanImageUrl(
-        raw['url'] ??
-            raw['duongDan'] ??
-            raw['image'] ??
-            raw['hinhAnh'] ??
-            raw['photo'] ??
-            raw['duong_dan'] ??
-            raw['path'] ??
-            '',
-      );
-      if (s.isNotEmpty) return [s];
+      return [raw.trim()];
     }
     return const [];
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'phongId': phongId,
-      'chuNhaId': chuNhaId,
-      'diaDiemId': diaDiemId,
-      'loaiThue_id': loaiThueId,
-      'trangThai_id': trangThaiId,
-      'tieuDe': tieuDe,
-      'moTa': moTa,
-      'giaThue': giaThue,
-      'phanTramTienCoc': phanTramTienCoc,
-      'tienCoc': tienCoc,
-      'soDienThoaiLienHe': soDienThoaiLienHe,
-      'ngayDang': Timestamp.fromDate(ngayDang),
-      'authorName': authorName,
-      'authorAvatar': authorAvatar,
-      'address': address,
-      'images': images,
-      'amenities': amenities,
-      'mucDichHopTac': mucDichHopTac,
-      'interestedCount': interestedCount,
-      'responseCount': responseCount,
-      'isVerified': isVerified,
-      'isVip': isVip,
-      'roomArea': roomArea,
-      'roomType': roomType,
-      'propertyName': propertyName,
-      'city': city,
-      'district': district,
-    };
-  }
-
   HostPostModel copyWith({
     String? id,
+    String? roomId,
+    String? hostId,
+    String? locationId,
+    String? rentalTypeId,
+    String? statusId,
+    String? title,
+    String? description,
+    double? rentalPrice,
+    double? depositAmount,
+    int? depositPercentage,
+    List<String>? amenities,
+    List<String>? images,
+    String? address,
+    String? contactPhone,
+    DateTime? createdAt,
+    String? status,
+    // UI/Join fields
+    String? authorName,
+    String? authorAvatar,
+    String? propertyName,
+    String? city,
+    String? district,
+    double? roomArea,
+    String? roomType,
+    String? mucDichHopTac,
+    int? interestedCount,
+    int? responseCount,
+    bool? isVerified,
+    bool? isVip,
+    bool? isUserInterested,
+    RoomModel? joinedRoom,
+    UserProfile? joinedHost,
+    // Vietnamese legacy named params
     String? phongId,
     String? chuNhaId,
     String? diaDiemId,
@@ -465,95 +467,78 @@ class HostPostModel {
     String? tieuDe,
     String? moTa,
     double? giaThue,
-    int? phanTramTienCoc,
     double? tienCoc,
+    int? phanTramTienCoc,
     String? soDienThoaiLienHe,
     DateTime? ngayDang,
-    String? authorName,
-    String? authorAvatar,
-    String? address,
-    List<String>? images,
-    List<String>? amenities,
-    String? mucDichHopTac,
-    int? interestedCount,
-    int? responseCount,
-    bool? isVerified,
-    bool? isVip,
-    double? roomArea,
-    String? roomType,
-    String? propertyName,
-    String? city,
-    String? district,
-    bool? isUserInterested,
-    RoomModel? joinedRoom,
-    UserProfile? joinedHost,
   }) {
     return HostPostModel(
       id: id ?? this.id,
-      phongId: phongId ?? this.phongId,
-      chuNhaId: chuNhaId ?? this.chuNhaId,
-      diaDiemId: diaDiemId ?? this.diaDiemId,
-      loaiThueId: loaiThueId ?? this.loaiThueId,
-      trangThaiId: trangThaiId ?? this.trangThaiId,
-      tieuDe: tieuDe ?? this.tieuDe,
-      moTa: moTa ?? this.moTa,
-      giaThue: giaThue ?? this.giaThue,
-      phanTramTienCoc: phanTramTienCoc ?? this.phanTramTienCoc,
-      tienCoc: tienCoc ?? this.tienCoc,
-      soDienThoaiLienHe: soDienThoaiLienHe ?? this.soDienThoaiLienHe,
-      ngayDang: ngayDang ?? this.ngayDang,
+      roomId: roomId ?? phongId ?? this.roomId,
+      hostId: hostId ?? chuNhaId ?? this.hostId,
+      locationId: locationId ?? diaDiemId ?? this.locationId,
+      rentalTypeId: rentalTypeId ?? loaiThueId ?? this.rentalTypeId,
+      statusId: statusId ?? trangThaiId ?? this.statusId,
+      title: title ?? tieuDe ?? this.title,
+      description: description ?? moTa ?? this.description,
+      rentalPrice: rentalPrice ?? giaThue ?? this.rentalPrice,
+      depositAmount: depositAmount ?? tienCoc ?? this.depositAmount,
+      depositPercentage:
+          depositPercentage ?? phanTramTienCoc ?? this.depositPercentage,
+      amenities: amenities ?? this.amenities,
+      images: images ?? this.images,
+      address: address ?? this.address,
+      contactPhone: contactPhone ?? soDienThoaiLienHe ?? this.contactPhone,
+      createdAt: createdAt ?? ngayDang ?? this.createdAt,
+      status: status ?? this.status,
       authorName: authorName ?? this.authorName,
       authorAvatar: authorAvatar ?? this.authorAvatar,
-      address: address ?? this.address,
-      images: images ?? this.images,
-      amenities: amenities ?? this.amenities,
+      propertyName: propertyName ?? this.propertyName,
+      city: city ?? this.city,
+      district: district ?? this.district,
+      roomArea: roomArea ?? this.roomArea,
+      roomType: roomType ?? this.roomType,
       mucDichHopTac: mucDichHopTac ?? this.mucDichHopTac,
       interestedCount: interestedCount ?? this.interestedCount,
       responseCount: responseCount ?? this.responseCount,
       isVerified: isVerified ?? this.isVerified,
       isVip: isVip ?? this.isVip,
-      roomArea: roomArea ?? this.roomArea,
-      roomType: roomType ?? this.roomType,
-      propertyName: propertyName ?? this.propertyName,
-      city: city ?? this.city,
-      district: district ?? this.district,
       isUserInterested: isUserInterested ?? this.isUserInterested,
       joinedRoom: joinedRoom ?? this.joinedRoom,
       joinedHost: joinedHost ?? this.joinedHost,
     );
   }
 
-  /// Nối dữ liệu từ RoomModel
+  /// Nối dữ liệu từ RoomModel (bộ nhớ tạm, không ghi vào posts document)
   HostPostModel withRoom(RoomModel room) {
     return copyWith(
       joinedRoom: room,
       roomArea: room.area > 0 ? room.area : (roomArea > 0 ? roomArea : 20.0),
       roomType: room.roomType.isNotEmpty ? room.roomType : roomType,
-      propertyName:
-          room.title.isNotEmpty ? room.title : propertyName,
+      propertyName: room.title.isNotEmpty ? room.title : propertyName,
       address: address.isNotEmpty ? address : room.address,
       city: city.isNotEmpty ? city : room.city,
       district: district.isNotEmpty ? district : room.district,
+      rentalPrice: rentalPrice > 0 ? rentalPrice : room.price,
+      depositAmount: depositAmount > 0 ? depositAmount : room.deposit,
       images: images.isNotEmpty ? images : room.images,
       amenities: amenities.isNotEmpty ? amenities : room.amenities,
     );
   }
 
-  /// Nối dữ liệu từ UserProfile của chủ trọ
+  /// Nối dữ liệu từ UserProfile của chủ trọ (bộ nhớ tạm, không ghi vào posts document)
   HostPostModel withHost(UserProfile host) {
     return copyWith(
       joinedHost: host,
       authorName: authorName.isNotEmpty ? authorName : host.displayName,
       authorAvatar: authorAvatar.isNotEmpty ? authorAvatar : host.avatarUrl,
-      soDienThoaiLienHe: soDienThoaiLienHe.isNotEmpty
-          ? soDienThoaiLienHe
-          : host.phoneNumber,
+      contactPhone: contactPhone.isNotEmpty ? contactPhone : host.phoneNumber,
       isVerified: host.isCccdVerified || isVerified,
       isVip: host.reputationScore >= 80 || host.isCccdVerified || isVip,
     );
   }
 
-  /// Nối dữ liệu địa điểm
+  /// Nối dữ liệu địa điểm (bộ nhớ tạm)
   HostPostModel withLocation({String? resolvedCity, String? resolvedDistrict}) {
     return copyWith(
       city: resolvedCity?.isNotEmpty == true ? resolvedCity : city,

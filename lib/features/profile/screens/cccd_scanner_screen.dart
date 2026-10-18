@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -108,10 +109,8 @@ class CccdData {
   bool get isValid12Digits => RegExp(r'^\d{12}$').hasMatch(idNumber);
 
   /// 3 số đầu: Mã Tỉnh/Thành phố nơi đăng ký khai sinh
-  String? get provinceCode =>
-      idNumber.length >= 3 ? idNumber.substring(0, 3) : null;
-  String? get provinceName =>
-      provinceCode != null ? kCccdProvinceCodes[provinceCode] : null;
+  String? get provinceCode => idNumber.length >= 3 ? idNumber.substring(0, 3) : null;
+  String? get provinceName => provinceCode != null ? kCccdProvinceCodes[provinceCode] : null;
 
   /// Số thứ 4: Thế kỷ sinh và giới tính
   String? get analyzedGender {
@@ -217,20 +216,21 @@ class CccdData {
 class CccdScannerScreen extends ConsumerStatefulWidget {
   final bool returnDataOnly;
 
-  const CccdScannerScreen({super.key, this.returnDataOnly = false});
+  const CccdScannerScreen({
+    super.key,
+    this.returnDataOnly = false,
+  });
 
   @override
   ConsumerState<CccdScannerScreen> createState() => _CccdScannerScreenState();
 }
 
-class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
-    with SingleTickerProviderStateMixin {
+class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with SingleTickerProviderStateMixin {
   late final MobileScannerController _scannerController;
   late final AnimationController _laserAnimController;
   bool _isProcessing = false;
   bool _isFlashOn = false;
-  double _currentZoom =
-      0.35; // Zoom 2.0x phần cứng để bắt mã QR nhỏ (~1cm) cực nét
+  double _currentZoom = 0.35; // Zoom 2.0x phần cứng để bắt mã QR nhỏ (~1cm) cực nét
 
   @override
   void initState() {
@@ -297,9 +297,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
 
       final trimmed = rawValue.trim().replaceAll('\uFEFF', '');
       // Chỉ nhận diện nếu chuỗi đúng định dạng CCCD (có dấu | hoặc tối thiểu 12 số)
-      if (trimmed.isEmpty ||
-          (!trimmed.contains('|') &&
-              trimmed.replaceAll(RegExp(r'\D'), '').length < 12)) {
+      if (trimmed.isEmpty || (!trimmed.contains('|') && trimmed.replaceAll(RegExp(r'\D'), '').length < 12)) {
         continue;
       }
 
@@ -314,6 +312,84 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
     }
   }
 
+  Future<void> _scanFromGalleryImage() async {
+    if (_isProcessing) return;
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 95);
+      if (picked == null) return;
+
+      setState(() => _isProcessing = true);
+      HapticFeedback.mediumImpact();
+
+      final capture = await _scannerController.analyzeImage(picked.path);
+      if (capture != null && capture.barcodes.isNotEmpty) {
+        var foundValid = false;
+        for (final barcode in capture.barcodes) {
+          var rawValue = barcode.rawValue ?? '';
+          // ignore: deprecated_member_use
+          final List<int>? rawBytes = barcode.rawBytes;
+          if (rawBytes != null && rawBytes.isNotEmpty) {
+            try {
+              final decoded = utf8.decode(rawBytes, allowMalformed: true);
+              if (decoded.trim().isNotEmpty) rawValue = decoded;
+            } catch (_) {}
+          } else if (rawValue.isNotEmpty) {
+            try {
+              final bytes = latin1.encode(rawValue);
+              final fixedUtf8 = utf8.decode(bytes);
+              if (fixedUtf8.contains('|')) rawValue = fixedUtf8;
+            } catch (_) {}
+          }
+
+          final trimmed = rawValue.trim().replaceAll('\uFEFF', '');
+          if (trimmed.isEmpty || (!trimmed.contains('|') && trimmed.replaceAll(RegExp(r'\D'), '').length < 12)) {
+            continue;
+          }
+
+          foundValid = true;
+          HapticFeedback.heavyImpact();
+          SystemSound.play(SystemSoundType.click);
+          final cccd = CccdData.fromQrString(trimmed);
+          _showVerificationModal(cccd, isRealScan: true, rawQrText: trimmed);
+          break;
+        }
+
+        if (!foundValid) {
+          setState(() => _isProcessing = false);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Mã QR CCCD không hợp lệ hoặc thiếu dữ liệu.'),
+                backgroundColor: Colors.amber,
+              ),
+            );
+          }
+        }
+      } else {
+        setState(() => _isProcessing = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không quét được mã QR từ ảnh đã chọn. Vui lòng chọn ảnh rõ nét hơn hoặc đưa camera lại gần thẻ.'),
+              backgroundColor: Colors.amber,
+            ),
+          );
+        }
+      }
+    } catch (_) {
+      setState(() => _isProcessing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Lỗi khi phân tích ảnh. Vui lòng thử lại.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   // Hộp thoại dán hoặc nhập chuỗi QR thật (phòng khi phòng tối hoặc đèn trần phản chiếu)
   void _pasteRawQrDialog() {
     final textController = TextEditingController();
@@ -325,10 +401,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
           children: [
             Icon(Icons.qr_code_2, color: AppColors.primary),
             SizedBox(width: 8),
-            Text(
-              'Nhập Chuỗi QR Thật',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
+            Text('Nhập Chuỗi QR Thật', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
@@ -344,12 +417,9 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
               controller: textController,
               maxLines: 4,
               decoration: InputDecoration(
-                hintText:
-                    'Ví dụ: 079201012345||HỌ TÊN|15082001|Nam|ĐỊA CHỈ|25122021',
+                hintText: 'Ví dụ: 079201012345||HỌ TÊN|15082001|Nam|ĐỊA CHỈ|25122021',
                 hintStyle: const TextStyle(fontSize: 11, color: Colors.grey),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 contentPadding: const EdgeInsets.all(12),
               ),
             ),
@@ -364,9 +434,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () {
               final text = textController.text.trim();
@@ -411,11 +479,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
     _showVerificationModal(sampleData);
   }
 
-  void _showVerificationModal(
-    CccdData cccd, {
-    bool isRealScan = false,
-    String? rawQrText,
-  }) {
+  void _showVerificationModal(CccdData cccd, {bool isRealScan = false, String? rawQrText}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -434,23 +498,16 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
                 width: 40,
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
               ),
               Row(
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundColor: isRealScan
-                        ? const Color(0xFFD1FAE5)
-                        : const Color(0xFFFEF3C7),
+                    backgroundColor: isRealScan ? const Color(0xFFD1FAE5) : const Color(0xFFFEF3C7),
                     child: Icon(
                       isRealScan ? Icons.verified_user : Icons.check,
-                      color: isRealScan
-                          ? AppColors.primary
-                          : const Color(0xFFD97706),
+                      color: isRealScan ? AppColors.primary : const Color(0xFFD97706),
                       size: 20,
                     ),
                   ),
@@ -460,23 +517,14 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isRealScan
-                              ? 'ĐÃ TRÍCH XUẤT 100% THÔNG TIN THẬT'
-                              : 'ĐÃ QUÉT THÀNH CÔNG CCCD',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: AppColors.primary,
-                          ),
+                          isRealScan ? 'ĐÃ TRÍCH XUẤT 100% THÔNG TIN THẬT' : 'ĐÃ QUÉT THÀNH CÔNG CCCD',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary),
                         ),
                         Text(
                           isRealScan
                               ? 'Dữ liệu được giải mã trực tiếp từ mã QR thẻ CCCD của bạn'
                               : 'Vui lòng kiểm tra lại thông tin trích xuất từ thẻ chip',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textMuted,
-                          ),
+                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                         ),
                       ],
                     ),
@@ -512,48 +560,20 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
                       children: [
                         const Row(
                           children: [
-                            Icon(
-                              Icons.credit_card,
-                              color: AppColors.primary,
-                              size: 20,
-                            ),
+                            Icon(Icons.credit_card, color: AppColors.primary, size: 20),
                             SizedBox(width: 6),
-                            Text(
-                              'CĂN CƯỚC CÔNG DÂN GẮN CHIP',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                color: AppColors.primary,
-                              ),
-                            ),
+                            Text('CĂN CƯỚC CÔNG DÂN GẮN CHIP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primary)),
                           ],
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'Bộ Công An',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.red,
-                            ),
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+                          child: const Text('Bộ Công An', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red)),
                         ),
                       ],
                     ),
                     const Divider(height: 16),
-                    _buildInfoRow(
-                      'Số CCCD / ID:',
-                      cccd.idNumber,
-                      isHighlight: true,
-                    ),
+                    _buildInfoRow('Số CCCD / ID:', cccd.idNumber, isHighlight: true),
                     if (cccd.oldCmnd.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       _buildInfoRow('Số CMND 9 số cũ:', cccd.oldCmnd),
@@ -563,27 +583,17 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        Expanded(
-                          child: _buildInfoRow('Ngày sinh:', cccd.birthDate),
-                        ),
-                        Expanded(
-                          child: _buildInfoRow('Giới tính:', cccd.gender),
-                        ),
+                        Expanded(child: _buildInfoRow('Ngày sinh:', cccd.birthDate)),
+                        Expanded(child: _buildInfoRow('Giới tính:', cccd.gender)),
                       ],
                     ),
                     if (cccd.provinceName != null) ...[
                       const SizedBox(height: 6),
-                      _buildInfoRow(
-                        'Nơi khai sinh (Mã ${cccd.provinceCode}):',
-                        cccd.provinceName!,
-                      ),
+                      _buildInfoRow('Nơi khai sinh (Mã ${cccd.provinceCode}):', cccd.provinceName!),
                     ],
                     if (cccd.analyzedBirthYear != null) ...[
                       const SizedBox(height: 6),
-                      _buildInfoRow(
-                        'Phân tích đối soát:',
-                        '${cccd.analyzedGender ?? cccd.gender} • Sinh năm ${cccd.analyzedBirthYear}',
-                      ),
+                      _buildInfoRow('Phân tích đối soát:', '${cccd.analyzedGender ?? cccd.gender} • Sinh năm ${cccd.analyzedBirthYear}'),
                     ],
                     const SizedBox(height: 6),
                     _buildInfoRow('Nơi thường trú:', cccd.address),
@@ -600,9 +610,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () {
                         Navigator.pop(ctx);
@@ -619,15 +627,11 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () => _confirmVerification(cccd),
                       child: Text(
-                        widget.returnDataOnly
-                            ? 'Dùng Thông Tin Này ✓'
-                            : 'Xác Nhận & Lưu eKYC',
+                        widget.returnDataOnly ? 'Dùng Thông Tin Này ✓' : 'Xác Nhận & Lưu eKYC',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -643,30 +647,20 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
     });
   }
 
-  Widget _buildInfoRow(
-    String label,
-    String value, {
-    bool isHighlight = false,
-    bool isBold = false,
-  }) {
+  Widget _buildInfoRow(String label, String value, {bool isHighlight = false, bool isBold = false}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
           width: 95,
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-          ),
+          child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
         ),
         Expanded(
           child: Text(
             value,
             style: TextStyle(
               fontSize: 13,
-              fontWeight: (isHighlight || isBold)
-                  ? FontWeight.bold
-                  : FontWeight.w500,
+              fontWeight: (isHighlight || isBold) ? FontWeight.bold : FontWeight.w500,
               color: isHighlight ? AppColors.primary : AppColors.textDark,
             ),
           ),
@@ -679,10 +673,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
     if (widget.returnDataOnly) {
       if (mounted) {
         Navigator.pop(context); // Đóng modal bottom sheet
-        Navigator.pop(
-          context,
-          cccd,
-        ); // Trả đối tượng cccd về cho màn hình xác thực 3 mục
+        Navigator.pop(context, cccd); // Trả đối tượng cccd về cho màn hình xác thực 3 mục
       }
       return;
     }
@@ -694,11 +685,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
     try {
       final parts = cccd.birthDate.split('/');
       if (parts.length == 3) {
-        parsedBirth = DateTime(
-          int.parse(parts[2]),
-          int.parse(parts[1]),
-          int.parse(parts[0]),
-        );
+        parsedBirth = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
       }
     } catch (_) {}
 
@@ -718,9 +705,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Xác thực CCCD (eKYC) thành công! Danh tính đã được phê duyệt ✓',
-          ),
+          content: Text('Xác thực CCCD (eKYC) thành công! Danh tính đã được phê duyệt ✓'),
           backgroundColor: AppColors.primary,
         ),
       );
@@ -831,7 +816,9 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
           // 2. Lớp phủ đen làm mờ background xung quanh - CHỈ CHỪA Ô VUÔNG MÃ QR
           Positioned.fill(
             child: CustomPaint(
-              painter: _CardCutoutOverlayPainter(boxSize: boxSize),
+              painter: _CardCutoutOverlayPainter(
+                boxSize: boxSize,
+              ),
             ),
           ),
 
@@ -887,11 +874,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
                           height: 3,
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [
-                                Colors.transparent,
-                                AppColors.primary,
-                                Colors.transparent,
-                              ],
+                              colors: [Colors.transparent, AppColors.primary, Colors.transparent],
                             ),
                             boxShadow: [
                               BoxShadow(
@@ -916,31 +899,20 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       CircleAvatar(
                         backgroundColor: Colors.black45,
                         child: IconButton(
-                          icon: const Icon(
-                            Icons.arrow_back,
-                            color: Colors.white,
-                          ),
+                          icon: const Icon(Icons.arrow_back, color: Colors.white),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ),
                       const Text(
                         'QUÉT MÃ QR TRÊN CCCD',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          letterSpacing: 1,
-                        ),
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 1),
                       ),
                       CircleAvatar(
                         backgroundColor: Colors.black45,
@@ -971,10 +943,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
             bottom: 0,
             child: SafeArea(
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 14,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -982,11 +951,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
-                          Icons.zoom_in,
-                          color: Colors.white70,
-                          size: 16,
-                        ),
+                        const Icon(Icons.zoom_in, color: Colors.white70, size: 16),
                         const SizedBox(width: 8),
                         _buildZoomControls(),
                       ],
@@ -994,10 +959,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
                     const SizedBox(height: 10),
                     // Hướng dẫn
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.black54,
                         borderRadius: BorderRadius.circular(24),
@@ -1006,19 +968,11 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.center_focus_strong,
-                            color: AppColors.primary,
-                            size: 16,
-                          ),
+                          Icon(Icons.center_focus_strong, color: AppColors.primary, size: 16),
                           SizedBox(width: 8),
                           Text(
                             'Đưa mã QR CCCD vào ô vuông (cách 10-15cm)',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
+                            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
                           ),
                         ],
                       ),
@@ -1030,13 +984,15 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
                       children: [
                         // Đổi camera trước / sau
                         IconButton(
-                          icon: const Icon(
-                            Icons.cameraswitch,
-                            color: Colors.white70,
-                            size: 26,
-                          ),
+                          icon: const Icon(Icons.cameraswitch, color: Colors.white70, size: 26),
                           tooltip: 'Đổi camera',
                           onPressed: () => _scannerController.switchCamera(),
+                        ),
+
+                        IconButton(
+                          icon: const Icon(Icons.photo_library_outlined, color: Colors.white, size: 24),
+                          tooltip: 'Quét từ ảnh thư viện',
+                          onPressed: _scanFromGalleryImage,
                         ),
 
                         // Nút Nhập / Dán Chuỗi QR Thật
@@ -1044,26 +1000,11 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.white,
                             side: const BorderSide(color: Colors.white38),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                           ),
-                          icon: const Icon(
-                            Icons.paste_rounded,
-                            size: 18,
-                            color: Colors.amber,
-                          ),
-                          label: const Text(
-                            'Dán QR Thật',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12.5,
-                            ),
-                          ),
+                          icon: const Icon(Icons.paste_rounded, size: 18, color: Colors.amber),
+                          label: const Text('Dán QR Thật', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
                           onPressed: _pasteRawQrDialog,
                         ),
 
@@ -1072,22 +1013,11 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen>
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white24,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                           ),
                           icon: const Icon(Icons.qr_code_scanner, size: 18),
-                          label: const Text(
-                            'Thử Mẫu',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12.5,
-                            ),
-                          ),
+                          label: const Text('Thử Mẫu', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                           onPressed: _simulateSampleScan,
                         ),
                       ],
@@ -1171,40 +1101,16 @@ class _CornerBracketsPainter extends CustomPainter {
     canvas.drawLine(const Offset(0, 0), const Offset(0, cornerLength), paint);
 
     // Góc trên bên phải
-    canvas.drawLine(
-      Offset(size.width, 0),
-      Offset(size.width - cornerLength, 0),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(size.width, 0),
-      Offset(size.width, cornerLength),
-      paint,
-    );
+    canvas.drawLine(Offset(size.width, 0), Offset(size.width - cornerLength, 0), paint);
+    canvas.drawLine(Offset(size.width, 0), Offset(size.width, cornerLength), paint);
 
     // Góc dưới bên trái
-    canvas.drawLine(
-      Offset(0, size.height),
-      Offset(cornerLength, size.height),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(0, size.height),
-      Offset(0, size.height - cornerLength),
-      paint,
-    );
+    canvas.drawLine(Offset(0, size.height), Offset(cornerLength, size.height), paint);
+    canvas.drawLine(Offset(0, size.height), Offset(0, size.height - cornerLength), paint);
 
     // Góc dưới bên phải
-    canvas.drawLine(
-      Offset(size.width, size.height),
-      Offset(size.width - cornerLength, size.height),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(size.width, size.height),
-      Offset(size.width, size.height - cornerLength),
-      paint,
-    );
+    canvas.drawLine(Offset(size.width, size.height), Offset(size.width - cornerLength, size.height), paint);
+    canvas.drawLine(Offset(size.width, size.height), Offset(size.width, size.height - cornerLength), paint);
   }
 
   @override

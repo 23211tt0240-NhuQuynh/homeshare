@@ -8,6 +8,7 @@ import '../../../data/models/host_post_model.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
+import 'host_property.dart';
 
 /// Repository xử lý nghiệp vụ đọc Bài đăng Chủ trọ và nối quan hệ dữ liệu:
 /// Bài đăng ├── phongId ├── chuNhaId ├── diaDiemId ├── loaiThue_id └── trangThai_id
@@ -24,11 +25,11 @@ class HostPostRepository {
 
   // Bộ nhớ đệm tạm thời để tối ưu hoá hiệu năng join
   final Map<String, RoomModel> _roomCache = {};
-  final Map<String, List<String>> _propertyImagesCache = {};
   final Map<String, UserProfile> _hostCache = {};
   final Map<String, Map<String, String>> _locationCache = {};
+  final Map<String, HostProperty> _propertyCache = {};
 
-  /// 1. Stream bài đăng realtime từ collection 'posts', loại trừ chủ trọ hiện tại
+  /// 1. Stream bài đăng realtime từ collection 'bai_dang_cho_thue' hoặc 'posts', loại trừ chủ trọ hiện tại
   Stream<List<HostPostModel>> watchActivePosts({
     String? excludeHostId,
     String? currentUserId,
@@ -38,11 +39,17 @@ class HostPostRepository {
       return Stream.value(const []);
     }
 
-    // Lắng nghe realtime từ collection 'posts' và bổ sung tiện ích từ phòng nếu tài liệu bài đăng chưa lưu sẵn
-    return db.collection('posts').snapshots().asyncMap((snapshot) async {
+    // Lắng nghe realtime từ collection 'posts' (fallback 'bai_dang_cho_thue' nếu còn tài liệu cũ)
+    return db.collection(FirestoreCollections.posts).snapshots().asyncMap((snapshot) async {
+      var docs = snapshot.docs;
+      if (docs.isEmpty) {
+        final fallbackSnap = await db.collection(FirestoreCollections.baiDangChoThue).get();
+        docs = fallbackSnap.docs;
+      }
+
       final posts = <HostPostModel>[];
 
-      for (final doc in snapshot.docs) {
+      for (final doc in docs) {
         try {
           final post = HostPostModel.fromFirestore(
             doc,
@@ -63,87 +70,47 @@ class HostPostRepository {
         }
       }
 
-      // Đảm bảo bài đăng có đầy đủ ảnh và tiện ích (phục vụ hiển thị và bộ lọc)
+      // Nối quan hệ dữ liệu qua các khóa ngoại tách bảng
       final enrichedPosts = <HostPostModel>[];
       for (final post in posts) {
         var enriched = post;
-
-        // Trích xuất mã phòng từ tiêu đề (ví dụ: 'Phòng A102 • Nhà trọ i tê' -> 'A102')
-        String extractedRoomCode = '';
-        final roomCodeMatch = RegExp(
-          r'(?:phòng|phong|room)\s*([a-zA-Z0-9_\-]+)',
-          caseSensitive: false,
-        ).firstMatch(post.tieuDe);
-        if (roomCodeMatch != null) {
-          extractedRoomCode = roomCodeMatch.group(1)!.trim();
-        } else if (post.tieuDe.contains('•')) {
-          final firstPart = post.tieuDe.split('•').first;
-          extractedRoomCode = firstPart
-              .replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '')
-              .trim();
-        }
-
-        // Trích xuất tên cơ sở / nhà trọ (ví dụ: 'Nhà trọ i tê')
-        String extractedPropName = post.propertyName;
-        if (extractedPropName.isEmpty && post.tieuDe.contains('•')) {
-          extractedPropName = post.tieuDe.split('•').last.trim();
-        }
-
-        // 1. Tự động liên kết dữ liệu từ phòng nếu bài đăng thiếu ảnh hoặc tiện ích
-        if (enriched.images.isEmpty ||
-            enriched.amenities.isEmpty ||
-            enriched.joinedRoom == null) {
-          final room = await getRoom(
-            post.phongId,
-            roomCode: extractedRoomCode,
-            hostId: post.chuNhaId,
-            propertyName: extractedPropName,
-          );
+        RoomModel? room;
+        if (post.phongId.isNotEmpty) {
+          room = await getRoom(post.phongId);
           if (room != null) {
             enriched = enriched.withRoom(room);
           }
         }
-
-        // 2. Nếu bài đăng vẫn chưa có ảnh, truy vấn từ bảng AnhPhong / anhPhong
-        if (enriched.images.isEmpty) {
-          var anhPhongImages = <String>[];
-          if (post.phongId.isNotEmpty) {
-            anhPhongImages = await getImagesFromAnhPhong(post.phongId);
-          }
-          if (anhPhongImages.isEmpty && extractedRoomCode.isNotEmpty) {
-            anhPhongImages = await getImagesFromAnhPhong(extractedRoomCode);
-          }
-          if (anhPhongImages.isNotEmpty) {
-            enriched = enriched.copyWith(images: anhPhongImages);
-          }
-        }
-
-        // 3. Nếu bài đăng vẫn chưa có ảnh, fallback lấy ảnh từ cơ sở liên kết (properties / host_properties)
-        if (enriched.images.isEmpty) {
-          final propImages = await findPropertyImagesForPost(
-            enriched,
-            extractedPropName: extractedPropName,
-          );
-          if (propImages.isNotEmpty) {
-            enriched = enriched.copyWith(images: propImages);
-            if (enriched.joinedRoom != null &&
-                enriched.joinedRoom!.images.isEmpty) {
-              enriched = enriched.copyWith(
-                joinedRoom: enriched.joinedRoom!.copyWith(images: propImages),
-              );
-            }
-          }
-        }
-
-        // 4. Tự động lấy tên & avatar chủ trọ từ collection users nếu bài đăng chưa có
-        if ((enriched.authorAvatar.isEmpty || enriched.authorName.isEmpty) &&
-            post.chuNhaId.isNotEmpty) {
-          final host = await getHostProfile(post.chuNhaId);
+        final hostIdToFetch = post.chuNhaId.isNotEmpty
+            ? post.chuNhaId
+            : (room?.hostId ?? '');
+        if (hostIdToFetch.isNotEmpty) {
+          final host = await getHostProfile(hostIdToFetch);
           if (host != null) {
             enriched = enriched.withHost(host);
           }
         }
-
+        final propId = room?.propertyId ?? '';
+        if (propId.isNotEmpty) {
+          final prop = await getProperty(propId);
+          if (prop != null) {
+            enriched = enriched.copyWith(
+              propertyName: prop.name,
+              address: enriched.address.isNotEmpty ? enriched.address : prop.address,
+              city: enriched.city.isNotEmpty ? enriched.city : prop.city,
+              district: enriched.district.isNotEmpty ? enriched.district : prop.district,
+            );
+          }
+        }
+        if (post.diaDiemId.isNotEmpty && (enriched.city.isEmpty || enriched.district.isEmpty)) {
+          final loc = await getLocation(post.diaDiemId);
+          if (loc != null) {
+            enriched = enriched.withLocation(
+              resolvedCity: loc['city'],
+              resolvedDistrict: loc['district'],
+            );
+          }
+        }
         enrichedPosts.add(enriched);
       }
 
@@ -151,329 +118,242 @@ class HostPostRepository {
     });
   }
 
-  /// 2. Đọc phòng liên quan theo phongId/roomCode từ host_rooms hoặc rooms
-  Future<RoomModel?> getRoom(
-    String roomId, {
-    String? roomCode,
-    String? hostId,
-    String? propertyName,
-  }) async {
+  /// Đọc cơ sở theo propertyId từ collection 'properties' hoặc 'bat_dong_san'
+  Future<HostProperty?> getProperty(String propertyId) async {
     final db = _db;
-    if (db == null) return null;
-    final cacheKey = roomId.isNotEmpty ? roomId : (roomCode ?? '');
-    if (cacheKey.isNotEmpty && _roomCache.containsKey(cacheKey)) {
-      return _roomCache[cacheKey];
-    }
+    if (propertyId.isEmpty || db == null) return null;
+    if (_propertyCache.containsKey(propertyId)) return _propertyCache[propertyId];
 
     try {
-      DocumentSnapshot? foundDoc;
-
-      // 1. Thử đọc trực tiếp bằng doc ID nếu có
-      if (roomId.isNotEmpty) {
-        var doc = await db
-            .collection(FirestoreCollections.hostRooms)
-            .doc(roomId)
-            .get();
-        if (!doc.exists) {
-          doc = await db
-              .collection(FirestoreCollections.publicRooms)
-              .doc(roomId)
-              .get();
-        }
+      for (final col in [
+        FirestoreCollections.hostProperties,
+        FirestoreCollections.batDongSan,
+      ]) {
+        final doc = await db.collection(col).doc(propertyId).get();
         if (doc.exists && doc.data() != null) {
-          foundDoc = doc;
-        } else {
-          // Thử tìm theo trường id / phongId / roomCode
-          for (final col in [
-            FirestoreCollections.hostRooms,
-            FirestoreCollections.publicRooms,
-            'phong',
-            'Phong',
-          ]) {
-            for (final field in ['id', 'phongId', 'roomCode', 'maPhong']) {
-              final snap = await db
-                  .collection(col)
-                  .where(field, isEqualTo: roomId)
-                  .limit(1)
-                  .get();
-              if (snap.docs.isNotEmpty) {
-                foundDoc = snap.docs.first;
-                break;
-              }
-            }
-            if (foundDoc != null) break;
-          }
+          final prop = HostProperty.fromMap(doc.id, doc.data()!);
+          _propertyCache[propertyId] = prop;
+          return prop;
         }
-      }
-
-      // 2. Nếu chưa tìm thấy và có roomCode (ví dụ: 'A102' bóc từ tiêu đề)
-      if (foundDoc == null && roomCode != null && roomCode.isNotEmpty) {
-        for (final col in [
-          FirestoreCollections.hostRooms,
-          FirestoreCollections.publicRooms,
-        ]) {
-          // Khớp cả hostId và roomCode
-          if (hostId != null && hostId.isNotEmpty) {
-            final snap = await db
-                .collection(col)
-                .where('hostId', isEqualTo: hostId)
-                .where('roomCode', isEqualTo: roomCode)
-                .limit(1)
-                .get();
-            if (snap.docs.isNotEmpty) {
-              foundDoc = snap.docs.first;
-              break;
-            }
-          }
-
-          // Khớp roomCode
-          final snapCode = await db
-              .collection(col)
-              .where('roomCode', isEqualTo: roomCode)
-              .limit(1)
-              .get();
-          if (snapCode.docs.isNotEmpty) {
-            foundDoc = snapCode.docs.first;
-            break;
-          }
-        }
-      }
-
-      if (foundDoc != null && foundDoc.data() != null) {
-        var room = RoomModel.fromFirestore(foundDoc);
-
-        // 3. Nếu phòng chưa có ảnh, tìm thêm từ collection AnhPhong
-        if (room.images.isEmpty) {
-          var anhPhongImages = await getImagesFromAnhPhong(room.id);
-          if (anhPhongImages.isEmpty && room.roomCode.isNotEmpty) {
-            anhPhongImages = await getImagesFromAnhPhong(room.roomCode);
-          }
-          if (anhPhongImages.isNotEmpty) {
-            room = room.copyWith(images: anhPhongImages);
-          }
-        }
-
-        // 4. Nếu phòng vẫn chưa có ảnh nhưng có propertyId, thừa hưởng ảnh từ cơ sở
-        if (room.images.isEmpty && room.propertyId.isNotEmpty) {
-          final propImages = await getPropertyImages(room.propertyId);
-          if (propImages.isNotEmpty) {
-            room = room.copyWith(images: propImages);
-          }
-        }
-
-        if (cacheKey.isNotEmpty) {
-          _roomCache[cacheKey] = room;
-        }
-        _roomCache[room.id] = room;
-        return room;
       }
     } catch (e) {
-      debugPrint('Lỗi đọc phòng $roomId (code: $roomCode): $e');
+      debugPrint('Lỗi đọc cơ sở $propertyId: $e');
     }
     return null;
   }
 
-  /// Đọc danh sách ảnh phòng thực tế từ collection 'AnhPhong' hoặc 'anhPhong' theo phongId hoặc roomCode
-  Future<List<String>> getImagesFromAnhPhong(String roomId) async {
+  /// 2. Đọc phòng liên quan theo roomId từ host_rooms, public_rooms hoặc phong_tro
+  /// và nạp ảnh từ room_images cùng tiện ích từ room_amenities
+  Future<RoomModel?> getRoom(String roomId) async {
+    final db = _db;
+    if (roomId.isEmpty || db == null) return null;
+    if (_roomCache.containsKey(roomId)) return _roomCache[roomId];
+
+    try {
+      DocumentSnapshot? doc;
+      for (final col in [
+        FirestoreCollections.hostRooms,
+        FirestoreCollections.publicRooms,
+        FirestoreCollections.phongTro,
+      ]) {
+        final d = await db.collection(col).doc(roomId).get();
+        if (d.exists && d.data() != null) {
+          doc = d;
+          break;
+        }
+      }
+
+      if (doc != null && doc.data() != null) {
+        var room = RoomModel.fromFirestore(doc);
+
+        // Nối ảnh từ bảng riêng room_images / hinh_anh_phong
+        final roomImages = await getRoomImages(roomId);
+        if (roomImages.isNotEmpty) {
+          room = room.copyWith(images: roomImages);
+        }
+
+        // Nối tiện ích từ bảng riêng room_amenities / tien_ich_phong_tro
+        final roomAmenities = await getRoomAmenities(roomId);
+        if (roomAmenities.isNotEmpty) {
+          room = room.copyWith(amenities: roomAmenities);
+        }
+
+        _roomCache[roomId] = room;
+        return room;
+      }
+    } catch (e) {
+      debugPrint('Lỗi đọc phòng $roomId: $e');
+    }
+    return null;
+  }
+
+  /// Đọc ảnh phòng từ sub-collection hinh_anh_phong hoặc root collection room_images
+  Future<List<String>> getRoomImages(String roomId) async {
+    final db = _db;
+    if (roomId.isEmpty || db == null) return const [];
+    try {
+      final results = <String>[];
+      // 1. Đọc từ Sub-collection chuẩn 1-N: phong_tro/{roomId}/hinh_anh_phong
+      try {
+        for (final roomCol in [
+          FirestoreCollections.phongTro,
+          FirestoreCollections.hostRooms,
+          FirestoreCollections.publicRooms,
+        ]) {
+          final subSnap = await db
+              .collection(roomCol)
+              .doc(roomId)
+              .collection(FirestoreCollections.hinhAnhPhong)
+              .get();
+          if (subSnap.docs.isNotEmpty) {
+            final docs = subSnap.docs.toList()
+              ..sort((a, b) {
+                final oa = (a.data()['thu_tu'] ??
+                        a.data()['sortOrder'] ??
+                        a.data()['thuTu']) as num? ??
+                    0;
+                final ob = (b.data()['thu_tu'] ??
+                        b.data()['sortOrder'] ??
+                        b.data()['thuTu']) as num? ??
+                    0;
+                return oa.compareTo(ob);
+              });
+            for (final doc in docs) {
+              final data = doc.data();
+              final url = (data['url_anh'] ??
+                      data['url'] ??
+                      data['duongDan'] ??
+                      data['image'] ??
+                      '')
+                  .toString()
+                  .trim();
+              if (url.isNotEmpty && !results.contains(url)) {
+                results.add(url);
+              }
+            }
+            if (results.isNotEmpty) return results;
+          }
+        }
+      } catch (_) {}
+
+      // 2. Fallback đọc từ root collection (nếu có)
+      for (final col in [
+        FirestoreCollections.roomImages,
+        FirestoreCollections.hinhAnhPhong,
+        FirestoreCollections.anhPhong,
+      ]) {
+        for (final field in ['roomId', 'phongId', 'phong_tro_id']) {
+          final snap = await db
+              .collection(col)
+              .where(field, isEqualTo: roomId)
+              .get();
+          final docs = snap.docs.toList()
+            ..sort((a, b) {
+              final oa = (a.data()['sortOrder'] ?? a.data()['thu_tu'] ?? a.data()['thuTu']) as num? ?? 0;
+              final ob = (b.data()['sortOrder'] ?? b.data()['thu_tu'] ?? b.data()['thuTu']) as num? ?? 0;
+              return oa.compareTo(ob);
+            });
+          for (final doc in docs) {
+            final data = doc.data();
+            final url = (data['url'] ??
+                    data['url_anh'] ??
+                    data['duongDan'] ??
+                    data['image'] ??
+                    '')
+                .toString()
+                .trim();
+            if (url.isNotEmpty && !results.contains(url)) {
+              results.add(url);
+            }
+          }
+          if (results.isNotEmpty) return results;
+        }
+      }
+      return results;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Đọc tiện ích phòng từ bảng room_amenities
+  Future<List<String>> getRoomAmenities(String roomId) async {
     final db = _db;
     if (roomId.isEmpty || db == null) return const [];
     try {
       final results = <String>[];
       for (final col in [
-        'AnhPhong',
-        'anhPhong',
-        'RoomImages',
-        'room_images',
-        'anh_phong',
+        FirestoreCollections.roomAmenities,
+        FirestoreCollections.tienIchPhongTro,
+        FirestoreCollections.tienIchPhong,
       ]) {
-        for (final field in ['phongId', 'roomId', 'roomCode', 'maPhong']) {
+        for (final field in ['roomId', 'phongId', 'phong_tro_id']) {
           final snap = await db
               .collection(col)
               .where(field, isEqualTo: roomId)
               .get();
           for (final d in snap.docs) {
             final data = d.data();
-            final rawUrl = (data['duongDan'] ??
-                    data['url'] ??
-                    data['image'] ??
-                    data['hinhAnh'] ??
-                    data['duong_dan'] ??
+            final name = (data['amenityName'] ??
+                    data['name'] ??
+                    data['ten_tien_ich'] ??
+                    data['tenTienIch'] ??
                     '')
-                .toString();
-            final clean = HostPostModel.cleanImageUrl(rawUrl);
-            if (clean.isNotEmpty && !results.contains(clean)) {
-              results.add(clean);
+                .toString()
+                .trim();
+            if (name.isNotEmpty && !results.contains(name)) {
+              results.add(name);
             }
           }
-          if (results.isNotEmpty) break;
+          if (results.isNotEmpty) return results;
         }
       }
       return results;
-    } catch (e) {
-      debugPrint('Lỗi đọc AnhPhong cho phòng $roomId: $e');
+    } catch (_) {
       return const [];
     }
   }
 
-  /// Đọc ảnh cơ sở/nhà trọ từ collection 'properties' hoặc 'host_properties'
-  Future<List<String>> getPropertyImages(String propertyId) async {
-    final db = _db;
-    if (propertyId.isEmpty || db == null) return const [];
-    if (_propertyImagesCache.containsKey(propertyId)) {
-      return _propertyImagesCache[propertyId]!;
-    }
-
-    try {
-      final results = <String>[];
-      for (final col in [
-        FirestoreCollections.hostProperties,
-        'host_properties',
-        'nhaTro',
-        'NhaTro',
-        'coSo',
-      ]) {
-        final doc = await db.collection(col).doc(propertyId).get();
-        if (doc.exists && doc.data() != null) {
-          final data = doc.data()!;
-          final images = HostPostModel.parseImagesList(data);
-          for (final img in images) {
-            if (!results.contains(img)) results.add(img);
-          }
-          if (results.isNotEmpty) break;
-        }
-      }
-      if (results.isNotEmpty) {
-        _propertyImagesCache[propertyId] = results;
-        return results;
-      }
-    } catch (e) {
-      debugPrint('Lỗi đọc ảnh cơ sở $propertyId: $e');
-    }
-    return const [];
-  }
-
-  /// Tìm kiếm ảnh cơ sở / nhà trọ cho bài đăng qua nhiều tiêu chí liên kết:
-  /// 1. joinedRoom.propertyId
-  /// 2. post.diaDiemId (có thể lưu ID nhà trọ)
-  /// 3. Tên nhà trọ (post.propertyName hoặc tách từ tiêu đề, ví dụ: 'Nhà trọ i tê')
-  /// 4. ID chủ nhà (post.chuNhaId)
-  Future<List<String>> findPropertyImagesForPost(
-    HostPostModel post, {
-    String? extractedPropName,
-  }) async {
-    final db = _db;
-    if (db == null) return const [];
-
-    // 1. Kiểm tra qua propertyId của phòng đã liên kết
-    if (post.joinedRoom?.propertyId.isNotEmpty == true) {
-      final imgs = await getPropertyImages(post.joinedRoom!.propertyId);
-      if (imgs.isNotEmpty) return imgs;
-    }
-
-    // 2. Kiểm tra qua diaDiemId nếu nó trùng với ID cơ sở
-    if (post.diaDiemId.isNotEmpty) {
-      final imgs = await getPropertyImages(post.diaDiemId);
-      if (imgs.isNotEmpty) return imgs;
-    }
-
-    // 3. Tìm theo tên cơ sở (ví dụ: 'Nhà trọ i tê' được bóc từ tiêu đề 'Phòng A102 • Nhà trọ i tê')
-    final propName = (extractedPropName?.isNotEmpty == true
-            ? extractedPropName!
-            : post.propertyName)
-        .trim();
-
-    final collections = [
-      FirestoreCollections.hostProperties,
-      'host_properties',
-      'nhaTro',
-      'NhaTro',
-      'coSo',
-    ];
-
-    if (propName.isNotEmpty) {
-      for (final col in collections) {
-        try {
-          // Ưu tiên khớp cả tên cơ sở và chủ nhà
-          if (post.chuNhaId.isNotEmpty) {
-            final snapWithHost = await db
-                .collection(col)
-                .where('hostId', isEqualTo: post.chuNhaId)
-                .where('name', isEqualTo: propName)
-                .limit(1)
-                .get();
-            if (snapWithHost.docs.isNotEmpty) {
-              final imgs = HostPostModel.parseImagesList(
-                snapWithHost.docs.first.data(),
-              );
-              if (imgs.isNotEmpty) return imgs;
-            }
-          }
-
-          // Khớp theo tên cơ sở
-          for (final nameField in ['name', 'tenNha', 'tenCoSo', 'title']) {
-            final snap = await db
-                .collection(col)
-                .where(nameField, isEqualTo: propName)
-                .limit(1)
-                .get();
-            if (snap.docs.isNotEmpty) {
-              final imgs = HostPostModel.parseImagesList(
-                snap.docs.first.data(),
-              );
-              if (imgs.isNotEmpty) return imgs;
-            }
-          }
-        } catch (_) {}
-      }
-    }
-
-    // 4. Nếu vẫn chưa có, lấy ảnh cơ sở mà chủ trọ này sở hữu
-    if (post.chuNhaId.isNotEmpty) {
-      for (final col in collections) {
-        try {
-          final snap = await db
-              .collection(col)
-              .where('hostId', isEqualTo: post.chuNhaId)
-              .limit(3)
-              .get();
-          for (final doc in snap.docs) {
-            final imgs = HostPostModel.parseImagesList(doc.data());
-            if (imgs.isNotEmpty) return imgs;
-          }
-        } catch (_) {}
-      }
-    }
-
-    return const [];
-  }
-
-  /// 3. Đọc thông tin chủ trọ theo chuNhaId từ collection 'users'
+  /// 3. Đọc thông tin chủ trọ theo chuNhaId từ collection 'nguoi_dung' hoặc 'users'
   Future<UserProfile?> getHostProfile(String hostId) async {
     final db = _db;
     if (hostId.isEmpty || db == null) return null;
     if (_hostCache.containsKey(hostId)) return _hostCache[hostId];
 
     try {
-      final doc = await db.collection('users').doc(hostId).get();
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
+      DocumentSnapshot? doc;
+      for (final col in [
+        FirestoreCollections.nguoiDung,
+        'users',
+      ]) {
+        final d = await db.collection(col).doc(hostId).get();
+        if (d.exists && d.data() != null) {
+          doc = d;
+          break;
+        }
+      }
+
+      if (doc != null && doc.data() != null) {
+        final data = doc.data()! as Map<String, dynamic>;
         final profile = UserProfile(
           uid: hostId,
           email: data['email'] ?? '',
-          displayName: data['displayName'] ??
+          displayName: data['ho_ten'] ??
+              data['displayName'] ??
               data['hoTen'] ??
               data['name'] ??
               'Chủ trọ',
-          phoneNumber: data['phoneNumber'] ??
+          phoneNumber: data['so_dien_thoai'] ??
+              data['phoneNumber'] ??
               data['soDienThoai'] ??
               data['phone'] ??
               '',
-          role: data['role'] ?? 'host',
+          role: data['vai_tro'] ?? data['role'] ?? 'host',
           avatarUrl: data['avatarUrl'] ?? data['anhDaiDien'] ?? '',
           gender: data['gender'] ?? 'nam',
           address: data['address'] ?? data['diaChi'] ?? '',
           hometown: data['hometown'] ?? data['queQuan'] ?? '',
-          reputationScore: (data['reputationScore'] ??
+          reputationScore: (data['diem_uy_tin'] ??
+                  data['reputationScore'] ??
                   data['diemUyTin'] ??
                   100 as num)
               .toInt(),
@@ -481,12 +361,12 @@ class HostPostRepository {
           hobbies: const [],
           isCccdVerified: data['isCccdVerified'] == true ||
               data['daXacThucCccd'] == true,
-          cccdNumber: data['cccdNumber'] ?? '',
-          cccdFullName: data['cccdFullName'] ?? '',
+          cccdNumber: data['so_cccd'] ?? data['cccdNumber'] ?? '',
+          cccdFullName: data['ho_ten_cccd'] ?? data['cccdFullName'] ?? '',
           cccdIssueDate: data['cccdIssueDate'] ?? '',
           cccdHometown: data['cccdHometown'] ?? '',
-          cccdFrontImageUrl: data['cccdFrontImageUrl'] ?? '',
-          cccdBackImageUrl: data['cccdBackImageUrl'] ?? '',
+          cccdFrontImageUrl: data['anh_mat_truoc'] ?? data['cccdFrontImageUrl'] ?? '',
+          cccdBackImageUrl: data['anh_mat_sau'] ?? data['cccdBackImageUrl'] ?? '',
         );
         _hostCache[hostId] = profile;
         return profile;
@@ -508,9 +388,11 @@ class HostPostRepository {
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
         final result = {
-          'city': (data['city'] ?? data['thanhPho'] ?? '').toString(),
+          'city': (data['city'] ?? data['province'] ?? data['thanhPho'] ?? '').toString(),
           'district':
               (data['district'] ?? data['quanHuyen'] ?? diaDiemId).toString(),
+          'ward': (data['ward'] ?? data['phuongXa'] ?? '').toString(),
+          'address': (data['address'] ?? data['diaChi'] ?? '').toString(),
         };
         _locationCache[diaDiemId] = result;
         return result;

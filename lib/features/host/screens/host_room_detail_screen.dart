@@ -9,7 +9,7 @@ import 'host_room_edit_screen.dart';
 
 // Chủ trọ - Chi tiết phòng - Luồng đi: Chọn phòng trong danh sách,
 // đọc dữ liệu trực tiếp rồi mở chỉnh sửa hoặc xác nhận xóa phòng.
-class HostRoomDetailScreen extends ConsumerWidget {
+class HostRoomDetailScreen extends ConsumerStatefulWidget {
   const HostRoomDetailScreen({
     super.key,
     required this.propertyId,
@@ -20,30 +20,77 @@ class HostRoomDetailScreen extends ConsumerWidget {
   final String propertyId, roomId;
   final RoomModel? previewRoom;
   final List<HostUpload> previewImages;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HostRoomDetailScreen> createState() =>
+      _HostRoomDetailScreenState();
+}
+
+class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
+  List<String> _extraImages = const [];
+  List<String> _extraAmenities = const [];
+  bool _checkedFallbacks = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkFallbacks();
+  }
+
+  Future<void> _checkFallbacks() async {
+    if (_checkedFallbacks) return;
+    _checkedFallbacks = true;
+    try {
+      final repo = ref.read(hostRepositoryProvider);
+      final imgs = await repo.getRoomImagesFromAnhPhong(widget.roomId);
+      final ams = await repo.getRoomAmenitiesFromTienIchPhong(widget.roomId);
+      if (mounted && (imgs.isNotEmpty || ams.isNotEmpty)) {
+        setState(() {
+          if (imgs.isNotEmpty) _extraImages = imgs;
+          if (ams.isNotEmpty) _extraAmenities = ams;
+        });
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final rooms = ref.watch(hostRoomsProvider);
     final houses = ref.watch(hostPropertiesProvider);
     final uid = ref.watch(hostSessionProvider).value;
     final property = houses.value
-        ?.where((p) => p.id == propertyId && p.hostId == uid)
+        ?.where((p) => p.id == widget.propertyId && p.hostId == uid)
         .firstOrNull;
     final room =
-        previewRoom ??
+        widget.previewRoom ??
         rooms.value
             ?.where(
               (r) =>
-                  r.id == roomId &&
-                  r.propertyId == propertyId &&
+                  r.id == widget.roomId &&
+                  r.propertyId == widget.propertyId &&
                   r.hostId == uid &&
                   r.status != 'deleted',
             )
             .firstOrNull;
+
+    if (room != null && (room.images.isEmpty || room.amenities.isEmpty)) {
+      _checkFallbacks();
+    }
+
+    final displayImages = room?.images.isNotEmpty == true
+        ? room!.images
+        : _extraImages;
+    final displayAmenities = room?.amenities.isNotEmpty == true
+        ? room!.amenities
+        : _extraAmenities;
+
     final error = rooms.error ?? houses.error;
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FF),
       appBar: AppBar(
-        title: Text(previewRoom == null ? 'Chi tiết phòng' : 'Xem trước phòng'),
+        title: Text(
+          widget.previewRoom == null ? 'Chi tiết phòng' : 'Xem trước phòng',
+        ),
       ),
       body: room == null || property == null
           ? Center(
@@ -70,6 +117,11 @@ class HostRoomDetailScreen extends ConsumerWidget {
                   icon: Icons.meeting_room_outlined,
                   child: Column(
                     children: [
+                      if (room.id.isNotEmpty)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('Mã phòng: ${room.id}'),
+                        ),
                       Wrap(
                         alignment: WrapAlignment.spaceBetween,
                         spacing: 12,
@@ -105,7 +157,9 @@ class HostRoomDetailScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(12),
                         child: SizedBox(
                           height: 210,
-                          child: room.images.isEmpty && previewImages.isEmpty
+                          child:
+                              displayImages.isEmpty &&
+                                  widget.previewImages.isEmpty
                               ? const Center(
                                   child: Icon(
                                     Icons.image_outlined,
@@ -115,11 +169,11 @@ class HostRoomDetailScreen extends ConsumerWidget {
                                 )
                               : PageView(
                                   children: [
-                                    for (final url in room.images)
+                                    for (final url in displayImages)
                                       Image.network(
+                                        url,
                                         webHtmlElementStrategy:
                                             WebHtmlElementStrategy.fallback,
-                                        url,
                                         fit: BoxFit.cover,
                                         errorBuilder: (_, _, _) => const Center(
                                           child: Icon(
@@ -128,7 +182,7 @@ class HostRoomDetailScreen extends ConsumerWidget {
                                           ),
                                         ),
                                       ),
-                                    for (final photo in previewImages)
+                                    for (final photo in widget.previewImages)
                                       Image.memory(
                                         photo.bytes,
                                         fit: BoxFit.cover,
@@ -137,11 +191,12 @@ class HostRoomDetailScreen extends ConsumerWidget {
                                 ),
                         ),
                       ),
-                      if (room.images.length + previewImages.length > 0)
+                      if (displayImages.length + widget.previewImages.length >
+                          0)
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
-                            '${room.images.length + previewImages.length} ảnh • Vuốt để xem',
+                            '${displayImages.length + widget.previewImages.length} ảnh • Vuốt để xem',
                             style: const TextStyle(
                               fontSize: 11,
                               color: AppColors.textSecondary,
@@ -180,7 +235,7 @@ class HostRoomDetailScreen extends ConsumerWidget {
                         spacing: 6,
                         runSpacing: 6,
                         children: [
-                          for (final amenity in room.amenities)
+                          for (final amenity in displayAmenities)
                             Chip(
                               label: Text(
                                 amenity,
@@ -202,18 +257,22 @@ class HostRoomDetailScreen extends ConsumerWidget {
                   ),
                 ),
                 HostRoomTenant(room: room),
-                if (previewRoom == null)
+                if (widget.previewRoom == null)
                   Row(
                     children: [
                       Expanded(
                         child: FilledButton.icon(
                           key: const ValueKey('edit_room'),
                           onPressed: () async {
+                            final roomForEdit = room.copyWith(
+                              images: displayImages,
+                              amenities: displayAmenities,
+                            );
                             final result = await Navigator.of(context)
                                 .push<String>(
                                   MaterialPageRoute(
                                     builder: (_) => HostRoomEditScreen(
-                                      room: room,
+                                      room: roomForEdit,
                                       property: property,
                                     ),
                                   ),

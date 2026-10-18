@@ -4,6 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/room_amenities.dart';
+import '../../../core/utils/vnd_input.dart';
+import '../../../core/utils/room_deposit.dart';
+import '../widgets/host_deposit_input.dart';
+import '../../../core/utils/room_identity.dart';
 import '../../../core/constants/vietnam_locations.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/user_provider.dart';
@@ -11,6 +16,7 @@ import '../data/host_property.dart';
 import '../providers/host_management_provider.dart';
 import '../widgets/host_room_widgets.dart';
 import '../widgets/host_range_input.dart';
+import '../widgets/host_form_theme.dart';
 
 // Chủ trọ - Bộ chọn ảnh - Luồng đi: Dùng picker có thể thay thế khi
 // kiểm thử; thiết bị thực mở thư viện ảnh qua image_picker.
@@ -43,10 +49,13 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
       'planned',
       'floors',
       'code',
+      'title',
       'price',
-      'deposit',
       'floor',
       'capacity',
+      'electricityRate',
+      'waterRate',
+      'serviceFee',
       'notes',
     ])
       name: TextEditingController(),
@@ -67,7 +76,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
   HostProperty? _justCreated;
   HostUpload? _proof;
   bool _roomTab = false, _saving = false, _picking = false;
-  RangeValues _rent = const RangeValues(2000000, 5000000);
+  RangeValues _rent = const RangeValues(0, 0);
   RangeValues _area = const RangeValues(25, 25);
   String _roomType = 'Phòng trọ';
   bool get _editingProperty => widget.propertyToEdit != null;
@@ -75,18 +84,9 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     16,
     (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0'),
   ).join();
-  static const _amenityOptions = [
-    'Máy lạnh',
-    'Có gác lửng',
-    'Wifi tốc độ cao',
-    'Giờ giấc tự do',
-    'Máy giặt',
-    'Tủ lạnh',
-    'Cho nuôi thú cưng',
-    'Ban công / Cửa sổ lớn',
-    'Không chung chủ',
-    'Chỗ để xe miễn phí',
-  ];
+  int _depositPercentage = 20;
+  final String _roomId = newRoomId();
+  static const _amenityOptions = roomAmenityOptions;
 
   // Chủ trọ - Khởi tạo form - Luồng đi: Nhận cơ sở khi mở từ thẻ nhà;
   // các trường bắt đầu trống để tránh lưu nhầm dữ liệu mẫu trong HTML.
@@ -98,7 +98,6 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     _fields['floors']!.text = '1';
     _fields['floor']!.text = '1';
     _fields['capacity']!.text = '2';
-    _fields['deposit']!.text = '0';
     final property = widget.propertyToEdit;
     if (property != null) {
       _roomTab = false;
@@ -155,23 +154,9 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
           throw StateError('Tệp vượt quá ${proof ? 15 : 5} MB.');
         }
         final Uint8List bytes = await file.readAsBytes();
-        final png =
-            bytes.length >= 8 &&
-            bytes[0] == 137 &&
-            bytes[1] == 80 &&
-            bytes[2] == 78 &&
-            bytes[3] == 71 &&
-            bytes[4] == 13 &&
-            bytes[5] == 10 &&
-            bytes[6] == 26 &&
-            bytes[7] == 10;
-        final jpg =
-            bytes.length >= 3 &&
-            bytes[0] == 255 &&
-            bytes[1] == 216 &&
-            bytes[2] == 255;
-        if (!png && !jpg) throw StateError('Chỉ hỗ trợ ảnh JPG hoặc PNG.');
-        selected.add(HostUpload(bytes, png ? 'image/png' : 'image/jpeg'));
+        final contentType = HostImageUtils.detectContentType(bytes);
+        if (contentType == null) throw StateError('Chỉ hỗ trợ ảnh JPG hoặc PNG.');
+        selected.add(HostUpload(bytes, contentType));
       }
       if (!mounted) return;
       setState(() {
@@ -249,13 +234,18 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         final parent = property!;
         await repository.createRoom(
           RoomModel(
-            id: '',
+            id: _roomId,
             propertyId: parent.id,
-            roomCode: _fields['code']!.text.trim().toUpperCase(),
-            title: 'Phòng ${_fields['code']!.text.trim()} • ${parent.name}',
+            title: _fields['title']!.text.trim(),
             description: _fields['notes']!.text.trim(),
-            price: double.parse(_fields['price']!.text),
-            deposit: double.parse(_fields['deposit']!.text),
+            price: double.parse(vndDigits(_fields['price']!.text)),
+            // Chủ trọ - Lưu cọc - Luồng đi: Lưu tỷ lệ đã chọn và số
+            // tiền tính từ giá thuê, không đọc khoản cọc nhập tay.
+            depositPercentage: _depositPercentage,
+            deposit: roomDeposit(
+              double.parse(vndDigits(_fields['price']!.text)),
+              _depositPercentage,
+            ),
             address: parent.fullAddress,
             district: parent.district.isNotEmpty
                 ? parent.district
@@ -273,6 +263,27 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             hostAvatar: user?.avatarUrl ?? '',
             capacity: int.parse(_fields['capacity']!.text),
             floor: int.parse(_fields['floor']!.text),
+            electricityRate: double.tryParse(
+                  _fields['electricityRate']!.text
+                      .trim()
+                      .replaceAll('.', '')
+                      .replaceAll(',', ''),
+                ) ??
+                0.0,
+            waterRate: double.tryParse(
+                  _fields['waterRate']!.text
+                      .trim()
+                      .replaceAll('.', '')
+                      .replaceAll(',', ''),
+                ) ??
+                0.0,
+            serviceFee: double.tryParse(
+                  _fields['serviceFee']!.text
+                      .trim()
+                      .replaceAll('.', '')
+                      .replaceAll(',', ''),
+                ) ??
+                0.0,
             rating: 0,
             createdAt: DateTime.now(),
           ),
@@ -475,6 +486,12 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
   // Chủ trọ - Form cơ sở - Luồng đi: Chọn ảnh, địa chỉ theo danh mục,
   // quy mô và khoảng giá; cùng form được dùng cho cả tạo mới và chỉnh sửa.
   Widget _buildHouseForm() {
+    // Chủ trọ - Giá cơ sở - Luồng đi: Lấy khung giá từ stream phòng
+    // khi chỉnh sửa; giữ riêng giá dự kiến để không ghi đè bằng giá tính toán.
+    final roomState = _editingProperty ? ref.watch(hostRoomsProvider) : null;
+    final summary = _editingProperty && roomState?.value != null
+        ? PropertySummary(widget.propertyToEdit!, roomState!.value!)
+        : null;
     final cityOptions = VietnamLocations.provinces.toList();
     if (!cityOptions.contains(_city)) cityOptions.insert(0, _city);
     final districtOptions = VietnamLocations.getAdministrativeDistricts(
@@ -623,13 +640,37 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
-            HostRangeInput(
-              label: 'Khung giá thuê / tháng',
-              unit: 'đ',
-              values: _rent,
-              sliderMax: 20000000,
-              onChanged: (value) => setState(() => _rent = value),
-            ),
+            if (_editingProperty && roomState?.value == null)
+              Text(
+                roomState?.hasError == true
+                    ? 'Chưa tải được giá phòng. Vui lòng thử lại.'
+                    : 'Đang tải khung giá từ các phòng...',
+              )
+            else if (summary?.hasActualRent == true) ...[
+              const Text(
+                'Khung giá thuê / tháng',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              Text(
+                '${formatVnd(summary!.minRent)} – ${formatVnd(summary.maxRent)} đ/tháng',
+              ),
+              const Text(
+                'Tự cập nhật theo giá các phòng. Đổi giá tại từng phòng.',
+              ),
+            ] else ...[
+              HostRangeInput(
+                label: 'Khung giá dự kiến / tháng (tùy chọn)',
+                unit: 'đ',
+                values: _rent,
+                money: true,
+                optional: true,
+                sliderMax: 20000000,
+                onChanged: (value) => setState(() => _rent = value),
+              ),
+              const Text(
+                'Có thể để trống. Khi có phòng, khung giá sẽ tự tính theo giá các phòng.',
+              ),
+            ],
           ]),
           if (!_editingProperty)
             _section('Giấy tờ pháp lý (tùy chọn)', Icons.security, [
@@ -662,7 +703,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     );
   }
 
-  // Chủ trọ - Form phòng - Luồng đi: Chọn nhà đã lưu, nhập mã phòng,
+  // Chủ trọ - Form phòng - Luồng đi: Chọn nhà và tầng để sinh mã, nhập tên,
   // giá và diện tích, chọn tiện ích rồi lưu phòng trống thuộc cơ sở đó.
   Widget _buildRoomForm(List<HostProperty> properties) {
     final selected = properties
@@ -676,6 +717,9 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     if (selectedFloor != null) {
       _fields['floor']!.text = selectedFloor.toString();
     }
+    // Chủ trọ - Mã phòng - Luồng đi: Hiển thị chính ID document,
+    // giữ nguyên khi đổi tầng hoặc nhập tên; người dùng không sửa được.
+    if (_fields['code']!.text != _roomId) _fields['code']!.text = _roomId;
     return Form(
       key: _roomForm,
       child: Column(
@@ -721,11 +765,26 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
           ]),
           _photoCard(_roomImages, 8, 'Hình ảnh thực tế'),
           _section('Thông tin phòng mới', Icons.meeting_room_outlined, [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: TextFormField(
+                key: const ValueKey('host_field_code'),
+                controller: _fields['code'],
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText: 'Mã phòng',
+                  suffixIcon: const Icon(Icons.lock_outline),
+                ),
+                validator: (value) => value == null || value.isEmpty
+                    ? 'Không có mã phòng. Vui lòng mở lại form.'
+                    : null,
+              ),
+            ),
             _field(
-              'code',
-              'Số / Mã phòng *',
-              hint: 'Ví dụ: A101',
-              maxLength: 30,
+              'title',
+              'Tên phòng *',
+              hint: 'Ví dụ: Phòng ban công thoáng mát',
+              maxLength: 100,
             ),
             DropdownButtonFormField<String>(
               initialValue: _roomType,
@@ -759,15 +818,14 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
               'Giá thuê hàng tháng (đ) *',
               number: true,
               max: 1000000000,
-              hint: 'Ví dụ: 2500000',
+              hint: 'Ví dụ: 2.500.000',
             ),
-            _field(
-              'deposit',
-              'Tiền cọc (đ) *',
-              number: true,
-              allowZero: true,
-              max: 1000000000,
+            HostDepositInput(
+              priceController: _fields['price']!,
+              percentage: _depositPercentage,
+              onChanged: (value) => setState(() => _depositPercentage = value!),
             ),
+            const SizedBox(height: 14),
             DropdownButtonFormField<int>(
               key: ValueKey('host_floor_${selected?.id}_$floorCount'),
               initialValue: selectedFloor,
@@ -787,6 +845,35 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             ),
             const SizedBox(height: 14),
             _field('capacity', 'Số người ở tối đa *', number: true),
+          ]),
+          _section('Điện, Nước & Dịch vụ', Icons.bolt, [
+            _field(
+              'electricityRate',
+              'Tiền điện (đ/kWh)',
+              number: true,
+              allowZero: true,
+              optional: true,
+              max: 1000000,
+              hint: 'Ví dụ: 3500 (mặc định 0)',
+            ),
+            _field(
+              'waterRate',
+              'Tiền nước (đ/m³ hoặc đ/tháng)',
+              number: true,
+              allowZero: true,
+              optional: true,
+              max: 10000000,
+              hint: 'Ví dụ: 20000 hoặc 100000 (mặc định 0)',
+            ),
+            _field(
+              'serviceFee',
+              'Wifi, rác & dịch vụ (đ/tháng)',
+              number: true,
+              allowZero: true,
+              optional: true,
+              max: 10000000,
+              hint: 'Ví dụ: 100000 (mặc định 0)',
+            ),
           ]),
           _amenitySection(),
           _section('Ghi chú & Quy định riêng', Icons.notes, [
@@ -831,10 +918,20 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             const SizedBox(width: 6),
             TextButton(
               onPressed: () {
-                final value = _customAmenity.text.trim();
+                // Chủ trọ - Thêm tiện ích khi tạo phòng - Luồng đi:
+                // Chuẩn hóa tên, chọn lại mục tương đương nếu đã có;
+                // mở danh sách và thông báo để người dùng thấy mục vừa chọn.
+                final value = cleanRoomAmenity(_customAmenity.text);
                 if (value.isNotEmpty && value.length <= 60) {
-                  setState(() => _amenities.add(value));
+                  final match = matchingRoomAmenity(value, _amenities);
+                  setState(() {
+                    _amenities.add(match ?? value);
+                    _amenitiesExpanded = true;
+                  });
                   _customAmenity.clear();
+                  if (match != null) {
+                    _message('Tiện ích "$match" đã có, đã chọn mục có sẵn.');
+                  }
                 }
               },
               child: const Text('Thêm'),
@@ -1074,6 +1171,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     String? hint,
     bool number = false,
     bool allowZero = false,
+    bool optional = false,
     int max = 1000000000,
     int maxLength = 100,
   }) => Padding(
@@ -1082,7 +1180,16 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
       key: ValueKey('host_field_$name'),
       controller: _fields[name],
       keyboardType: number ? TextInputType.number : TextInputType.text,
-      inputFormatters: number ? [FilteringTextInputFormatter.digitsOnly] : null,
+      // Chủ trọ - Ô tiền - Luồng đi: Định dạng giá thuê và cọc khi nhập;
+      // các trường số lượng vẫn chỉ nhận chữ số và giữ cách kiểm tra cũ.
+      inputFormatters: number
+          ? [
+              if (name == 'price' || name == 'deposit')
+                VndInputFormatter()
+              else
+                FilteringTextInputFormatter.digitsOnly,
+            ]
+          : null,
       maxLength: number ? null : maxLength,
       decoration: InputDecoration(
         labelText: label,
@@ -1091,10 +1198,13 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
       ),
       validator: (text) {
         if (text == null || text.trim().isEmpty) {
+          if (optional) return null;
           return 'Vui lòng nhập thông tin';
         }
         if (number) {
-          final value = int.tryParse(text);
+          final value = int.tryParse(
+            name == 'price' || name == 'deposit' ? vndDigits(text) : text,
+          );
           if (value == null || value < (allowZero ? 0 : 1) || value > max) {
             return 'Nhập từ ${allowZero ? 0 : 1} đến $max';
           }

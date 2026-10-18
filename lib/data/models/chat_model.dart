@@ -15,8 +15,7 @@ class ChatMessageModel {
   final bool isRead; // trangThaiTinNhan: daDoc / chuaDoc
 
   final String status; // 'sending' | 'sent' | 'delivered' | 'read'
-  final Map<String, dynamic>
-  extraData; // Du lieu bo sung: lich hen, thong tin phong, vi tri...
+  final Map<String, dynamic> extraData; // Du lieu bo sung: lich hen, thong tin phong, vi tri...
 
   // Vietnamese DrawIO Alias Getters
   String get cuocTroChuyenId => conversationId;
@@ -29,6 +28,11 @@ class ChatMessageModel {
   DateTime get ngayGui => timestamp;
   bool get daDoc => isRead || status == 'read';
   String get trangThaiTinNhan => status;
+
+  Map<String, dynamic>? get replyTo => (extraData['replyTo'] is Map)
+      ? Map<String, dynamic>.from(extraData['replyTo'] as Map)
+      : null;
+  bool get isReply => replyTo != null && replyTo!.isNotEmpty;
 
   ChatMessageModel({
     required this.id,
@@ -46,15 +50,11 @@ class ChatMessageModel {
   });
 
   factory ChatMessageModel.fromFirestore(DocumentSnapshot doc) {
-    return ChatMessageModel.fromMap(
-      doc.data() as Map<String, dynamic>? ?? {},
-      doc.id,
-    );
+    return ChatMessageModel.fromMap(doc.data() as Map<String, dynamic>? ?? {}, doc.id);
   }
 
   factory ChatMessageModel.fromMap(Map<String, dynamic> data, String id) {
-    final readVal =
-        data['isRead'] ?? (data['trangThaiTinNhan_id'] == 'daDoc') ?? false;
+    final readVal = data['isRead'] ?? (data['trangThaiTinNhan_id'] == 'daDoc') ?? false;
     final statusVal = data['status'] ?? (readVal ? 'read' : 'sent');
 
     return ChatMessageModel(
@@ -69,8 +69,8 @@ class ChatMessageModel {
       timestamp: (data['timestamp'] is Timestamp)
           ? (data['timestamp'] as Timestamp).toDate()
           : (data['ngayGui'] is Timestamp)
-          ? (data['ngayGui'] as Timestamp).toDate()
-          : DateTime.now(),
+              ? (data['ngayGui'] as Timestamp).toDate()
+              : DateTime.now(),
       isRead: readVal,
       status: statusVal,
       extraData: (data['extraData'] is Map)
@@ -171,19 +171,11 @@ class ConversationModel {
     this.roomImage,
   });
 
-  factory ConversationModel.fromFirestore(
-    DocumentSnapshot doc,
-    String currentUserId,
-  ) {
+  factory ConversationModel.fromFirestore(DocumentSnapshot doc, String currentUserId) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
-    final users = List<String>.from(
-      data['users'] ?? data['nguoiThamGia'] ?? [],
-    );
-    final partnerId = users.firstWhere(
-      (u) => u != currentUserId,
-      orElse: () => '',
-    );
-
+    final users = List<String>.from(data['users'] ?? data['nguoiThamGia'] ?? []);
+    final partnerId = users.firstWhere((u) => u != currentUserId, orElse: () => '');
+    
     DateTime timestamp = DateTime.now();
     if (data['lastTimestamp'] is Timestamp) {
       timestamp = (data['lastTimestamp'] as Timestamp).toDate();
@@ -191,40 +183,26 @@ class ConversationModel {
       timestamp = (data['ngayGuiCuoi'] as Timestamp).toDate();
     }
 
-    final userNames = (data['userNames'] is Map)
-        ? Map<String, dynamic>.from(data['userNames'] as Map)
-        : {};
-    final partnerNames = (data['partnerNames'] is Map)
-        ? Map<String, dynamic>.from(data['partnerNames'] as Map)
-        : {};
-    final userAvatars = (data['userAvatars'] is Map)
-        ? Map<String, dynamic>.from(data['userAvatars'] as Map)
-        : {};
-    final userPhones = (data['userPhones'] is Map)
-        ? Map<String, dynamic>.from(data['userPhones'] as Map)
-        : {};
+    final userNames = (data['userNames'] is Map) ? Map<String, dynamic>.from(data['userNames'] as Map) : {};
+    final partnerNames = (data['partnerNames'] is Map) ? Map<String, dynamic>.from(data['partnerNames'] as Map) : {};
+    final userAvatars = (data['userAvatars'] is Map) ? Map<String, dynamic>.from(data['userAvatars'] as Map) : {};
+    final userPhones = (data['userPhones'] is Map) ? Map<String, dynamic>.from(data['userPhones'] as Map) : {};
 
     String resolvedPartnerName = '';
-    if (partnerNames.containsKey(currentUserId) &&
-        partnerNames[currentUserId]?.toString().isNotEmpty == true) {
+    if (partnerNames.containsKey(currentUserId) && partnerNames[currentUserId]?.toString().isNotEmpty == true) {
       resolvedPartnerName = partnerNames[currentUserId].toString();
-    } else if (userNames.containsKey(partnerId) &&
-        userNames[partnerId]?.toString().isNotEmpty == true) {
+    } else if (userNames.containsKey(partnerId) && userNames[partnerId]?.toString().isNotEmpty == true) {
       resolvedPartnerName = userNames[partnerId].toString();
-    } else if (data['lastSenderId'] == partnerId &&
-        data['lastSenderName'] != null) {
+    } else if (data['lastSenderId'] == partnerId && data['lastSenderName'] != null) {
       resolvedPartnerName = data['lastSenderName'].toString();
-    } else if (data['partnerName'] != null &&
-        data['partnerName'].toString().isNotEmpty) {
+    } else if (data['partnerName'] != null && data['partnerName'].toString().isNotEmpty) {
       resolvedPartnerName = data['partnerName'].toString();
     } else {
       resolvedPartnerName = 'Đối tác trao đổi';
     }
 
-    String resolvedAvatar =
-        userAvatars[partnerId]?.toString() ?? data['partnerAvatar'] ?? '';
-    String resolvedPhone =
-        userPhones[partnerId]?.toString() ?? data['partnerPhone'] ?? '';
+    String resolvedAvatar = userAvatars[partnerId]?.toString() ?? data['partnerAvatar'] ?? '';
+    String resolvedPhone = userPhones[partnerId]?.toString() ?? data['partnerPhone'] ?? '';
 
     int computedUnread = 0;
     if (data['unreadFor_$currentUserId'] is num) {
@@ -234,16 +212,22 @@ class ConversationModel {
     }
 
     final lastSenderId = data['lastSenderId']?.toString() ?? '';
-    final isReadVal =
-        data['isRead'] == true ||
-        (data['readBy'] is Map && data['readBy'][currentUserId] == true);
+    bool isReadVal = false;
+    if (lastSenderId == currentUserId) {
+      isReadVal = true;
+    } else if (data['readBy'] is Map && data['readBy'][currentUserId] != null) {
+      isReadVal = data['readBy'][currentUserId] == true;
+    } else {
+      isReadVal = data['isRead'] == true;
+    }
 
-    if (lastSenderId.isNotEmpty &&
-        lastSenderId != currentUserId &&
-        !isReadVal) {
-      if (computedUnread <= 0) computedUnread = 1;
+    if (lastSenderId.isNotEmpty && lastSenderId != currentUserId) {
+      if (!isReadVal && computedUnread <= 0) {
+        computedUnread = 1;
+      }
     } else if (lastSenderId == currentUserId) {
       computedUnread = 0;
+      isReadVal = true;
     }
 
     return ConversationModel(
@@ -259,9 +243,7 @@ class ConversationModel {
       isRead: isReadVal,
       roomCode: data['roomCode'],
       roomTitle: data['roomTitle'],
-      roomPrice: (data['roomPrice'] is num)
-          ? (data['roomPrice'] as num).toDouble()
-          : null,
+      roomPrice: (data['roomPrice'] is num) ? (data['roomPrice'] as num).toDouble() : null,
       roomImage: data['roomImage'],
     );
   }

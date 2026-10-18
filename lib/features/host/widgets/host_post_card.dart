@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -241,50 +241,50 @@ class HostPostCard extends StatelessWidget {
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
-                    children:
-                        post.amenities.take(5).map((amenity) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              amenity,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF475569),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          );
-                        }).toList()..addAll(
-                          post.amenities.length > 5
-                              ? [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFE2E8F0),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      '+${post.amenities.length - 5}',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF475569),
-                                      ),
+                    children: post.amenities.take(5).map((amenity) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          amenity,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF475569),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      );
+                    }).toList()
+                      ..addAll(
+                        post.amenities.length > 5
+                            ? [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE2E8F0),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '+${post.amenities.length - 5}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF475569),
                                     ),
                                   ),
-                                ]
-                              : [],
-                        ),
+                                ),
+                              ]
+                            : [],
+                      ),
                   ),
                 ],
               ],
@@ -292,7 +292,7 @@ class HostPostCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // 3. Ảnh bài đăng hoặc placeholder an toàn
+          // 3. Carousel ảnh bài đăng (hỗ trợ vuốt chuyển nhiều ảnh)
           _buildPostImage(),
 
           // 4. Thông tin phòng, xác thực cơ sở & Giá thuê
@@ -379,110 +379,39 @@ class HostPostCard extends StatelessWidget {
             ),
           ),
 
-          const Divider(height: 20, color: Color(0xFFF1F5F9)),
+          const Divider(height: 16, color: Color(0xFFF1F5F9)),
 
-          // 5. Thao tác tương tác & Nút Nhắn tin trao đổi
+          // 5. Nút Nhắn tin trao đổi (Đã xoá phần bình luận và yêu thích)
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-            child: Row(
-              children: [
-                // Nút Quan tâm
-                InkWell(
-                  onTap: onInterestPressed,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 6,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          post.isUserInterested
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          size: 18,
-                          color: post.isUserInterested
-                              ? const Color(0xFFE11D48)
-                              : const Color(0xFF64748B),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${post.interestedCount}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: post.isUserInterested
-                                ? const Color(0xFFE11D48)
-                                : const Color(0xFF64748B),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-
-                // Lượt phản hồi
-                Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onChatPressed,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF155EEF),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(0, 42),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 6,
+                    horizontal: 16,
+                    vertical: 10,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.chat_bubble_outline,
-                        size: 17,
-                        color: Color(0xFF64748B),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${post.responseCount}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  elevation: 0,
+                ),
+                icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                label: const Text(
+                  'Nhắn tin trao đổi',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-
-                const Spacer(),
-
-                // Nút Nhắn tin trao đổi
-                Flexible(
-                  child: FilledButton.icon(
-                    onPressed: onChatPressed,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E60F2),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(0, 36),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      elevation: 0,
-                    ),
-                    icon: const Icon(Icons.chat_bubble_outline, size: 15),
-                    label: const Text(
-                      'Nhắn tin trao đổi',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ],
@@ -491,38 +420,25 @@ class HostPostCard extends StatelessWidget {
   }
 
   Widget _buildAvatar() {
-    final avatarUrl = HostPostModel.cleanImageUrl(post.authorAvatar);
+    final avatarUrl = post.authorAvatar.trim();
     final initials = post.authorName.isNotEmpty
         ? post.authorName.trim().split(' ').last.substring(0, 1).toUpperCase()
         : 'HS';
 
-    if (avatarUrl.isNotEmpty) {
-      if (avatarUrl.startsWith('data:image')) {
-        try {
-          final base64String = avatarUrl.split(',').last;
-          final bytes = base64Decode(base64String);
-          return CircleAvatar(
-            radius: 20,
-            backgroundColor: const Color(0xFFE2E8F0),
-            backgroundImage: MemoryImage(bytes),
-          );
-        } catch (_) {}
-      } else if (avatarUrl.startsWith('http')) {
-        return CircleAvatar(
-          radius: 20,
-          backgroundColor: const Color(0xFFE2E8F0),
-          child: ClipOval(
-            child: Image.network(
-              webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
-              avatarUrl,
-              width: 40,
-              height: 40,
-              fit: BoxFit.cover,
-              errorBuilder: (ctx, err, stack) => _fallbackAvatar(initials),
-            ),
+    if (avatarUrl.isNotEmpty && avatarUrl.startsWith('http')) {
+      return CircleAvatar(
+        radius: 20,
+        backgroundColor: const Color(0xFFE2E8F0),
+        child: ClipOval(
+          child: Image.network(
+            avatarUrl,
+            width: 40,
+            height: 40,
+            fit: BoxFit.cover,
+            errorBuilder: (ctx, err, stack) => _fallbackAvatar(initials),
           ),
-        );
-      }
+        ),
+      );
     }
 
     return _fallbackAvatar(initials);
@@ -543,116 +459,260 @@ class HostPostCard extends StatelessWidget {
     );
   }
 
-  Widget _buildPostImage() {
-    // Làm sạch và lọc các URL ảnh hợp lệ từ Firestore (hỗ trợ HTTP/HTTPS & Base64 Data URI)
-    // Ưu tiên ảnh trực tiếp của bài đăng, fallback sang ảnh phòng liên kết nếu có
-    final allCandidates = [
-      ...post.images,
-      if (post.joinedRoom != null) ...post.joinedRoom!.images,
-    ];
-
-    final validImages = allCandidates
-        .map(HostPostModel.cleanImageUrl)
-        .where(
-          (img) =>
-              img.isNotEmpty &&
-              (img.startsWith('http') || img.startsWith('data:image')),
-        )
-        .toList();
-
-    if (validImages.isNotEmpty) {
-      final firstImage = validImages.first;
-      final isBase64 = firstImage.startsWith('data:image');
-
-      Widget imageWidget;
-      if (isBase64) {
-        try {
-          final base64String = firstImage.split(',').last;
-          final bytes = base64Decode(base64String);
-          imageWidget = Image.memory(
-            bytes,
-            fit: BoxFit.cover,
-            errorBuilder: (ctx, err, stack) => _buildImagePlaceholder(),
-          );
-        } catch (_) {
-          imageWidget = _buildImagePlaceholder();
-        }
-      } else {
-        imageWidget = Image.network(
-          webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
-          firstImage,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
-              color: const Color(0xFFF1F5F9),
-              child: const Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFF1E60F2),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-          errorBuilder: (ctx, err, stack) {
-            debugPrint('Lỗi tải ảnh bài đăng từ URL: $firstImage - $err');
-            if (validImages.length > 1) {
-              final nextImage = validImages[1];
-              return Image.network(
-                webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
-                nextImage,
-                fit: BoxFit.cover,
-                errorBuilder: (ctx2, err2, stack2) => _buildImagePlaceholder(),
-              );
-            }
-            return _buildImagePlaceholder();
-          },
-        );
+  static String _cleanUrl(String raw) {
+    var s = raw.trim();
+    if (s.startsWith('{') && s.endsWith('}')) {
+      final match =
+          RegExp(r'(?:duongDan|url|image):\s*([^,}]+)').firstMatch(s);
+      if (match != null) {
+        s = match.group(1)!.trim().replaceAll('"', '').replaceAll("'", "");
       }
+    }
+    return s;
+  }
 
+  Widget _buildPostImage() {
+    final rawImages = post.images.isNotEmpty
+        ? post.images
+        : (post.joinedRoom?.images ?? const <String>[]);
+
+    final seen = <String>{};
+    final validImages = <String>[];
+    for (final raw in rawImages) {
+      final cleaned = _cleanUrl(raw);
+      if (cleaned.isNotEmpty &&
+          (cleaned.startsWith('http://') || cleaned.startsWith('https://')) &&
+          !seen.contains(cleaned)) {
+        seen.add(cleaned);
+        validImages.add(cleaned);
+      }
+    }
+
+    return _PostImageCarousel(images: validImages);
+  }
+}
+
+/// Widget Carousel hỗ trợ vuốt chuyển ảnh mượt mà cho bài đăng có nhiều ảnh
+class _PostImageCarousel extends StatefulWidget {
+  final List<String> images;
+
+  const _PostImageCarousel({required this.images});
+
+  @override
+  State<_PostImageCarousel> createState() => _PostImageCarouselState();
+}
+
+class _PostImageCarouselState extends State<_PostImageCarousel> {
+  late final PageController _pageController;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final images = widget.images;
+    if (images.isEmpty) {
+      return _buildImagePlaceholder();
+    }
+
+    if (images.length == 1) {
       return Container(
-        height: 180,
+        height: 190,
         width: double.infinity,
         color: const Color(0xFFF1F5F9),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            imageWidget,
-            if (validImages.length > 1)
-              Positioned(
-                top: 10,
-                right: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '1/${validImages.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-          ],
+        child: Image.network(
+          images.first,
+          fit: BoxFit.cover,
+          webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+          errorBuilder: (ctx, err, stack) => _buildImagePlaceholder(),
         ),
       );
     }
 
-    return _buildImagePlaceholder();
+    return Container(
+      height: 190,
+      width: double.infinity,
+      color: const Color(0xFFF1F5F9),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Vuốt ngang danh sách ảnh (hỗ trợ cảm ứng, chuột kéo, trackpad)
+          ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              dragDevices: {
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.trackpad,
+              },
+            ),
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: images.length,
+              physics: const BouncingScrollPhysics(),
+              onPageChanged: (index) {
+                setState(() => _currentIndex = index);
+              },
+              itemBuilder: (context, index) {
+                return Image.network(
+                  images[index],
+                  fit: BoxFit.cover,
+                  webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+                  errorBuilder: (ctx, err, stack) => _buildImagePlaceholder(),
+                );
+              },
+            ),
+          ),
+
+          // Lớp phủ gradient mờ ở đáy ảnh để hiển thị dots rõ nét
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 36,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.45),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Badge đếm ảnh ở góc trên bên phải: ví dụ "1/4"
+          Positioned(
+            top: 10,
+            right: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 4,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${_currentIndex + 1}/${images.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+
+          // Chỉ báo chấm tròn (dots indicator) ở giữa đáy ảnh
+          Positioned(
+            bottom: 8,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(images.length, (index) {
+                final isSelected = index == _currentIndex;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                  width: isSelected ? 16 : 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                );
+              }),
+            ),
+          ),
+
+          // Nút mũi tên trái để click chuyển ảnh nhanh
+          if (_currentIndex > 0)
+            Positioned(
+              left: 6,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      _pageController.previousPage(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.chevron_left_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // Nút mũi tên phải để click chuyển ảnh nhanh
+          if (_currentIndex < images.length - 1)
+            Positioned(
+              right: 6,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      _pageController.nextPage(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _buildImagePlaceholder() {
@@ -680,10 +740,14 @@ class HostPostCard extends StatelessWidget {
           const SizedBox(height: 2),
           const Text(
             'Hệ thống kết nối chủ trọ HomeShare',
-            style: TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+            style: TextStyle(
+              fontSize: 10,
+              color: Color(0xFF64748B),
+            ),
           ),
         ],
       ),
     );
   }
 }
+

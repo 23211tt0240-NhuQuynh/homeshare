@@ -7,10 +7,18 @@ import '../../auth/providers/auth_provider.dart';
 import '../data/host_post_repository.dart';
 
 /// Các kiểu sắp xếp bảng tin chủ trọ
-enum HostHomeSort { newest, mostInterested, priceAscending, priceDescending }
+enum HostHomeSort {
+  newest,
+  mostInterested,
+  priceAscending,
+  priceDescending,
+}
 
 /// Kiểu sắp xếp theo giá (Radio: chỉ chọn 1 trong 2 hoặc null)
-enum HostPriceSort { ascending, descending }
+enum HostPriceSort {
+  ascending,
+  descending,
+}
 
 /// Trạng thái bộ lọc và tìm kiếm bảng tin chủ trọ
 class HostHomeFilterState {
@@ -84,17 +92,17 @@ class HostHomeFilterState {
 
   @override
   int get hashCode => Object.hash(
-    searchQuery,
-    Object.hashAll(selectedLocations),
-    minPrice,
-    maxPrice,
-    Object.hashAll(selectedAmenities),
-    Object.hashAll(customRequirements),
-    sortNewest,
-    sortMostInterested,
-    priceSort,
-    sort,
-  );
+        searchQuery,
+        Object.hashAll(selectedLocations),
+        minPrice,
+        maxPrice,
+        Object.hashAll(selectedAmenities),
+        Object.hashAll(customRequirements),
+        sortNewest,
+        sortMostInterested,
+        priceSort,
+        sort,
+      );
 }
 
 /// Notifier quản lý tương tác bộ lọc và tìm kiếm
@@ -157,9 +165,8 @@ class HostHomeFilterNotifier extends Notifier<HostHomeFilterState> {
 
   void removeCustomRequirement(String req) {
     state = state.copyWith(
-      customRequirements: state.customRequirements
-          .where((r) => r != req)
-          .toList(),
+      customRequirements:
+          state.customRequirements.where((r) => r != req).toList(),
     );
   }
 
@@ -180,19 +187,13 @@ class HostHomeFilterNotifier extends Notifier<HostHomeFilterState> {
     HostHomeSort? sort,
   }) {
     state = state.copyWith(
-      selectedLocations: selectedLocations != null
-          ? Set.from(selectedLocations)
-          : null,
+      selectedLocations: selectedLocations != null ? Set.from(selectedLocations) : null,
       minPrice: minPrice,
       maxPrice: maxPrice,
       clearMinPrice: minPrice == null,
       clearMaxPrice: maxPrice == null,
-      selectedAmenities: selectedAmenities != null
-          ? Set.from(selectedAmenities)
-          : null,
-      customRequirements: customRequirements != null
-          ? List.from(customRequirements)
-          : null,
+      selectedAmenities: selectedAmenities != null ? Set.from(selectedAmenities) : null,
+      customRequirements: customRequirements != null ? List.from(customRequirements) : null,
       sortNewest: sortNewest,
       sortMostInterested: sortMostInterested,
       priceSort: clearPriceSort ? null : (priceSort ?? state.priceSort),
@@ -208,19 +209,22 @@ class HostHomeFilterNotifier extends Notifier<HostHomeFilterState> {
 
 final hostHomeFilterProvider =
     NotifierProvider<HostHomeFilterNotifier, HostHomeFilterState>(
-      HostHomeFilterNotifier.new,
-    );
+  HostHomeFilterNotifier.new,
+);
 
 /// StreamProvider chính cung cấp danh sách bài đăng realtime đã lọc & sắp xếp
-final hostHomePostsProvider = StreamProvider.autoDispose<List<HostPostModel>>((
-  ref,
-) {
+final hostHomePostsProvider =
+    StreamProvider.autoDispose<List<HostPostModel>>((ref) {
   final currentUserId = ref.watch(currentUserProvider)?.uid ?? '';
   final repository = ref.watch(hostPostRepositoryProvider);
   final filter = ref.watch(hostHomeFilterProvider);
 
-  // Hiển thị bài đang hoạt động, bao gồm bài vừa đăng của tài khoản hiện tại.
-  return repository.watchActivePosts(currentUserId: currentUserId).map((posts) {
+  // Đọc tất cả bài đăng công khai đang hoạt động (của cả chủ trọ khác và của chính mình)
+  return repository
+      .watchActivePosts(
+        currentUserId: currentUserId,
+      )
+      .map((posts) {
     var result = posts.where((post) {
       // 1. Tìm kiếm theo: Tiêu đề, mô tả, tên chủ trọ, tên nhà trọ, địa chỉ, tỉnh/thành, quận/huyện, tiện ích
       if (filter.searchQuery.isNotEmpty) {
@@ -232,9 +236,8 @@ final hostHomePostsProvider = StreamProvider.autoDispose<List<HostPostModel>>((
         final matchAddr = post.address.toLowerCase().contains(q);
         final matchCity = post.city.toLowerCase().contains(q);
         final matchDist = post.district.toLowerCase().contains(q);
-        final matchAmenities = post.amenities.any(
-          (a) => a.toLowerCase().contains(q),
-        );
+        final matchAmenities =
+            post.amenities.any((a) => a.toLowerCase().contains(q));
 
         if (!matchTitle &&
             !matchDesc &&
@@ -344,8 +347,7 @@ final hostHomePostsProvider = StreamProvider.autoDispose<List<HostPostModel>>((
 
       if (filter.customRequirements.isNotEmpty) {
         final fullContent = normalizeVietnameseComparison(
-          '${post.tieuDe} ${post.moTa} ${post.amenities.join(' ')}',
-        );
+            '${post.tieuDe} ${post.moTa} ${post.amenities.join(' ')}');
         for (final customReq in filter.customRequirements) {
           final reqNorm = normalizeVietnameseComparison(customReq);
           final reqCompact = reqNorm.replaceAll(' ', '');

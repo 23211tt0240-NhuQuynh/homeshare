@@ -10,8 +10,7 @@ class RenterBookingsScreen extends ConsumerStatefulWidget {
   const RenterBookingsScreen({super.key});
 
   @override
-  ConsumerState<RenterBookingsScreen> createState() =>
-      _RenterBookingsScreenState();
+  ConsumerState<RenterBookingsScreen> createState() => _RenterBookingsScreenState();
 }
 
 class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
@@ -135,7 +134,9 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
     if (user == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: AppBar(title: const Text('Quản lý Đơn Thuê')),
+        appBar: AppBar(
+          title: const Text('Quản lý Đơn Thuê'),
+        ),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -144,11 +145,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
               const SizedBox(height: 16),
               const Text(
                 'Vui lòng đăng nhập để xem đơn thuê & lịch hẹn',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textDark,
-                ),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textDark),
               ),
             ],
           ),
@@ -160,7 +157,9 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Quản lý Đơn Thuê & Trạng Thái')),
+      appBar: AppBar(
+        title: const Text('Quản lý Đơn Thuê & Trạng Thái'),
+      ),
       body: Column(
         children: [
           // Filter Chips
@@ -170,29 +169,29 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                children:
-                    ['Tất cả', 'Chờ duyệt', 'Đã duyệt', 'Đang ở', 'Đã hủy'].map(
-                      (s) {
-                        final isSel = _selectedStatusFilter == s;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 6.0),
-                          child: ChoiceChip(
-                            label: Text(s),
-                            selected: isSel,
-                            selectedColor: AppColors.primary,
-                            labelStyle: TextStyle(
-                              color: isSel ? Colors.white : AppColors.textDark,
-                              fontSize: 12,
-                              fontWeight: isSel
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                            onSelected: (_) =>
-                                setState(() => _selectedStatusFilter = s),
-                          ),
-                        );
-                      },
-                    ).toList(),
+                children: [
+                  'Tất cả',
+                  'Chờ duyệt',
+                  'Đã duyệt',
+                  'Đang ở',
+                  'Đã hủy',
+                ].map((s) {
+                  final isSel = _selectedStatusFilter == s;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6.0),
+                    child: ChoiceChip(
+                      label: Text(s),
+                      selected: isSel,
+                      selectedColor: AppColors.primary,
+                      labelStyle: TextStyle(
+                        color: isSel ? Colors.white : AppColors.textDark,
+                        fontSize: 12,
+                        fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                      ),
+                      onSelected: (_) => setState(() => _selectedStatusFilter = s),
+                    ),
+                  );
+                }).toList(),
               ),
             ),
           ),
@@ -203,30 +202,13 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
               data: (bookings) {
                 var filtered = bookings;
                 if (_selectedStatusFilter == 'Chờ duyệt') {
-                  filtered = bookings
-                      .where(
-                        (b) =>
-                            b.status == 'pending' ||
-                            b.status == 'pending_payment',
-                      )
-                      .toList();
+                  filtered = bookings.where((b) => b.status == 'pending' || b.status == 'pending_payment').toList();
                 } else if (_selectedStatusFilter == 'Đã duyệt') {
-                  filtered = bookings
-                      .where(
-                        (b) => b.status == 'approved' || b.status == 'paid',
-                      )
-                      .toList();
+                  filtered = bookings.where((b) => b.status == 'approved' || b.status == 'paid').toList();
                 } else if (_selectedStatusFilter == 'Đang ở') {
-                  filtered = bookings
-                      .where((b) => b.status == 'active')
-                      .toList();
+                  filtered = bookings.where((b) => b.status == 'active').toList();
                 } else if (_selectedStatusFilter == 'Đã hủy') {
-                  filtered = bookings
-                      .where(
-                        (b) =>
-                            b.status == 'cancelled' || b.status == 'rejected',
-                      )
-                      .toList();
+                  filtered = bookings.where((b) => b.status == 'cancelled' || b.status == 'rejected').toList();
                 }
 
                 if (filtered.isEmpty) {
@@ -234,16 +216,9 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.assignment_outlined,
-                          size: 64,
-                          color: Colors.grey.shade400,
-                        ),
+                        Icon(Icons.assignment_outlined, size: 64, color: Colors.grey.shade400),
                         const SizedBox(height: 12),
-                        const Text(
-                          'Không có đơn thuê hoặc lịch hẹn nào',
-                          style: TextStyle(color: AppColors.textMuted),
-                        ),
+                        const Text('Không có đơn thuê hoặc lịch hẹn nào', style: TextStyle(color: AppColors.textMuted)),
                       ],
                     ),
                   );
@@ -252,15 +227,13 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                 return ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: filtered.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 12),
+                  separatorBuilder: (context, index) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final b = filtered[index];
                     final textColor = _getStatusTextColor(b.status);
                     final bgColor = _getStatusBgColor(b.status);
                     final statusText = _getStatusText(b.status);
-                    final priceStr =
-                        '${currencyFormatter.format(b.roomPrice)} đ/tháng';
+                    final priceStr = '${currencyFormatter.format(b.roomPrice)} đ/tháng';
 
                     return Card(
                       child: Padding(
@@ -273,20 +246,14 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: bgColor,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
                                     children: [
-                                      CircleAvatar(
-                                        radius: 4,
-                                        backgroundColor: textColor,
-                                      ),
+                                      CircleAvatar(radius: 4, backgroundColor: textColor),
                                       const SizedBox(width: 6),
                                       Text(
                                         statusText,
@@ -301,10 +268,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                 ),
                                 Text(
                                   DateFormat('dd/MM/yyyy').format(b.createdAt),
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: AppColors.textMuted,
-                                  ),
+                                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
                                 ),
                               ],
                             ),
@@ -313,57 +277,35 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                             // Room Title
                             Text(
                               b.roomTitle,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                                color: AppColors.textDark,
-                              ),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textDark),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               b.roomAddress,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textMuted,
-                              ),
+                              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                             ),
                             const SizedBox(height: 8),
 
                             // Price & Move-in date
                             Row(
                               children: [
-                                const Icon(
-                                  Icons.price_change_outlined,
-                                  size: 16,
-                                  color: AppColors.primary,
-                                ),
+                                const Icon(Icons.price_change_outlined, size: 16, color: AppColors.primary),
                                 const SizedBox(width: 4),
                                 Flexible(
                                   child: Text(
                                     priceStr,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
-                                      fontSize: 13,
-                                    ),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 13),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 const SizedBox(width: 10),
-                                const Icon(
-                                  Icons.calendar_today_outlined,
-                                  size: 14,
-                                  color: AppColors.textMuted,
-                                ),
+                                const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.textMuted),
                                 const SizedBox(width: 4),
                                 Flexible(
                                   child: Text(
                                     'Dọn vào: ${DateFormat('dd/MM/yyyy').format(b.moveInDate)}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textMuted,
-                                    ),
+                                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -380,26 +322,17 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(
-                                      Icons.person_pin,
-                                      size: 18,
-                                      color: AppColors.textSecondary,
-                                    ),
+                                    const Icon(Icons.person_pin, size: 18, color: AppColors.textSecondary),
                                     const SizedBox(width: 6),
                                     Text(
                                       'Chủ trọ: ${b.hostName}',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                                     ),
                                   ],
                                 ),
-                                if (b.status == 'pending' ||
-                                    b.status == 'pending_payment')
+                                if (b.status == 'pending' || b.status == 'pending_payment')
                                   Semantics(
-                                    label:
-                                        'Hủy yêu cầu đặt phòng ${b.roomTitle}',
+                                    label: 'Hủy yêu cầu đặt phòng ${b.roomTitle}',
                                     button: true,
                                     child: TextButton(
                                       onPressed: () => _cancelBookingDialog(b),
@@ -407,13 +340,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                         foregroundColor: AppColors.danger,
                                         minimumSize: const Size(80, 44),
                                       ),
-                                      child: const Text(
-                                        'Hủy yêu cầu',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
+                                      child: const Text('Hủy yêu cầu', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                                     ),
                                   ),
                               ],

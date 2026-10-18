@@ -16,12 +16,10 @@ class CccdVerificationScreen extends ConsumerStatefulWidget {
   const CccdVerificationScreen({super.key});
 
   @override
-  ConsumerState<CccdVerificationScreen> createState() =>
-      _CccdVerificationScreenState();
+  ConsumerState<CccdVerificationScreen> createState() => _CccdVerificationScreenState();
 }
 
-class _CccdVerificationScreenState
-    extends ConsumerState<CccdVerificationScreen> {
+class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen> {
   final ImagePicker _picker = ImagePicker();
 
   XFile? _frontImage;
@@ -29,8 +27,7 @@ class _CccdVerificationScreenState
   CccdData? _cccdData;
   bool _isSubmitting = false;
 
-  bool get _isComplete =>
-      _frontImage != null && _backImage != null && _cccdData != null;
+  bool get _isComplete => _frontImage != null && _backImage != null && _cccdData != null;
 
   int get _completedCount {
     int count = 0;
@@ -82,9 +79,15 @@ class _CccdVerificationScreenState
     // Tạo XFile tạm thời để mô phỏng ảnh CCCD demo
     setState(() {
       if (isFront) {
-        _frontImage = XFile('demo_cccd_front.jpg', name: 'demo_cccd_front.jpg');
+        _frontImage = XFile(
+          'demo_cccd_front.jpg',
+          name: 'demo_cccd_front.jpg',
+        );
       } else {
-        _backImage = XFile('demo_cccd_back.jpg', name: 'demo_cccd_back.jpg');
+        _backImage = XFile(
+          'demo_cccd_back.jpg',
+          name: 'demo_cccd_back.jpg',
+        );
       }
     });
 
@@ -126,9 +129,7 @@ class _CccdVerificationScreenState
                 ),
               ),
               Text(
-                isFront
-                    ? 'CHỤP / CHỌN ẢNH MẶT TRƯỚC CCCD'
-                    : 'CHỤP / CHỌN ẢNH MẶT SAU CCCD',
+                isFront ? 'CHỤP / CHỌN ẢNH MẶT TRƯỚC CCCD' : 'CHỤP / CHỌN ẢNH MẶT SAU CCCD',
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
@@ -140,10 +141,7 @@ class _CccdVerificationScreenState
                 isFront
                     ? 'Yêu cầu: Rõ nét họ tên, số CCCD, chân dung, không bị lóa'
                     : 'Yêu cầu: Rõ nét chip điện tử, mã MRZ và đặc điểm nhận dạng',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textMuted,
-                ),
+                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
               const SizedBox(height: 16),
               ListTile(
@@ -151,10 +149,7 @@ class _CccdVerificationScreenState
                   backgroundColor: AppColors.primaryContainer,
                   child: Icon(Icons.camera_alt, color: AppColors.primary),
                 ),
-                title: const Text(
-                  'Chụp ảnh trực tiếp từ Camera',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
+                title: const Text('Chụp ảnh trực tiếp từ Camera', style: TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: const Text('Mở máy ảnh để chụp thẻ thật'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -166,10 +161,7 @@ class _CccdVerificationScreenState
                   backgroundColor: AppColors.primaryContainer,
                   child: Icon(Icons.photo_library, color: AppColors.primary),
                 ),
-                title: const Text(
-                  'Chọn ảnh từ Thư viện (Bộ sưu tập)',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
+                title: const Text('Chọn ảnh từ Thư viện (Bộ sưu tập)', style: TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: const Text('Chọn ảnh đã chụp sẵn trong máy'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -179,18 +171,10 @@ class _CccdVerificationScreenState
               ListTile(
                 leading: CircleAvatar(
                   backgroundColor: Colors.amber.shade100,
-                  child: const Icon(
-                    Icons.science_outlined,
-                    color: Colors.amber,
-                  ),
+                  child: const Icon(Icons.science_outlined, color: Colors.amber),
                 ),
-                title: const Text(
-                  'Dùng ảnh mẫu thử nghiệm (Demo)',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: const Text(
-                  'Tiện lợi để kiểm thử chức năng khi không có thẻ bên cạnh',
-                ),
+                title: const Text('Dùng ảnh mẫu thử nghiệm (Demo)', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Tiện lợi để kiểm thử chức năng khi không có thẻ bên cạnh'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _useDemoImage(isFront);
@@ -218,9 +202,7 @@ class _CccdVerificationScreenState
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Đã trích xuất thông tin: ${result.fullName} (${result.idNumber}) ✓',
-          ),
+          content: Text('Đã trích xuất thông tin: ${result.fullName} (${result.idNumber}) ✓'),
           backgroundColor: AppColors.primary,
         ),
       );
@@ -241,11 +223,7 @@ class _CccdVerificationScreenState
       try {
         final parts = _cccdData!.birthDate.split('/');
         if (parts.length == 3) {
-          parsedBirth = DateTime(
-            int.parse(parts[2]),
-            int.parse(parts[1]),
-            int.parse(parts[0]),
-          );
+          parsedBirth = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
         }
       } catch (_) {}
 
@@ -266,17 +244,12 @@ class _CccdVerificationScreenState
           context: context,
           barrierDismissible: false,
           builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
                 Icon(Icons.verified, color: AppColors.primary, size: 28),
                 SizedBox(width: 8),
-                Text(
-                  'Xác Thực Thành Công!',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                ),
+                Text('Xác Thực Thành Công!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               ],
             ),
             content: Column(
@@ -288,27 +261,9 @@ class _CccdVerificationScreenState
                   style: TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  '✓ Ảnh mặt trước thẻ CCCD',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const Text(
-                  '✓ Ảnh mặt sau thẻ CCCD (gắn chip)',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  '✓ Dữ liệu QR: ${_cccdData!.fullName} - ${_cccdData!.idNumber}',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                const Text('✓ Ảnh mặt trước thẻ CCCD', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                const Text('✓ Ảnh mặt sau thẻ CCCD (gắn chip)', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                Text('✓ Dữ liệu QR: ${_cccdData!.fullName} - ${_cccdData!.idNumber}', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
               ],
             ),
             actions: [
@@ -316,9 +271,7 @@ class _CccdVerificationScreenState
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 onPressed: () {
                   Navigator.pop(ctx); // Đóng dialog
@@ -350,7 +303,10 @@ class _CccdVerificationScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Xác thực CCCD (eKYC)'), elevation: 0),
+      appBar: AppBar(
+        title: const Text('Xác thực CCCD (eKYC)'),
+        elevation: 0,
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Column(
@@ -364,8 +320,7 @@ class _CccdVerificationScreenState
             // Mục 1: Ảnh mặt trước CCCD
             _buildImageUploadCard(
               title: 'Mục 1: Lưu ảnh mặt trước CCCD',
-              subtitle:
-                  'Chụp rõ nét mặt trước (ảnh chân dung, số CCCD, họ tên)',
+              subtitle: 'Chụp rõ nét mặt trước (ảnh chân dung, số CCCD, họ tên)',
               image: _frontImage,
               isFront: true,
             ),
@@ -417,18 +372,12 @@ class _CccdVerificationScreenState
             children: [
               const Text(
                 'Quy trình xác thực định danh',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                  color: AppColors.textDark,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textDark),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _isComplete
-                      ? const Color(0xFFD1FAE5)
-                      : const Color(0xFFFEF3C7),
+                  color: _isComplete ? const Color(0xFFD1FAE5) : const Color(0xFFFEF3C7),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -436,9 +385,7 @@ class _CccdVerificationScreenState
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: _isComplete
-                        ? AppColors.primary
-                        : const Color(0xFFD97706),
+                    color: _isComplete ? AppColors.primary : const Color(0xFFD97706),
                   ),
                 ),
               ),
@@ -450,9 +397,7 @@ class _CccdVerificationScreenState
             child: LinearProgressIndicator(
               value: _completedCount / 3,
               backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                _isComplete ? AppColors.primary : Colors.amber.shade700,
-              ),
+              valueColor: AlwaysStoppedAnimation<Color>(_isComplete ? AppColors.primary : Colors.amber.shade700),
               minHeight: 6,
             ),
           ),
@@ -544,19 +489,13 @@ class _CccdVerificationScreenState
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: AppColors.textDark,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textDark),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: hasImage
-                      ? const Color(0xFFD1FAE5)
-                      : const Color(0xFFFEE2E2),
+                  color: hasImage ? const Color(0xFFD1FAE5) : const Color(0xFFFEE2E2),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -571,10 +510,7 @@ class _CccdVerificationScreenState
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-          ),
+          Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
           const SizedBox(height: 12),
 
           // Khung hiển thị ảnh hoặc ô bấm chụp
@@ -597,10 +533,7 @@ class _CccdVerificationScreenState
         decoration: BoxDecoration(
           color: const Color(0xFFF9FAFB),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.grey.shade300,
-            style: BorderStyle.solid,
-          ),
+          border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
         ),
         child: Center(
           child: Column(
@@ -617,14 +550,8 @@ class _CccdVerificationScreenState
               ),
               const SizedBox(height: 10),
               Text(
-                isFront
-                    ? 'Chạm để chụp / tải ảnh mặt trước'
-                    : 'Chạm để chụp / tải ảnh mặt sau',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: AppColors.textDark,
-                ),
+                isFront ? 'Chạm để chụp / tải ảnh mặt trước' : 'Chạm để chụp / tải ảnh mặt sau',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
               ),
               const SizedBox(height: 4),
               const Text(
@@ -654,7 +581,10 @@ class _CccdVerificationScreenState
               borderRadius: BorderRadius.circular(12),
             ),
             child: isRealFile
-                ? Image.file(File(image.path), fit: BoxFit.cover)
+                ? Image.file(
+                    File(image.path),
+                    fit: BoxFit.cover,
+                  )
                 : Container(
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
@@ -674,22 +604,14 @@ class _CccdVerificationScreenState
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            isFront
-                                ? 'ẢNH MẪU CCCD MẶT TRƯỚC (DEMO)'
-                                : 'ẢNH MẪU CCCD MẶT SAU CHIP (DEMO)',
+                            isFront ? 'ẢNH MẪU CCCD MẶT TRƯỚC (DEMO)' : 'ẢNH MẪU CCCD MẶT SAU CHIP (DEMO)',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
                               color: Color(0xFF0369A1),
                             ),
                           ),
-                          const Text(
-                            '✓ Tệp hợp lệ sẵn sàng xác thực',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF075985),
-                            ),
-                          ),
+                          const Text('✓ Tệp hợp lệ sẵn sàng xác thực', style: TextStyle(fontSize: 11, color: Color(0xFF075985))),
                         ],
                       ),
                     ),
@@ -702,18 +624,8 @@ class _CccdVerificationScreenState
           children: [
             TextButton.icon(
               onPressed: () => _showImagePickerModal(isFront),
-              icon: const Icon(
-                Icons.refresh,
-                size: 16,
-                color: AppColors.primary,
-              ),
-              label: const Text(
-                'Chụp lại / Đổi ảnh',
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              icon: const Icon(Icons.refresh, size: 16, color: AppColors.primary),
+              label: const Text('Chụp lại / Đổi ảnh', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
             ),
             TextButton.icon(
               onPressed: () {
@@ -725,11 +637,7 @@ class _CccdVerificationScreenState
                   }
                 });
               },
-              icon: const Icon(
-                Icons.delete_outline,
-                size: 16,
-                color: Colors.red,
-              ),
+              icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
               label: const Text('Xóa', style: TextStyle(color: Colors.red)),
             ),
           ],
@@ -768,19 +676,13 @@ class _CccdVerificationScreenState
               const Expanded(
                 child: Text(
                   'Mục 3: Quét lấy thông tin mã CCCD',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: AppColors.textDark,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textDark),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: hasQr
-                      ? const Color(0xFFD1FAE5)
-                      : const Color(0xFFFEE2E2),
+                  color: hasQr ? const Color(0xFFD1FAE5) : const Color(0xFFFEE2E2),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -832,11 +734,7 @@ class _CccdVerificationScreenState
             const SizedBox(height: 12),
             const Text(
               'Nhấn để Mở Camera Quét Mã QR CCCD',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: AppColors.primary,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.primary),
             ),
             const SizedBox(height: 4),
             const Text(
@@ -864,32 +762,17 @@ class _CccdVerificationScreenState
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.verified_user,
-                color: AppColors.primary,
-                size: 20,
-              ),
+              const Icon(Icons.verified_user, color: AppColors.primary, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'THÔNG TIN ĐÃ TRÍCH XUẤT TỪ QR',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: Colors.green.shade900,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green.shade900),
                 ),
               ),
               InkWell(
                 onTap: _scanCccdQr,
-                child: const Text(
-                  'Quét lại',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: const Text('Quét lại', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -917,30 +800,20 @@ class _CccdVerificationScreenState
     );
   }
 
-  Widget _buildInfoRow(
-    String label,
-    String value, {
-    bool isHighlight = false,
-    bool isBold = false,
-  }) {
+  Widget _buildInfoRow(String label, String value, {bool isHighlight = false, bool isBold = false}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
           width: 85,
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-          ),
+          child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
         ),
         Expanded(
           child: Text(
             value,
             style: TextStyle(
               fontSize: 12.5,
-              fontWeight: (isHighlight || isBold)
-                  ? FontWeight.bold
-                  : FontWeight.w500,
+              fontWeight: (isHighlight || isBold) ? FontWeight.bold : FontWeight.w500,
               color: isHighlight ? AppColors.primary : AppColors.textDark,
             ),
           ),
@@ -972,10 +845,7 @@ class _CccdVerificationScreenState
             if (!_isComplete)
               Container(
                 margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 7,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFEF2F2),
                   borderRadius: BorderRadius.circular(8),
@@ -988,11 +858,7 @@ class _CccdVerificationScreenState
                     Expanded(
                       child: Text(
                         'Thiếu: ${_missingItems.join(', ')}. Cần đủ cả 3 mục để mở nút xác thực.',
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          color: Colors.red,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: const TextStyle(fontSize: 11.5, color: Colors.red, fontWeight: FontWeight.w500),
                       ),
                     ),
                   ],
@@ -1001,10 +867,7 @@ class _CccdVerificationScreenState
             else
               Container(
                 margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 7,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
                   color: const Color(0xFFECFDF5),
                   borderRadius: BorderRadius.circular(8),
@@ -1012,20 +875,12 @@ class _CccdVerificationScreenState
                 ),
                 child: const Row(
                   children: [
-                    Icon(
-                      Icons.check_circle_outline,
-                      size: 16,
-                      color: AppColors.primary,
-                    ),
+                    Icon(Icons.check_circle_outline, size: 16, color: AppColors.primary),
                     SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         'Đã đủ 3/3 mục! Bạn có thể nhấn nút xác thực bên dưới.',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(fontSize: 11.5, color: AppColors.primary, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -1035,50 +890,33 @@ class _CccdVerificationScreenState
             // NÚT XÁC THỰC: Bị DISABLED (onPressed: null) nếu chưa đủ 3 mục
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: _isComplete
-                    ? AppColors.primary
-                    : Colors.grey.shade300,
-                foregroundColor: _isComplete
-                    ? Colors.white
-                    : Colors.grey.shade500,
+                backgroundColor: _isComplete ? AppColors.primary : Colors.grey.shade300,
+                foregroundColor: _isComplete ? Colors.white : Colors.grey.shade500,
                 elevation: _isComplete ? 2 : 0,
                 padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: (_isComplete && !_isSubmitting)
-                  ? _submitVerification
-                  : null,
+              onPressed: (_isComplete && !_isSubmitting) ? _submitVerification : null,
               child: _isSubmitting
                   ? const SizedBox(
                       height: 20,
                       width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          _isComplete
-                              ? Icons.verified_user
-                              : Icons.lock_outline,
+                          _isComplete ? Icons.verified_user : Icons.lock_outline,
                           size: 18,
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          _isComplete
-                              ? 'XÁC NHẬN & HOÀN TẤT XÁC THỰC'
-                              : 'CHƯA ĐỦ ĐIỀU KIỆN XÁC THỰC (0/3)',
+                          _isComplete ? 'XÁC NHẬN & HOÀN TẤT XÁC THỰC' : 'CHƯA ĐỦ ĐIỀU KIỆN XÁC THỰC (0/3)',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
-                            color: _isComplete
-                                ? Colors.white
-                                : Colors.grey.shade600,
+                            color: _isComplete ? Colors.white : Colors.grey.shade600,
                           ),
                         ),
                       ],

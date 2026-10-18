@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/constants/firestore_collections.dart';
 
 /// Model Đơn đặt phòng & Lịch hẹn xem phòng chuẩn hóa theo Database homeShare (DrawIO pkg_3: Đặt phòng và kỳ ở)
 /// Bảng: Đơn đặt phòng (phongId, nguoiDung_Id, trangThai_id, ngayVao, soThangThue, tenNguoiO, sdtNguoiO...)
@@ -18,8 +19,7 @@ class BookingRequestModel {
   final int rentalMonths; // soThangThue
   final String hostId; // chuNhaId
   final String hostName; // tenChuNha
-  final String
-  status; // trangThai: 'choDuyet' (pending), 'daDuyet' (approved), 'dangO' (active), 'daHuy' (cancelled), 'tuChoi' (rejected)
+  final String status; // trangThai: 'choDuyet' (pending), 'daDuyet' (approved), 'dangO' (active), 'daHuy' (cancelled), 'tuChoi' (rejected)
   final DateTime moveInDate; // ngayVao / thoiDiem
   final DateTime? acceptedDate; // ngayChapNhan
   final String note; // ghiChu
@@ -118,110 +118,109 @@ class BookingRequestModel {
   }
 
   factory BookingRequestModel.fromFirestore(DocumentSnapshot doc) {
-    return BookingRequestModel.fromMap(
-      doc.data() as Map<String, dynamic>? ?? {},
-      doc.id,
-    );
+    return BookingRequestModel.fromMap(doc.data() as Map<String, dynamic>? ?? {}, doc.id);
   }
 
   factory BookingRequestModel.fromMap(Map<String, dynamic> data, String id) {
     return BookingRequestModel(
       id: id,
-      renterId:
-          data['renterId'] ?? data['nguoiDung_Id'] ?? data['khachXemId'] ?? '',
-      renterUserCode:
-          data['renterUserCode'] ??
-          data['maNguoiDung'] ??
-          data['userCode'] ??
-          '',
-      renterName:
-          data['renterName'] ?? data['tenNguoiO'] ?? data['tenKhach'] ?? '',
-      renterPhone:
-          data['renterPhone'] ?? data['sdtNguoiO'] ?? data['sdtKhach'] ?? '',
+      renterId: data['renterId'] ?? data['nguoiDung_Id'] ?? data['khachXemId'] ?? '',
+      renterUserCode: data['renterUserCode'] ?? data['maNguoiDung'] ?? data['userCode'] ?? '',
+      renterName: data['renterName'] ?? data['tenNguoiO'] ?? data['tenKhach'] ?? '',
+      renterPhone: data['renterPhone'] ?? data['sdtNguoiO'] ?? data['sdtKhach'] ?? '',
       renterGender: data['renterGender'] ?? data['gioiTinhNguoiO'] ?? 'nam',
       roomId: data['roomId'] ?? data['phongId'] ?? data['baiDangId'] ?? '',
-      roomTitle:
-          data['roomTitle'] ?? data['tieuDePhong'] ?? data['tieuDe'] ?? '',
-      roomAddress:
-          data['roomAddress'] ?? data['diaChiPhong'] ?? data['diaChi'] ?? '',
-      roomPrice:
-          ((data['roomPrice'] ?? data['giaThue'] ?? data['giaPhong']) as num?)
-              ?.toDouble() ??
-          0.0,
-      deposit:
-          ((data['deposit'] ?? data['tienCoc']) as num?)?.toDouble() ?? 0.0,
-      totalAmount:
-          ((data['totalAmount'] ?? data['tongPhaiTra']) as num?)?.toDouble() ??
-          0.0,
-      rentalMonths:
-          ((data['rentalMonths'] ?? data['soThangThue']) as num?)?.toInt() ?? 1,
+      roomTitle: data['roomTitle'] ?? data['tieuDePhong'] ?? data['tieuDe'] ?? '',
+      roomAddress: data['roomAddress'] ?? data['diaChiPhong'] ?? data['diaChi'] ?? '',
+      roomPrice: ((data['roomPrice'] ?? data['giaThue'] ?? data['giaPhong']) as num?)?.toDouble() ?? 0.0,
+      deposit: ((data['deposit'] ?? data['tienCoc']) as num?)?.toDouble() ?? 0.0,
+      totalAmount: ((data['totalAmount'] ?? data['tongPhaiTra']) as num?)?.toDouble() ?? 0.0,
+      rentalMonths: ((data['rentalMonths'] ?? data['soThangThue']) as num?)?.toInt() ?? 1,
       hostId: data['hostId'] ?? data['chuNhaId'] ?? '',
       hostName: data['hostName'] ?? data['tenChuNha'] ?? '',
       status: data['status'] ?? data['trangThai'] ?? 'pending',
       moveInDate: (data['moveInDate'] is Timestamp)
           ? (data['moveInDate'] as Timestamp).toDate()
           : (data['ngayVao'] is Timestamp)
-          ? (data['ngayVao'] as Timestamp).toDate()
-          : (data['thoiDiem'] is Timestamp)
-          ? (data['thoiDiem'] as Timestamp).toDate()
-          : DateTime.now(),
+              ? (data['ngayVao'] as Timestamp).toDate()
+              : (data['thoiDiem'] is Timestamp)
+                  ? (data['thoiDiem'] as Timestamp).toDate()
+                  : DateTime.now(),
       acceptedDate: (data['acceptedDate'] is Timestamp)
           ? (data['acceptedDate'] as Timestamp).toDate()
           : (data['ngayChapNhan'] is Timestamp)
-          ? (data['ngayChapNhan'] as Timestamp).toDate()
-          : null,
+              ? (data['ngayChapNhan'] as Timestamp).toDate()
+              : null,
       note: data['note'] ?? data['ghiChu'] ?? '',
       createdAt: (data['createdAt'] is Timestamp)
           ? (data['createdAt'] as Timestamp).toDate()
           : (data['ngayTao'] is Timestamp)
-          ? (data['ngayTao'] as Timestamp).toDate()
-          : DateTime.now(),
+              ? (data['ngayTao'] as Timestamp).toDate()
+              : DateTime.now(),
     );
   }
 
-  Map<String, dynamic> toMap() {
+  /// Đường dẫn Sub-collection trên Firestore theo quan hệ 1-N:
+  /// Path: rooms/{roomId}/bookings
+  static String subCollectionPath(String roomId) =>
+      HostFirestorePaths.bookings(roomId);
+
+  /// Đường dẫn Document trong Sub-collection:
+  /// Path: rooms/{roomId}/bookings/{bookingId}
+  static String docPath(String roomId, String bookingId) =>
+      HostFirestorePaths.bookingDoc(roomId, bookingId);
+
+  /// CollectionReference cho Sub-collection bookings
+  static CollectionReference<Map<String, dynamic>> subColRef(
+    String roomId, [
+    FirebaseFirestore? firestore,
+  ]) => (firestore ?? FirebaseFirestore.instance)
+      .collection(FirestoreCollections.rooms)
+      .doc(roomId)
+      .collection(FirestoreCollections.bookings);
+
+  /// Mapper chuẩn theo bảng don_dat_phong (SQL_NHOM4_CHUYENDEDIDONG.sql)
+  Map<String, dynamic> toDonDatPhongSql() => {
+    DonDatPhongSqlFields.id: id,
+    DonDatPhongSqlFields.phongTroId: roomId,
+    DonDatPhongSqlFields.nguoiThueId: renterId,
+    DonDatPhongSqlFields.tienCoc: deposit,
+    DonDatPhongSqlFields.ngayDuKienDen: Timestamp.fromDate(moveInDate),
+    DonDatPhongSqlFields.trangThai: status,
+    DonDatPhongSqlFields.ngayTao: Timestamp.fromDate(createdAt),
+  };
+
+  /// Factory đọc từ dữ liệu bảng don_dat_phong chuẩn SQL
+  factory BookingRequestModel.fromDonDatPhongSql(Map<String, dynamic> data, String id) {
+    return BookingRequestModel.fromMap(data, id);
+  }
+
+  /// Ghi dữ liệu Firestore 100% tiếng Anh chuẩn giao diện Firebase Console
+  Map<String, dynamic> toFirestore() {
     return {
+      'id': id,
+      'roomId': roomId,
       'renterId': renterId,
       'renterUserCode': renterUserCode,
-      'maNguoiDung': renterUserCode,
-      'userCode': renterUserCode,
-      'nguoiDung_Id': renterId,
       'renterName': renterName,
-      'tenNguoiO': renterName,
       'renterPhone': renterPhone,
-      'sdtNguoiO': renterPhone,
       'renterGender': renterGender,
-      'gioiTinhNguoiO': renterGender,
-      'roomId': roomId,
-      'phongId': roomId,
       'roomTitle': roomTitle,
-      'tieuDePhong': roomTitle,
       'roomAddress': roomAddress,
-      'diaChiPhong': roomAddress,
       'roomPrice': roomPrice,
-      'giaThue': roomPrice,
       'deposit': deposit,
-      'tienCoc': deposit,
       'totalAmount': totalAmount,
-      'tongPhaiTra': totalAmount,
       'rentalMonths': rentalMonths,
-      'soThangThue': rentalMonths,
       'hostId': hostId,
-      'chuNhaId': hostId,
       'hostName': hostName,
-      'tenChuNha': hostName,
       'status': status,
-      'trangThai': status,
       'moveInDate': Timestamp.fromDate(moveInDate),
-      'ngayVao': Timestamp.fromDate(moveInDate),
       if (acceptedDate != null)
         'acceptedDate': Timestamp.fromDate(acceptedDate!),
-      if (acceptedDate != null)
-        'ngayChapNhan': Timestamp.fromDate(acceptedDate!),
       'note': note,
-      'ghiChu': note,
       'createdAt': Timestamp.fromDate(createdAt),
-      'ngayTao': Timestamp.fromDate(createdAt),
     };
   }
+
+  Map<String, dynamic> toMap() => toFirestore();
 }

@@ -67,17 +67,12 @@ class HandoverItemModel {
 
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'periodId': periodId,
-      'kyThue_id': periodId,
-      'kyOId': periodId,
       'itemName': itemName,
-      'tenHangMuc': itemName,
       'description': description,
-      'moTa': description,
       'condition': condition,
-      'tinhTrang': condition,
       'isChecked': isChecked,
-      'daKiemTra': isChecked,
     };
   }
 }

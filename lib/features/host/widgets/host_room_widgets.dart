@@ -9,8 +9,10 @@ import '../providers/host_management_provider.dart';
 // Chủ trọ - Định dạng phòng - Luồng đi: Dùng chung danh sách, chi
 // tiết và form sửa để tên phòng, giá, trạng thái hiển thị nhất quán.
 String hostMoney(num value) => NumberFormat.decimalPattern('vi').format(value);
+// Chủ trọ - Tên và mã riêng biệt - Luồng đi: Ưu tiên tên chủ trọ đặt;
+// phòng cũ chưa có tên vẫn hiển thị mã để không mất nhãn phòng.
 String hostRoomName(RoomModel room) =>
-    room.roomCode.isEmpty ? room.title : 'Phòng ${room.roomCode}';
+    room.title.trim().isNotEmpty ? room.title : 'Phòng ${room.id}';
 String hostRoomStatus(RoomModel room) => switch (room.status) {
   'available' => 'Còn trống',
   'occupied' => 'Đang thuê',

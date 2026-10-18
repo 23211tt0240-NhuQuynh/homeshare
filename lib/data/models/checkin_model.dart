@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/constants/firestore_collections.dart';
 
 /// Model Phiếu nhận phòng theo Database homeShare & SDS
 /// Collection: checkins/{checkinId}
@@ -42,8 +43,8 @@ class CheckinModel {
     this.status = 'daNhanPhong',
     this.initialElectricityMeter = 0.0,
     this.initialWaterMeter = 0.0,
-    this.electricityRate = 3500.0,
-    this.waterRate = 20000.0,
+    this.electricityRate = 0.0,
+    this.waterRate = 0.0,
     this.isKeyHandedOver = true,
     this.note = '',
     required this.createdAt,
@@ -113,10 +114,10 @@ class CheckinModel {
       electricityRate:
           ((data['electricityRate'] ?? data['donGiaDien']) as num?)
               ?.toDouble() ??
-          3500.0,
+          0.0,
       waterRate:
           ((data['waterRate'] ?? data['donGiaNuoc']) as num?)?.toDouble() ??
-          20000.0,
+          0.0,
       isKeyHandedOver:
           data['isKeyHandedOver'] ?? data['daBanGiaoChiaKhoa'] ?? true,
       note: data['note'] ?? data['ghiChu'] ?? '',
@@ -128,32 +129,60 @@ class CheckinModel {
     );
   }
 
-  Map<String, dynamic> toMap() {
+  /// Đường dẫn Sub-collection trên Firestore theo quan hệ 1-1:
+  /// Path: bookings/{bookingId}/checkin_records
+  static String subCollectionPath(String bookingId) =>
+      HostFirestorePaths.checkinRecords(bookingId);
+
+  /// Đường dẫn Document trong Sub-collection:
+  /// Path: bookings/{bookingId}/checkin_records/{checkinId}
+  static String docPath(String bookingId, String checkinId) =>
+      HostFirestorePaths.checkinRecordDoc(bookingId, checkinId);
+
+  /// CollectionReference cho Sub-collection checkin_records
+  static CollectionReference<Map<String, dynamic>> subColRef(
+    String bookingId, [
+    FirebaseFirestore? firestore,
+  ]) => (firestore ?? FirebaseFirestore.instance)
+      .collection(FirestoreCollections.bookings)
+      .doc(bookingId)
+      .collection(FirestoreCollections.checkinRecords);
+
+  /// Mapper chuẩn bảng bien_ban_nhan_phong_checkin (SQL_NHOM4_CHUYENDEDIDONG.sql)
+  Map<String, dynamic> toBienBanCheckinSql() => {
+    BienBanCheckinSqlFields.id: id,
+    BienBanCheckinSqlFields.donDatPhongId: bookingId,
+    BienBanCheckinSqlFields.chiSoDienBanDau: initialElectricityMeter,
+    BienBanCheckinSqlFields.chiSoNuocBanDau: initialWaterMeter,
+    BienBanCheckinSqlFields.tinhTrangCoSoVatChat: note,
+    BienBanCheckinSqlFields.maQrCheckin: '',
+    BienBanCheckinSqlFields.xacNhanNguoiThue: isKeyHandedOver ? 1 : 0,
+    BienBanCheckinSqlFields.ngayCheckin: Timestamp.fromDate(scanTime),
+  };
+
+  /// Factory đọc từ dữ liệu bảng bien_ban_nhan_phong_checkin chuẩn SQL
+  factory CheckinModel.fromBienBanCheckinSql(Map<String, dynamic> data, String id) {
+    return CheckinModel.fromMap(data, id);
+  }
+
+  /// Ghi Firestore 100% tiếng Anh chuẩn Firebase Console
+  Map<String, dynamic> toFirestore() {
     return {
+      'id': id,
       'bookingId': bookingId,
-      'donId': bookingId,
       'periodId': periodId,
-      'kyOId': periodId,
       'scannerId': scannerId,
-      'nguoiQuetId': scannerId,
       'scanTime': Timestamp.fromDate(scanTime),
-      'thoiGianQuet': Timestamp.fromDate(scanTime),
       'status': status,
-      'trangThaiPhieuNhan_id': status,
       'initialElectricityMeter': initialElectricityMeter,
-      'chiSoDienBanDau': initialElectricityMeter,
       'initialWaterMeter': initialWaterMeter,
-      'chiSoNuocBanDau': initialWaterMeter,
       'electricityRate': electricityRate,
-      'donGiaDien': electricityRate,
       'waterRate': waterRate,
-      'donGiaNuoc': waterRate,
       'isKeyHandedOver': isKeyHandedOver,
-      'daBanGiaoChiaKhoa': isKeyHandedOver,
       'note': note,
-      'ghiChu': note,
       'createdAt': Timestamp.fromDate(createdAt),
-      'ngayTao': Timestamp.fromDate(createdAt),
     };
   }
+
+  Map<String, dynamic> toMap() => toFirestore();
 }

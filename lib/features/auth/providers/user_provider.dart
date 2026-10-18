@@ -2,14 +2,14 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/role_resolver.dart';
 import 'auth_provider.dart';
 
 /// Model thông tin người dùng HomeShare chuẩn hóa theo Database homeShare (DrawIO pkg_0: Tài khoản)
 /// Bảng: Người dùng, Sở thích (soDienThoai, email, hoTen, anhDaiDien, gioiTinh, ngaySinh, diaChi, diemUyTin, ngheNghiep)
 class UserProfile {
   final String uid; // id
-  final String?
-  _userCode; // maNguoiDung 5 ký tự (3 số đầu + 2 chữ sau, vd: 382AN)
+  final String? _userCode; // maNguoiDung 5 ký tự (3 số đầu + 2 chữ sau, vd: 382AN)
   final String email; // email
   final String displayName; // hoTen
   final String phoneNumber; // soDienThoai
@@ -50,8 +50,10 @@ class UserProfile {
   String get ngheNghiep => occupation;
   List<String> get soThich => hobbies;
   String get vaiTro => role;
-  bool get isRenter => role == 'renter';
-  bool get isHost => role == 'host';
+  bool get isRenter => role == 'renter' || role == 'tenant' || role == 'nguoidung';
+  bool get isHost => role == 'host' || role == 'landlord' || role == 'chutro';
+  bool get isAdmin => role == 'admin' || role == 'administrator' || role == 'quantri';
+  bool get hasValidRole => RoleResolver.isValidRole(role);
   DateTime? get ngaySinh => birthDate;
   DateTime? get ngayTao => createdAt;
   bool get daXacThucCccd => isCccdVerified;
@@ -115,68 +117,61 @@ class UserProfile {
     this.cccdFrontImageUrl = '',
     this.cccdBackImageUrl = '',
   }) : _userCode = (userCode != null && isValidUserCode(userCode))
-           ? userCode.trim().toUpperCase()
-           : generateUserCode(seed: uid);
+            ? userCode.trim().toUpperCase()
+            : generateUserCode(seed: uid);
 
   factory UserProfile.fromMap(Map<String, dynamic> data, String uid) {
     final rawHobbies = (data['hobbies'] ?? data['soThich']) as List<dynamic>?;
-    final parsedHobbies =
-        rawHobbies
+    final parsedHobbies = rawHobbies
             ?.map((e) => e?.toString() ?? '')
             .where((e) => e.isNotEmpty)
             .toList() ??
         [];
 
-    final rawUserCode =
-        (data['userCode'] ?? data['maNguoiDung'] ?? data['idNguoiDung'])
-            ?.toString();
+    final rawUserCode = (data['userCode'] ?? data['maNguoiDung'] ?? data['idNguoiDung'])?.toString();
     final userCode = (rawUserCode != null && isValidUserCode(rawUserCode))
         ? rawUserCode.trim().toUpperCase()
         : generateUserCode(seed: uid);
+
+    final resolvedRole = RoleResolver.extractRoleFromMap(data) ??
+        (data['role'] != null ? RoleResolver.normalizeRole(data['role']) : null) ??
+        (data['vaiTro'] != null ? RoleResolver.normalizeRole(data['vaiTro']) : null) ??
+        'renter';
 
     return UserProfile(
       uid: uid,
       userCode: userCode,
       email: data['email'] ?? '',
-      displayName:
-          data['displayName'] ?? data['hoTen'] ?? 'Người dùng HomeShare',
+      displayName: data['displayName'] ?? data['hoTen'] ?? 'Người dùng HomeShare',
       phoneNumber: data['phoneNumber'] ?? data['soDienThoai'] ?? '',
-      // Chủ trọ - Đọc vai trò tài khoản - Luồng đi: Lấy vai trò đã lưu khi
-      // đăng ký để AuthGate mở Dashboard chủ trọ; thiếu vai trò dùng renter.
-      role: (data['role'] ?? data['vaiTro'] ?? 'renter').toString(),
+      role: resolvedRole,
       avatarUrl: data['avatarUrl'] ?? data['anhDaiDien'] ?? '',
       gender: data['gender'] ?? data['gioiTinh'] ?? 'Nam',
       address: data['address'] ?? data['diaChi'] ?? '',
       hometown: data['hometown'] ?? data['queQuan'] ?? '',
-      reputationScore:
-          ((data['reputationScore'] ?? data['diemUyTin']) as num?)?.toInt() ??
-          100,
+      reputationScore: ((data['reputationScore'] ?? data['diemUyTin']) as num?)?.toInt() ?? 100,
       occupation: data['occupation'] ?? data['ngheNghiep'] ?? 'Sinh viên',
       hobbies: parsedHobbies,
       birthDate: (data['birthDate'] is Timestamp)
           ? (data['birthDate'] as Timestamp).toDate()
           : (data['ngaySinh'] is Timestamp)
-          ? (data['ngaySinh'] as Timestamp).toDate()
-          : null,
+              ? (data['ngaySinh'] as Timestamp).toDate()
+              : null,
       createdAt: (data['createdAt'] is Timestamp)
           ? (data['createdAt'] as Timestamp).toDate()
           : (data['ngayTao'] is Timestamp)
-          ? (data['ngayTao'] as Timestamp).toDate()
-          : null,
-      isCccdVerified:
-          (data['isCccdVerified'] ??
-              (data['trangThaiXacMinh_id'] == 'daXacThuc')) ??
-          false,
-      cccdNumber:
-          data['cccdNumber'] ?? data['soGiayTo'] ?? data['soCccd'] ?? '',
+              ? (data['ngayTao'] as Timestamp).toDate()
+              : null,
+      isCccdVerified: (data['isCccdVerified'] ?? (data['trangThaiXacMinh_id'] == 'daXacThuc')) ?? false,
+      cccdNumber: data['cccdNumber'] ?? data['soGiayTo'] ?? data['soCccd'] ?? '',
       cccdFullName: data['cccdFullName'] ?? data['hoTenCccd'] ?? '',
       cccdIssueDate: data['cccdIssueDate'] ?? '',
       cccdHometown: data['cccdHometown'] ?? '',
       cccdVerifiedAt: (data['cccdVerifiedAt'] is Timestamp)
           ? (data['cccdVerifiedAt'] as Timestamp).toDate()
           : (data['ngayXacMinh'] is Timestamp)
-          ? (data['ngayXacMinh'] as Timestamp).toDate()
-          : null,
+              ? (data['ngayXacMinh'] as Timestamp).toDate()
+              : null,
       cccdFrontImageUrl: data['cccdFrontImageUrl'] ?? data['anhMatTruoc'] ?? '',
       cccdBackImageUrl: data['cccdBackImageUrl'] ?? data['anhMatSau'] ?? '',
     );
@@ -224,16 +219,10 @@ class UserProfile {
       'anhMatSau': cccdBackImageUrl,
       if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate!),
       if (birthDate != null) 'ngaySinh': Timestamp.fromDate(birthDate!),
-      if (cccdVerifiedAt != null)
-        'cccdVerifiedAt': Timestamp.fromDate(cccdVerifiedAt!),
-      if (cccdVerifiedAt != null)
-        'ngayXacMinh': Timestamp.fromDate(cccdVerifiedAt!),
-      'createdAt': createdAt != null
-          ? Timestamp.fromDate(createdAt!)
-          : FieldValue.serverTimestamp(),
-      'ngayTao': createdAt != null
-          ? Timestamp.fromDate(createdAt!)
-          : FieldValue.serverTimestamp(),
+      if (cccdVerifiedAt != null) 'cccdVerifiedAt': Timestamp.fromDate(cccdVerifiedAt!),
+      if (cccdVerifiedAt != null) 'ngayXacMinh': Timestamp.fromDate(cccdVerifiedAt!),
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
+      'ngayTao': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
     };
   }
 
@@ -333,10 +322,7 @@ Future<void> saveCccdVerificationToBackend({
   };
 
   try {
-    await firestore
-        .collection('users')
-        .doc(uid)
-        .set(updateData, SetOptions(merge: true));
+    await firestore.collection('users').doc(uid).set(updateData, SetOptions(merge: true));
   } catch (e) {
     // Offline / fallback fallback
   }
@@ -365,32 +351,45 @@ final userProfileProvider = StreamProvider<UserProfile?>((ref) {
       .doc(user.uid)
       .snapshots()
       .map((snapshot) {
-        if (!snapshot.exists || snapshot.data() == null) {
-          final code = UserProfile.generateUserCode(seed: user.uid);
-          return UserProfile(
-            uid: user.uid,
-            userCode: code,
-            email: user.email ?? '',
-            displayName: user.displayName ?? 'Người dùng HomeShare',
-            phoneNumber: '',
-            role: 'renter',
-          );
-        }
-        final data = snapshot.data()!;
-        // Đảm bảo mã người dùng 5 ký tự luôn được lưu trong Firestore để Admin tìm kiếm
-        if (data['userCode'] == null || data['maNguoiDung'] == null) {
-          final code = UserProfile.generateUserCode(seed: user.uid);
-          FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-            'userCode': code,
-            'maNguoiDung': code,
-            'idNguoiDung': code,
-          }, SetOptions(merge: true));
-        }
-        return UserProfile.fromMap(data, user.uid);
-      });
+    if (!snapshot.exists || snapshot.data() == null) {
+      final code = UserProfile.generateUserCode(seed: user.uid);
+      return UserProfile(
+        uid: user.uid,
+        userCode: code,
+        email: user.email ?? '',
+        displayName: user.displayName ?? 'Người dùng HomeShare',
+        phoneNumber: '',
+        role: 'renter',
+      );
+    }
+    final data = snapshot.data()!;
+    // Đảm bảo mã người dùng 5 ký tự luôn được lưu trong Firestore để Admin tìm kiếm
+    if (data['userCode'] == null || data['maNguoiDung'] == null) {
+      final code = UserProfile.generateUserCode(seed: user.uid);
+      FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'userCode': code,
+        'maNguoiDung': code,
+        'idNguoiDung': code,
+      }, SetOptions(merge: true));
+    }
+    return UserProfile.fromMap(data, user.uid);
+  });
 });
 
-// Notifier quản lý Role hoạt động (Chỉ người dùng / Renter)
+// Cập nhật vai trò người dùng trong Firestore
+Future<void> updateUserRole({
+  required String uid,
+  required String newRole,
+}) async {
+  final normalized = RoleResolver.normalizeRole(newRole) ?? 'renter';
+  await FirebaseFirestore.instance.collection('users').doc(uid).set({
+    'role': normalized,
+    'vaiTro': normalized,
+    'vaiTro_id': normalized == 'host' ? 2 : (normalized == 'admin' ? 3 : 1),
+  }, SetOptions(merge: true));
+}
+
+// Notifier quản lý Role hoạt động
 class ActiveRoleNotifier extends Notifier<String> {
   @override
   String build() {
@@ -398,10 +397,8 @@ class ActiveRoleNotifier extends Notifier<String> {
   }
 
   void switchRole(String role) {
-    state = 'renter'; // Cố định role người dùng theo yêu cầu dự án
+    state = RoleResolver.normalizeRole(role) ?? 'renter';
   }
 }
 
-final activeRoleProvider = NotifierProvider<ActiveRoleNotifier, String>(
-  ActiveRoleNotifier.new,
-);
+final activeRoleProvider = NotifierProvider<ActiveRoleNotifier, String>(ActiveRoleNotifier.new);

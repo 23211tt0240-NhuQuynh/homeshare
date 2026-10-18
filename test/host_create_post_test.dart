@@ -103,8 +103,6 @@ class CreatePostTestRepository extends HostRepository {
     required String authorAvatar,
     String? nhaTroId,
     String? phongId,
-    String? propertyName,
-    List<String>? propertyImages,
   }) async {
     if (failCreatePost) {
       rollbackCleanedUp = true;

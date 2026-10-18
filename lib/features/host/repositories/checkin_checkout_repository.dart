@@ -300,23 +300,24 @@ class CheckinCheckoutRepository {
           _firestore.collection(FirestoreCollections.periods).doc(periodId);
       batch.update(periodRef, {
         'status': 'daKetThuc',
-        'trangThai': 'daKetThuc',
         'endDate': FieldValue.serverTimestamp(),
-        'ngayKetThuc': FieldValue.serverTimestamp(),
-        'ketThucLuc': FieldValue.serverTimestamp(),
       });
 
       // Cập nhật cư dân trong period
-      final resSnap = await _firestore
+      var resSnap = await _firestore
           .collection(FirestoreCollections.residents)
-          .where('kyThue_id', isEqualTo: periodId)
+          .where('periodId', isEqualTo: periodId)
           .get();
+      if (resSnap.docs.isEmpty) {
+        resSnap = await _firestore
+            .collection(FirestoreCollections.residents)
+            .where('kyThue_id', isEqualTo: periodId)
+            .get();
+      }
       for (final d in resSnap.docs) {
         batch.update(d.reference, {
           'statusId': 'daRoi',
-          'trangThai_id': 'daRoi',
           'moveOutDate': FieldValue.serverTimestamp(),
-          'ngayRoi': FieldValue.serverTimestamp(),
         });
       }
     }
