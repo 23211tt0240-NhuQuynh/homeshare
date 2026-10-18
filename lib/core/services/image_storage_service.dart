@@ -114,6 +114,83 @@ class ImageStorageService {
     return 'data:image/jpeg;base64,${base64Encode(prepared)}';
   }
 
+  /// Tải ảnh đại diện từ bộ nhớ. Storage nếu có, không thì Base64 của chính ảnh đó.
+  Future<String> uploadImageBytes({
+    required Uint8List bytes,
+    required String folder,
+    required String fileName,
+  }) async {
+    const maxBytes = 180 * 1024;
+    final prepared = bytes.length <= maxBytes ? bytes : await compute(compressJpegToLimit, (bytes, maxBytes));
+
+    if (!skipRemoteUpload) {
+      try {
+        final storageRef = _storage.ref().child('$folder/$fileName');
+        final metadata = SettableMetadata(
+          contentType: 'image/jpeg',
+          customMetadata: {'uploadedAt': DateTime.now().toIso8601String()},
+        );
+        final snapshot = await storageRef.putData(prepared, metadata).timeout(const Duration(seconds: 8));
+        return await snapshot.ref.getDownloadURL();
+      } catch (e) {
+        debugPrint('[ImageStorageService] Storage chưa dùng được ($e). Lưu ảnh đại diện dạng Base64.');
+      }
+    }
+
+    return 'data:image/jpeg;base64,${base64Encode(prepared)}';
+  }
+
+  /// Đưa ảnh bài ở ghép lên Storage. Firestore chỉ cần giữ [storagePath], không giữ link tải.
+  Future<String> uploadRoommateStorageImage({
+    required String source,
+    required String postId,
+    required int index,
+  }) async {
+    final existing = storagePathFromDownloadUrl(source);
+    if (existing != null && existing.startsWith('roommate_posts/')) return existing;
+
+    final bytes = await _readImageBytes(source);
+    final storagePath = 'roommate_posts/$postId/image_$index.jpg';
+    final ref = _storage.ref().child(storagePath);
+    await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg')).timeout(const Duration(seconds: 20));
+    return storagePath;
+  }
+
+  Future<String> downloadUrlForStoragePath(String storagePath) {
+    return _storage.ref().child(storagePath).getDownloadURL();
+  }
+
+  String? storagePathFromDownloadUrl(String source) {
+    if (!source.contains('firebasestorage.googleapis.com')) return null;
+    final path = Uri.parse(source).path;
+    const marker = '/o/';
+    final index = path.indexOf(marker);
+    if (index < 0) return null;
+    return Uri.decodeComponent(path.substring(index + marker.length));
+  }
+
+  Future<Uint8List> _readImageBytes(String source) async {
+    if (source.startsWith('data:image')) {
+      final encoded = source.substring(source.indexOf(',') + 1);
+      return base64Decode(encoded);
+    }
+    if (source.startsWith('http://') || source.startsWith('https://')) {
+      final client = HttpClient();
+      try {
+        final request = await client.getUrl(Uri.parse(source));
+        final response = await request.close().timeout(const Duration(seconds: 20));
+        final chunks = <int>[];
+        await for (final chunk in response) {
+          chunks.addAll(chunk);
+        }
+        return Uint8List.fromList(chunks);
+      } finally {
+        client.close();
+      }
+    }
+    return File(source).readAsBytes();
+  }
+
   /// Tải danh sách nhiều ảnh cùng lúc cho bài đăng ở ghép / đăng phòng
   Future<List<String>> uploadRoommateImages({
     required List<String> localPaths,

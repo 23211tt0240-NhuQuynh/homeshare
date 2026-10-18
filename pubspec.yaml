@@ -43,18 +43,10 @@ dependencies:
   firebase_auth: ^6.7.0
   cloud_firestore: ^6.10.0
   firebase_storage: ^13.6.0
-  cloud_functions: ^6.0.0
-  # Nhận thông báo cuộc gọi khi app tắt hoặc ở nền.
-  firebase_messaging: ^16.0.0
-  # Tạo kênh Android "Cuộc gọi" để thông báo có tiếng.
-  flutter_local_notifications: ^19.0.0
   mobile_scanner: ^7.4.2
   image_picker: ^1.2.3
-  image: ^4.5.4
   qr_flutter: ^4.1.0
-  google_mlkit_text_recognition: ^0.14.0
-  agora_rtc_engine: ^6.5.3
-  permission_handler: ^11.4.0
+  image: ^4.12.0
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
 

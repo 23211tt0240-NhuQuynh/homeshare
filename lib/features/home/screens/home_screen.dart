@@ -4,6 +4,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../profile/screens/account_settings_screen.dart';
 import '../../profile/screens/cccd_verification_screen.dart';
+import '../../profile/screens/personal_profile_screen.dart';
+import '../../profile/widgets/user_avatar.dart';
 import '../../renter/screens/renter_bookings_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -25,7 +27,7 @@ class HomeScreen extends ConsumerWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const AccountSettingsScreen(),
+                  builder: (_) => const PersonalProfileScreen(),
                 ),
               );
             },
@@ -38,184 +40,160 @@ class HomeScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
 
-            // 1. Profile Header Card: Nhấn vào Avatar, Tên hoặc toàn bộ phần có Avatar để chuyển qua màn hình chi tiết
+            // 1. Profile Header Card
             Card(
               margin: EdgeInsets.zero,
-              clipBehavior: Clip.antiAlias,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: Color(0xFFE2E8F0)),
-              ),
-              child: InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const AccountSettingsScreen(),
-                    ),
-                  );
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const PersonalProfileScreen()),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(40),
+                      child: UserAvatar(
+                        name: profile?.displayName ?? '',
+                        imageUrl: profile?.avatarUrl ?? '',
                         radius: 32,
-                        backgroundColor: AppColors.primaryContainer,
-                        backgroundImage: (profile?.avatarUrl.isNotEmpty == true)
-                            ? NetworkImage(profile!.avatarUrl)
-                            : null,
-                        child: (profile?.avatarUrl.isNotEmpty == true)
-                            ? null
-                            : Text(
-                                (profile?.displayName.isNotEmpty ?? false)
-                                    ? profile!.displayName[0].toUpperCase()
-                                    : 'HS',
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  profile?.displayName ?? 'Người dùng HomeShare',
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textDark,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    profile?.displayName ?? 'Người dùng HomeShare',
-                                    style: const TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textDark,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryContainer,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'Người tìm phòng',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primaryContainer,
-                                    borderRadius: BorderRadius.circular(4),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(5),
+                                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                                ),
+                                child: Text(
+                                  'ID: ${profile?.userCode ?? "---"}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textDark,
+                                    letterSpacing: 0.5,
                                   ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  profile?.email ?? 'user@homeshare.vn',
+                                  style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          if (profile?.isCccdVerified == true)
+                            Row(
+                              children: [
+                                const Icon(Icons.verified, size: 14, color: AppColors.primary),
+                                const SizedBox(width: 4),
+                                Flexible(
                                   child: Text(
-                                    (profile?.role == 'landlord' || profile?.role == 'chutro')
-                                        ? 'Chủ trọ'
-                                        : 'Người tìm phòng',
+                                    profile?.cccdNumber.isNotEmpty == true
+                                        ? 'Đã xác thực CCCD (${profile!.cccdNumber.substring(0, 4)}****${profile.cccdNumber.substring(profile.cccdNumber.length - 2)}) ✓'
+                                        : 'Đã xác thực CCCD (eKYC) ✓',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
-                                      fontSize: 11,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                       color: AppColors.primary,
                                     ),
                                   ),
                                 ),
                               ],
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(5),
-                                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                            )
+                          else
+                            InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const CccdVerificationScreen(),
                                   ),
-                                  child: Text(
-                                    'ID: ${profile?.userCode ?? "---"}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textDark,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: const Color(0xFFF59E0B)),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    profile?.email ?? 'user@homeshare.vn',
-                                    style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            if (profile?.isCccdVerified == true)
-                              Row(
-                                children: [
-                                  const Icon(Icons.verified, size: 14, color: AppColors.primary),
-                                  const SizedBox(width: 4),
-                                  Flexible(
-                                    child: Text(
-                                      profile?.cccdNumber.isNotEmpty == true
-                                          ? 'Đã xác thực CCCD (${profile!.cccdNumber.substring(0, 4)}****${profile.cccdNumber.substring(profile.cccdNumber.length - 2)}) ✓'
-                                          : 'Đã xác thực CCCD (eKYC) ✓',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.primary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              )
-                            else
-                              InkWell(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const CccdVerificationScreen(),
-                                    ),
-                                  );
-                                },
-                                borderRadius: BorderRadius.circular(6),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFEF3C7),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: const Color(0xFFF59E0B)),
-                                  ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.warning_amber_rounded, size: 13, color: Color(0xFFD97706)),
-                                      SizedBox(width: 4),
-                                      Flexible(
-                                        child: Text(
-                                          'Chưa xác thực CCCD (Quét ngay)',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 10.5,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFFB45309),
-                                          ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.warning_amber_rounded, size: 13, color: Color(0xFFD97706)),
+                                    SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        'Chưa xác thực CCCD (Quét ngay)',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFB45309),
                                         ),
                                       ),
-                                      SizedBox(width: 2),
-                                      Icon(Icons.chevron_right, size: 13, color: Color(0xFFB45309)),
-                                    ],
-                                  ),
+                                    ),
+                                    SizedBox(width: 2),
+                                    Icon(Icons.chevron_right, size: 13, color: Color(0xFFB45309)),
+                                  ],
                                 ),
                               ),
-                          ],
-                        ),
+                            ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF94A3B8)),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),

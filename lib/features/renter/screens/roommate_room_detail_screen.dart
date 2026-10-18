@@ -7,6 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/chat_service.dart';
+import '../../../core/services/roommate_service.dart';
+import '../../../data/models/chat_model.dart';
 import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
@@ -41,16 +44,6 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
   /// Lời nhắn mẫu, chỉ hiện khi bài không có mô tả.
   static const String _fallbackNote =
       'Chào mọi người nha! Mình là Trang, hiện đang là sinh viên năm 3 chuyên ngành Kinh tế Đối ngoại tại FTU CS2. Tính mình vui vẻ, hòa đồng, gọn gàng và rất tôn trọng sự riêng tư của bạn cùng phòng. Ngày thường mình hay đi học và làm thêm, tối về thích tự nấu ăn nhẹ rồi ôn bài. Mình luôn tìm một bạn nữ hiền lành, trung thực, giữ vệ sinh chung để cùng san sẻ tiền nhà và nấu nướng. Phòng đã sẵn đồ dùng, bạn chỉ cần dọn vali vào ở thôi ạ.';
-
-  /// Sáu hashtag mẫu khi bài chưa ghi `habits`.
-  static const List<_HabitItem> _fallbackHabits = [
-    _HabitItem(Icons.menu_book_rounded, '#DocSach', 'Đọc sách, phát triển bản thân'),
-    _HabitItem(Icons.self_improvement_rounded, '#Yoga', 'Tập yoga, thiền mỗi sáng'),
-    _HabitItem(Icons.restaurant_rounded, '#NauAnHealthy', 'Tự nấu ăn Eat-Clean'),
-    _HabitItem(Icons.headphones_rounded, '#Acoustic', 'Nghe nhạc nhẹ qua tai nghe'),
-    _HabitItem(Icons.yard_rounded, '#ThichCayXanh', 'Yêu thích trồng cây cảnh'),
-    _HabitItem(Icons.nightlight_round, '#KhongOnAo', 'Không gian yên tĩnh sau 23h'),
-  ];
 
   /// Tiện ích tòa nhà, chưa đọc bảng `Tiện ích`.
   static const List<(IconData, String)> _buildingPerks = [
@@ -103,9 +96,9 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
   /// "Chính chủ duyệt" chưa có field, gắn cố định cho đúng thiết kế.
   String get _statusLabel => 'Đã có phòng sẵn • Chính chủ duyệt';
 
-  int get _matchRate {
+  int? get _matchRate {
     final rate = _post.matchRate;
-    if (rate < 0) return 0;
+    if (rate < 0) return null;
     if (rate > 100) return 100;
     return rate;
   }
@@ -128,9 +121,11 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
   }
 
   List<_HabitItem> get _habits {
-    final fromPost = _post.habits;
-    if (fromPost.isEmpty) return _fallbackHabits;
-    return fromPost.map((habit) => _HabitItem(_habitIcon(habit), habit, '')).toList();
+    return _post.habits
+        .map((habit) => habit.trim())
+        .where((habit) => habit.isNotEmpty)
+        .map((habit) => _HabitItem(_habitIcon(habit), habit, ''))
+        .toList();
   }
 
   IconData _habitIcon(String habit) {
@@ -243,17 +238,18 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
           receiverId: _peerId,
           receiverName: _posterName,
           receiverAvatar: _peerAvatar,
-          receiverPhone: _peerPhone.isEmpty ? '0903888999' : _peerPhone,
+          receiverPhone: _peerPhone,
           isLandlord: false,
           currentUserId: currentUser.uid,
           currentUserName: profile?.displayName ?? currentUser.displayName ?? 'Khách thuê',
           pinnedRoom: null,
+          roommatePostId: _post.id,
         ),
       ),
     );
   }
 
-  /// Soạn lời ghép nối rồi vào chat. Chưa tạo document yêu cầu trên Firestore.
+  /// Soạn lời ghép nối, ghi thỏa thuận và yêu cầu nhận người, rồi vào chat.
   void _openJoinRequest() {
     final controller = TextEditingController(
       text: 'Chào $_posterName, mình thấy phòng và lối sống của bạn hợp với mình. Mình muốn kết nối để ở ghép cùng nhé.',
@@ -285,7 +281,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
               const Text('Yêu cầu ghép nối', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
               const Text(
-                'Lời nhắn này mở cuộc trò chuyện với người đăng phòng. Chưa ghi thành đơn riêng trên Firestore.',
+                'Lời nhắn được lưu vào thỏa thuận ở ghép và yêu cầu nhận người, rồi mở cuộc trò chuyện.',
                 style: TextStyle(fontSize: 15, color: AppColors.textSecondary, height: 1.4),
               ),
               const SizedBox(height: 12),
@@ -303,9 +299,54 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
+                    final text = controller.text.trim();
+                    if (text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Vui lòng nhập lời nhắn trước khi gửi yêu cầu ghép')),
+                      );
+                      return;
+                    }
                     Navigator.pop(ctx);
-                    _openChat();
+                    final user = ref.read(currentUserProvider);
+                    final profile = ref.read(userProfileProvider).value;
+                    if (user != null && _peerId.isNotEmpty && user.uid != _peerId) {
+                      final senderName = profile?.displayName ?? user.displayName ?? 'Khách thuê';
+                      try {
+                        await ref.read(roommateServiceProvider).createRoommateAgreement(
+                          tinId: _post.id,
+                          requesterId: user.uid,
+                          ownerId: _peerId,
+                          message: text,
+                        );
+                        await ref.read(chatServiceProvider).sendMessage(
+                          ChatMessageModel(
+                            id: '',
+                            senderId: user.uid,
+                            senderName: senderName,
+                            receiverId: _peerId,
+                            text: text,
+                            timestamp: DateTime.now(),
+                            status: 'sent',
+                          ),
+                          receiverName: _posterName,
+                          receiverAvatar: _peerAvatar,
+                          receiverPhone: _peerPhone,
+                          roomMetadata: {
+                            'roommatePostId': _post.id,
+                            'targetType': 'roommatePost',
+                            'isLandlord': false,
+                          },
+                        );
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Chưa gửi được lời nhắn: $e')),
+                          );
+                        }
+                      }
+                    }
+                    if (mounted) _openChat();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -392,7 +433,10 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
           const SizedBox(height: 4),
           const Text('Xem mức độ hòa hợp giữa bạn và người đăng', style: TextStyle(fontSize: 15, color: AppColors.textSecondary)),
           const SizedBox(height: 10),
-          ..._habits.map(_habitTile),
+          if (_habits.isEmpty)
+            const Text('Bài này chưa ghi sở thích.', style: TextStyle(fontSize: 15, color: AppColors.textSecondary))
+          else
+            ..._habits.map(_habitTile),
           const SizedBox(height: 18),
           _quoteCard(),
           const SizedBox(height: 18),
@@ -560,8 +604,9 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
     );
   }
 
-  /// Thẻ độ tương thích. Phần trăm lấy từ `matchRate`. Ba chip lối sống vẫn là chữ cố định.
+  /// Thẻ độ tương thích theo sở thích của người đang xem.
   Widget _matchCard() {
+    final rate = _matchRate;
     return _infoCard(
       color: const Color(0xFFF3F7FF),
       child: Column(
@@ -571,22 +616,22 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
             children: [
               const Icon(Icons.auto_awesome, color: AppColors.primary, size: 18),
               const SizedBox(width: 6),
-              Text('$_matchRate%', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.primary)),
-              SizedBox(width: 8),
+              Text(
+                rate == null ? 'Chưa tính' : '$rate%',
+                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.primary),
+              ),
+              const SizedBox(width: 8),
               const Text('Tương\nthích', style: TextStyle(fontWeight: FontWeight.w700, height: 1.15)),
               const Spacer(),
-              const Text('Dựa trên lối sống\n& thói quen', textAlign: TextAlign.right, style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+              const Text('Dựa trên sở thích\ncủa bạn', textAlign: TextAlign.right, style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
             ],
           ),
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _miniChip('Khung giờ ngủ: Trùng khớp'),
-              _miniChip('Nấu ăn: 100% Phù hợp'),
-              _miniChip('Sạch sẽ: Đồng thuận'),
-            ],
+          Text(
+            rate == null
+                ? 'Thêm sở thích ở hồ sơ để xem mức hợp.'
+                : 'Số này là phần sở thích của bạn có trên bài này.',
+            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -890,14 +935,6 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
           Text(text, style: TextStyle(color: foreground, fontSize: 13, fontWeight: FontWeight.w700)),
         ],
       ),
-    );
-  }
-
-  Widget _miniChip(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-      child: Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
     );
   }
 
