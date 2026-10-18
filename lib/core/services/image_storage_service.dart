@@ -143,6 +143,32 @@ class ImageStorageService {
 
     return uploadedUrls;
   }
+
+  /// Tải ảnh đại diện từ bộ nhớ. Storage nếu có, không thì Base64 của chính ảnh đó.
+  Future<String> uploadImageBytes({
+    required Uint8List bytes,
+    required String folder,
+    required String fileName,
+  }) async {
+    const maxBytes = 180 * 1024;
+    final prepared = bytes.length <= maxBytes ? bytes : await compute(compressJpegToLimit, (bytes, maxBytes));
+
+    if (!skipRemoteUpload) {
+      try {
+        final storageRef = _storage.ref().child('$folder/$fileName');
+        final metadata = SettableMetadata(
+          contentType: 'image/jpeg',
+          customMetadata: {'uploadedAt': DateTime.now().toIso8601String()},
+        );
+        final snapshot = await storageRef.putData(prepared, metadata).timeout(const Duration(seconds: 8));
+        return await snapshot.ref.getDownloadURL();
+      } catch (e) {
+        debugPrint('[ImageStorageService] Storage chưa dùng được ($e). Lưu ảnh đại diện dạng Base64.');
+      }
+    }
+
+    return 'data:image/jpeg;base64,${base64Encode(prepared)}';
+  }
 }
 
 final imageStorageServiceProvider = Provider<ImageStorageService>((ref) {

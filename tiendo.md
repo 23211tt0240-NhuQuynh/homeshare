@@ -1578,3 +1578,28 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
 * **Kết quả kiểm thử toàn diện:**
   - `flutter analyze`: **0 errors, 0 warnings (No issues found!)**.
   - `flutter test`: **99/99 test cases PASSED 100%** (`role_routing_test.dart`, `renter_suite_test.dart`, `ltdd_suite_test.dart`, `admin_dashboard_test.dart`, `id_generator_test.dart`).
+
+---
+
+### Phase 2.43: Tích Hợp Google ML Kit On-Device Thẩm Định Ảnh CCCD & Cài Đặt Vào Điện Thoại
+* **Ngày hoàn thành:** 18/10/2026
+* **Yêu cầu người dùng:**
+  - Cài đặt ứng dụng trực tiếp vào điện thoại thật (`25100RA69G`).
+  - Kiểm tra và kích hoạt Google ML Kit để tự động nhận diện chữ, kiểm tra ảnh có chắc chắn là CCCD không, cảnh báo ảnh mờ không đọc được hoặc ảnh sai thẻ/sai mặt.
+* **Các thay đổi đã triển khai:**
+  1. **Đóng gói và cài đặt APK:**
+     - Biên dịch thành công bản Release APK (`build/app/outputs/flutter-apk/app-release.apk`, 299MB).
+     - Truyền tải và cài đặt thành công vào thiết bị thật qua ADB, app khởi chạy độc lập không cần giữ kết nối cáp máy tính.
+  2. **Tích hợp Google ML Kit vào UI eKYC (`lib/features/profile/screens/cccd_verification_screen.dart`):**
+     - Kết nối trực tiếp `CccdImageEvidenceExtractor` (sử dụng `DefaultCccdOcrEngine` với `google_mlkit_text_recognition`) vào luồng chọn/chụp ảnh thẻ.
+     - Tự động thẩm định 4 tiêu chí cốt lõi:
+       * **Nhận diện thẻ CCCD Việt Nam:** Đối soát từ khóa tiêu biểu (*CĂN CƯỚC CÔNG DÂN, CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM, HỌ VÀ TÊN, QUỐC TỊCH, phôi Bộ Công An...*). Cảnh báo đỏ nếu ảnh không phải thẻ CCCD.
+       * **Cảnh báo ảnh mờ / lóa / độ phân giải thấp:** Bắt lỗi khi kích thước < 600x400 hoặc dung lượng < 20KB khiến ML Kit không thể trích xuất chữ.
+       * **Cảnh báo ngược mặt (Wrong Side):** Phát hiện và cảnh báo tức thời khi chọn nhầm ảnh mặt sau vào ô mặt trước (hoặc ngược lại).
+       * **Chặn ảnh trùng lặp:** Đối soát SHA-256 hash giữa 2 mặt thẻ.
+     - Hiển thị phản hồi trực quan với 4 trạng thái badge: `Cần chọn ảnh mới để xác nhận`, `Đang thẩm định...`, `Đã xác nhận CCCD ✓`, `Không hợp lệ ✕`.
+     - Save Boundary: Khóa nút "Xác thực" nếu chưa đủ bằng chứng hợp lệ; lưu an toàn vào Firestore và SharedPreferences.
+* **Kết quả kiểm thử:**
+  - `flutter test test/cccd_image_validation_test.dart test/cccd_save_boundary_test.dart test/cccd_verification_screen_test.dart`: **15/15 PASSED 100%**.
+  - `flutter analyze`: **0 errors, 0 warnings**.
+  - Ứng dụng đã được cập nhật và kích hoạt thành công trên thiết bị di động thật.

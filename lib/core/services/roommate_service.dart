@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/roommate_post_model.dart';
+import '../../features/auth/providers/auth_provider.dart';
 import '../constants/vietnam_locations.dart';
+import 'user_profile_service.dart';
 
 class RoommateFilterParams {
   final String province;
@@ -110,6 +112,7 @@ class RoommateService {
   Stream<List<RoommatePostModel>> getRoommatePostsStream({
     String? district,
     String? targetGender,
+    String? viewerId,
     RoommateFilterParams? filters,
   }) {
     final effectiveProvince = filters?.province ?? 'Tất cả';
@@ -129,7 +132,7 @@ class RoommateService {
     return _firestore.collection('roommate_posts').snapshots().handleError((err) {
       debugPrint('Firestore stream error, fallback to local: $err');
       return const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-    }).map((snapshot) {
+    }).asyncMap((snapshot) async {
       List<RoommatePostModel> list;
       if (snapshot.docs.isNotEmpty) {
         list = snapshot.docs.map((doc) {
@@ -164,7 +167,9 @@ class RoommateService {
         }
       }
 
-      final filtered = merged.where((post) {
+      final hydrated = await _withLiveAuthorAndImages(merged);
+
+      final filtered = hydrated.where((post) {
         // 1. Tình trạng phòng (Đã có phòng / Chưa có phòng)
         if (hasRoom != null && post.hasRoom != hasRoom) {
           return false;
@@ -237,17 +242,167 @@ class RoommateService {
           return false;
         }
 
-        // 8. Tỷ lệ tương thích Match rate
-        if (minMatchRate > 0 && post.matchRate < minMatchRate) {
-          return false;
-        }
-
         return true;
       }).toList();
 
-      filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return filtered;
+      return _rankByViewerHobbies(filtered, viewerId: viewerId, minMatchRate: minMatchRate);
     });
+  }
+
+  /// Phần trăm sở thích của người xem xuất hiện trên bài. Null khi người xem chưa có sở thích.
+  int? hobbyMatchPercent({
+    required List<String> viewerHobbies,
+    required List<String> candidateHabits,
+  }) {
+    final mine = <String>[];
+    for (final raw in viewerHobbies) {
+      final key = _habitKey(raw);
+      if (key.isEmpty || mine.contains(key)) continue;
+      mine.add(raw.trim());
+    }
+    if (mine.isEmpty) return null;
+    var hit = 0;
+    for (final hobby in mine) {
+      if (_habitHit(hobby, candidateHabits)) hit++;
+    }
+    return ((hit / mine.length) * 100).round();
+  }
+
+  Future<List<RoommatePostModel>> _rankByViewerHobbies(
+    List<RoommatePostModel> posts, {
+    required String? viewerId,
+    required int minMatchRate,
+  }) async {
+    final viewerHobbies = viewerId == null || viewerId.isEmpty
+        ? const <String>[]
+        : await _hobbyNamesOf(viewerId);
+    if (viewerHobbies.isEmpty) {
+      final plain = posts.map((post) => post.copyWith(matchRate: -1)).toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return plain;
+    }
+
+    final authorIds = posts.map((post) => post.authorId).where((id) => id.isNotEmpty).toSet();
+    final authorHobbies = await _hobbyNamesByUser(authorIds);
+    final ranked = <RoommatePostModel>[];
+    for (final post in posts) {
+      final candidate = <String>[
+        ...post.habits,
+        ...authorHobbies[post.authorId] ?? const <String>[],
+      ];
+      final percent = hobbyMatchPercent(viewerHobbies: viewerHobbies, candidateHabits: candidate) ?? 0;
+      if (minMatchRate > 0 && percent < minMatchRate) continue;
+      ranked.add(post.copyWith(matchRate: percent));
+    }
+    ranked.sort((a, b) {
+      final byRate = b.matchRate.compareTo(a.matchRate);
+      if (byRate != 0) return byRate;
+      return b.createdAt.compareTo(a.createdAt);
+    });
+    return ranked;
+  }
+
+  Future<List<String>> _hobbyNamesOf(String uid) async {
+    try {
+      return UserProfileService().loadInterestNames(uid);
+    } catch (e) {
+      debugPrint('Đọc sở thích $uid: $e');
+      return const [];
+    }
+  }
+
+  Future<Map<String, List<String>>> _hobbyNamesByUser(Set<String> uids) async {
+    final names = <String, List<String>>{};
+    final ids = uids.toList();
+    for (var i = 0; i < ids.length; i += 10) {
+      final end = i + 10 > ids.length ? ids.length : i + 10;
+      final chunk = ids.sublist(i, end);
+      try {
+        final links = await _firestore.collection('user_hobbies').where('nguoiDungId', whereIn: chunk).get();
+        for (final doc in links.docs) {
+          final uid = '${doc.data()['nguoiDungId'] ?? ''}';
+          final hobbyId = '${doc.data()['soThichId'] ?? ''}';
+          if (uid.isEmpty || hobbyId.isEmpty) continue;
+          final hobby = await _firestore.collection('hobbies').doc(hobbyId).get();
+          final name = hobby.data()?['tenSoThich']?.toString().trim() ?? '';
+          if (name.isEmpty) continue;
+          final list = names.putIfAbsent(uid, () => []);
+          if (!list.any((item) => item.toLowerCase() == name.toLowerCase())) list.add(name);
+        }
+      } catch (e) {
+        debugPrint('Đọc sở thích người đăng: $e');
+      }
+    }
+    return names;
+  }
+
+  /// Avatar trên bài lấy ảnh hiện tại của người đăng.
+  /// Ảnh bài của project kia nằm ở roommate_post_images, không nằm trên document bài.
+  Future<List<RoommatePostModel>> _withLiveAuthorAndImages(List<RoommatePostModel> posts) async {
+    final real = posts.where((post) => !post.id.startsWith('demo_') && !post.id.startsWith('figma_')).toList();
+    if (real.isEmpty) return posts;
+
+    final avatars = <String, String>{};
+    for (final authorId in real.map((post) => post.authorId).where((id) => id.isNotEmpty).toSet()) {
+      try {
+        final doc = await _firestore.collection('users').doc(authorId).get();
+        final data = doc.data();
+        if (data == null) continue;
+        final url = '${data['avatarUrl'] ?? data['anhDaiDien'] ?? ''}'.trim();
+        if (url.isNotEmpty) avatars[authorId] = url;
+      } catch (e) {
+        debugPrint('Đọc avatar người đăng $authorId: $e');
+      }
+    }
+
+    final imagesByPost = <String, List<String>>{};
+    final needImages = real.where((post) => post.images.isEmpty).map((post) => post.id).toList();
+    for (var start = 0; start < needImages.length; start += 10) {
+      final end = start + 10 > needImages.length ? needImages.length : start + 10;
+      final chunk = needImages.sublist(start, end);
+      try {
+        final snap = await _firestore.collection('roommate_post_images').where('postId', whereIn: chunk).get();
+        final grouped = <String, List<QueryDocumentSnapshot<Map<String, dynamic>>>>{};
+        for (final doc in snap.docs) {
+          final postId = '${doc.data()['postId'] ?? ''}'.trim();
+          if (postId.isEmpty) continue;
+          grouped.putIfAbsent(postId, () => []).add(doc);
+        }
+        for (final entry in grouped.entries) {
+          final docs = entry.value
+            ..sort((a, b) {
+              final left = a.data()['sortOrder'];
+              final right = b.data()['sortOrder'];
+              final leftOrder = left is num ? left.toInt() : 0;
+              final rightOrder = right is num ? right.toInt() : 0;
+              return leftOrder.compareTo(rightOrder);
+            });
+          imagesByPost[entry.key] = docs
+              .map((doc) => '${doc.data()['imageUrl'] ?? doc.data()['duongDan'] ?? ''}'.trim())
+              .where((url) => url.isNotEmpty)
+              .toList();
+        }
+      } catch (e) {
+        debugPrint('Đọc ảnh bài ở ghép: $e');
+      }
+    }
+
+    return posts.map((post) {
+      if (post.id.startsWith('demo_') || post.id.startsWith('figma_')) return post;
+      final avatar = avatars[post.authorId];
+      final linkedImages = imagesByPost[post.id];
+      final images = post.images.isNotEmpty ? post.images : (linkedImages ?? post.images);
+      final sameAvatar = avatar == null || avatar == post.authorAvatar;
+      final sameImages = identical(images, post.images);
+      if (sameAvatar && sameImages) return post;
+      return post.copyWith(
+        authorAvatar: avatar ?? post.authorAvatar,
+        images: images,
+        imageCaptions: post.imageCaptions.isNotEmpty || identical(images, post.images)
+            ? post.imageCaptions
+            : List<String>.filled(images.length, ''),
+      );
+    }).toList();
   }
 
   // Đăng bài tìm ở ghép mới
@@ -555,7 +710,9 @@ final roommatePostsRefreshTrigger = NotifierProvider<RoommatePostsRefreshNotifie
 final roommatePostsStreamProvider = StreamProvider.autoDispose.family<List<RoommatePostModel>, RoommateFilterParams>((ref, filters) {
   ref.watch(roommatePostsRefreshTrigger);
   final service = ref.watch(roommateServiceProvider);
+  final viewerId = ref.watch(currentUserProvider)?.uid;
   return service.getRoommatePostsStream(
     filters: filters,
+    viewerId: viewerId,
   );
 });

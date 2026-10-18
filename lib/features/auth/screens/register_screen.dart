@@ -15,6 +15,8 @@ class RegisterScreen extends ConsumerStatefulWidget {
 }
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+  static const _gmailSuffix = '@gmail.com';
+
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -58,7 +60,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     try {
       final authService = ref.read(authServiceProvider);
       await authService.signUpWithEmail(
-        email: _emailController.text.trim(),
+        email: _fullGmail(_emailController.text),
         password: _passwordController.text.trim(),
         displayName: _nameController.text.trim(),
         phoneNumber: _phoneController.text.trim(),
@@ -80,7 +82,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         );
 
         // Quay trở lại màn hình Đăng nhập và truyền email vừa tạo để điền sẵn
-        Navigator.pop(context, _emailController.text.trim());
+        Navigator.pop(context, _fullGmail(_emailController.text));
       }
     } catch (e) {
       if (mounted) {
@@ -172,18 +174,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       AuthTextField(
                         controller: _emailController,
                         label: 'Email *',
-                        hint: 'an.nguyen@example.com',
+                        hint: 'an.nguyen',
                         icon: Icons.email_outlined,
                         keyboardType: TextInputType.emailAddress,
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Vui lòng nhập email';
-                          }
-                          if (!val.contains('@') || !val.contains('.')) {
-                            return 'Email không hợp lệ';
-                          }
-                          return null;
-                        },
+                        suffixIcon: const Padding(
+                          padding: EdgeInsets.only(right: 12),
+                          child: Text(
+                            _gmailSuffix,
+                            style: TextStyle(
+                              color: AppColors.textDark,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        validator: _validateGmailLocal,
                       ),
                       const SizedBox(height: 16),
 
@@ -340,6 +345,25 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         ),
       ),
     );
+  }
+
+  String _gmailLocalPart(String raw) {
+    var value = raw.trim();
+    if (value.toLowerCase().endsWith(_gmailSuffix)) {
+      value = value.substring(0, value.length - _gmailSuffix.length).trim();
+    }
+    return value;
+  }
+
+  String _fullGmail(String raw) => '${_gmailLocalPart(raw)}$_gmailSuffix';
+
+  String? _validateGmailLocal(String? val) {
+    final local = _gmailLocalPart(val ?? '');
+    if (local.isEmpty) return 'Vui lòng nhập email';
+    if (!RegExp(r'^[A-Za-z0-9._+-]+$').hasMatch(local)) {
+      return 'Chỉ nhập phần tên trước @gmail.com';
+    }
+    return null;
   }
 
   // Thẻ lựa chọn Role trực quan (Người thuê / Chủ trọ)

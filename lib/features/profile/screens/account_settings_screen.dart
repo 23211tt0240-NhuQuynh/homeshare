@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import 'cccd_verification_screen.dart';
+import 'personal_profile_screen.dart';
 
 class AccountSettingsScreen extends ConsumerWidget {
   const AccountSettingsScreen({super.key});
@@ -127,7 +128,12 @@ class AccountSettingsScreen extends ConsumerWidget {
               icon: Icons.person_outline,
               title: 'Thông tin cá nhân',
               subtitle: '${profile?.displayName ?? "Người dùng"} • Mã ID: ${profile?.userCode ?? "---"}',
-              onTap: () => _showProfileDetailsBottomSheet(context, profile),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PersonalProfileScreen()),
+                );
+              },
             ),
             _buildDivider(),
             _buildSettingsItem(

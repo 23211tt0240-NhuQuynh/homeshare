@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/vietnam_locations.dart';
 import '../../../core/services/image_storage_service.dart';
 import '../../../core/services/roommate_service.dart';
+import '../../../core/services/user_profile_service.dart';
 import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
@@ -84,7 +85,7 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
     });
   }
 
-  void _initFromUserProfile() {
+  Future<void> _initFromUserProfile() async {
     final user = ref.read(currentUserProvider);
     final profile = ref.read(userProfileProvider).value;
 
@@ -112,10 +113,11 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
           _authorGender = 'Khác';
         }
       }
-      if (profile.hobbies.isNotEmpty) {
-        for (final h in profile.hobbies) {
-          if (!_selectedHabits.contains(h)) _selectedHabits.add(h);
-        }
+      final savedHobbies = profile.hobbies.isNotEmpty
+          ? profile.hobbies
+          : await ref.read(userProfileServiceProvider).loadInterestNames(profile.uid);
+      for (final h in savedHobbies) {
+        if (!_selectedHabits.contains(h)) _selectedHabits.add(h);
       }
       if (mounted) setState(() {});
     } else if (user != null) {

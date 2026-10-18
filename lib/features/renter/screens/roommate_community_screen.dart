@@ -392,7 +392,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       children: [
         // Banner AI Matching
-        _buildAiMatchBanner(matchingCount),
+        _buildAiMatchBanner(matchingCount, posts.any((post) => post.matchRate >= 0)),
 
         const SizedBox(height: 12),
 
@@ -435,7 +435,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
   }
 
   /// Banner Gợi ý AI Lifestyle Matching
-  Widget _buildAiMatchBanner(int matchingCount) {
+  Widget _buildAiMatchBanner(int matchingCount, bool hasPersonalMatch) {
     return InkWell(
       onTap: () => _openLifestyleFilterSheet(matchingCount),
       borderRadius: BorderRadius.circular(14),
@@ -458,11 +458,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
               child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Độ tương thích lối sống',
                     style: TextStyle(
                       fontSize: 15.5,
@@ -470,10 +470,12 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                       color: Color(0xFF1E3A8A),
                     ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
-                    'Hệ thống gợi ý bạn cùng phòng hợp gu 94%',
-                    style: TextStyle(
+                    hasPersonalMatch
+                        ? 'Xếp theo sở thích của bạn, mỗi bài một mức %'
+                        : 'Thêm sở thích ở hồ sơ để xem mức hợp',
+                    style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.primary,
                       fontWeight: FontWeight.w500,
@@ -559,6 +561,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                   ],
                 ),
               ),
+              if (post.matchRate >= 0)
+                Text(
+                  '${post.matchRate}% hợp',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
+                ),
 
               // Thời gian
               Row(

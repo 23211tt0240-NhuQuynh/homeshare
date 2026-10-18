@@ -20,6 +20,8 @@ class UserProfile {
   final String hometown; // queQuan
   final int reputationScore; // diemUyTin
   final String occupation; // ngheNghiep
+  final String workplace; // noiLamViec
+  final String bio; // gioiThieu
   final List<String> hobbies; // soThich
   final DateTime? birthDate; // ngaySinh
   final DateTime? createdAt; // ngayTao
@@ -48,6 +50,8 @@ class UserProfile {
   String get queQuan => hometown;
   int get diemUyTin => reputationScore;
   String get ngheNghiep => occupation;
+  String get noiLamViec => workplace;
+  String get gioiThieu => bio;
   List<String> get soThich => hobbies;
   String get vaiTro => role;
   bool get isRenter => role == 'renter' || role == 'tenant' || role == 'nguoidung';
@@ -87,6 +91,8 @@ class UserProfile {
     this.hometown = '',
     this.reputationScore = 100,
     this.occupation = 'Sinh viên',
+    this.workplace = '',
+    this.bio = '',
     this.hobbies = const [],
     this.birthDate,
     this.createdAt,
@@ -133,6 +139,8 @@ class UserProfile {
       hometown: data['queQuan'] ?? data['hometown'] ?? '',
       reputationScore: ((data['diemUyTin'] ?? data['reputationScore']) as num?)?.toInt() ?? 100,
       occupation: data['ngheNghiep'] ?? data['occupation'] ?? 'Sinh viên',
+      workplace: data['workplace'] ?? data['noiLamViec'] ?? '',
+      bio: data['bio'] ?? data['gioiThieu'] ?? '',
       hobbies: parsedHobbies,
       birthDate: (data['ngaySinh'] is Timestamp)
           ? (data['ngaySinh'] as Timestamp).toDate()
@@ -177,6 +185,10 @@ class UserProfile {
       'queQuan': hometown,
       'diemUyTin': reputationScore,
       'ngheNghiep': occupation,
+      'workplace': workplace,
+      'noiLamViec': workplace,
+      'bio': bio,
+      'gioiThieu': bio,
       'soThich': hobbies,
       'daXacThucCccd': isCccdVerified,
       'trangThaiXacMinh': isCccdVerified ? 'daXacThuc' : 'chuaXacThuc',
@@ -205,6 +217,8 @@ class UserProfile {
     String? hometown,
     int? reputationScore,
     String? occupation,
+    String? workplace,
+    String? bio,
     List<String>? hobbies,
     DateTime? birthDate,
     DateTime? createdAt,
@@ -230,6 +244,8 @@ class UserProfile {
       hometown: hometown ?? this.hometown,
       reputationScore: reputationScore ?? this.reputationScore,
       occupation: occupation ?? this.occupation,
+      workplace: workplace ?? this.workplace,
+      bio: bio ?? this.bio,
       hobbies: hobbies ?? this.hobbies,
       birthDate: birthDate ?? this.birthDate,
       createdAt: createdAt ?? this.createdAt,
