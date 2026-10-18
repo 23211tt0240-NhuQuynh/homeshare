@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/favorites_service.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
@@ -20,7 +21,6 @@ class RoomDetailScreen extends ConsumerStatefulWidget {
 
 class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
   int _currentImageIndex = 0;
-  bool _isFavorite = false;
 
   void _onQuickBookingPressed() {
     final user = ref.read(currentUserProvider);
@@ -145,32 +145,49 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
               ),
             ),
             actions: [
-              Padding(
-                padding: const EdgeInsets.all(4.0),
-                child: Semantics(
-                  label: _isFavorite ? 'Bỏ lưu khỏi danh sách yêu thích' : 'Lưu vào danh sách yêu thích',
-                  toggled: _isFavorite,
-                  button: true,
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        _isFavorite ? Icons.favorite : Icons.favorite_border,
-                        color: _isFavorite ? Colors.red : AppColors.textDark,
-                        size: 20,
+              Consumer(
+                builder: (context, ref, _) {
+                  final isFav = ref.watch(favoritesProvider).favoriteRoomIds.contains(widget.room.id);
+                  return Padding(
+                    padding: const EdgeInsets.all(4.0),
+                    child: Semantics(
+                      label: isFav ? 'Bỏ lưu khỏi danh sách yêu thích' : 'Lưu vào danh sách yêu thích',
+                      toggled: isFav,
+                      button: true,
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: Icon(
+                            isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                            color: isFav ? const Color(0xFFEF4444) : AppColors.textDark,
+                            size: 20,
+                          ),
+                          tooltip: isFav ? 'Bỏ lưu yêu thích' : 'Lưu yêu thích',
+                          onPressed: () async {
+                            final added = await ref.read(favoritesProvider.notifier).toggleFavoriteRoom(widget.room);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(added
+                                      ? 'Đã thêm phòng vào danh sách yêu thích ❤️'
+                                      : 'Đã bỏ lưu phòng khỏi danh sách yêu thích'),
+                                  duration: const Duration(seconds: 2),
+                                  backgroundColor: added ? AppColors.primary : const Color(0xFF334155),
+                                ),
+                              );
+                            }
+                          },
+                        ),
                       ),
-                      tooltip: _isFavorite ? 'Bỏ lưu yêu thích' : 'Lưu yêu thích',
-                      onPressed: () {
-                        setState(() => _isFavorite = !_isFavorite);
-                      },
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
