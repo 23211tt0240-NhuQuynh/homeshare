@@ -75,7 +75,13 @@ class AuthTextField extends StatelessWidget {
             hintStyle: PhongSangText.search.copyWith(fontSize: 16, color: PhongSangColors.muted),
             prefixIcon: Icon(icon, size: 22, color: PhongSangColors.muted),
             prefixIconConstraints: const BoxConstraints(minWidth: 52, minHeight: 56),
-            suffixIcon: suffixIcon,
+            suffixIcon: suffixIcon == null
+                ? null
+                : SizedBox(
+                    height: 56,
+                    child: Align(alignment: Alignment.center, widthFactor: 1, child: suffixIcon),
+                  ),
+            suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 56, maxHeight: 56),
             filled: true,
             fillColor: PhongSangColors.priceSoft,
             isDense: false,

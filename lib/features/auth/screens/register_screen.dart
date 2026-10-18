@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/auth_form_card.dart';
 
 /// Màn hình Đăng Ký Tài Khoản HomeShare (Hỗ trợ 2 Role: Người thuê & Chủ trọ)
 /// Theo chuẩn Moodboard Phòng Sáng (phong_sang_theme.dart)
@@ -182,25 +183,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 24),
 
                 // 2. KHUNG ĐIỀN THÔNG TIN TÀI KHOẢN
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
+                AuthFormCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Họ và tên
-                      _buildInputField(
+                      AuthTextField(
                         controller: _nameController,
                         label: 'Họ và tên *',
                         hint: 'Ví dụ: Nguyễn Văn An',
@@ -214,14 +201,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Email
-                      _buildInputField(
+                      AuthTextField(
                         controller: _emailController,
                         label: 'Email *',
                         hint: 'an.nguyen',
                         icon: Icons.email_outlined,
                         keyboardType: TextInputType.emailAddress,
-                        suffix: const Padding(
+                        suffixIcon: const Padding(
                           padding: EdgeInsets.only(right: 12),
                           child: Text(
                             _gmailSuffix,
@@ -236,8 +222,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Số điện thoại
-                      _buildInputField(
+                      AuthTextField(
                         controller: _phoneController,
                         label: 'Số điện thoại *',
                         hint: '0901234567',
@@ -256,8 +241,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Mật khẩu
-                      _buildInputField(
+                      AuthTextField(
                         controller: _passwordController,
                         label: 'Mật khẩu *',
                         hint: 'Tối thiểu 6 ký tự',
@@ -283,8 +267,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Xác nhận mật khẩu
-                      _buildInputField(
+                      AuthTextField(
                         controller: _confirmPasswordController,
                         label: 'Xác nhận mật khẩu *',
                         hint: 'Nhập lại mật khẩu vừa tạo',
@@ -488,67 +471,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  // Trường nhập liệu chung có nhãn và icon
-  Widget _buildInputField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    bool obscureText = false,
-    Widget? suffixIcon,
-    Widget? suffix,
-    TextInputType keyboardType = TextInputType.text,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textDark,
-          ),
-        ),
-        const SizedBox(height: 6),
-        TextFormField(
-          controller: controller,
-          obscureText: obscureText,
-          keyboardType: keyboardType,
-          style: const TextStyle(fontSize: 14, color: AppColors.textDark),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(fontSize: 13, color: AppColors.textMuted),
-            prefixIcon: Icon(icon, size: 20, color: AppColors.textMuted),
-            suffixIcon: suffix ?? suffixIcon,
-            suffixIconConstraints: suffix == null ? null : const BoxConstraints(minWidth: 0, minHeight: 0),
-            filled: true,
-            fillColor: AppColors.priceSoft.withValues(alpha: 0.5),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.border),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.danger),
-            ),
-          ),
-          validator: validator,
-        ),
-      ],
     );
   }
 

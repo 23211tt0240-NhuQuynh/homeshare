@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/auth_service.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/auth_form_card.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -153,61 +154,58 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 36),
-
-                  // Email Input
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email_outlined, color: AppColors.textMuted),
-                      suffixIcon: Padding(
-                        padding: EdgeInsets.only(right: 12),
-                        child: Text(
-                          _gmailSuffix,
-                          style: TextStyle(
-                            color: AppColors.textDark,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
+                  AuthFormCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AuthTextField(
+                          controller: _emailController,
+                          label: 'Email',
+                          hint: 'an.nguyen',
+                          icon: Icons.email_outlined,
+                          keyboardType: TextInputType.emailAddress,
+                          suffixIcon: const Padding(
+                            padding: EdgeInsets.only(right: 12),
+                            child: Text(
+                              _gmailSuffix,
+                              style: TextStyle(
+                                color: AppColors.textDark,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
                           ),
+                          validator: _validateGmailLocal,
                         ),
-                      ),
-                      suffixIconConstraints: BoxConstraints(minWidth: 0, minHeight: 0),
-                    ),
-                    validator: _validateGmailLocal,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Password Input
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: 'Mật khẩu',
-                      prefixIcon: const Icon(Icons.lock_outline, color: AppColors.textMuted),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                          color: AppColors.textMuted,
+                        const SizedBox(height: 16),
+                        AuthTextField(
+                          controller: _passwordController,
+                          label: 'Mật khẩu',
+                          hint: 'Nhập mật khẩu',
+                          icon: Icons.lock_outline_rounded,
+                          obscureText: _obscurePassword,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              color: AppColors.textMuted,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return 'Vui lòng nhập mật khẩu';
+                            }
+                            if (val.length < 6) {
+                              return 'Mật khẩu tối thiểu 6 ký tự';
+                            }
+                            return null;
+                          },
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                      ),
-                    ),
-                    validator: (val) {
-                      if (val == null || val.trim().isEmpty) {
-                        return 'Vui lòng nhập mật khẩu';
-                      }
-                      if (val.length < 6) {
-                        return 'Mật khẩu tối thiểu 6 ký tự';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
+                        const SizedBox(height: 4),
 
                   // Quên mật khẩu
                   Align(
@@ -282,6 +280,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
+                    ),
+                  ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 24),
