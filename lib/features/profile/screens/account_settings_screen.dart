@@ -108,7 +108,6 @@ class AccountSettingsScreen extends ConsumerWidget {
     }
   }
 
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(userProfileProvider).value;
@@ -163,26 +162,6 @@ class AccountSettingsScreen extends ConsumerWidget {
                   context,
                   MaterialPageRoute(
                     builder: (_) => const CccdVerificationScreen(),
-                  ),
-                );
-              },
-            ),
-            _buildDivider(),
-            _buildSettingsItem(
-              icon: Icons.shield_outlined,
-              title: 'Vai trò tài khoản',
-              subtitle: profile?.isAdmin == true
-                  ? 'Quản trị viên (Cố định)'
-                  : (profile?.isHost == true
-                      ? 'Chủ trọ (Cố định)'
-                      : 'Người thuê (Cố định)'),
-              trailingText: profile?.isAdmin == true
-                  ? 'Admin'
-                  : (profile?.isHost == true ? 'Chủ trọ' : 'Người thuê'),
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Mỗi tài khoản được gắn cố định với một vai trò duy nhất theo đăng ký.'),
                   ),
                 );
               },
@@ -384,128 +363,6 @@ class AccountSettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
-    );
-  }
-
-  void _showProfileDetailsBottomSheet(BuildContext context, UserProfile? profile) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 44,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              CircleAvatar(
-                radius: 40,
-                backgroundColor: AppColors.primaryContainer,
-                backgroundImage: (profile?.avatarUrl.isNotEmpty == true)
-                    ? NetworkImage(profile!.avatarUrl)
-                    : null,
-                child: (profile?.avatarUrl.isNotEmpty == true)
-                    ? null
-                    : Text(
-                        (profile?.displayName.isNotEmpty == true)
-                            ? profile!.displayName[0].toUpperCase()
-                            : 'HS',
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                profile?.displayName ?? 'Người dùng HomeShare',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFBFDBFE)),
-                ),
-                child: Text(
-                  'Mã ID: ${profile?.userCode ?? "---"}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1D4ED8),
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Divider(height: 1),
-              const SizedBox(height: 16),
-              _buildProfileDetailRow(Icons.email_outlined, 'Email', profile?.email ?? 'Chưa cập nhật'),
-              _buildProfileDetailRow(Icons.phone_outlined, 'Số điện thoại', profile?.phoneNumber.isNotEmpty == true ? profile!.phoneNumber : '0981234567'),
-              _buildProfileDetailRow(Icons.badge_outlined, 'Vai trò', (profile?.role == 'landlord' || profile?.role == 'chutro') ? 'Chủ trọ' : 'Người thuê phòng'),
-              _buildProfileDetailRow(Icons.work_outline, 'Nghề nghiệp', profile?.occupation.isNotEmpty == true ? profile!.occupation : 'Sinh viên / Đã đi làm'),
-              _buildProfileDetailRow(Icons.verified_user_outlined, 'Định danh CCCD', profile?.isCccdVerified == true ? 'Đã xác thực CCCD gắn chip ✓' : 'Chưa định danh (eKYC)'),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('Đóng', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProfileDetailRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: AppColors.textMuted),
-          const SizedBox(width: 12),
-          Text(label, style: const TextStyle(fontSize: 14, color: AppColors.textMuted)),
-          const Spacer(),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textDark),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

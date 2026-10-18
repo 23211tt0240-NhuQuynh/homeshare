@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/theme/phong_sang_theme.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_form_card.dart';
 
@@ -106,7 +105,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('Đăng ký tài khoản', style: PhongSangText.roomName.copyWith(fontSize: 20)),
+        title: const Text(
+          'Đăng Ký Tài Khoản',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
@@ -123,9 +129,34 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
+                // Header giới thiệu
+                const Text(
+                  'Chào mừng bạn đến với HomeShare',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Chọn vai trò của bạn và hoàn tất thông tin để bắt đầu.',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // 1. CHỌN ROLE (2 Role: Người thuê & Chủ trọ)
+                const Text(
                   'BẠN THAM GIA VỚI VAI TRÒ NÀO?',
-                  style: PhongSangText.label(color: AppColors.textMuted, fontSize: 14),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                    color: AppColors.textMuted,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Row(
@@ -170,7 +201,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Email
                       AuthTextField(
                         controller: _emailController,
                         label: 'Email *',
@@ -192,7 +222,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Số điện thoại
                       AuthTextField(
                         controller: _phoneController,
                         label: 'Số điện thoại *',
@@ -212,7 +241,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Mật khẩu
                       AuthTextField(
                         controller: _passwordController,
                         label: 'Mật khẩu *',
@@ -239,7 +267,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Xác nhận mật khẩu
                       AuthTextField(
                         controller: _confirmPasswordController,
                         label: 'Xác nhận mật khẩu *',
@@ -261,33 +288,37 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 18),
-                      InkWell(
-                        onTap: () => setState(() => _agreeToTerms = !_agreeToTerms),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(
-                              width: 28,
-                              height: 28,
-                              child: Checkbox(
-                                value: _agreeToTerms,
-                                activeColor: AppColors.primary,
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                                onChanged: (val) => setState(() => _agreeToTerms = val ?? false),
-                              ),
+                      const SizedBox(height: 16),
+
+                      // Điều khoản & Chính sách
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Checkbox(
+                              value: _agreeToTerms,
+                              activeColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              onChanged: (val) => setState(() => _agreeToTerms = val ?? false),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => setState(() => _agreeToTerms = !_agreeToTerms),
+                              child: const Text(
                                 'Tôi đồng ý với Điều khoản dịch vụ và Chính sách quyền riêng tư của HomeShare.',
-                                style: PhongSangText.body.copyWith(fontSize: 15, height: 1.4),
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: AppColors.textMuted,
+                                  height: 1.35,
+                                ),
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -296,7 +327,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
                 // 3. NÚT ĐĂNG KÝ
                 SizedBox(
-                  height: 56,
+                  height: 50,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleRegister,
                     style: ElevatedButton.styleFrom(
@@ -317,8 +348,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             ),
                           )
                         : Text(
-                            'Đăng ký tài khoản (${_selectedRole == 'host' ? 'Chủ trọ' : 'Người thuê'})',
-                            style: PhongSangText.button.copyWith(fontSize: 17),
+                            'Đăng Ký Tài Khoản (${_selectedRole == 'host' ? 'Chủ Trọ' : 'Người Thuê'})',
+                            style: const TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                   ),
                 ),
@@ -328,12 +362,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('Đã có tài khoản? ', style: PhongSangText.body.copyWith(fontSize: 16)),
+                    const Text(
+                      'Đã có tài khoản? ',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
-                      child: Text(
+                      child: const Text(
                         'Đăng nhập ngay',
-                        style: PhongSangText.label(color: PhongSangColors.accent, fontSize: 16),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ),
                   ],
@@ -345,25 +389,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         ),
       ),
     );
-  }
-
-  String _gmailLocalPart(String raw) {
-    var value = raw.trim();
-    if (value.toLowerCase().endsWith(_gmailSuffix)) {
-      value = value.substring(0, value.length - _gmailSuffix.length).trim();
-    }
-    return value;
-  }
-
-  String _fullGmail(String raw) => '${_gmailLocalPart(raw)}$_gmailSuffix';
-
-  String? _validateGmailLocal(String? val) {
-    final local = _gmailLocalPart(val ?? '');
-    if (local.isEmpty) return 'Vui lòng nhập email';
-    if (!RegExp(r'^[A-Za-z0-9._+-]+$').hasMatch(local)) {
-      return 'Chỉ nhập phần tên trước @gmail.com';
-    }
-    return null;
   }
 
   // Thẻ lựa chọn Role trực quan (Người thuê / Chủ trọ)
@@ -380,7 +405,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       borderRadius: BorderRadius.circular(14),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primaryContainer.withValues(alpha: 0.3) : Colors.white,
           borderRadius: BorderRadius.circular(14),
@@ -427,7 +452,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             Text(
               title,
               style: TextStyle(
-                fontSize: 17,
+                fontSize: 15,
                 fontWeight: FontWeight.bold,
                 color: isSelected ? AppColors.primary : AppColors.textDark,
               ),
@@ -436,7 +461,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             Text(
               subtitle,
               style: TextStyle(
-                fontSize: 13.5,
+                fontSize: 11.5,
                 color: isSelected ? AppColors.textDark : AppColors.textMuted,
                 height: 1.3,
               ),
@@ -449,4 +474,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     );
   }
 
+  String _gmailLocalPart(String raw) {
+    var value = raw.trim();
+    if (value.toLowerCase().endsWith(_gmailSuffix)) {
+      value = value.substring(0, value.length - _gmailSuffix.length).trim();
+    }
+    return value;
+  }
+
+  String _fullGmail(String raw) => '${_gmailLocalPart(raw)}$_gmailSuffix';
+
+  String? _validateGmailLocal(String? val) {
+    final local = _gmailLocalPart(val ?? '');
+    if (local.isEmpty) return 'Vui lòng nhập email';
+    if (!RegExp(r'^[A-Za-z0-9._+-]+$').hasMatch(local)) {
+      return 'Chỉ nhập phần tên trước @gmail.com';
+    }
+    return null;
+  }
 }

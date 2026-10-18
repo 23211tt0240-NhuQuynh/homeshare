@@ -332,35 +332,29 @@ void main() {
     );
   });
 
-  group('4. UserProfile.fromMap đọc chính xác vai trò từ Firestore', () {
-    test('fromMap nhận diện đúng vai trò Host, Admin, Renter', () {
-      final hostProfile = UserProfile.fromMap({
-        'hoTen': 'Chủ trọ Nguyễn',
-        'email': 'host@test.vn',
-        'soDienThoai': '0901234567',
-        'role': 'host',
-      }, 'uid_host');
-      expect(hostProfile.role, equals('host'));
-      expect(hostProfile.isHost, isTrue);
-      expect(hostProfile.isRenter, isFalse);
+  group('4. UserProfile.fromMap trên main luôn là người thuê', () {
+    test('fromMap giữ role renter dù Firestore ghi host, admin hoặc role lạ', () {
+      final cases = [
+        {'vaiTro': 'chutro'},
+        {'role': 'admin'},
+        {'vaiTro': 'tenant'},
+        <String, String>{},
+        {'role': 'super_admin_hacker'},
+      ];
 
-      final renterProfile = UserProfile.fromMap({
-        'hoTen': 'Người thuê Trần',
-        'email': 'renter@test.vn',
-        'soDienThoai': '0907654321',
-        'role': 'renter',
-      }, 'uid_renter');
-      expect(renterProfile.role, equals('renter'));
-      expect(renterProfile.isRenter, isTrue);
-      expect(renterProfile.isHost, isFalse);
-
-      final chutroProfile = UserProfile.fromMap({
-        'hoTen': 'Bác Ba',
-        'email': 'bacba@test.vn',
-        'vaiTro': 'chutro',
-      }, 'uid_chutro');
-      expect(chutroProfile.role, equals('host'));
-      expect(chutroProfile.isHost, isTrue);
+      for (final data in cases) {
+        final profile = UserProfile.fromMap({
+          'hoTen': 'Người dùng',
+          'email': 'user@test.vn',
+          'soDienThoai': '0900000000',
+          ...data,
+        }, 'uid_${data.hashCode}');
+        expect(profile.role, equals('renter'));
+        expect(profile.isRenter, isTrue);
+        expect(profile.isHost, isFalse);
+        expect(profile.isAdmin, isFalse);
+        expect(profile.hasValidRole, isTrue);
+      }
     });
 
     test('Getter role phản ánh đúng giá trị được truyền vào constructor', () {
@@ -396,8 +390,8 @@ void main() {
     });
   });
 
-  group('5. toMap của main ghi vaiTro tiếng Việt', () {
-    test('toMap ghi vaiTro, không sinh role hay vaiTro_id', () {
+  group('5. toMap của main không ghi vaiTro_id', () {
+    test('toMap ghi role và vaiTro, không sinh vaiTro_id', () {
       final profile = UserProfile(
         uid: 'u_renter_map',
         email: 'renter@test.vn',
@@ -407,12 +401,12 @@ void main() {
       );
 
       final map = profile.toMap();
+      expect(map['role'], equals('renter'));
       expect(map['vaiTro'], equals('renter'));
-      expect(map.containsKey('role'), isFalse);
       expect(map.containsKey('vaiTro_id'), isFalse);
     });
 
-    test('fromMap sau toMap giữ nguyên vai trò Host', () {
+    test('fromMap sau toMap vẫn là người thuê', () {
       final host = UserProfile(
         uid: 'u_rt_host',
         email: 'host@test.vn',
@@ -422,9 +416,9 @@ void main() {
       );
 
       final reconstructed = UserProfile.fromMap(host.toMap(), 'u_rt_host');
-      expect(reconstructed.role, equals('host'));
-      expect(reconstructed.isHost, isTrue);
-      expect(reconstructed.isRenter, isFalse);
+      expect(reconstructed.role, equals('renter'));
+      expect(reconstructed.isRenter, isTrue);
+      expect(reconstructed.isHost, isFalse);
       expect(reconstructed.isAdmin, isFalse);
     });
   });

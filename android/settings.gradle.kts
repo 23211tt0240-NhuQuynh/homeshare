@@ -25,10 +25,3 @@ plugins {
 }
 
 include(":app")
-
-// Đặt trước khi plugin Agora đọc rootProject.ext.compileSdkVersion.
-gradle.beforeProject {
-    if (this == rootProject) {
-        extensions.extraProperties.set("compileSdkVersion", 36)
-    }
-}

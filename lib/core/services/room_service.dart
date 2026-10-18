@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,7 +17,7 @@ class RoomFilterParams {
   final String sortBy; // 'newest', 'price_asc', 'price_desc', 'rating'
 
   const RoomFilterParams({
-    this.city = 'Tất cả',
+    this.city = 'TP. Hồ Chí Minh',
     this.district = 'Tất cả',
     this.rentalType = 'all',
     this.minPrice,
@@ -66,7 +65,7 @@ class RoomFilterParams {
 class RoomService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Stream danh sách phòng realtime, kết hợp cả collection 'rooms' và 'posts' của Chủ trọ
+  // Stream danh sách phòng theo bộ lọc chi tiết
   Stream<List<RoomModel>> getRoomsStream({
     String? city,
     String? district,
@@ -80,46 +79,28 @@ class RoomService {
     String? searchQuery,
     String? sortBy,
   }) {
-    late StreamController<List<RoomModel>> controller;
-    StreamSubscription? roomsSub;
-    StreamSubscription? postsSub;
-    List<RoomModel> latestRooms = [];
-    List<RoomModel> latestPosts = [];
-
-    List<RoomModel> filterAndSort(List<RoomModel> rawList) {
-      var list = List<RoomModel>.from(rawList);
-
-      // Nạp dữ liệu phòng mẫu nếu Firestore hoàn toàn chưa có dữ liệu phòng nào
-      if (list.isEmpty) {
-        list = getSampleRooms();
-      }
+    return _firestore.collection('rooms').snapshots().map((snapshot) {
+      var list = snapshot.docs.map((doc) {
+        try {
+          return RoomModel.fromFirestore(doc);
+        } catch (e) {
+          debugPrint('Error parsing room doc ${doc.id}: $e');
+          return null;
+        }
+      }).whereType<RoomModel>().toList();
 
       // 1. Lọc theo Thành phố
-      if (city != null &&
-          city.isNotEmpty &&
-          city != 'Tất cả' &&
-          city != 'Toàn quốc' &&
-          city != 'Chọn Tỉnh/Thành phố') {
-        final cleanCity = city
-            .toLowerCase()
-            .replaceFirst('tp. ', '')
-            .replaceFirst('thành phố ', '')
-            .replaceFirst('tỉnh ', '')
-            .trim();
-        list = list.where((r) {
-          if (r.city.isEmpty) return true;
-          return r.city.toLowerCase().contains(city.toLowerCase()) ||
-              r.city.toLowerCase().contains(cleanCity) ||
-              r.address.toLowerCase().contains(city.toLowerCase()) ||
-              r.address.toLowerCase().contains(cleanCity);
-        }).toList();
+      if (city != null && city.isNotEmpty && city != 'Tất cả' && city != 'Chọn Tỉnh/Thành phố') {
+        final cleanCity = city.toLowerCase().replaceFirst('tp. ', '').replaceFirst('thành phố ', '').replaceFirst('tỉnh ', '').trim();
+        list = list.where((r) =>
+            r.city.toLowerCase().contains(city.toLowerCase()) ||
+            r.city.toLowerCase().contains(cleanCity) ||
+            r.address.toLowerCase().contains(city.toLowerCase()) ||
+            r.address.toLowerCase().contains(cleanCity)).toList();
       }
 
       // 2. Lọc theo Phường/Xã hoặc Quận/Huyện
-      if (district != null &&
-          district.isNotEmpty &&
-          district != 'Tất cả' &&
-          district != 'Chọn Phường / Xã') {
+      if (district != null && district.isNotEmpty && district != 'Tất cả' && district != 'Chọn Phường / Xã') {
         final cleanDistrict = district.toLowerCase();
         final rawBaseName = district.split('(').first.trim().toLowerCase();
         final shortWardName = rawBaseName.replaceFirst('phường ', 'p. ').trim();
@@ -128,19 +109,17 @@ class RoomService {
           final rAddr = r.address.toLowerCase();
 
           return rDist.contains(cleanDistrict) ||
-              rAddr.contains(cleanDistrict) ||
-              rDist.contains(rawBaseName) ||
-              rAddr.contains(rawBaseName) ||
-              rAddr.contains(shortWardName);
+                 rAddr.contains(cleanDistrict) ||
+                 rDist.contains(rawBaseName) ||
+                 rAddr.contains(rawBaseName) ||
+                 rAddr.contains(shortWardName);
         }).toList();
       }
 
       // 3. Lọc theo loại phòng / hình thức thuê
       if (roomType != null && roomType.isNotEmpty && roomType != 'Tất cả') {
-        list = list
-            .where((r) =>
-                r.roomType.toLowerCase().contains(roomType.toLowerCase()))
-            .toList();
+        list = list.where((r) =>
+            r.roomType.toLowerCase().contains(roomType.toLowerCase())).toList();
       }
 
       // 4. Lọc theo khoảng giá
@@ -159,31 +138,32 @@ class RoomService {
         list = list.where((r) => r.area <= maxArea).toList();
       }
 
-      // 6. Lọc theo tiện ích được chọn (khớp ít nhất 1 tiện ích)
+      // 6. Lọc theo tiện ích được chọn
       if (amenities != null && amenities.isNotEmpty) {
         list = list.where((r) {
-          return amenities.any((a) {
-            final key = a.toLowerCase().trim();
+          for (final a in amenities) {
+            final key = a.toLowerCase();
             final hasMatch = r.amenities.any((item) =>
                 item.toLowerCase().contains(key) ||
                 key.contains(item.toLowerCase()));
             final hasMatchDesc = r.description.toLowerCase().contains(key) ||
                 r.title.toLowerCase().contains(key);
-            return hasMatch || hasMatchDesc;
-          });
+            if (!hasMatch && !hasMatchDesc) {
+              return false;
+            }
+          }
+          return true;
         }).toList();
       }
 
       // 7. Lọc theo từ khóa tìm kiếm
       if (searchQuery != null && searchQuery.trim().isNotEmpty) {
         final q = searchQuery.toLowerCase().trim();
-        list = list
-            .where((r) =>
-                r.title.toLowerCase().contains(q) ||
-                r.address.toLowerCase().contains(q) ||
-                r.district.toLowerCase().contains(q) ||
-                r.description.toLowerCase().contains(q))
-            .toList();
+        list = list.where((r) =>
+            r.title.toLowerCase().contains(q) ||
+            r.address.toLowerCase().contains(q) ||
+            r.district.toLowerCase().contains(q) ||
+            r.description.toLowerCase().contains(q)).toList();
       }
 
       // 8. Sắp xếp kết quả
@@ -204,109 +184,33 @@ class RoomService {
       }
 
       return list;
-    }
-
-    void emitMerged() {
-      if (controller.isClosed) return;
-      final Map<String, RoomModel> roomMap = {};
-      // Thêm phòng từ collection 'rooms'
-      for (final r in latestRooms) {
-        roomMap[r.id] = r;
-      }
-      // Hợp nhất bài đăng từ collection 'posts' nếu chưa có trong 'rooms'
-      for (final p in latestPosts) {
-        final exists = roomMap.containsKey(p.id) ||
-            roomMap.values.any((r) =>
-                r.id == p.id ||
-                (p.title.isNotEmpty &&
-                    r.title == p.title &&
-                    r.hostId == p.hostId));
-        if (!exists) {
-          roomMap[p.id] = p;
-        }
-      }
-
-      final merged = filterAndSort(roomMap.values.toList());
-      controller.add(merged);
-    }
-
-    controller = StreamController<List<RoomModel>>(
-      onListen: () {
-        roomsSub = _firestore.collection('rooms').snapshots().listen(
-          (snapshot) {
-            latestRooms = snapshot.docs.map((doc) {
-              try {
-                return RoomModel.fromFirestore(doc);
-              } catch (e) {
-                return null;
-              }
-            }).whereType<RoomModel>().where((r) => r.isAvailable).toList();
-            emitMerged();
-          },
-          onError: (err) {
-            debugPrint('Firestore room stream error: $err');
-            emitMerged();
-          },
-        );
-
-        postsSub = _firestore.collection('posts').snapshots().listen(
-          (snapshot) {
-            latestPosts = snapshot.docs.map((doc) {
-              try {
-                return RoomModel.fromFirestore(doc);
-              } catch (e) {
-                return null;
-              }
-            }).whereType<RoomModel>().where((r) => r.isAvailable).toList();
-            emitMerged();
-          },
-          onError: (err) {
-            debugPrint('Firestore posts stream error: $err');
-            emitMerged();
-          },
-        );
-      },
-      onCancel: () async {
-        await roomsSub?.cancel();
-        await postsSub?.cancel();
-      },
-    );
-
-    return controller.stream;
+    });
   }
 
   // Lấy chi tiết 1 phòng
   Future<RoomModel?> getRoomById(String id) async {
-    try {
-      final doc = await _firestore.collection('rooms').doc(id).get();
-      if (doc.exists) {
-        return RoomModel.fromFirestore(doc);
-      }
-    } catch (e) {
-      debugPrint('Error getting room from firestore $id: $e');
-    }
-    final samples = getSampleRooms();
-    final match = samples.where((r) => r.id == id);
-    if (match.isNotEmpty) return match.first;
-    return null;
+    final doc = await _firestore.collection('rooms').doc(id).get();
+    if (!doc.exists) return null;
+    return RoomModel.fromFirestore(doc);
   }
 
-  // Danh sách phòng mẫu chuẩn HomeShare
-  static List<RoomModel> getSampleRooms() {
-    return [
+  // Tự động nạp dữ liệu mẫu chất lượng cao vào Firestore nếu database trống
+  Future<void> seedInitialRoomsIfEmpty() async {
+    final snapshot = await _firestore.collection('rooms').limit(1).get();
+    if (snapshot.docs.isNotEmpty) return; // Đã có dữ liệu
+
+    final sampleRooms = [
       RoomModel(
-        id: 'sample_room_1',
-        roomCode: 'P001',
+        id: '',
         title: 'Phòng trọ máy lạnh gần ĐH Nông Lâm',
         description: 'Phòng mới xây gác đúc, máy lạnh Inverter, chỗ để xe miễn phí, an ninh 24/7, giờ giấc tự do.',
         price: 3200000,
         deposit: 3200000,
         address: 'Đ. Số 8, P. Linh Trung',
         district: 'TP. Thủ Đức',
-        city: 'TP. Hồ Chí Minh',
         area: 25.0,
         roomType: 'Phòng trọ',
-        amenities: ['Máy lạnh', 'Có gác lửng', 'Chỗ để xe miễn phí', 'Giờ giấc tự do', 'Wifi tốc độ cao', 'Gần trường ĐH / Bến xe'],
+        amenities: ['Máy lạnh', 'Có gác lửng', 'Chỗ để xe miễn phí', 'Giờ giấc tự do', 'Wifi tốc độ cao'],
         images: [
           'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80',
         ],
@@ -318,18 +222,16 @@ class RoomService {
         createdAt: DateTime.now().subtract(const Duration(hours: 2)),
       ),
       RoomModel(
-        id: 'sample_room_2',
-        roomCode: 'P002',
+        id: '',
         title: 'Studio ban công thoáng mát Nguyễn Văn Lượng',
         description: 'Căn hộ Studio full nội thất cao cấp phong cách Bắc Âu, có ban công view đẹp, thang máy, máy giặt riêng.',
         price: 4500000,
         deposit: 4500000,
         address: 'Nguyễn Văn Lượng, P.3',
         district: 'Gò Vấp',
-        city: 'TP. Hồ Chí Minh',
         area: 30.0,
         roomType: 'Căn hộ mini',
-        amenities: ['Máy lạnh', 'Ban công / Cửa sổ lớn', 'Tủ lạnh & Máy giặt', 'Wifi tốc độ cao', 'Không chung chủ', 'Chỗ để xe miễn phí', 'Giờ giấc tự do'],
+        amenities: ['Máy lạnh', 'Ban công / Cửa sổ lớn', 'Tủ lạnh & Máy giặt', 'Wifi tốc độ cao', 'Không chung chủ'],
         images: [
           'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80',
         ],
@@ -341,18 +243,16 @@ class RoomService {
         createdAt: DateTime.now().subtract(const Duration(days: 1)),
       ),
       RoomModel(
-        id: 'sample_room_3',
-        roomCode: 'P003',
+        id: '',
         title: 'Phòng trọ duplex cao cấp D2 Hutech',
         description: 'Phòng gác đúc cao 2m2, khóa vân tay thẻ từ ra vào, kệ bếp rộng rãi, vệ sinh riêng khép kín, gần trạm xe buýt và chợ.',
         price: 3800000,
         deposit: 3800000,
         address: 'Đường D2 (Nguyễn Gia Trí), P. 25',
         district: 'Bình Thạnh',
-        city: 'TP. Hồ Chí Minh',
         area: 22.0,
         roomType: 'Phòng trọ',
-        amenities: ['Máy lạnh', 'Có gác lửng', 'Chỗ để xe miễn phí', 'Không chung chủ', 'Gần trường ĐH / Bến xe', 'Giờ giấc tự do'],
+        amenities: ['Máy lạnh', 'Có gác lửng', 'Chỗ để xe miễn phí', 'Không chung chủ', 'Gần trường ĐH / Bến xe'],
         images: [
           'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80',
         ],
@@ -364,18 +264,16 @@ class RoomService {
         createdAt: DateTime.now().subtract(const Duration(days: 2)),
       ),
       RoomModel(
-        id: 'sample_room_4',
-        roomCode: 'P004',
+        id: '',
         title: 'Căn hộ dịch vụ 1PN Mai Chí Thọ có hồ bơi',
         description: 'Căn hộ dịch vụ hạng sang có ban công rộng, đầy đủ tiện ích hồ bơi tràn bờ, phòng gym, bảo vệ 24/7.',
         price: 6500000,
         deposit: 6500000,
         address: 'Số 10 Mai Chí Thọ, P. An Phú',
         district: 'TP. Thủ Đức',
-        city: 'TP. Hồ Chí Minh',
         area: 45.0,
         roomType: 'Chung cư',
-        amenities: ['Máy lạnh', 'Tủ lạnh & Máy giặt', 'Ban công / Cửa sổ lớn', 'Chỗ để xe miễn phí', 'Giờ giấc tự do', 'Gần trường ĐH / Bến xe'],
+        amenities: ['Máy lạnh', 'Tủ lạnh & Máy giặt', 'Ban công / Cửa sổ lớn', 'Chỗ để xe miễn phí', 'Giờ giấc tự do'],
         images: [
           'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80',
         ],
@@ -387,24 +285,13 @@ class RoomService {
         createdAt: DateTime.now().subtract(const Duration(days: 4)),
       ),
     ];
-  }
 
-  // Tự động nạp dữ liệu mẫu chất lượng cao vào Firestore nếu database trống
-  Future<void> seedInitialRoomsIfEmpty() async {
-    try {
-      final snapshot = await _firestore.collection('rooms').limit(1).get();
-      if (snapshot.docs.isNotEmpty) return; // Đã có dữ liệu
-
-      final sampleRooms = getSampleRooms();
-      final batch = _firestore.batch();
-      for (var r in sampleRooms) {
-        final docRef = _firestore.collection('rooms').doc();
-        batch.set(docRef, r.toMap());
-      }
-      await batch.commit();
-    } catch (e) {
-      debugPrint('Error seeding rooms to firestore: $e');
+    final batch = _firestore.batch();
+    for (var r in sampleRooms) {
+      final docRef = _firestore.collection('rooms').doc();
+      batch.set(docRef, r.toMap());
     }
+    await batch.commit();
   }
 }
 

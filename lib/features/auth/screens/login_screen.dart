@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/auth_service.dart';
-import '../../../core/theme/phong_sang_theme.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_form_card.dart';
-import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -119,34 +117,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // App Brand Logo with Emerald Accent
                   Center(
                     child: Container(
-                      width: 76,
-                      height: 76,
+                      width: 80,
+                      height: 80,
                       decoration: BoxDecoration(
-                        color: PhongSangColors.accentSoft,
-                        borderRadius: BorderRadius.circular(18),
+                        color: AppColors.primaryContainer,
+                        borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Icon(
                         Icons.home_work_rounded,
-                        size: 40,
-                        color: PhongSangColors.accent,
+                        size: 44,
+                        color: AppColors.primary,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  Text(
+                  const SizedBox(height: 20),
+                  const Text(
                     'HomeShare',
                     textAlign: TextAlign.center,
-                    style: PhongSangText.screenTitle.copyWith(fontSize: 32),
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Đăng nhập để tìm phòng và kết nối ở ghép',
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Đăng nhập để tìm phòng & kết nối ở ghép',
                     textAlign: TextAlign.center,
-                    style: PhongSangText.body.copyWith(fontSize: 16),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textMuted,
+                    ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 36),
                   AuthFormCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -180,10 +187,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                              color: PhongSangColors.muted,
-                              size: 22,
+                              color: AppColors.textMuted,
                             ),
-                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
                           ),
                           validator: (val) {
                             if (val == null || val.trim().isEmpty) {
@@ -195,83 +205,96 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             return null;
                           },
                         ),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ForgotPasswordScreen(initialEmail: _fullGmail(_emailController.text)),
-                                ),
-                              );
-                            },
-                            style: TextButton.styleFrom(
-                              foregroundColor: PhongSangColors.accent,
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                            ),
-                            child: Text(
-                              'Quên mật khẩu?',
-                              style: PhongSangText.label(color: PhongSangColors.accent, fontSize: 15),
-                            ),
-                          ),
+                        const SizedBox(height: 4),
+
+                  // Quên mật khẩu
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {},
+                      child: const Text(
+                        'Quên mật khẩu?',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
                         ),
-                        if (_lockNotice != null) ...[
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: AppColors.dangerContainer,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.danger),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(Icons.lock_outline, color: AppColors.danger),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    _lockNotice!,
-                                    style: const TextStyle(
-                                      color: AppColors.danger,
-                                      fontWeight: FontWeight.w600,
-                                      height: 1.35,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (_lockNotice != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.dangerContainer,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.danger),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.lock_outline, color: AppColors.danger),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _lockNotice!,
+                              style: const TextStyle(
+                                color: AppColors.danger,
+                                fontWeight: FontWeight.w600,
+                                height: 1.35,
+                              ),
                             ),
                           ),
                         ],
-                        const SizedBox(height: 4),
-                        SizedBox(
-                          height: 56,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _handleLogin,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: PhongSangColors.accent,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    height: 22,
-                                    width: 22,
-                                    child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                                  )
-                                : Text('Đăng nhập', style: PhongSangText.button.copyWith(fontSize: 17)),
-                          ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Login Button
+                  SizedBox(
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _handleLogin,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Đăng Nhập',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                    ),
+                  ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 24),
+
+                  // Điều hướng sang Đăng ký
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Chưa có tài khoản? ', style: PhongSangText.body.copyWith(fontSize: 16)),
+                      const Text(
+                        'Chưa có tài khoản? ',
+                        style: TextStyle(color: AppColors.textMuted),
+                      ),
                       GestureDetector(
                         onTap: () async {
                           final registeredEmail = await Navigator.push<String>(
@@ -287,9 +310,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             });
                           }
                         },
-                        child: Text(
+                        child: const Text(
                           'Đăng ký ngay',
-                          style: PhongSangText.label(color: PhongSangColors.accent, fontSize: 16),
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
