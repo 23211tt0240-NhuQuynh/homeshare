@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -58,6 +59,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   final Set<String> _revokedIds = {};
   ChatMessageModel? _replyingToMessage;
   final FocusNode _focusNode = FocusNode();
+  Timer? _typingDebounce;
 
   bool get _isUserToUser {
     final profile = ref.read(userProfileProvider).value;
@@ -70,14 +72,45 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    // Tự động đánh dấu đã đọc khi mở chi tiết cuộc trò chuyện và kiểm tra vai trò đối phương
+    _messageController.addListener(_onMessageTextChanged);
+
+    // Tự động đánh dấu đã đọc khi mở chi tiết cuộc trò chuyện và thiết lập presence
     Future.microtask(() {
       if (mounted) {
-        ref.read(chatServiceProvider).markAsRead(widget.currentUserId, widget.receiverId);
+        final chatService = ref.read(chatServiceProvider);
+        chatService.setupPresence(widget.currentUserId);
+        chatService.markAsRead(widget.currentUserId, widget.receiverId);
         _fetchReceiverRole();
         _fetchActiveRentedRoom();
       }
     });
+  }
+
+  void _onMessageTextChanged() {
+    final text = _messageController.text;
+    final chatService = ref.read(chatServiceProvider);
+    if (text.isNotEmpty) {
+      chatService.setTypingStatus(
+        senderId: widget.currentUserId,
+        receiverId: widget.receiverId,
+        isTyping: true,
+      );
+      _typingDebounce?.cancel();
+      _typingDebounce = Timer(const Duration(milliseconds: 2500), () {
+        chatService.setTypingStatus(
+          senderId: widget.currentUserId,
+          receiverId: widget.receiverId,
+          isTyping: false,
+        );
+      });
+    } else {
+      _typingDebounce?.cancel();
+      chatService.setTypingStatus(
+        senderId: widget.currentUserId,
+        receiverId: widget.receiverId,
+        isTyping: false,
+      );
+    }
   }
 
   Future<void> _fetchReceiverRole() async {
@@ -93,26 +126,68 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     } catch (_) {}
   }
 
-  Future<void> _fetchActiveRentedRoom() async {
+  Future<RoomModel?> _resolveCurrentUserRentedRoom() async {
+    if (_activeRentedRoom != null) return _activeRentedRoom;
+    if (widget.pinnedRoom != null) return widget.pinnedRoom;
+
     try {
-      final query = await FirebaseFirestore.instance
+      final validStatuses = ['active', 'confirmed', 'deposit_paid', 'completed', 'rented', 'dangO', 'daCoc'];
+
+      final bookingSnap = await FirebaseFirestore.instance
           .collection('bookings')
           .where('userId', isEqualTo: widget.currentUserId)
-          .limit(1)
           .get();
-      if (query.docs.isNotEmpty && mounted) {
-        final b = query.docs.first.data();
-        final roomId = b['roomId'] ?? b['phongId'] ?? '';
-        if (roomId.toString().isNotEmpty) {
+
+      final activeBookingDocs = bookingSnap.docs.where((d) {
+        final status = (d.data()['status'] ?? d.data()['trangThai'] ?? '').toString();
+        return validStatuses.contains(status);
+      }).toList();
+
+      if (activeBookingDocs.isNotEmpty) {
+        final b = activeBookingDocs.first.data();
+        final roomId = (b['roomId'] ?? b['phongId'] ?? '').toString();
+        if (roomId.isNotEmpty) {
           final rDoc = await FirebaseFirestore.instance.collection('rooms').doc(roomId).get();
-          if (rDoc.exists && mounted && rDoc.data() != null) {
-            setState(() {
-              _activeRentedRoom = RoomModel.fromMap(rDoc.data()!, rDoc.id);
-            });
+          if (rDoc.exists && rDoc.data() != null) {
+            final room = RoomModel.fromMap(rDoc.data()!, rDoc.id);
+            _activeRentedRoom = room;
+            return room;
           }
         }
       }
-    } catch (_) {}
+
+      // Kiểm tra trong collection residents (nếu đã là cư dân trong phòng)
+      final resSnap = await FirebaseFirestore.instance
+          .collection('residents')
+          .where('userId', isEqualTo: widget.currentUserId)
+          .where('statusId', isEqualTo: 'dangO')
+          .limit(1)
+          .get();
+
+      if (resSnap.docs.isNotEmpty) {
+        final rId = (resSnap.docs.first.data()['roomId'] ?? '').toString();
+        if (rId.isNotEmpty) {
+          final rDoc = await FirebaseFirestore.instance.collection('rooms').doc(rId).get();
+          if (rDoc.exists && rDoc.data() != null) {
+            final room = RoomModel.fromMap(rDoc.data()!, rDoc.id);
+            _activeRentedRoom = room;
+            return room;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error resolving rented room: $e');
+    }
+    return null;
+  }
+
+  Future<void> _fetchActiveRentedRoom() async {
+    final room = await _resolveCurrentUserRentedRoom();
+    if (room != null && mounted) {
+      setState(() {
+        _activeRentedRoom = room;
+      });
+    }
   }
 
   void _onScroll() {
@@ -126,6 +201,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   @override
   void dispose() {
     _scrollController.removeListener(_onScroll);
+    _messageController.removeListener(_onMessageTextChanged);
+    _typingDebounce?.cancel();
+    ref.read(chatServiceProvider).setTypingStatus(
+      senderId: widget.currentUserId,
+      receiverId: widget.receiverId,
+      isTyping: false,
+    );
     _messageController.dispose();
     _focusNode.dispose();
     _scrollController.dispose();
@@ -219,7 +301,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     try {
       final roomMeta = widget.pinnedRoom != null
           ? {
-              'roomCode': '#LT-${widget.pinnedRoom!.id.hashCode.abs() % 1000}',
+              'roomCode': widget.pinnedRoom!.roomCode.isNotEmpty
+                  ? widget.pinnedRoom!.roomCode
+                  : (widget.pinnedRoom!.maPhong.isNotEmpty ? widget.pinnedRoom!.maPhong : 'P001'),
               'roomTitle': widget.pinnedRoom!.title,
               'roomPrice': widget.pinnedRoom!.price,
               'roomImage': widget.pinnedRoom!.images.isNotEmpty ? widget.pinnedRoom!.images.first : '',
@@ -771,7 +855,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   }
 
 
-  void _showRoommateInviteDialog() {
+  Future<void> _showRoommateInviteDialog() async {
     if (!_isUserToUser) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -782,13 +866,49 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return;
     }
 
-    final targetRoom = widget.pinnedRoom ?? _activeRentedRoom;
-    final roomTitle = targetRoom?.title ?? 'Căn hộ mini / Phòng trọ';
-    final roomId = targetRoom?.id ?? '';
-    final hostId = targetRoom?.hostId ?? '';
-    final rawPrice = targetRoom?.price ?? 3600000;
-    final sharePrice = (rawPrice > 0 ? (rawPrice / 2).round() : 1800000);
+    // 1. Bắt buộc phải có phòng mới được gửi yêu cầu ở ghép
+    RoomModel? targetRoom = widget.pinnedRoom ?? _activeRentedRoom;
+    targetRoom ??= await _resolveCurrentUserRentedRoom();
 
+    if (targetRoom == null || targetRoom.id.isEmpty) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: AppColors.warning),
+              SizedBox(width: 8),
+              Text('Chưa có phòng thuê', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: const Text(
+            'Bạn cần đang thuê phòng tại HomeShare mới có thể gửi yêu cầu ở ghép tới người khác.\n\nVui lòng thuê phòng hoặc liên hệ chủ trọ trước khi mời ở ghép.',
+            style: TextStyle(fontSize: 14, height: 1.4),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Đã hiểu'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final roomTitle = targetRoom.title.isNotEmpty ? targetRoom.title : 'Căn hộ mini / Phòng trọ';
+    final roomId = targetRoom.id;
+    final hostId = targetRoom.hostId.isNotEmpty ? targetRoom.hostId : targetRoom.chuNhaId;
+    final roomCode = targetRoom.roomCode.isNotEmpty
+        ? targetRoom.roomCode
+        : (targetRoom.maPhong.isNotEmpty ? targetRoom.maPhong : 'P001');
+    final rawPrice = targetRoom.price > 0 ? targetRoom.price : 3600000;
+    final sharePrice = (rawPrice / 2).round();
+
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -807,7 +927,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             Text('Gửi lời mời ghép phòng tới: ${widget.receiverName}'),
             const SizedBox(height: 8),
             Text(
-              'Phòng: $roomTitle',
+              'Phòng: $roomTitle ($roomCode)',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
             const SizedBox(height: 4),
@@ -817,7 +937,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Sau khi đối phương chấp nhận, thông báo sẽ tự động được gửi tới Chủ trọ.',
+              'Sau khi đối phương chấp nhận, thông báo sẽ tự động được gửi tới Chủ trọ và người này sẽ được thêm vào danh sách người thuê cùng bạn.',
               style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontStyle: FontStyle.italic),
             ),
           ],
@@ -828,12 +948,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
             onPressed: () {
               Navigator.pop(ctx);
+              // Gửi rich message vào đoạn chat
               _sendRichMessage(
                 text: 'Lời mời cùng ở ghép phòng tại HomeShare',
                 messageType: 'roommate_invitation',
                 extraData: {
                   'status': 'pending',
                   'roomId': roomId,
+                  'roomCode': roomCode,
                   'roomTitle': roomTitle,
                   'hostId': hostId,
                   'pricePerPerson': sharePrice,
@@ -842,6 +964,25 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   'receiverName': widget.receiverName,
                   'receiverId': widget.receiverId,
                 },
+              );
+
+              // Gửi thông báo đến chuông thông báo của User nhận (BỎ HOÀN TOÀN HASH CODE)
+              ref.read(chatServiceProvider).notifyUserRoommateInvitation(
+                receiverId: widget.receiverId,
+                senderId: widget.currentUserId,
+                senderName: widget.currentUserName,
+                roomId: roomId,
+                roomCode: roomCode,
+                roomTitle: roomTitle,
+                pricePerPerson: sharePrice.toDouble(),
+                hostId: hostId,
+              );
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('✅ Đã gửi lời mời ở ghép đến chuông thông báo của ${widget.receiverName}!'),
+                  backgroundColor: AppColors.primary,
+                ),
               );
             },
             child: const Text('Gửi Lời Mời'),
@@ -866,17 +1007,21 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         extraData: updatedExtraData,
       );
 
-      // Tìm hostId để gửi thông báo đến Chủ nhà
+      // Tìm roomId, roomCode, hostId để cập nhật
       String hostId = msg.extraData['hostId']?.toString() ?? '';
       String roomId = msg.extraData['roomId']?.toString() ?? '';
+      String roomCode = msg.extraData['roomCode']?.toString() ?? '';
       String roomTitle = msg.extraData['roomTitle']?.toString() ?? 'Phòng trọ HomeShare';
 
-      if (hostId.isEmpty && roomId.isNotEmpty) {
+      if (roomId.isNotEmpty) {
         try {
           final roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(roomId).get();
           if (roomDoc.exists) {
-            hostId = roomDoc.data()?['hostId'] ?? roomDoc.data()?['chuNhaId'] ?? '';
+            hostId = hostId.isNotEmpty ? hostId : (roomDoc.data()?['hostId'] ?? roomDoc.data()?['chuNhaId'] ?? '');
             roomTitle = roomDoc.data()?['title'] ?? roomDoc.data()?['tieuDe'] ?? roomTitle;
+            if (roomCode.isEmpty) {
+              roomCode = roomDoc.data()?['roomCode'] ?? roomDoc.data()?['maPhong'] ?? '';
+            }
           }
         } catch (_) {}
       }
@@ -905,6 +1050,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             if (roomTitle == 'Phòng trọ HomeShare') {
               roomTitle = bData['roomTitle'] ?? bData['tieuDe'] ?? roomTitle;
             }
+            if (roomCode.isEmpty) {
+              roomCode = bData['roomCode'] ?? bData['maPhong'] ?? '';
+            }
           }
         } catch (_) {}
       }
@@ -922,27 +1070,49 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         } catch (_) {}
       }
 
-      // Gửi thông báo đến chủ nhà
+      final resolvedCode = roomCode.isNotEmpty ? roomCode : 'P001';
+
+      // 1. Gửi thông báo đến chuông của Chủ nhà để Chủ nhà xác nhận duyệt mới được vào phòng
+      String userNotificationId = '';
+      try {
+        final notifQuery = await FirebaseFirestore.instance
+            .collection('notifications')
+            .where('receiverId', isEqualTo: widget.currentUserId)
+            .where('senderId', isEqualTo: msg.senderId)
+            .where('status', isEqualTo: 'pending')
+            .get();
+        if (notifQuery.docs.isNotEmpty) {
+          userNotificationId = notifQuery.docs.first.id;
+          for (final doc in notifQuery.docs) {
+            await doc.reference.update({'status': 'waiting_host_approval', 'isRead': true});
+          }
+        }
+      } catch (_) {}
+
+      // 2. Gửi thông báo đến chuông của Chủ nhà
       if (hostId.isNotEmpty) {
         await ref.read(chatServiceProvider).notifyHostRoommateAccepted(
           hostId: hostId,
           roomId: roomId,
+          roomCode: resolvedCode,
           roomTitle: roomTitle,
           primaryTenantName: msg.senderName,
           primaryTenantId: msg.senderId,
           newRoommateName: widget.currentUserName,
           newRoommateId: widget.currentUserId,
+          userNotificationId: userNotificationId,
         );
       }
 
-      // Gửi tin nhắn xác nhận realtime vào đoạn chat
-      await _sendMessage('✅ Tôi đã chấp nhận lời mời ở ghép cùng bạn tại phòng $roomTitle. Hệ thống đã gửi thông báo đến chủ nhà!');
+      // 3. Gửi tin nhắn xác nhận realtime vào đoạn chat
+      await _sendMessage('✅ Tôi đã đồng ý lời mời ở ghép cùng bạn tại phòng $roomTitle ($resolvedCode). Hệ thống đã gửi yêu cầu xác nhận tới Chủ trọ để duyệt vào phòng!');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Đã chấp nhận lời mời ở ghép và gửi thông báo đến chủ nhà thành công!'),
+            content: Text('Bạn đã đồng ý lời mời ở ghép! Đã gửi yêu cầu đến Chủ trọ. Khi Chủ trọ xác nhận duyệt, bạn sẽ chính thức được vào phòng.'),
             backgroundColor: AppColors.primary,
+            duration: Duration(seconds: 4),
           ),
         );
       }
@@ -968,6 +1138,19 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         messageId: msg.id,
         extraData: updatedExtraData,
       );
+
+      // Cập nhật thông báo lời mời trong Firestore notifications thành rejected
+      try {
+        final notifQuery = await FirebaseFirestore.instance
+            .collection('notifications')
+            .where('receiverId', isEqualTo: widget.currentUserId)
+            .where('senderId', isEqualTo: msg.senderId)
+            .where('status', isEqualTo: 'pending')
+            .get();
+        for (final doc in notifQuery.docs) {
+          await doc.reference.update({'status': 'rejected', 'isRead': true});
+        }
+      } catch (_) {}
 
       await _sendMessage('Tôi xin phép từ chối lời mời ở ghép này nhé. Cảm ơn bạn!');
 
@@ -1251,10 +1434,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final maxBubbleWidth = MediaQuery.sizeOf(context).width * 0.78;
-    final messagesAsync = ref.watch(messagesStreamProvider(ChatParams(
+    final chatParams = ChatParams(
       userA: widget.currentUserId,
       userB: widget.receiverId,
-    )));
+    );
+    final messagesAsync = ref.watch(messagesStreamProvider(chatParams));
+    final isPartnerOnline = ref.watch(partnerPresenceStreamProvider(widget.receiverId)).value ?? false;
+    final isPartnerTyping = ref.watch(partnerTypingStreamProvider(chatParams)).value ?? false;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -1290,7 +1476,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                       width: 10,
                       height: 10,
                       decoration: BoxDecoration(
-                        color: Colors.green,
+                        color: isPartnerOnline ? Colors.green : Colors.grey.shade400,
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
                       ),
@@ -1319,13 +1505,31 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                         ],
                       ],
                     ),
-                    const Row(
-                      children: [
-                        CircleAvatar(radius: 3, backgroundColor: Colors.green),
-                        SizedBox(width: 4),
-                        Text('Đang trực tuyến', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                      ],
-                    ),
+                    if (isPartnerTyping)
+                      const Row(
+                        children: [
+                          Text(
+                            'Đang soạn tin nhắn...',
+                            style: TextStyle(fontSize: 11, color: AppColors.primary, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      )
+                    else if (isPartnerOnline)
+                      const Row(
+                        children: [
+                          CircleAvatar(radius: 3, backgroundColor: Colors.green),
+                          SizedBox(width: 4),
+                          Text('Đang trực tuyến', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          CircleAvatar(radius: 3, backgroundColor: Colors.grey.shade400),
+                          const SizedBox(width: 4),
+                          const Text('Ngoại tuyến', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -1445,6 +1649,35 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 ),
               ),
 
+              // Chỉ báo đối phương đang gõ phím (Typing Indicator)
+              if (isPartnerTyping)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryContainer.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          width: 10,
+                          height: 10,
+                          child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.primary),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${widget.receiverName} đang soạn tin...',
+                          style: const TextStyle(fontSize: 11, color: AppColors.primary, fontStyle: FontStyle.italic),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
               // 4. Thanh câu hỏi gợi ý nhanh (Quick Action Chips - Tc_CHAT_12 -> 14 & SRS 2.10)
               RepaintBoundary(
                 child: _buildQuickChipsBar(),
@@ -1524,7 +1757,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '#LT-${room.id.hashCode.abs() % 1000} • ${room.title}',
+                    '${room.roomCode.isNotEmpty ? room.roomCode : (room.maPhong.isNotEmpty ? room.maPhong : 'P001')} • ${room.title}',
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

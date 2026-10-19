@@ -1730,7 +1730,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               child: Row(
                 children: [
                   const Text(
-                    'Bảng tin bài đăng',
+                    'Bài đăng từ đối tác',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -1764,19 +1764,6 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               HostPostCard(
                 key: ValueKey(post.id),
                 post: post,
-                isOwnPost: ref.watch(userProfileProvider).value?.uid.isNotEmpty == true &&
-                    ref.watch(userProfileProvider).value!.uid == post.chuNhaId,
-                onInterestPressed: () async {
-                  final profile = ref.read(userProfileProvider).value;
-                  final uid = profile?.uid ?? '';
-                  if (uid.isEmpty) {
-                    _showNotice('Vui lòng đăng nhập để lưu quan tâm');
-                    return;
-                  }
-                  await ref
-                       .read(hostPostRepositoryProvider)
-                      .toggleInterest(postId: post.id, userId: uid);
-                },
                 onChatPressed: () {
                   final profile = ref.read(userProfileProvider).value;
                   final myUid = profile?.uid ?? '';

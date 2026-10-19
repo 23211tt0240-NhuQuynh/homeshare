@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/favorites_service.dart';
+import '../../../core/services/chat_service.dart';
 import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
@@ -409,12 +410,67 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
               width: double.infinity,
               height: 46,
               child: ElevatedButton.icon(
-                onPressed: () {
+                onPressed: () async {
+                  final currentUser = ref.read(currentUserProvider);
+                  final profile = ref.read(userProfileProvider).value;
+                  if (currentUser == null) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Vui lòng đăng nhập để gửi lời mời ở ghép')),
+                    );
+                    return;
+                  }
+                  if (currentUser.uid == widget.post.authorId) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Đây là bài đăng của chính bạn')),
+                    );
+                    return;
+                  }
+
                   Navigator.pop(ctx);
-                  _navigateToChat();
+
+                  final senderName = profile?.displayName.isNotEmpty == true
+                      ? profile!.displayName
+                      : (currentUser.displayName ?? 'Khách thuê');
+                  final note = inviteController.text.trim();
+
+                  try {
+                    await ref.read(chatServiceProvider).notifyUserRoommateInvitation(
+                      receiverId: widget.post.authorId,
+                      senderId: currentUser.uid,
+                      senderName: senderName,
+                      roomId: widget.post.id,
+                      roomCode: 'P001',
+                      roomTitle: widget.post.title.isNotEmpty ? widget.post.title : 'Phòng ở ghép',
+                      pricePerPerson: widget.post.pricePerPerson > 0 ? widget.post.pricePerPerson : widget.post.budgetMax,
+                      hostId: '',
+                      note: note,
+                    );
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('✅ Đã gửi lời mời ở ghép đến chuông thông báo của ${widget.post.authorName}!'),
+                          backgroundColor: AppColors.primary,
+                          action: SnackBarAction(
+                            label: 'Nhắn tin',
+                            textColor: Colors.white,
+                            onPressed: _navigateToChat,
+                          ),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Lỗi gửi lời mời: $e'), backgroundColor: AppColors.danger),
+                      );
+                    }
+                  }
                 },
                 icon: const Icon(Icons.send_rounded, size: 18),
-                label: const Text('Gửi lời mời & Mở trò chuyện', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                label: const Text('Gửi lời mời vào Chuông thông báo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,

@@ -12,6 +12,7 @@ import '../../auth/providers/auth_provider.dart';
 import 'room_detail_screen.dart';
 import 'search_filter_screen.dart';
 import 'roommate_community_screen.dart';
+import 'user_notifications_screen.dart';
 import '../../chat/screens/chat_detail_screen.dart';
 
 class RenterDashboardScreen extends ConsumerStatefulWidget {
@@ -113,14 +114,34 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Badge(
-              smallSize: 8,
-              backgroundColor: AppColors.danger,
-              child: Icon(Icons.notifications_none_outlined),
-            ),
-            onPressed: () {},
+          Consumer(
+            builder: (context, ref, _) {
+              final unreadCount = ref.watch(userUnreadNotificationCountProvider);
+              return IconButton(
+                icon: Badge(
+                  isLabelVisible: unreadCount > 0,
+                  label: Text(
+                    '$unreadCount',
+                    style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                  backgroundColor: AppColors.danger,
+                  child: const Icon(
+                    Icons.notifications_none_rounded,
+                    color: Color(0xFF1E293B),
+                    size: 24,
+                  ),
+                ),
+                tooltip: 'Thông báo',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const UserNotificationsScreen()),
+                  );
+                },
+              );
+            },
           ),
+          const SizedBox(width: 6),
         ],
       ),
       body: RefreshIndicator(

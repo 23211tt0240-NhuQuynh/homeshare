@@ -7,6 +7,7 @@ import '../providers/auth_provider.dart';
 import '../widgets/auth_form_card.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
+import '../../renter/screens/renter_main_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   final String? initialEmail;
@@ -17,8 +18,6 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  static const _gmailSuffix = '@gmail.com';
-
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _emailController;
   final _passwordController = TextEditingController();
@@ -29,7 +28,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _emailController = TextEditingController(text: _gmailLocalPart(widget.initialEmail ?? ''));
+    _emailController = TextEditingController(text: widget.initialEmail ?? '');
     final pending = AuthService.pendingLockNotice;
     if (pending != null) {
       _lockNotice = pending;
@@ -53,9 +52,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final authService = ref.read(authServiceProvider);
       await authService.signInWithEmail(
-        email: _fullGmail(_emailController.text),
+        email: _resolveEmail(_emailController.text),
         password: _passwordController.text,
       );
+
+      // Đảm bảo khi đăng nhập, màn hình đầu tiên của người thuê LUÔN LUÔN là Dashboard (index 0)
+      ref.read(renterBottomNavIndexProvider.notifier).setIndex(0);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -154,21 +156,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         AuthTextField(
                           controller: _emailController,
                           label: 'Email',
-                          hint: 'an.nguyen',
+                          hint: 'vidu@gmail.com',
                           icon: Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
-                          suffixIcon: const Padding(
-                            padding: EdgeInsets.only(right: 12),
-                            child: Text(
-                              _gmailSuffix,
-                              style: TextStyle(
-                                color: AppColors.textDark,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                          validator: _validateGmailLocal,
+                          suffixIcon: _emailController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18, color: PhongSangColors.muted),
+                                  onPressed: () => setState(() => _emailController.clear()),
+                                )
+                              : null,
+                          validator: _validateEmail,
                         ),
                         const SizedBox(height: 16),
                         AuthTextField(
@@ -202,7 +199,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => ForgotPasswordScreen(initialEmail: _fullGmail(_emailController.text)),
+                                  builder: (_) => ForgotPasswordScreen(initialEmail: _resolveEmail(_emailController.text)),
                                 ),
                               );
                             },
@@ -282,7 +279,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           );
                           if (registeredEmail != null && registeredEmail.isNotEmpty && mounted) {
                             setState(() {
-                              _emailController.text = _gmailLocalPart(registeredEmail);
+                              _emailController.text = registeredEmail;
                               _passwordController.clear();
                             });
                           }
@@ -303,21 +300,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  String _gmailLocalPart(String raw) {
-    var value = raw.trim();
-    if (value.toLowerCase().endsWith(_gmailSuffix)) {
-      value = value.substring(0, value.length - _gmailSuffix.length).trim();
+  String _resolveEmail(String raw) {
+    final value = raw.trim();
+    if (!value.contains('@') && value.isNotEmpty) {
+      return '$value@gmail.com';
     }
     return value;
   }
 
-  String _fullGmail(String raw) => '${_gmailLocalPart(raw)}$_gmailSuffix';
-
-  String? _validateGmailLocal(String? val) {
-    final local = _gmailLocalPart(val ?? '');
-    if (local.isEmpty) return 'Vui lòng nhập email';
-    if (!RegExp(r'^[A-Za-z0-9._+-]+$').hasMatch(local)) {
-      return 'Chỉ nhập phần tên trước @gmail.com';
+  String? _validateEmail(String? val) {
+    final text = (val ?? '').trim();
+    if (text.isEmpty) return 'Vui lòng nhập email';
+    if (text.contains('@')) {
+      final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+      if (!emailRegex.hasMatch(text)) {
+        return 'Email không hợp lệ (Ví dụ: vidu@gmail.com)';
+      }
+    } else {
+      if (!RegExp(r'^[A-Za-z0-9._+-]+$').hasMatch(text)) {
+        return 'Email chứa ký tự không hợp lệ';
+      }
     }
     return null;
   }

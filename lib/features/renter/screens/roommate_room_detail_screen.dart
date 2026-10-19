@@ -11,6 +11,7 @@ import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
+import '../../../core/services/chat_service.dart';
 
 /// Một dòng thói quen. `detail` để trống khi chữ lấy thẳng từ bài đăng.
 class _HabitItem {
@@ -285,8 +286,8 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
               const Text('Yêu cầu ghép nối', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
               const Text(
-                'Lời nhắn này mở cuộc trò chuyện với người đăng phòng. Chưa ghi thành đơn riêng trên Firestore.',
-                style: TextStyle(fontSize: 15, color: AppColors.textSecondary, height: 1.4),
+                'Yêu cầu ghép nối sẽ được gửi trực tiếp đến Chuông thông báo của người đăng phòng để xem xét và duyệt.',
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -303,9 +304,64 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
+                    final currentUser = ref.read(currentUserProvider);
+                    final profile = ref.read(userProfileProvider).value;
+                    if (currentUser == null) {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Vui lòng đăng nhập để gửi yêu cầu ở ghép')),
+                      );
+                      return;
+                    }
+                    if (_peerId.isNotEmpty && currentUser.uid == _peerId) {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Đây là bài đăng của chính bạn')),
+                      );
+                      return;
+                    }
+
                     Navigator.pop(ctx);
-                    _openChat();
+
+                    final senderName = profile?.displayName.isNotEmpty == true
+                        ? profile!.displayName
+                        : (currentUser.displayName ?? 'Khách thuê');
+                    final note = controller.text.trim();
+
+                    try {
+                      await ref.read(chatServiceProvider).notifyUserRoommateInvitation(
+                        receiverId: _peerId,
+                        senderId: currentUser.uid,
+                        senderName: senderName,
+                        roomId: widget.post.id,
+                        roomCode: 'P001',
+                        roomTitle: _title,
+                        pricePerPerson: _priceEach > 0 ? _priceEach : 1800000,
+                        hostId: '',
+                        note: note,
+                      );
+
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('✅ Đã gửi yêu cầu ghép nối đến chuông thông báo của $_posterName!'),
+                            backgroundColor: AppColors.primary,
+                            action: SnackBarAction(
+                              label: 'Nhắn tin',
+                              textColor: Colors.white,
+                              onPressed: _openChat,
+                            ),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Lỗi gửi yêu cầu: $e'), backgroundColor: AppColors.danger),
+                        );
+                      }
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -313,7 +369,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Gửi và mở trò chuyện', style: TextStyle(fontWeight: FontWeight.w700)),
+                  child: const Text('Gửi yêu cầu vào Chuông thông báo', style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ),
             ],

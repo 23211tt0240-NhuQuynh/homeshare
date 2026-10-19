@@ -14,6 +14,7 @@ import 'create_roommate_post_screen.dart';
 import 'roommate_lifestyle_filter_sheet.dart';
 import 'roommate_room_detail_screen.dart';
 import 'roommate_search_screen.dart';
+import 'user_notifications_screen.dart';
 
 /// Màn hình Tìm Ở Ghép chuẩn Figma 100% (Hình 1)
 /// Tích hợp Bộ lọc Lifestyle & Ở ghép AI Match (Hình 2)
@@ -164,7 +165,6 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
 
   @override
   Widget build(BuildContext context) {
-    final profile = ref.watch(userProfileProvider).value;
     final postsAsync = ref.watch(roommatePostsStreamProvider(_currentFilters));
 
     final count = postsAsync.maybeWhen(
@@ -203,7 +203,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
         bottom: false,
         child: Column(
           children: [
-            _buildFigmaAppBar(profile),
+            _buildFigmaAppBar(),
 
             _buildSegmentTabSwitcher(),
 
@@ -227,7 +227,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
   }
 
   /// App Bar chuẩn Figma
-  Widget _buildFigmaAppBar(UserProfile? profile) {
+  Widget _buildFigmaAppBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
       child: Row(
@@ -256,39 +256,29 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
           ),
           Row(
             children: [
+              Consumer(
+                builder: (context, ref, _) {
+                  final unread = ref.watch(userUnreadNotificationCountProvider);
+                  return IconButton(
+                    icon: Badge(
+                      isLabelVisible: unread > 0,
+                      label: Text('$unread', style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                      backgroundColor: AppColors.danger,
+                      child: const Icon(Icons.notifications_none_rounded, color: Color(0xFF334155), size: 24),
+                    ),
+                    tooltip: 'Thông báo ở ghép',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const UserNotificationsScreen()),
+                      );
+                    },
+                  );
+                },
+              ),
               IconButton(
                 icon: const Icon(Icons.search_rounded, color: Color(0xFF334155), size: 26),
                 onPressed: _openRoommateSearch,
-              ),
-              Stack(
-                alignment: Alignment.topRight,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF334155), size: 24),
-                    onPressed: () {},
-                  ),
-                  Positioned(
-                    top: 10,
-                    right: 12,
-                    child: Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEF4444),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 4),
-              // Profile Avatar
-              CircleAvatar(
-                radius: 17,
-                backgroundColor: const Color(0xFFE2E8F0),
-                backgroundImage: profile?.avatarUrl.isNotEmpty == true
-                    ? NetworkImage(profile!.avatarUrl)
-                    : const NetworkImage('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'),
               ),
             ],
           ),

@@ -19,13 +19,12 @@ class HostPostModel {
   final String description; // moTa
   final double rentalPrice; // giaThue
   final double depositAmount; // tienCoc
-  final int depositPercentage; // phanTramTienCoc (10, 20, 30, 40, 50)
+  final int depositPercentage; // phanTramTienCoc (10–100, bước 10)
   final List<String> amenities; // tienIch
   final List<String> images; // anhPhong
   final String address; // diaChi
   final String contactPhone; // soDienThoaiLienHe
   final DateTime createdAt; // ngayDang
-  final String roomCode; // maPhong / soPhong
   final String status; // trangThai
 
   // Các trường nghiệp vụ giao diện và ghép nối bộ nhớ (IN-MEMORY ONLY - KHÔNG LƯU FIRESTORE)
@@ -36,7 +35,7 @@ class HostPostModel {
   final String district;
   final double roomArea;
   final String roomType;
-  final String cooperationPurpose;
+  final String mucDichHopTac;
   final int interestedCount;
   final int responseCount;
   final bool isVerified;
@@ -48,7 +47,6 @@ class HostPostModel {
   HostPostModel({
     required this.id,
     String? roomId,
-    String? roomCode,
     String? hostId,
     String? locationId,
     String? rentalTypeId,
@@ -72,8 +70,7 @@ class HostPostModel {
     this.district = '',
     this.roomArea = 0.0,
     this.roomType = 'Phòng trọ',
-    String? cooperationPurpose,
-    String? mucDichHopTac,
+    this.mucDichHopTac = 'Chia sẻ khách thuê & Hợp tác quản lý',
     this.interestedCount = 0,
     this.responseCount = 0,
     this.isVerified = false,
@@ -83,8 +80,6 @@ class HostPostModel {
     this.joinedHost,
     // Vietnamese legacy named parameters
     String? phongId,
-    String? maPhong,
-    String? soPhong,
     String? chuNhaId,
     String? diaDiemId,
     String? loaiThueId,
@@ -97,7 +92,6 @@ class HostPostModel {
     String? soDienThoaiLienHe,
     DateTime? ngayDang,
   })  : roomId = roomId ?? phongId ?? '',
-        roomCode = roomCode ?? maPhong ?? soPhong ?? '',
         hostId = hostId ?? chuNhaId ?? '',
         locationId = locationId ?? diaDiemId ?? '',
         rentalTypeId = rentalTypeId ?? loaiThueId ?? 'thang',
@@ -108,16 +102,10 @@ class HostPostModel {
         depositAmount = depositAmount ?? tienCoc ?? 0.0,
         depositPercentage = depositPercentage ?? phanTramTienCoc ?? 20,
         contactPhone = contactPhone ?? soDienThoaiLienHe ?? '',
-        createdAt = createdAt ?? ngayDang ?? DateTime.now(),
-        cooperationPurpose = cooperationPurpose ??
-            mucDichHopTac ??
-            'Chia sẻ khách thuê & Hợp tác quản lý';
+        createdAt = createdAt ?? ngayDang ?? DateTime.now();
 
   // Vietnamese Schema Aliases for backward compatibility in code
-  String get mucDichHopTac => cooperationPurpose;
   String get phongId => roomId;
-  String get maPhong => roomCode.isNotEmpty ? roomCode : 'P001';
-  String get soPhong => maPhong;
   String get chuNhaId => hostId;
   String get diaDiemId => locationId;
   String get loaiThueId => rentalTypeId;
@@ -142,28 +130,57 @@ class HostPostModel {
       status != 'daAn' &&
       status != 'deleted';
 
-  /// Mapper chuẩn: CHỈ trả về đúng tập hợp các field trong [PostFields] bằng tiếng Anh theo schema Firestore
+  /// Đường dẫn Sub-collection trên Firestore theo quan hệ 1-N:
+  /// Path: rooms/{roomId}/rental_posts
+  static String subCollectionPath(String roomId) =>
+      HostFirestorePaths.rentalPosts(roomId);
+
+  /// Đường dẫn Document trong Sub-collection:
+  /// Path: rooms/{roomId}/rental_posts/{postId}
+  static String docPath(String roomId, String postId) =>
+      HostFirestorePaths.rentalPostDoc(roomId, postId);
+
+  /// CollectionReference cho Sub-collection rental_posts
+  static CollectionReference<Map<String, dynamic>> subColRef(
+    String roomId, [
+    FirebaseFirestore? firestore,
+  ]) => (firestore ?? FirebaseFirestore.instance)
+      .collection(FirestoreCollections.rooms)
+      .doc(roomId)
+      .collection(FirestoreCollections.rentalPosts);
+
+  /// Mapper chuẩn theo bảng rental_posts (100% tiếng Anh)
+  /// Không lưu nhúng mảng amenities và images vào bài đăng (tách bảng riêng)
   Map<String, dynamic> toFirestore() {
     return {
-      PostFields.postId: id,
-      PostFields.roomId: roomId,
-      'roomCode': roomCode,
-      PostFields.hostId: hostId,
-      PostFields.locationId: locationId,
-      PostFields.rentalTypeId: rentalTypeId,
-      PostFields.statusId: statusId,
-      PostFields.title: title,
-      PostFields.description: description,
-      PostFields.rentalPrice: rentalPrice,
-      PostFields.depositAmount: depositAmount,
-      PostFields.depositPercentage: depositPercentage,
-      PostFields.amenities: amenities,
-      PostFields.images: images,
-      PostFields.address: address,
-      PostFields.contactPhone: contactPhone,
-      PostFields.createdAt: Timestamp.fromDate(createdAt),
-      PostFields.status: status,
+      'id': id,
+      'roomId': roomId,
+      'hostId': hostId,
+      'title': title,
+      'description': description,
+      'rentalPrice': rentalPrice,
+      'depositAmount': depositAmount,
+      'status': status.isNotEmpty ? status : 'active',
+      'isPinned': false,
+      'createdAt': Timestamp.fromDate(createdAt),
     };
+  }
+
+  /// Mapper chuẩn bảng bai_dang_cho_thue theo SQL_NHOM4_CHUYENDEDIDONG.sql
+  Map<String, dynamic> toBaiDangChoThueSql() => {
+    BaiDangChoThueSqlFields.id: id,
+    BaiDangChoThueSqlFields.phongTroId: roomId,
+    BaiDangChoThueSqlFields.tieuDe: title,
+    BaiDangChoThueSqlFields.noiDung: description,
+    BaiDangChoThueSqlFields.trangThai: status,
+    BaiDangChoThueSqlFields.laBaiGhim: 0,
+    BaiDangChoThueSqlFields.ngayTao: Timestamp.fromDate(createdAt),
+    BaiDangChoThueSqlFields.chuTroId: hostId,
+  };
+
+  /// Factory đọc từ dữ liệu bảng bai_dang_cho_thue chuẩn SQL
+  factory HostPostModel.fromBaiDangChoThueSql(Map<String, dynamic> data, String id) {
+    return HostPostModel.fromMap(data, id);
   }
 
   /// Alias kiểm soát: Không tự gom toàn bộ biến object, ủy thác về [toFirestore]
@@ -263,19 +280,17 @@ class HostPostModel {
 
     return HostPostModel(
       id: effectiveId,
-      roomId: (data[PostFields.roomId] ??
+      roomId: (data[BaiDangChoThueSqlFields.phongTroId] ??
+              data['phong_tro_id'] ??
+              data[PostFields.roomId] ??
               data['roomId'] ??
               data['phongId'] ??
               '')
           .toString()
           .trim(),
-      roomCode: (data['roomCode'] ??
-              data['maPhong'] ??
-              data['soPhong'] ??
-              '')
-          .toString()
-          .trim(),
-      hostId: (data[PostFields.hostId] ??
+      hostId: (data[BaiDangChoThueSqlFields.chuTroId] ??
+              data['chu_tro_id'] ??
+              data[PostFields.hostId] ??
               data['hostId'] ??
               data['chuNhaId'] ??
               data['userId'] ??
@@ -295,20 +310,26 @@ class HostPostModel {
               'thang')
           .toString()
           .trim(),
-      statusId: (data[PostFields.statusId] ??
+      statusId: (data[BaiDangChoThueSqlFields.trangThai] ??
+              data['trang_thai'] ??
+              data[PostFields.statusId] ??
               data['statusId'] ??
               data['trangThai_id'] ??
               data['status'] ??
               'dangHienThi')
           .toString()
           .trim(),
-      title: (data[PostFields.title] ??
+      title: (data[BaiDangChoThueSqlFields.tieuDe] ??
+              data['tieu_de'] ??
+              data[PostFields.title] ??
               data['title'] ??
               data['tieuDe'] ??
               '')
           .toString()
           .trim(),
-      description: (data[PostFields.description] ??
+      description: (data[BaiDangChoThueSqlFields.noiDung] ??
+              data['noi_dung'] ??
+              data[PostFields.description] ??
               data['description'] ??
               data['moTa'] ??
               '')
@@ -361,8 +382,7 @@ class HostPostModel {
       roomType: (data['roomType'] ?? data['loaiPhong'] ?? 'Phòng trọ')
           .toString()
           .trim(),
-      cooperationPurpose: (data['cooperationPurpose'] ??
-              data['mucDichHopTac'] ??
+      mucDichHopTac: (data['mucDichHopTac'] ??
               data['purpose'] ??
               'Chia sẻ khách thuê & Hợp tác quản lý')
           .toString()
@@ -430,7 +450,6 @@ class HostPostModel {
     String? district,
     double? roomArea,
     String? roomType,
-    String? cooperationPurpose,
     String? mucDichHopTac,
     int? interestedCount,
     int? responseCount,
@@ -479,9 +498,7 @@ class HostPostModel {
       district: district ?? this.district,
       roomArea: roomArea ?? this.roomArea,
       roomType: roomType ?? this.roomType,
-      cooperationPurpose: cooperationPurpose ??
-          mucDichHopTac ??
-          this.cooperationPurpose,
+      mucDichHopTac: mucDichHopTac ?? this.mucDichHopTac,
       interestedCount: interestedCount ?? this.interestedCount,
       responseCount: responseCount ?? this.responseCount,
       isVerified: isVerified ?? this.isVerified,
@@ -502,6 +519,8 @@ class HostPostModel {
       address: address.isNotEmpty ? address : room.address,
       city: city.isNotEmpty ? city : room.city,
       district: district.isNotEmpty ? district : room.district,
+      rentalPrice: rentalPrice > 0 ? rentalPrice : room.price,
+      depositAmount: depositAmount > 0 ? depositAmount : room.deposit,
       images: images.isNotEmpty ? images : room.images,
       amenities: amenities.isNotEmpty ? amenities : room.amenities,
     );

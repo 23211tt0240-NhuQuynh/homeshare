@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
@@ -7,6 +8,7 @@ import '../../../core/constants/vietnam_locations.dart';
 import '../../../core/services/image_storage_service.dart';
 import '../../../core/services/roommate_service.dart';
 import '../../../core/services/user_profile_service.dart';
+import '../../../core/utils/vnd_input.dart';
 import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
@@ -662,10 +664,11 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
               label: _hasRoom ? 'Chi phí thuê / người (VNĐ / tháng) *' : 'Ngân sách mong muốn / người *',
               controller: _priceController,
               keyboardType: TextInputType.number,
-              hint: 'Ví dụ: 1800000',
+              hint: 'Ví dụ: 1.800.000',
+              inputFormatters: [VndInputFormatter()],
               validator: (val) {
                 if (val == null || val.trim().isEmpty) return 'Vui lòng nhập số tiền chi phí';
-                final raw = val.trim().replaceAll('.', '').replaceAll(',', '');
+                final raw = vndDigits(val.trim());
                 final parsed = double.tryParse(raw);
                 if (parsed == null || parsed <= 0) return 'Số tiền chi phí không hợp lệ';
                 return null;
@@ -1137,6 +1140,7 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
     String? hint,
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
     return Column(
@@ -1148,6 +1152,7 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
           controller: controller,
           keyboardType: keyboardType,
           maxLines: maxLines,
+          inputFormatters: inputFormatters,
           validator: validator,
           autovalidateMode: AutovalidateMode.onUserInteraction,
           decoration: _inputDecoration(hint: hint),

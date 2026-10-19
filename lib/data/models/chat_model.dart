@@ -68,15 +68,36 @@ class ChatMessageModel {
       messageType: data['messageType'] ?? data['loaiTinNhan_id'] ?? 'text',
       timestamp: (data['timestamp'] is Timestamp)
           ? (data['timestamp'] as Timestamp).toDate()
-          : (data['ngayGui'] is Timestamp)
-              ? (data['ngayGui'] as Timestamp).toDate()
-              : DateTime.now(),
+          : (data['timestamp'] is int)
+              ? DateTime.fromMillisecondsSinceEpoch(data['timestamp'] as int)
+              : (data['timestamp'] is num)
+                  ? DateTime.fromMillisecondsSinceEpoch((data['timestamp'] as num).toInt())
+                  : (data['ngayGui'] is Timestamp)
+                      ? (data['ngayGui'] as Timestamp).toDate()
+                      : DateTime.now(),
       isRead: readVal,
       status: statusVal,
       extraData: (data['extraData'] is Map)
           ? Map<String, dynamic>.from(data['extraData'] as Map)
           : {},
     );
+  }
+
+  Map<String, dynamic> toRealtimeMap() {
+    return {
+      'id': id,
+      'conversationId': conversationId,
+      'senderId': senderId,
+      'senderName': senderName,
+      'receiverId': receiverId,
+      'text': text,
+      'attachmentUrl': attachmentUrl,
+      'messageType': messageType,
+      'timestamp': timestamp.millisecondsSinceEpoch,
+      'isRead': isRead,
+      'status': status,
+      'extraData': extraData,
+    };
   }
 
   ChatMessageModel copyWith({
@@ -164,12 +185,23 @@ class ConversationModel {
   });
 
   factory ConversationModel.fromFirestore(DocumentSnapshot doc, String currentUserId) {
-    final data = doc.data() as Map<String, dynamic>? ?? {};
+    return ConversationModel.fromMap(
+      doc.data() as Map<String, dynamic>? ?? {},
+      doc.id,
+      currentUserId,
+    );
+  }
+
+  factory ConversationModel.fromMap(Map<String, dynamic> data, String id, String currentUserId) {
     final users = List<String>.from(data['users'] ?? data['nguoiThamGia'] ?? []);
     final partnerId = users.firstWhere((u) => u != currentUserId, orElse: () => '');
     
     DateTime timestamp = DateTime.now();
-    if (data['lastTimestamp'] is Timestamp) {
+    if (data['lastTimestamp'] is int) {
+      timestamp = DateTime.fromMillisecondsSinceEpoch(data['lastTimestamp'] as int);
+    } else if (data['lastTimestamp'] is num) {
+      timestamp = DateTime.fromMillisecondsSinceEpoch((data['lastTimestamp'] as num).toInt());
+    } else if (data['lastTimestamp'] is Timestamp) {
       timestamp = (data['lastTimestamp'] as Timestamp).toDate();
     } else if (data['ngayGuiCuoi'] is Timestamp) {
       timestamp = (data['ngayGuiCuoi'] as Timestamp).toDate();
@@ -223,7 +255,7 @@ class ConversationModel {
     }
 
     return ConversationModel(
-      id: doc.id,
+      id: id,
       partnerId: partnerId,
       partnerName: resolvedPartnerName,
       partnerAvatar: resolvedAvatar,

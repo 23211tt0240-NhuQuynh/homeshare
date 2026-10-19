@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/constants/firestore_collections.dart';
 
 /// Model Biên bản vi phạm theo Database homeShare & SDS
 /// Collection: violation_records/{bienBanId}
@@ -297,31 +298,75 @@ class ViolationRecordModel {
     }
   }
 
-  Map<String, dynamic> toMap() {
+  /// Đường dẫn Sub-collection trên Firestore theo quan hệ 1-N:
+  /// Path: residents/{residentId}/violation_records
+  static String subCollectionPath(String residentId) =>
+      HostFirestorePaths.violationRecords(residentId);
+
+  /// Đường dẫn Document trong Sub-collection:
+  /// Path: residents/{residentId}/violation_records/{violationId}
+  static String docPath(String residentId, String violationId) =>
+      HostFirestorePaths.violationRecordDoc(residentId, violationId);
+
+  /// CollectionReference cho Sub-collection violation_records
+  static CollectionReference<Map<String, dynamic>> subColRef(
+    String residentId, [
+    FirebaseFirestore? firestore,
+  ]) => (firestore ?? FirebaseFirestore.instance)
+      .collection(FirestoreCollections.residents)
+      .doc(residentId)
+      .collection(FirestoreCollections.violationRecords);
+
+  /// Mapper chuẩn theo bảng nhat_ky_vi_pham_noi_quy (SQL_NHOM4_CHUYENDEDIDONG.sql)
+  Map<String, dynamic> toNhatKyViPhamSql() => {
+    NhatKyViPhamSqlFields.id: id,
+    NhatKyViPhamSqlFields.cuDanId: tenantId,
+    NhatKyViPhamSqlFields.noiDungViPham: description.isNotEmpty
+        ? description
+        : violationTitles.join(', '),
+    NhatKyViPhamSqlFields.mucPhat: totalFine,
+    NhatKyViPhamSqlFields.ngayGhiNhan: Timestamp.fromDate(createdAt),
+  };
+
+  /// Factory đọc từ dữ liệu bảng nhat_ky_vi_pham_noi_quy chuẩn SQL
+  factory ViolationRecordModel.fromNhatKyViPhamSql(
+      Map<String, dynamic> data, String id) {
+    return ViolationRecordModel.fromMap(data, id);
+  }
+
+  /// Ghi Firestore 100% tiếng Anh chuẩn Firebase Console
+  Map<String, dynamic> toFirestore() {
     return {
       'id': id,
       'landlordId': landlordId,
+      'residentId': tenantId,
+      'tenantId': tenantId,
+      'tenantName': tenantName,
+      'tenantPhone': tenantPhone,
       'roomId': roomId,
       'roomCode': roomCode,
       'propertyName': propertyName,
       'periodId': periodId,
-      'tenantId': tenantId,
-      'tenantName': tenantName,
-      'tenantPhone': tenantPhone,
       'violationIds': violationIds,
       'violationTitles': violationTitles,
+      'violationContent': description.isNotEmpty
+          ? description
+          : violationTitles.join(', '),
+      'fineAmount': totalFine,
       'totalFine': totalFine,
       'paymentMethod': paymentMethod,
       'status': status,
       'description': description,
       'evidenceUrls': evidenceUrls,
-      'lastReminderAt':
-          lastReminderAt != null ? Timestamp.fromDate(lastReminderAt!) : null,
-      'paidAt': paidAt != null ? Timestamp.fromDate(paidAt!) : null,
-      'paidMethod': paidMethod,
-      'paidCollector': paidCollector,
+      if (lastReminderAt != null)
+        'lastReminderAt': Timestamp.fromDate(lastReminderAt!),
+      if (paidAt != null) 'paidAt': Timestamp.fromDate(paidAt!),
+      if (paidMethod != null) 'paidMethod': paidMethod,
+      if (paidCollector != null) 'paidCollector': paidCollector,
       'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
     };
   }
+
+  Map<String, dynamic> toMap() => toFirestore();
 }

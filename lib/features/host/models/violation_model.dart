@@ -99,9 +99,7 @@ class ViolationModel {
       'category': category,
       'iconName': iconName,
       'isActive': isActive,
-      'status': isActive ? 'active' : 'inactive',
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
 }
-
