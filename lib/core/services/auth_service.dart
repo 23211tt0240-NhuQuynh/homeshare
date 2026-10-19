@@ -81,21 +81,12 @@ class AuthService {
         await _firestore.collection('users').doc(user.uid).set({
           'uid': user.uid,
           'userCode': userCode,
-          'maNguoiDung': userCode,
-          'idNguoiDung': userCode,
           'email': email.trim(),
           'displayName': displayName.trim(),
-          'hoTen': displayName.trim(),
           'phoneNumber': phoneNumber ?? '',
-          'soDienThoai': phoneNumber ?? '',
           'role': role,
-          'vaiTro': role,
-          'vaiTro_id': role == 'host' ? 2 : 1,
-          'diemUyTin': 100,
-          'avatarUrl': '',
-          'anhDaiDien': '',
+          'reputationScore': 100,
           'createdAt': FieldValue.serverTimestamp(),
-          'ngayTao': FieldValue.serverTimestamp(),
         });
       }
 

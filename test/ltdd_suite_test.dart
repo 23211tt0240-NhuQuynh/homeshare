@@ -95,12 +95,13 @@ void main() {
 
       final map = profile.toMap();
       expect(map['email'], equals('toan@gmail.com'));
-      expect(map['hoTen'], equals('Trần Thanh Anh Toàn'));
-      expect(map['soDienThoai'], equals('0901234567'));
-      expect(map['vaiTro'], equals('renter'));
-      expect(map.containsKey('displayName'), isFalse);
-      expect(map.containsKey('phoneNumber'), isFalse);
-      expect(map.containsKey('role'), isFalse);
+      expect(map['displayName'], equals('Trần Thanh Anh Toàn'));
+      expect(map['phoneNumber'], equals('0901234567'));
+      expect(map['role'], equals('renter'));
+      expect(map.containsKey('hoTen'), isFalse);
+      expect(map.containsKey('soDienThoai'), isFalse);
+      expect(map.containsKey('vaiTro'), isFalse);
+      expect(map.containsKey('vaiTro_id'), isFalse);
     });
 
     test('Tc_INFO2_03 & 04: Xác thực định dạng CCCD chuẩn 12 chữ số', () {
@@ -151,8 +152,9 @@ void main() {
       expect(profile.maDinhDanh, equals(profile.userCode));
 
       final profileMap = profile.toMap();
-      expect(profileMap['maNguoiDung'], equals(profile.userCode));
-      expect(profileMap.containsKey('userCode'), isFalse);
+      expect(profileMap['userCode'], equals(profile.userCode));
+      expect(profileMap.containsKey('maNguoiDung'), isFalse);
+      expect(profileMap.containsKey('idNguoiDung'), isFalse);
 
       // 4. Kiểm tra nội dung chuyển tiền (nội dung chuyển là mã của người dùng để Admin dễ tìm kiếm)
       final transferContent = profile.userCode;

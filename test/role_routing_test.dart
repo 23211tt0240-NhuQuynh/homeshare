@@ -396,8 +396,8 @@ void main() {
     });
   });
 
-  group('5. toMap của main ghi vaiTro tiếng Việt', () {
-    test('toMap ghi vaiTro, không sinh role hay vaiTro_id', () {
+  group('5. toMap ghi role tiếng Anh', () {
+    test('toMap ghi role, không sinh vaiTro hay vaiTro_id', () {
       final profile = UserProfile(
         uid: 'u_renter_map',
         email: 'renter@test.vn',
@@ -407,8 +407,8 @@ void main() {
       );
 
       final map = profile.toMap();
-      expect(map['vaiTro'], equals('renter'));
-      expect(map.containsKey('role'), isFalse);
+      expect(map['role'], equals('renter'));
+      expect(map.containsKey('vaiTro'), isFalse);
       expect(map.containsKey('vaiTro_id'), isFalse);
     });
 

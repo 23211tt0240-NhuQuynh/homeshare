@@ -69,10 +69,10 @@ class HomeScreen extends ConsumerWidget {
                       CircleAvatar(
                         radius: 32,
                         backgroundColor: AppColors.primaryContainer,
-                        backgroundImage: (profile?.avatarUrl.isNotEmpty == true)
+                        backgroundImage: (profile?.avatarUrl.startsWith('http') == true)
                             ? NetworkImage(profile!.avatarUrl)
                             : null,
-                        child: (profile?.avatarUrl.isNotEmpty == true)
+                        child: profile?.avatarUrl.startsWith('http') == true
                             ? null
                             : Text(
                                 (profile?.displayName.isNotEmpty ?? false)

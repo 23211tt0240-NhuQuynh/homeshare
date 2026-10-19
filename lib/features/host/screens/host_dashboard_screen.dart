@@ -476,22 +476,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         CircleAvatar(
           radius: 18,
           backgroundColor: _softBlueBg,
-          child: avatarUrl.isNotEmpty && avatarUrl.startsWith('http')
-              ? ClipOval(
-                  child: Image.network(
-                    avatarUrl,
-                    width: 36,
-                    height: 36,
-                    fit: BoxFit.cover,
-                    errorBuilder: (ctx, err, stack) => Text(
-                      initials,
-                      style: const TextStyle(
-                        color: _primaryBlue,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                )
+          backgroundImage: avatarUrl.startsWith('http') ? NetworkImage(avatarUrl) : null,
+          child: avatarUrl.startsWith('http')
+              ? null
               : Text(
                   initials,
                   style: const TextStyle(

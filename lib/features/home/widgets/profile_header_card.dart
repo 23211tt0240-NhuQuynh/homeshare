@@ -19,7 +19,7 @@ class ProfileHeaderCard extends StatelessWidget {
 
   Widget _buildAvatar(String initialLetter) {
     final avatarUrl = profile?.avatarUrl.trim() ?? '';
-    final hasUrl = avatarUrl.isNotEmpty;
+    final hasUrl = avatarUrl.startsWith('http');
 
     final initialWidget = Center(
       child: Text(

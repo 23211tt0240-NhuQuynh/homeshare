@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/id_generator.dart';
+import '../../../core/utils/room_identity.dart';
 import '../../../core/utils/vietqr_helper.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/room_model.dart';
@@ -53,24 +54,30 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
         : ((profile?.userCode.isNotEmpty == true)
             ? profile!.userCode
             : UserProfile.generateUserCode(seed: widget.booking.renterId, role: 'renter'));
-    final pCode = widget.room.maPhong;
+    var roomCode = widget.room.roomCode.isNotEmpty ? widget.room.roomCode : widget.room.maPhong;
+    if (roomCode.isEmpty || isShortRoomId(roomCode)) {
+      roomCode = 'P001';
+    }
 
     final existingNote = widget.booking.transferNote;
     String? cleanNote;
     if (existingNote != null && existingNote.trim().isNotEmpty) {
       final parts = existingNote.trim().split(RegExp(r'\s+'));
-      if (parts.length == 2 && !parts[1].startsWith('CT')) {
+      if (parts.length == 2 && !parts[1].startsWith('CT') && !isShortRoomId(parts[1])) {
         cleanNote = existingNote.trim();
       } else if (parts.length >= 3) {
-        // Dạng cũ 3 phần: chỉ giữ mã người dùng và mã phòng
-        cleanNote = '${parts.first} ${parts.last}';
+        final lastPart = parts.last.toUpperCase();
+        final firstPart = parts.first.toUpperCase();
+        if (!isShortRoomId(lastPart)) {
+          cleanNote = '$firstPart $lastPart';
+        }
       }
     }
 
     _transferContent = cleanNote ??
         IdGenerator.transferContent(
           renterCode: rCode,
-          roomCode: pCode,
+          roomCode: roomCode,
         );
 
     // Tạo link ảnh VietQR.io và chuỗi EMVCo Napas247 thật
@@ -90,6 +97,58 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
 
     // Kích hoạt đồng hồ đếm ngược
     _startTimer();
+
+    // Query collection 'rooms' để tìm mã phòng nếu có (100% tiếng Anh)
+    _resolveRoomCodeFromFirestore(rCode, roomCode);
+  }
+
+  Future<void> _resolveRoomCodeFromFirestore(String renterCode, String currentRoomCode) async {
+    final existingNote = widget.booking.transferNote;
+    if (existingNote != null && existingNote.trim().isNotEmpty) {
+      final parts = existingNote.trim().split(RegExp(r'\s+'));
+      if (parts.length == 2 && !parts[1].startsWith('CT') && !isShortRoomId(parts[1]) && parts[1] != 'P001') {
+        return;
+      }
+    }
+
+    var roomCode = currentRoomCode;
+    if (roomCode.isEmpty || roomCode == 'P001' || isShortRoomId(roomCode)) {
+      try {
+        var roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(widget.room.id).get();
+        if (!roomDoc.exists) {
+          roomDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(widget.room.id).get();
+        }
+        if (roomDoc.exists) {
+          final data = roomDoc.data() ?? {};
+          // Firebase chuẩn 100% tiếng Anh: Chỉ đọc trường 'roomCode', không đọc tiếng Việt (maPhong, maphong, trangthai)
+          final fetched = (data['roomCode'] ?? '').toString().trim().toUpperCase();
+          if (fetched.isNotEmpty && !isShortRoomId(fetched)) {
+            roomCode = fetched.startsWith('P') ? fetched : 'P$fetched';
+            final newContent = IdGenerator.transferContent(
+              renterCode: renterCode,
+              roomCode: roomCode,
+            );
+            if (mounted && _transferContent != newContent) {
+              setState(() {
+                _transferContent = newContent;
+                _qrImageUrl = VietQRHelper.buildVietQrImageUrl(
+                  amount: widget.paymentAmount,
+                  addInfo: _transferContent,
+                  accountNo: VietQRHelper.defaultAccountNo,
+                  accountName: VietQRHelper.defaultAccountName,
+                );
+                _emvcoPayload = VietQRHelper.generateNapasEmvcoPayload(
+                  amount: widget.paymentAmount,
+                  addInfo: _transferContent,
+                  accountNo: VietQRHelper.defaultAccountNo,
+                  bankBin: VietQRHelper.defaultBankBin,
+                );
+              });
+            }
+          }
+        }
+      } catch (_) {}
+    }
   }
 
   void _startTimer() {
@@ -148,31 +207,32 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
       final durationText = _secondsRemaining > 0 ? 'Còn ${_formatDuration(_secondsRemaining)}' : 'Hết hạn';
       final amountFormatted = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(widget.paymentAmount);
 
-      // 1. Cập nhật trạng thái booking thành chờ Admin xác nhận trong Firestore
+      // 1. Cập nhật trạng thái booking thành chờ Admin xác nhận trong Firestore (100% tiếng Anh)
       if (widget.booking.id.isNotEmpty) {
         await FirebaseFirestore.instance.collection('bookings').doc(widget.booking.id).set({
-          'status': 'choXacNhan',
-          'trangThai': 'choXacNhan',
+          'status': 'pending_confirmation',
           'description': 'Chờ xác nhận',
-          'moTa': 'Chờ xác nhận',
           'isPaid': false,
-          'daThanhToan': false,
           'paymentType': widget.paymentType,
-          'hinhThucThanhToan': widget.paymentType,
           'paymentAmount': widget.paymentAmount,
-          'soTienThanhToan': widget.paymentAmount,
           'transferNote': _transferContent,
-          'ghiChuChuyenKhoan': _transferContent,
           'userCode': _transferContent,
-          'maNguoiDung': _transferContent,
           'durationText': durationText,
-          'hanChuyen': durationText,
-          'note': isFullPayment ? 'Thanh toán toàn bộ phòng' : 'Đặt cọc giữ phòng',
-          'ghiChu': isFullPayment ? 'Thanh toán toàn bộ phòng' : 'Đặt cọc giữ phòng',
+          'note': isFullPayment ? 'Thanh toán toàn bộ tiền phòng (không tính cọc)' : 'Đặt cọc giữ phòng',
           'confirmedAt': FieldValue.serverTimestamp(),
-          'ngayXacNhan': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
-          'ngayCapNhat': FieldValue.serverTimestamp(),
+          // Xóa triệt để các trường tiếng Việt trên Firebase
+          'trangThai': FieldValue.delete(),
+          'moTa': FieldValue.delete(),
+          'daThanhToan': FieldValue.delete(),
+          'hinhThucThanhToan': FieldValue.delete(),
+          'soTienThanhToan': FieldValue.delete(),
+          'ghiChuChuyenKhoan': FieldValue.delete(),
+          'maNguoiDung': FieldValue.delete(),
+          'hanChuyen': FieldValue.delete(),
+          'ghiChu': FieldValue.delete(),
+          'ngayXacNhan': FieldValue.delete(),
+          'ngayCapNhat': FieldValue.delete(),
         }, SetOptions(merge: true));
       }
 
@@ -191,6 +251,40 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
         'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // 2b. Gửi thông báo đến Chủ trọ (Role Host: pendingAction - Đang xử lý)
+      final hostId = widget.booking.hostId.isNotEmpty
+          ? widget.booking.hostId
+          : widget.room.hostId;
+      if (hostId.isNotEmpty && hostId != 'guest') {
+        final hostNotifId = IdGenerator.notification();
+        await FirebaseFirestore.instance.collection('notifications').doc(hostNotifId).set({
+          'id': hostNotifId,
+          'notificationId': hostNotifId,
+          'receiverId': hostId,
+          'senderId': widget.booking.renterId,
+          'recipientRole': 'host',
+          'notificationType': 'pendingAction',
+          'title': 'Yêu cầu đặt phòng đang chờ xử lý',
+          'message': 'Khách ${widget.booking.renterName} đã chuyển khoản $typeTitle $amountFormatted cho phòng "${widget.room.title}". Đang chờ Admin xác nhận.',
+          'bookingId': widget.booking.id,
+          'bookingCode': widget.booking.id,
+          'roomId': widget.room.id,
+          'roomCode': widget.room.roomCode.isNotEmpty ? widget.room.roomCode : widget.room.maPhong,
+          'roomTitle': widget.room.title,
+          'roomFloorInfo': 'Tầng ${widget.room.floor > 0 ? widget.room.floor : 1} • ${widget.room.roomType}',
+          'propertyId': widget.room.propertyId,
+          'amount': widget.paymentAmount,
+          'statusId': 'pending',
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+          'renterName': widget.booking.renterName,
+          'renterAvatarUrl': '',
+          'checkInDate': Timestamp.fromDate(widget.booking.moveInDate),
+          'paymentMethod': 'Chuyển khoản QR',
+          'paymentType': widget.paymentType,
+        });
+      }
 
       // 3. Ghi vết kiểm toán hệ thống vào audit_logs
       final logId = IdGenerator.auditLog();

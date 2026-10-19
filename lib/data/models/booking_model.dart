@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Model Đơn đặt phòng & Lịch hẹn xem phòng chuẩn hóa theo Database homeShare (DrawIO pkg_3: Đặt phòng và kỳ ở)
@@ -10,6 +11,7 @@ class BookingRequestModel {
   final String renterPhone; // sdtNguoiO / sdtKhach
   final String renterGender; // gioiTinhNguoiO
   final String roomId; // phongId / baiDangId
+  final String? _roomCode;
   final String roomTitle; // tieuDePhong
   final String roomAddress; // diaChiPhong
   final double roomPrice; // giaThue / giaPhong
@@ -24,11 +26,100 @@ class BookingRequestModel {
   final DateTime moveInDate; // ngayVao / thoiDiem
   final DateTime? acceptedDate; // ngayChapNhan
   final String note; // ghiChu
+  final String? cancelReason; // lyDoHuy
   final DateTime createdAt; // ngayTao
+
+  // Status Helper Getters
+  bool get isPending {
+    final s = status.toLowerCase();
+    return s == 'pending' ||
+        s == 'pending_payment' ||
+        s == 'pending_confirmation' ||
+        s == 'choduyet' ||
+        s == 'cho_duyet' ||
+        s == 'choxacnhan' ||
+        s == 'dangxuly' ||
+        s == 'disburse';
+  }
+
+  bool get isApproved {
+    final s = status.toLowerCase();
+    return s == 'approved' ||
+        s == 'daduyet' ||
+        s == 'da_duyet' ||
+        s == 'deposit_paid' ||
+        s == 'paid' ||
+        s == 'completed' ||
+        s == 'dacoc' ||
+        s == 'chonhanphong';
+  }
+
+  bool get isActive {
+    final s = status.toLowerCase();
+    return s == 'active' ||
+        s == 'dango' ||
+        s == 'dang_o' ||
+        s == 'danhanphong';
+  }
+
+  bool get isCancelled {
+    final s = status.toLowerCase();
+    return s == 'cancelled' ||
+        s == 'dahuy' ||
+        s == 'da_huy' ||
+        s == 'rejected' ||
+        s == 'tuchoi';
+  }
+
+  String get normalizedStatus {
+    if (isCancelled) return 'daHuy';
+    if (isActive) return 'dangO';
+    if (isApproved) return 'daDuyet';
+    return 'choDuyet';
+  }
+
+  String get statusDisplayVi {
+    if (isCancelled) return 'Đã hủy';
+    if (isActive) return 'Đang ở';
+    if (isApproved) return 'Đã duyệt';
+    return 'Chờ duyệt';
+  }
+
+  Map<String, dynamic> toQrData() {
+    final effectiveTotal = totalAmount > 0
+        ? totalAmount
+        : (paymentOption == 'full' ? roomPrice : (deposit > 0 ? deposit : roomPrice));
+    return {
+      'type': 'checkin',
+      'bookingId': id,
+      'bookingCode': id,
+      'roomId': roomId,
+      'roomCode': roomCode.isNotEmpty ? roomCode : roomTitle,
+      'roomTitle': roomTitle,
+      'roomAddress': roomAddress,
+      'roomPrice': roomPrice,
+      'deposit': deposit,
+      'totalAmount': effectiveTotal,
+      'paymentAmount': effectiveTotal,
+      'paidAmount': effectiveTotal,
+      'rentalMonths': rentalMonths,
+      'paymentOption': paymentOption,
+      'paymentType': paymentOption,
+      'renterId': renterId,
+      'renterUserCode': renterUserCode,
+      'renterName': renterName,
+      'renterPhone': renterPhone,
+      'renterGender': renterGender,
+      'moveInDate': moveInDate.toIso8601String(),
+      'status': status,
+    };
+  }
 
   // Vietnamese DrawIO Alias Getters
   String get donId => id;
   String get phongId => roomId;
+  String get roomCode => _roomCode ?? '';
+  String get maPhong => roomCode;
   String get nguoiDungId => renterId;
   String get renterUserCode => _renterUserCode ?? '';
   String get maNguoiDung => renterUserCode;
@@ -49,6 +140,7 @@ class BookingRequestModel {
   DateTime get ngayVao => moveInDate;
   DateTime? get ngayChapNhan => acceptedDate;
   String get ghiChu => note;
+  String? get lyDoHuy => cancelReason;
   DateTime get ngayTao => createdAt;
 
   BookingRequestModel({
@@ -59,6 +151,7 @@ class BookingRequestModel {
     required this.renterPhone,
     this.renterGender = 'nam',
     required this.roomId,
+    String? roomCode = '',
     required this.roomTitle,
     required this.roomAddress,
     required this.roomPrice,
@@ -73,8 +166,10 @@ class BookingRequestModel {
     required this.moveInDate,
     this.acceptedDate,
     this.note = '',
+    this.cancelReason,
     required this.createdAt,
-  }) : _renterUserCode = renterUserCode ?? '';
+  })  : _renterUserCode = renterUserCode ?? '',
+        _roomCode = roomCode ?? '';
 
   BookingRequestModel copyWith({
     String? id,
@@ -84,6 +179,7 @@ class BookingRequestModel {
     String? renterPhone,
     String? renterGender,
     String? roomId,
+    String? roomCode,
     String? roomTitle,
     String? roomAddress,
     double? roomPrice,
@@ -98,6 +194,7 @@ class BookingRequestModel {
     DateTime? moveInDate,
     DateTime? acceptedDate,
     String? note,
+    String? cancelReason,
     DateTime? createdAt,
   }) {
     return BookingRequestModel(
@@ -108,6 +205,7 @@ class BookingRequestModel {
       renterPhone: renterPhone ?? this.renterPhone,
       renterGender: renterGender ?? this.renterGender,
       roomId: roomId ?? this.roomId,
+      roomCode: roomCode ?? this.roomCode,
       roomTitle: roomTitle ?? this.roomTitle,
       roomAddress: roomAddress ?? this.roomAddress,
       roomPrice: roomPrice ?? this.roomPrice,
@@ -122,6 +220,7 @@ class BookingRequestModel {
       moveInDate: moveInDate ?? this.moveInDate,
       acceptedDate: acceptedDate ?? this.acceptedDate,
       note: note ?? this.note,
+      cancelReason: cancelReason ?? this.cancelReason,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -139,15 +238,16 @@ class BookingRequestModel {
       renterPhone: data['sdtNguoiO'] ?? data['renterPhone'] ?? data['sdtKhach'] ?? '',
       renterGender: data['gioiTinhNguoiO'] ?? data['renterGender'] ?? 'nam',
       roomId: data['phongId'] ?? data['roomId'] ?? data['baiDangId'] ?? '',
+      roomCode: (data['roomCode'] ?? data['maPhong'] ?? '').toString(),
       roomTitle: data['tieuDePhong'] ?? data['roomTitle'] ?? data['tieuDe'] ?? '',
       roomAddress: data['diaChiPhong'] ?? data['roomAddress'] ?? data['diaChi'] ?? '',
-      roomPrice: ((data['giaThue'] ?? data['giaPhong'] ?? data['roomPrice']) as num?)?.toDouble() ?? 0.0,
-      deposit: ((data['tienCoc'] ?? data['deposit']) as num?)?.toDouble() ?? 0.0,
-      totalAmount: ((data['tongPhaiTra'] ?? data['totalAmount']) as num?)?.toDouble() ?? 0.0,
+      roomPrice: ((data['giaThue'] ?? data['giaPhong'] ?? data['roomPrice'] ?? data['price'] ?? data['rentalPrice']) as num?)?.toDouble() ?? 0.0,
+      deposit: ((data['tienCoc'] ?? data['deposit'] ?? data['depositAmount']) as num?)?.toDouble() ?? 0.0,
+      totalAmount: ((data['tongPhaiTra'] ?? data['totalAmount'] ?? data['paymentAmount'] ?? data['amount'] ?? data['paidAmount']) as num?)?.toDouble() ?? 0.0,
       rentalMonths: ((data['soThangThue'] ?? data['rentalMonths']) as num?)?.toInt() ?? 1,
       hostId: data['chuNhaId'] ?? data['hostId'] ?? '',
       hostName: data['tenChuNha'] ?? data['hostName'] ?? '',
-      status: data['trangThai'] ?? data['status'] ?? 'pending',
+      status: data['status'] ?? data['trangThai'] ?? 'pending',
       paymentOption: (data['hinhThucThanhToan'] ?? data['paymentOption'] ?? data['paymentType'] ?? 'deposit').toString(),
       transferNote: data['ghiChuChuyenKhoan'] ?? data['maNguoiDung'] ?? data['transferNote'] ?? data['renterUserCode'] ?? data['userCode'],
       moveInDate: (data['ngayVao'] is Timestamp)
@@ -163,6 +263,7 @@ class BookingRequestModel {
               ? (data['acceptedDate'] as Timestamp).toDate()
               : null,
       note: data['ghiChu'] ?? data['note'] ?? '',
+      cancelReason: data['cancelReason'] ?? data['lyDoHuy'],
       createdAt: (data['ngayTao'] is Timestamp)
           ? (data['ngayTao'] as Timestamp).toDate()
           : (data['createdAt'] is Timestamp)
@@ -182,6 +283,7 @@ class BookingRequestModel {
       'renterPhone': renterPhone,
       'renterGender': renterGender,
       'roomId': roomId,
+      'roomCode': roomCode,
       'roomTitle': roomTitle,
       'roomAddress': roomAddress,
       'rentalPrice': roomPrice,
@@ -196,7 +298,10 @@ class BookingRequestModel {
       'moveInDate': Timestamp.fromDate(moveInDate),
       if (acceptedDate != null) 'acceptedDate': Timestamp.fromDate(acceptedDate!),
       'note': note,
+      if (cancelReason != null) 'cancelReason': cancelReason,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
+
+  String toQrJson() => jsonEncode(toQrData());
 }

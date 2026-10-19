@@ -546,7 +546,7 @@ class HostPostCard extends StatelessWidget {
         ? post.authorName.trim().split(' ').last.substring(0, 1).toUpperCase()
         : 'HS';
 
-    if (avatarUrl.isNotEmpty && avatarUrl.startsWith('http')) {
+    if (avatarUrl.startsWith('http')) {
       return CircleAvatar(
         radius: 20,
         backgroundColor: const Color(0xFFE2E8F0),

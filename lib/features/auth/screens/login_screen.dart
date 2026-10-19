@@ -17,8 +17,6 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  static const _gmailSuffix = '@gmail.com';
-
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _emailController;
   final _passwordController = TextEditingController();
@@ -29,7 +27,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _emailController = TextEditingController(text: _gmailLocalPart(widget.initialEmail ?? ''));
+    _emailController = TextEditingController(text: (widget.initialEmail ?? '').trim());
     final pending = AuthService.pendingLockNotice;
     if (pending != null) {
       _lockNotice = pending;
@@ -53,7 +51,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final authService = ref.read(authServiceProvider);
       await authService.signInWithEmail(
-        email: _fullGmail(_emailController.text),
+        email: _emailController.text.trim().toLowerCase(),
         password: _passwordController.text,
       );
 
@@ -154,20 +152,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         AuthTextField(
                           controller: _emailController,
                           label: 'Email',
-                          hint: 'an.nguyen',
+                          hint: 'an.nguyen@gmail.com',
                           icon: Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
-                          suffixIcon: const Padding(
-                            padding: EdgeInsets.only(right: 12),
-                            child: Text(
-                              _gmailSuffix,
-                              style: TextStyle(
-                                color: AppColors.textDark,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
                           validator: _validateGmailLocal,
                         ),
                         const SizedBox(height: 16),
@@ -202,7 +189,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => ForgotPasswordScreen(initialEmail: _fullGmail(_emailController.text)),
+                                  builder: (_) => ForgotPasswordScreen(initialEmail: _emailController.text.trim()),
                                 ),
                               );
                             },
@@ -282,7 +269,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           );
                           if (registeredEmail != null && registeredEmail.isNotEmpty && mounted) {
                             setState(() {
-                              _emailController.text = _gmailLocalPart(registeredEmail);
+                              _emailController.text = registeredEmail.trim();
                               _passwordController.clear();
                             });
                           }
@@ -303,21 +290,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  String _gmailLocalPart(String raw) {
-    var value = raw.trim();
-    if (value.toLowerCase().endsWith(_gmailSuffix)) {
-      value = value.substring(0, value.length - _gmailSuffix.length).trim();
-    }
-    return value;
-  }
-
-  String _fullGmail(String raw) => '${_gmailLocalPart(raw)}$_gmailSuffix';
-
   String? _validateGmailLocal(String? val) {
-    final local = _gmailLocalPart(val ?? '');
-    if (local.isEmpty) return 'Vui lòng nhập email';
-    if (!RegExp(r'^[A-Za-z0-9._+-]+$').hasMatch(local)) {
-      return 'Chỉ nhập phần tên trước @gmail.com';
+    final email = (val ?? '').trim().toLowerCase();
+    if (email.isEmpty) return 'Vui lòng nhập đủ email';
+    if (!RegExp(r'^[A-Za-z0-9._+-]+@gmail\.com$').hasMatch(email)) {
+      return 'Nhập đủ địa chỉ, ví dụ ten@gmail.com';
     }
     return null;
   }

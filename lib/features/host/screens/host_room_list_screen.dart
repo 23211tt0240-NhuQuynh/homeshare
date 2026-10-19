@@ -347,6 +347,14 @@ class _HostRoomListScreenState extends ConsumerState<HostRoomListScreen> {
                           ),
                       ],
                     ),
+                    if (room.id.isNotEmpty)
+                      Text(
+                        'Mã: ${room.id}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                     const SizedBox(height: 6),
                     Text.rich(
                       TextSpan(

@@ -384,11 +384,13 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: const [
+        title: const Row(
+          children: [
             Icon(Icons.check_circle, color: Color(0xFF10B981), size: 28),
             SizedBox(width: 8),
-            Text('Đăng tin thành công!'),
+            Expanded(
+              child: Text('Đăng tin thành công!', maxLines: 2),
+            ),
           ],
         ),
         content: const Text(
@@ -408,9 +410,16 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
+              minimumSize: const Size(64, 40),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            child: const Text('Xem trên cộng đồng', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Xem trên cộng đồng',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),

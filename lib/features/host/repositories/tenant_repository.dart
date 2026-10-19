@@ -329,7 +329,7 @@ class TenantRepository {
   }) async {
     final batch = _firestore.batch();
 
-    // 1. Tạo booking
+    // 1. Tạo booking & lưu don_dat_phong theo chuẩn Ảnh 2 & SQL_NHOM4_CHUYENDEDIDONG.sql
     final bookingRef = _firestore.collection(FirestoreCollections.bookings).doc();
     final booking = BookingRequestModel(
       id: bookingRef.id,
@@ -348,7 +348,21 @@ class TenantRepository {
       moveInDate: moveInDate,
       createdAt: DateTime.now(),
     );
-    batch.set(bookingRef, booking.toMap());
+    // 1. Tạo hoặc cập nhật booking
+    final bookingPayload = {
+      'id': bookingRef.id,
+      'roomId': roomId,
+      'renterId': booking.renterId,
+      'renterName': tenantName,
+      'renterPhone': tenantPhone,
+      'deposit': deposit,
+      'rentalMonths': rentalMonths,
+      'moveInDate': Timestamp.fromDate(moveInDate),
+      'status': 'daCoc',
+      'hostId': hostId,
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+    batch.set(bookingRef, bookingPayload);
 
     // 2. Tạo kỳ ở (period)
     final periodRef = _firestore.collection(FirestoreCollections.periods).doc();
@@ -385,6 +399,104 @@ class TenantRepository {
       'contractStart': Timestamp.fromDate(moveInDate),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    await batch.commit();
+  }
+
+  /// Thêm người ở ghép vào chung phòng với người thuê chính
+  Future<void> addRoommateToRoom({
+    required String roomId,
+    required String primaryTenantId,
+    required String primaryTenantName,
+    required String newRoommateId,
+    required String newRoommateName,
+    String newRoommatePhone = '',
+    String newRoommateAvatar = '',
+  }) async {
+    final batch = _firestore.batch();
+
+    // 1. Tìm hoặc tạo kỳ ở (Period) cho phòng
+    String periodId = '';
+    final periodQuery = await _firestore
+        .collection(FirestoreCollections.periods)
+        .where('roomId', isEqualTo: roomId)
+        .where('status', isEqualTo: 'dangO')
+        .limit(1)
+        .get();
+
+    if (periodQuery.docs.isNotEmpty) {
+      periodId = periodQuery.docs.first.id;
+    } else {
+      final periodRef = _firestore.collection(FirestoreCollections.periods).doc();
+      periodId = periodRef.id;
+      batch.set(periodRef, {
+        'id': periodId,
+        'roomId': roomId,
+        'renterId': primaryTenantId,
+        'startDate': FieldValue.serverTimestamp(),
+        'status': 'dangO',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    // 2. Đảm bảo người thuê chính có bản ghi trong residents nếu chưa có
+    final primaryResQuery = await _firestore
+        .collection(FirestoreCollections.residents)
+        .where('periodId', isEqualTo: periodId)
+        .where('userId', isEqualTo: primaryTenantId)
+        .limit(1)
+        .get();
+
+    if (primaryResQuery.docs.isEmpty) {
+      final primaryResRef = _firestore.collection(FirestoreCollections.residents).doc();
+      batch.set(primaryResRef, {
+        'id': primaryResRef.id,
+        'periodId': periodId,
+        'roomId': roomId,
+        'userId': primaryTenantId,
+        'fullName': primaryTenantName,
+        'formId': 'chinh',
+        'statusId': 'dangO',
+        'moveInDate': FieldValue.serverTimestamp(),
+      });
+    }
+
+    // 3. Thêm cư dân mới (người ở ghép) vào collection residents
+    final newResRef = _firestore.collection(FirestoreCollections.residents).doc();
+    batch.set(newResRef, {
+      'id': newResRef.id,
+      'periodId': periodId,
+      'roomId': roomId,
+      'userId': newRoommateId,
+      'fullName': newRoommateName,
+      'phone': newRoommatePhone,
+      'avatar': newRoommateAvatar,
+      'formId': 'oGhep',
+      'statusId': 'dangO',
+      'moveInDate': FieldValue.serverTimestamp(),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    // 4. Cập nhật tên phòng kết hợp ở cả host_rooms và rooms
+    final combinedTenantName = '$primaryTenantName & $newRoommateName';
+
+    final hostRoomRef = _firestore.collection(FirestoreCollections.hostRooms).doc(roomId);
+    batch.set(hostRoomRef, {
+      'status': 'occupied',
+      'tenantName': combinedTenantName,
+      'tenantIds': FieldValue.arrayUnion([primaryTenantId, newRoommateId]),
+      'roommates': FieldValue.arrayUnion([newRoommateName]),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    final roomRef = _firestore.collection(FirestoreCollections.rooms).doc(roomId);
+    batch.set(roomRef, {
+      'status': 'occupied',
+      'tenantName': combinedTenantName,
+      'tenantIds': FieldValue.arrayUnion([primaryTenantId, newRoommateId]),
+      'roommates': FieldValue.arrayUnion([newRoommateName]),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
 
     await batch.commit();
   }

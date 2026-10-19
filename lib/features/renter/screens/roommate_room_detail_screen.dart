@@ -11,6 +11,7 @@ import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
+import '../../profile/screens/personal_profile_screen.dart';
 
 /// Một dòng thói quen. `detail` để trống khi chữ lấy thẳng từ bài đăng.
 class _HabitItem {
@@ -247,7 +248,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
           isLandlord: false,
           currentUserId: currentUser.uid,
           currentUserName: profile?.displayName ?? currentUser.displayName ?? 'Khách thuê',
-          pinnedRoom: null,
+          pinnedPost: _post,
         ),
       ),
     );
@@ -345,10 +346,10 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
             child: CircleAvatar(
               radius: 16,
               backgroundColor: AppColors.primaryContainer,
-              backgroundImage: _networkImage(profile?.avatarUrl ?? ''),
-              child: _networkImage(profile?.avatarUrl ?? '') == null
-                  ? const Icon(Icons.person, size: 18, color: AppColors.primary)
-                  : null,
+              backgroundImage: (profile?.avatarUrl.startsWith('http') == true) ? NetworkImage(profile!.avatarUrl) : null,
+              child: profile?.avatarUrl.startsWith('http') == true
+                  ? null
+                  : const Icon(Icons.person, size: 18, color: AppColors.primary),
             ),
           ),
         ],
@@ -485,12 +486,23 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
     );
   }
 
+  void _openAuthorProfile() {
+    final authorId = _post.authorId.trim();
+    if (authorId.isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => PersonalProfileScreen(userId: authorId)),
+    );
+  }
+
   /// Thẻ người đăng: tên, tuổi, nghề và avatar lấy từ bài.
   Widget _posterCard() {
     return _infoCard(
       child: Row(
       children: [
-        Stack(
+        GestureDetector(
+          onTap: _openAuthorProfile,
+          child: Stack(
           children: [
             CircleAvatar(
               radius: 24,
@@ -517,7 +529,8 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
               ),
             ),
           ],
-        ),
+            ),
+          ),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -525,7 +538,10 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
             children: [
               Row(
                 children: [
-                  Text(_posterName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                  GestureDetector(
+                    onTap: _openAuthorProfile,
+                    child: Text(_posterName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                  ),
                   const SizedBox(width: 6),
                   if (_ageLabel.isNotEmpty) Text(_ageLabel, style: const TextStyle(color: AppColors.textMuted, fontSize: 15)),
                 ],
@@ -924,18 +940,13 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
   ImageProvider? _avatarProvider(String raw) {
     final url = raw.trim();
     if (url.startsWith('http://') || url.startsWith('https://')) return NetworkImage(url);
-    if (url.startsWith('data:image')) {
-      try {
-        final comma = url.indexOf(',');
-        return MemoryImage(base64Decode(comma == -1 ? url : url.substring(comma + 1)));
-      } catch (_) {}
-    }
-    if (url.isNotEmpty) return FileImage(File(url));
     return null;
   }
 
   ImageProvider? _networkImage(String url) {
-    if (url.startsWith('http://') || url.startsWith('https://')) return NetworkImage(url);
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return NetworkImage(url);
+    }
     return null;
   }
 }

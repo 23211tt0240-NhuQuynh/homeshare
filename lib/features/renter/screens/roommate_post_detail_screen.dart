@@ -196,6 +196,12 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
     );
   }
 
+  ImageProvider? _authorImage(String raw) {
+    final url = raw.trim();
+    if (url.startsWith('http://') || url.startsWith('https://')) return NetworkImage(url);
+    return null;
+  }
+
   void _openSharedRoomDetail() {
     if (!widget.post.hasRoom) return;
     Navigator.push(
@@ -235,6 +241,7 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
           isLandlord: false,
           currentUserId: currentUser.uid,
           currentUserName: profile?.displayName ?? currentUser.displayName ?? 'Khách thuê',
+          pinnedPost: widget.post,
         ),
       ),
     );
@@ -860,12 +867,8 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
                                 CircleAvatar(
                                   radius: 28,
                                   backgroundColor: AppColors.primarySurface,
-                                  backgroundImage: post.authorAvatar.isNotEmpty
-                                      ? (post.authorAvatar.startsWith('http')
-                                          ? NetworkImage(post.authorAvatar) as ImageProvider
-                                          : FileImage(File(post.authorAvatar)))
-                                      : null,
-                                  child: post.authorAvatar.isEmpty
+                                  backgroundImage: _authorImage(post.authorAvatar),
+                                  child: _authorImage(post.authorAvatar) == null
                                       ? Text(
                                           post.authorName.isNotEmpty ? post.authorName[0] : 'U',
                                           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primary),

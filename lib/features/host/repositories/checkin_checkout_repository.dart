@@ -18,6 +18,10 @@ class CheckinCheckoutItem {
   final String propertyName;
   final int floor;
   final double deposit;
+  final double roomPrice;
+  final double totalAmount;
+  final String paymentOption;
+  final String roomTitle;
   final DateTime expectedDate; // Ngày vào (check-in) hoặc Ngày dự kiến trả (check-out)
   final String status; // 'choNhanPhong', 'dangO', 'daCheckout', 'daNhanPhong'
   final bool isCompleted;
@@ -36,6 +40,10 @@ class CheckinCheckoutItem {
     required this.propertyName,
     this.floor = 1,
     required this.deposit,
+    this.roomPrice = 0.0,
+    this.totalAmount = 0.0,
+    this.paymentOption = 'deposit',
+    this.roomTitle = '',
     required this.expectedDate,
     required this.status,
     this.isCompleted = false,
@@ -87,13 +95,23 @@ class CheckinCheckoutRepository {
                 booking.status == 'choDuyet' ||
                 booking.status == 'approved' ||
                 booking.status == 'daDuyet' ||
-                booking.status == 'choNhanPhong';
+                booking.status == 'choNhanPhong' ||
+                booking.status == 'daCoc' ||
+                booking.status == 'deposit_paid' ||
+                booking.status == 'completed' ||
+                booking.status == 'daThanhToan';
 
             final isDone = booking.status == 'dangO' ||
                 booking.status == 'active';
 
             final propName = propertyNames[room.propertyId] ??
                 (room.address.isNotEmpty ? room.address : 'Nhà trọ');
+
+            final calculatedPrice = booking.roomPrice > 0 ? booking.roomPrice : room.price;
+            final isFull = booking.paymentOption == 'full' || booking.paymentOption == 'toanbo';
+            final calculatedTotal = booking.totalAmount > 0
+                ? booking.totalAmount
+                : (isFull ? calculatedPrice : (booking.deposit > 0 ? booking.deposit : room.deposit));
 
             if (isPending) {
               items.add(CheckinCheckoutItem(
@@ -107,6 +125,10 @@ class CheckinCheckoutRepository {
                 propertyName: propName,
                 floor: room.floor > 0 ? room.floor : 1,
                 deposit: booking.deposit > 0 ? booking.deposit : room.deposit,
+                roomPrice: calculatedPrice,
+                totalAmount: calculatedTotal,
+                paymentOption: booking.paymentOption,
+                roomTitle: room.title.isNotEmpty ? room.title : propName,
                 expectedDate: booking.moveInDate,
                 status: 'Chờ nhận phòng',
                 isCompleted: false,
@@ -123,6 +145,10 @@ class CheckinCheckoutRepository {
                 propertyName: propName,
                 floor: room.floor > 0 ? room.floor : 1,
                 deposit: booking.deposit > 0 ? booking.deposit : room.deposit,
+                roomPrice: calculatedPrice,
+                totalAmount: calculatedTotal,
+                paymentOption: booking.paymentOption,
+                roomTitle: room.title.isNotEmpty ? room.title : propName,
                 expectedDate: booking.moveInDate,
                 status: 'Đã nhận phòng',
                 isCompleted: true,
@@ -300,10 +326,7 @@ class CheckinCheckoutRepository {
           _firestore.collection(FirestoreCollections.periods).doc(periodId);
       batch.update(periodRef, {
         'status': 'daKetThuc',
-        'trangThai': 'daKetThuc',
         'endDate': FieldValue.serverTimestamp(),
-        'ngayKetThuc': FieldValue.serverTimestamp(),
-        'ketThucLuc': FieldValue.serverTimestamp(),
       });
 
       // Cập nhật cư dân trong period
@@ -320,9 +343,7 @@ class CheckinCheckoutRepository {
       for (final d in resSnap.docs) {
         batch.update(d.reference, {
           'statusId': 'daRoi',
-          'trangThai_id': 'daRoi',
           'moveOutDate': FieldValue.serverTimestamp(),
-          'ngayRoi': FieldValue.serverTimestamp(),
         });
       }
     }

@@ -5,13 +5,25 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
-import 'cccd_scanner_screen.dart';
+import '../models/cccd_data.dart';
+import '../models/cccd_validation_models.dart';
+import '../services/cccd_image_evidence_extractor.dart';
+import '../services/cccd_image_evidence_validator.dart';
+import 'cccd_scanner_screen.dart' hide CccdData;
+
+/// Trạng thái thẩm định ảnh thẻ CCCD on-device qua Google ML Kit
+enum CccdSideValidationStatus {
+  idle,
+  validating,
+  valid,
+  invalid,
+}
 
 /// Màn hình Xác thực CCCD (eKYC) với 3 mục bắt buộc:
-/// 1. Ảnh mặt trước CCCD
-/// 2. Ảnh mặt sau CCCD
+/// 1. Ảnh mặt trước CCCD (quét OCR qua Google ML Kit, đối soát dấu hiệu & QR)
+/// 2. Ảnh mặt sau CCCD (quét OCR qua Google ML Kit, kiểm tra chip, phôi BCA, MRZ)
 /// 3. Quét lấy thông tin từ mã QR CCCD
-/// Nút xác thực chỉ được kích hoạt khi đã hoàn thành đủ cả 3 mục.
+/// Nút xác thực chỉ được kích hoạt khi cả 3 mục đều hợp lệ.
 class CccdVerificationScreen extends ConsumerStatefulWidget {
   const CccdVerificationScreen({super.key});
 
@@ -21,46 +33,62 @@ class CccdVerificationScreen extends ConsumerStatefulWidget {
 
 class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen> {
   final ImagePicker _picker = ImagePicker();
+  final CccdImageEvidenceExtractor _extractor = const CccdImageEvidenceExtractor();
+  final CccdImageEvidenceValidator _validator = const CccdImageEvidenceValidator();
 
   XFile? _frontImage;
+  CccdSideValidationStatus _frontStatus = CccdSideValidationStatus.idle;
+  String? _frontMessage;
+  CccdImageEvidence? _frontEvidence;
+
   XFile? _backImage;
+  CccdSideValidationStatus _backStatus = CccdSideValidationStatus.idle;
+  String? _backMessage;
+  CccdImageEvidence? _backEvidence;
+
   CccdData? _cccdData;
+  String? _qrRawPayload;
   bool _isSubmitting = false;
 
-  bool get _isComplete => _frontImage != null && _backImage != null && _cccdData != null;
+  bool get _isComplete =>
+      _frontImage != null &&
+      _frontStatus == CccdSideValidationStatus.valid &&
+      _backImage != null &&
+      _backStatus == CccdSideValidationStatus.valid &&
+      _cccdData != null;
 
   int get _completedCount {
     int count = 0;
-    if (_frontImage != null) count++;
-    if (_backImage != null) count++;
+    if (_frontImage != null && _frontStatus == CccdSideValidationStatus.valid) count++;
+    if (_backImage != null && _backStatus == CccdSideValidationStatus.valid) count++;
     if (_cccdData != null) count++;
     return count;
   }
 
   List<String> get _missingItems {
     final list = <String>[];
-    if (_frontImage == null) list.add('Ảnh mặt trước');
-    if (_backImage == null) list.add('Ảnh mặt sau');
-    if (_cccdData == null) list.add('Quét mã QR');
+    if (_frontImage == null || _frontStatus != CccdSideValidationStatus.valid) {
+      list.add('Ảnh mặt trước hợp lệ');
+    }
+    if (_backImage == null || _backStatus != CccdSideValidationStatus.valid) {
+      list.add('Ảnh mặt sau hợp lệ');
+    }
+    if (_cccdData == null) {
+      list.add('Quét mã QR');
+    }
     return list;
   }
 
-  /// Chọn hoặc chụp ảnh mặt trước/sau
+  /// Chụp hoặc chọn ảnh mặt trước/sau
   Future<void> _pickImage(bool isFront, ImageSource source) async {
     try {
       final picked = await _picker.pickImage(
         source: source,
-        imageQuality: 85,
-        maxWidth: 1600,
+        imageQuality: 92,
+        maxWidth: 1920,
       );
       if (picked != null) {
-        setState(() {
-          if (isFront) {
-            _frontImage = picked;
-          } else {
-            _backImage = picked;
-          }
-        });
+        await _processAndValidateImage(isFront: isFront, pickedFile: picked);
       }
     } catch (e) {
       if (mounted) {
@@ -74,33 +102,144 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
     }
   }
 
-  /// Dùng ảnh mẫu demo thử nghiệm khi không có thẻ cứng
-  void _useDemoImage(bool isFront) {
-    // Tạo XFile tạm thời để mô phỏng ảnh CCCD demo
+  /// Xử lý quét chữ bằng Google ML Kit on-device và thẩm định thẻ CCCD
+  Future<void> _processAndValidateImage({
+    required bool isFront,
+    required XFile pickedFile,
+  }) async {
     setState(() {
       if (isFront) {
-        _frontImage = XFile(
-          'demo_cccd_front.jpg',
-          name: 'demo_cccd_front.jpg',
-        );
+        _frontImage = pickedFile;
+        _frontStatus = CccdSideValidationStatus.validating;
+        _frontMessage = 'Đang dùng Google ML Kit nhận diện chữ và thẩm định ảnh mặt trước...';
+        _frontEvidence = null;
       } else {
-        _backImage = XFile(
-          'demo_cccd_back.jpg',
-          name: 'demo_cccd_back.jpg',
-        );
+        _backImage = pickedFile;
+        _backStatus = CccdSideValidationStatus.validating;
+        _backMessage = 'Đang dùng Google ML Kit nhận diện chữ và thẩm định ảnh mặt sau...';
+        _backEvidence = null;
       }
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          isFront
-              ? 'Đã tải ảnh mẫu CCCD mặt trước (Dành cho thử nghiệm)'
-              : 'Đã tải ảnh mẫu CCCD mặt sau (Dành cho thử nghiệm)',
-        ),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    try {
+      final side = isFront ? CccdImageSide.front : CccdImageSide.back;
+      final resultBundle = await _extractor.extractAndValidate(
+        filePath: pickedFile.path,
+        side: side,
+        explicitQrPayload: isFront ? _qrRawPayload : null,
+      );
+
+      final evidence = resultBundle.evidence;
+      final valResult = resultBundle.result;
+
+      if (!mounted) return;
+
+      // 1. Kiểm tra trùng lặp ảnh với mặt đối diện
+      if (evidence != null) {
+        final otherEvidence = isFront ? _backEvidence : _frontEvidence;
+        if (otherEvidence != null && evidence.imageByteHash == otherEvidence.imageByteHash) {
+          setState(() {
+            if (isFront) {
+              _frontStatus = CccdSideValidationStatus.invalid;
+              _frontMessage = 'Cảnh báo: Ảnh mặt trước bị trùng với ảnh mặt sau! Vui lòng chụp 2 mặt khác nhau.';
+              _frontEvidence = evidence;
+            } else {
+              _backStatus = CccdSideValidationStatus.invalid;
+              _backMessage = 'Cảnh báo: Ảnh mặt sau bị trùng với ảnh mặt trước! Vui lòng chụp 2 mặt khác nhau.';
+              _backEvidence = evidence;
+            }
+          });
+          return;
+        }
+      }
+
+      // 2. Phân tích kết quả theo từng mặt
+      if (isFront) {
+        if (valResult.isValid) {
+          setState(() {
+            _frontStatus = CccdSideValidationStatus.valid;
+            _frontEvidence = evidence;
+            _frontMessage = 'Hợp lệ: Đã nhận diện đúng thẻ Căn cước công dân mặt trước ✓';
+            if (valResult.strictData != null) {
+              _cccdData = valResult.strictData;
+              _qrRawPayload = evidence?.qrPayload;
+            }
+          });
+        } else {
+          final String warning;
+          final norm = evidence != null ? evidence.normalizedOcrText.toUpperCase() : '';
+          final hasCccdMarker = norm.contains('CAN CUOC') || norm.contains('CĂN CƯỚC');
+
+          if (valResult.reasonCode == CccdValidationReasonCodes.wrongSideDetected) {
+            warning = 'Cảnh báo: Ảnh bạn chọn là MẶT SAU của thẻ CCCD! Vui lòng chọn đúng MẶT TRƯỚC (có ảnh chân dung, Quốc huy).';
+          } else if (valResult.reasonCode == CccdValidationReasonCodes.resolutionTooLow ||
+              valResult.reasonCode == CccdValidationReasonCodes.imageTooSmall) {
+            warning = 'Cảnh báo: Ảnh bị mờ hoặc độ phân giải quá thấp, không đọc được chữ. Vui lòng chụp lại rõ nét hơn!';
+          } else if (valResult.reasonCode == CccdValidationReasonCodes.frontMarkersMissing) {
+            warning = 'Cảnh báo: Không nhận diện được thẻ Căn cước công dân! Ảnh có thể bị mờ, lóa sáng hoặc không phải thẻ CCCD. Vui lòng chụp lại rõ nét.';
+          } else if (valResult.reasonCode == CccdValidationReasonCodes.qrMissingOrInvalid ||
+              valResult.reasonCode == CccdValidationReasonCodes.qrMissingRequiredFields) {
+            if (hasCccdMarker) {
+              setState(() {
+                _frontStatus = CccdSideValidationStatus.valid;
+                _frontEvidence = evidence;
+                _frontMessage = 'Hợp lệ: Đã nhận diện thẻ CCCD mặt trước ✓ (Vui lòng hoàn tất quét mã QR ở mục 3).';
+              });
+              return;
+            } else {
+              warning = 'Cảnh báo: Không thể nhận diện thẻ CCCD hoặc mã QR. Ảnh bị mờ, chụp nghiêng hoặc lóa sáng. Vui lòng chụp lại!';
+            }
+          } else {
+            warning = 'Cảnh báo: Ảnh không hợp lệ hoặc không phải thẻ Căn cước công dân. Vui lòng chụp lại thẻ thật rõ ràng.';
+          }
+
+          setState(() {
+            _frontStatus = CccdSideValidationStatus.invalid;
+            _frontEvidence = evidence;
+            _frontMessage = warning;
+          });
+        }
+      } else {
+        // Mặt sau
+        if (valResult.isValid) {
+          setState(() {
+            _backStatus = CccdSideValidationStatus.valid;
+            _backEvidence = evidence;
+            _backMessage = 'Hợp lệ: Đã nhận diện đúng thẻ CCCD mặt sau (có chip điện tử / phôi Bộ Công An) ✓';
+          });
+        } else {
+          final String warning;
+          if (valResult.reasonCode == CccdValidationReasonCodes.wrongSideDetected) {
+            warning = 'Cảnh báo: Ảnh bạn chọn là MẶT TRƯỚC của thẻ CCCD! Vui lòng chọn đúng MẶT SAU (có chip điện tử, mã MRZ).';
+          } else if (valResult.reasonCode == CccdValidationReasonCodes.resolutionTooLow ||
+              valResult.reasonCode == CccdValidationReasonCodes.imageTooSmall) {
+            warning = 'Cảnh báo: Ảnh mặt sau bị mờ hoặc độ phân giải quá thấp. Vui lòng chụp lại rõ nét hơn!';
+          } else if (valResult.reasonCode == CccdValidationReasonCodes.backMarkersInsufficient) {
+            warning = 'Cảnh báo: Không nhận diện được mặt sau CCCD! Ảnh bị mờ, lóa hoặc không thấy chip điện tử / phôi Bộ Công An. Vui lòng chụp lại.';
+          } else {
+            warning = 'Cảnh báo: Ảnh không hợp lệ hoặc không phải mặt sau thẻ CCCD. Vui lòng chụp lại!';
+          }
+
+          setState(() {
+            _backStatus = CccdSideValidationStatus.invalid;
+            _backEvidence = evidence;
+            _backMessage = warning;
+          });
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          if (isFront) {
+            _frontStatus = CccdSideValidationStatus.invalid;
+            _frontMessage = 'Cảnh báo: Không thể đọc được ảnh. Vui lòng kiểm tra lại chất lượng ảnh chụp!';
+          } else {
+            _backStatus = CccdSideValidationStatus.invalid;
+            _backMessage = 'Cảnh báo: Không thể đọc được ảnh. Vui lòng kiểm tra lại chất lượng ảnh chụp!';
+          }
+        });
+      }
+    }
   }
 
   /// Hiển thị BottomSheet chọn nguồn ảnh
@@ -139,8 +278,8 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
               const SizedBox(height: 6),
               Text(
                 isFront
-                    ? 'Yêu cầu: Rõ nét họ tên, số CCCD, chân dung, không bị lóa'
-                    : 'Yêu cầu: Rõ nét chip điện tử, mã MRZ và đặc điểm nhận dạng',
+                    ? 'Yêu cầu: Rõ nét họ tên, số CCCD, chân dung, không bị lóa hoặc che khuất'
+                    : 'Yêu cầu: Rõ nét chip điện tử, mã MRZ và thông tin Bộ Công An',
                 style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
               const SizedBox(height: 16),
@@ -150,7 +289,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                   child: Icon(Icons.camera_alt, color: AppColors.primary),
                 ),
                 title: const Text('Chụp ảnh trực tiếp từ Camera', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Mở máy ảnh để chụp thẻ thật'),
+                subtitle: const Text('Mở máy ảnh chụp trực tiếp thẻ thật'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickImage(isFront, ImageSource.camera);
@@ -162,23 +301,32 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                   child: Icon(Icons.photo_library, color: AppColors.primary),
                 ),
                 title: const Text('Chọn ảnh từ Thư viện (Bộ sưu tập)', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Chọn ảnh đã chụp sẵn trong máy'),
+                subtitle: const Text('Chọn ảnh thẻ đã chụp sẵn trên máy'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickImage(isFront, ImageSource.gallery);
                 },
               ),
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.amber.shade100,
-                  child: const Icon(Icons.science_outlined, color: Colors.amber),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
                 ),
-                title: const Text('Dùng ảnh mẫu thử nghiệm (Demo)', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Tiện lợi để kiểm thử chức năng khi không có thẻ bên cạnh'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _useDemoImage(isFront);
-                },
+                child: const Row(
+                  children: [
+                    Icon(Icons.shield_outlined, size: 16, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Google ML Kit on-device sẽ tự động phân tích và thẩm định thẻ CCCD ngay khi chọn ảnh.',
+                        style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -197,21 +345,54 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
     );
 
     if (result != null && mounted) {
+      final rawPayload = _reconstructQrPayload(result);
       setState(() {
         _cccdData = result;
+        _qrRawPayload = rawPayload;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Đã trích xuất thông tin: ${result.fullName} (${result.idNumber}) ✓'),
-          backgroundColor: AppColors.primary,
-        ),
-      );
+
+      // Nếu mặt trước đã chọn trước đó, chạy lại kiểm định với mã QR vừa quét
+      if (_frontImage != null && _frontStatus != CccdSideValidationStatus.valid) {
+        await _processAndValidateImage(isFront: true, pickedFile: _frontImage!);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã trích xuất thông tin: ${result.fullName} (${result.idNumber}) ✓'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+      }
     }
+  }
+
+  String _reconstructQrPayload(CccdData cccd) {
+    String stripSlash(String d) => d.replaceAll('/', '');
+    return '${cccd.idNumber}|${cccd.oldCmnd}|${cccd.fullName}|${stripSlash(cccd.birthDate)}|${cccd.gender}|${cccd.address}|${stripSlash(cccd.issueDate)}';
   }
 
   /// Nhấn nút Xác thực và lưu toàn bộ thông tin
   Future<void> _submitVerification() async {
     if (!_isComplete || _isSubmitting) return;
+
+    if (_frontEvidence != null && _backEvidence != null && _cccdData != null) {
+      final proof = _validator.createProof(
+        frontEvidence: _frontEvidence!,
+        backEvidence: _backEvidence!,
+      );
+      if (!_validator.canSave(proof)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Bằng chứng xác thực chưa đạt tiêu chuẩn an toàn để lưu. Vui lòng kiểm tra lại ảnh!'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+    }
 
     setState(() => _isSubmitting = true);
 
@@ -261,9 +442,12 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                   style: TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 10),
-                const Text('✓ Ảnh mặt trước thẻ CCCD', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
-                const Text('✓ Ảnh mặt sau thẻ CCCD (gắn chip)', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
-                Text('✓ Dữ liệu QR: ${_cccdData!.fullName} - ${_cccdData!.idNumber}', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                const Text('✓ Ảnh mặt trước thẻ CCCD (đã qua thẩm định Google ML Kit)',
+                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                const Text('✓ Ảnh mặt sau thẻ CCCD (đã qua thẩm định Google ML Kit)',
+                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                Text('✓ Dữ liệu QR: ${_cccdData!.fullName} - ${_cccdData!.idNumber}',
+                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
               ],
             ),
             actions: [
@@ -274,8 +458,8 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 onPressed: () {
-                  Navigator.pop(ctx); // Đóng dialog
-                  Navigator.pop(context, true); // Trở về màn hình trước
+                  Navigator.pop(ctx);
+                  Navigator.pop(context, true);
                 },
                 child: const Text('Hoàn Tất'),
               ),
@@ -320,9 +504,11 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
             // Mục 1: Ảnh mặt trước CCCD
             _buildImageUploadCard(
               title: 'Mục 1: Lưu ảnh mặt trước CCCD',
-              subtitle: 'Chụp rõ nét mặt trước (ảnh chân dung, số CCCD, họ tên)',
+              subtitle: 'Chụp rõ nét mặt trước (ảnh chân dung, Quốc huy, số CCCD, họ tên)',
               image: _frontImage,
               isFront: true,
+              status: _frontStatus,
+              message: _frontMessage,
             ),
 
             const SizedBox(height: 16),
@@ -330,9 +516,11 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
             // Mục 2: Ảnh mặt sau CCCD
             _buildImageUploadCard(
               title: 'Mục 2: Lưu ảnh mặt sau CCCD',
-              subtitle: 'Chụp rõ nét mặt sau (chip điện tử, mã MRZ)',
+              subtitle: 'Chụp rõ nét mặt sau (chip điện tử, phôi Bộ Công An, mã MRZ)',
               image: _backImage,
               isFront: false,
+              status: _backStatus,
+              message: _backMessage,
             ),
 
             const SizedBox(height: 16),
@@ -404,9 +592,17 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildStepIndicator(1, 'Mặt trước', _frontImage != null),
+              _buildStepIndicator(
+                1,
+                'Mặt trước',
+                _frontImage != null && _frontStatus == CccdSideValidationStatus.valid,
+              ),
               const SizedBox(width: 8),
-              _buildStepIndicator(2, 'Mặt sau', _backImage != null),
+              _buildStepIndicator(
+                2,
+                'Mặt sau',
+                _backImage != null && _backStatus == CccdSideValidationStatus.valid,
+              ),
               const SizedBox(width: 8),
               _buildStepIndicator(3, 'Quét mã QR', _cccdData != null),
             ],
@@ -460,6 +656,8 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
     required String subtitle,
     required XFile? image,
     required bool isFront,
+    required CccdSideValidationStatus status,
+    required String? message,
   }) {
     final bool hasImage = image != null;
 
@@ -469,8 +667,10 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: hasImage ? const Color(0xFF86EFAC) : Colors.grey.shade300,
-          width: hasImage ? 1.5 : 1,
+          color: status == CccdSideValidationStatus.valid
+              ? const Color(0xFF86EFAC)
+              : (status == CccdSideValidationStatus.invalid ? const Color(0xFFFCA5A5) : Colors.grey.shade300),
+          width: (status == CccdSideValidationStatus.valid || status == CccdSideValidationStatus.invalid) ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
@@ -492,21 +692,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textDark),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: hasImage ? const Color(0xFFD1FAE5) : const Color(0xFFFEE2E2),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  hasImage ? 'Đã có ảnh ✓' : 'Bắt buộc',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: hasImage ? AppColors.primary : Colors.red.shade700,
-                  ),
-                ),
-              ),
+              _buildStatusBadge(status),
             ],
           ),
           const SizedBox(height: 4),
@@ -515,12 +701,80 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
 
           // Khung hiển thị ảnh hoặc ô bấm chụp
           if (hasImage)
-            _buildImagePreview(image, isFront)
+            _buildImagePreview(image, isFront, status, message)
           else
             _buildEmptyImagePlaceholder(isFront),
         ],
       ),
     );
+  }
+
+  Widget _buildStatusBadge(CccdSideValidationStatus status) {
+    switch (status) {
+      case CccdSideValidationStatus.idle:
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEF3C7),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Text(
+            'Cần chọn ảnh mới để xác nhận',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFD97706),
+            ),
+          ),
+        );
+      case CccdSideValidationStatus.validating:
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF6FF),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 10,
+                height: 10,
+                child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF2563EB)),
+              ),
+              SizedBox(width: 4),
+              Text(
+                'Đang thẩm định...',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
+              ),
+            ],
+          ),
+        );
+      case CccdSideValidationStatus.valid:
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFD1FAE5),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Text(
+            'Đã xác nhận CCCD ✓',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+          ),
+        );
+      case CccdSideValidationStatus.invalid:
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEE2E2),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Text(
+            'Không hợp lệ ✕',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red),
+          ),
+        );
+    }
   }
 
   /// Placeholder khi chưa có ảnh
@@ -555,7 +809,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
               ),
               const SizedBox(height: 4),
               const Text(
-                'Camera, Thư viện ảnh hoặc Ảnh mẫu thử nghiệm',
+                'Google ML Kit tự động kiểm tra tính hợp lệ',
                 style: TextStyle(fontSize: 11, color: AppColors.textMuted),
               ),
             ],
@@ -565,11 +819,17 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
     );
   }
 
-  /// Preview khi đã có ảnh
-  Widget _buildImagePreview(XFile image, bool isFront) {
+  /// Preview khi đã có ảnh kèm hộp thông báo kết quả thẩm định
+  Widget _buildImagePreview(
+    XFile image,
+    bool isFront,
+    CccdSideValidationStatus status,
+    String? message,
+  ) {
     final isRealFile = File(image.path).existsSync();
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
@@ -586,54 +846,40 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                     fit: BoxFit.cover,
                   )
                 : Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFFE0F2FE), Color(0xFFBAE6FD)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            isFront ? Icons.badge : Icons.memory,
-                            size: 48,
-                            color: const Color(0xFF0369A1),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            isFront ? 'ẢNH MẪU CCCD MẶT TRƯỚC (DEMO)' : 'ẢNH MẪU CCCD MẶT SAU CHIP (DEMO)',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                              color: Color(0xFF0369A1),
-                            ),
-                          ),
-                          const Text('✓ Tệp hợp lệ sẵn sàng xác thực', style: TextStyle(fontSize: 11, color: Color(0xFF075985))),
-                        ],
-                      ),
+                    color: Colors.grey.shade200,
+                    child: const Center(
+                      child: Icon(Icons.image, size: 48, color: Colors.grey),
                     ),
                   ),
           ),
         ),
         const SizedBox(height: 10),
+
+        // Hộp thông báo / Cảnh báo chi tiết từ Google ML Kit
+        if (message != null) _buildValidationFeedbackBanner(status, message, isFront),
+
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             TextButton.icon(
               onPressed: () => _showImagePickerModal(isFront),
               icon: const Icon(Icons.refresh, size: 16, color: AppColors.primary),
-              label: const Text('Chụp lại / Đổi ảnh', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+              label: const Text('Chụp lại / Đổi ảnh',
+                  style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
             ),
             TextButton.icon(
               onPressed: () {
                 setState(() {
                   if (isFront) {
                     _frontImage = null;
+                    _frontStatus = CccdSideValidationStatus.idle;
+                    _frontMessage = null;
+                    _frontEvidence = null;
                   } else {
                     _backImage = null;
+                    _backStatus = CccdSideValidationStatus.idle;
+                    _backMessage = null;
+                    _backEvidence = null;
                   }
                 });
               },
@@ -643,6 +889,69 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
           ],
         ),
       ],
+    );
+  }
+
+  /// Banner phản hồi kết quả nhận diện từ Google ML Kit
+  Widget _buildValidationFeedbackBanner(
+    CccdSideValidationStatus status,
+    String message,
+    bool isFront,
+  ) {
+    Color bg;
+    Color border;
+    Color textColor;
+    IconData icon;
+
+    switch (status) {
+      case CccdSideValidationStatus.validating:
+        bg = const Color(0xFFEFF6FF);
+        border = const Color(0xFFBFDBFE);
+        textColor = const Color(0xFF1E40AF);
+        icon = Icons.hourglass_top_rounded;
+        break;
+      case CccdSideValidationStatus.valid:
+        bg = const Color(0xFFECFDF5);
+        border = const Color(0xFFA7F3D0);
+        textColor = const Color(0xFF065F46);
+        icon = Icons.check_circle_rounded;
+        break;
+      case CccdSideValidationStatus.invalid:
+        bg = const Color(0xFFFEF2F2);
+        border = const Color(0xFFFECACA);
+        textColor = const Color(0xFF991B1B);
+        icon = Icons.warning_amber_rounded;
+        break;
+      case CccdSideValidationStatus.idle:
+        return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: textColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                fontSize: 12,
+                color: textColor,
+                fontWeight: status == CccdSideValidationStatus.invalid ? FontWeight.w600 : FontWeight.w500,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -703,10 +1012,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
           ),
           const SizedBox(height: 12),
 
-          if (hasQr)
-            _buildQrDataPreview(_cccdData!)
-          else
-            _buildEmptyQrPlaceholder(),
+          if (hasQr) _buildQrDataPreview(_cccdData!) else _buildEmptyQrPlaceholder(),
         ],
       ),
     );
@@ -772,7 +1078,8 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
               ),
               InkWell(
                 onTap: _scanCccdQr,
-                child: const Text('Quét lại', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                child: const Text('Quét lại',
+                    style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -822,7 +1129,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
     );
   }
 
-  /// Thanh hành động dưới cùng (Khóa nút nếu chưa đủ 3 mục)
+  /// Thanh hành động dưới cùng (Khóa nút nếu chưa đủ 3 mục hoặc ảnh không hợp lệ)
   Widget _buildBottomActionBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -857,7 +1164,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Thiếu: ${_missingItems.join(', ')}. Cần đủ cả 3 mục để mở nút xác thực.',
+                        'Thiếu: ${_missingItems.join(', ')}. Cần đủ cả 3 mục hợp lệ để mở nút xác thực.',
                         style: const TextStyle(fontSize: 11.5, color: Colors.red, fontWeight: FontWeight.w500),
                       ),
                     ),
@@ -879,7 +1186,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                     SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Đã đủ 3/3 mục! Bạn có thể nhấn nút xác thực bên dưới.',
+                        'Đã đủ 3/3 mục hợp lệ! Bạn có thể nhấn nút xác thực bên dưới.',
                         style: TextStyle(fontSize: 11.5, color: AppColors.primary, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -887,7 +1194,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                 ),
               ),
 
-            // NÚT XÁC THỰC: Bị DISABLED (onPressed: null) nếu chưa đủ 3 mục
+            // NÚT XÁC THỰC: Bị DISABLED (onPressed: null) nếu chưa đủ 3 mục hợp lệ
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: _isComplete ? AppColors.primary : Colors.grey.shade300,
@@ -912,7 +1219,9 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          _isComplete ? 'XÁC NHẬN & HOÀN TẤT XÁC THỰC' : 'CHƯA ĐỦ ĐIỀU KIỆN XÁC THỰC (0/3)',
+                          _isComplete
+                              ? 'XÁC NHẬN & HOÀN TẤT XÁC THỰC'
+                              : 'CHƯA ĐỦ ĐIỀU KIỆN XÁC THỰC ($_completedCount/3)',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,

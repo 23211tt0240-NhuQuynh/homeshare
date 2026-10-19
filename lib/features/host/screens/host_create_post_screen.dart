@@ -1,20 +1,18 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/firestore_collections.dart';
 import '../../../core/utils/vietnamese_utils.dart';
+import '../../../core/utils/vnd_input.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/user_provider.dart';
 import '../data/host_property.dart';
 import '../providers/host_dashboard_provider.dart';
 import '../providers/host_management_provider.dart';
+import '../widgets/host_form_theme.dart';
 import 'host_create_screen.dart';
 
 /// Màn hình Tạo bài đăng role chủ trọ
@@ -131,59 +129,23 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     });
   }
 
-  String _cleanImageUrl(dynamic raw) {
-    if (raw == null) return '';
-    if (raw is Map) {
-      final u = (raw['url'] ??
-              raw['duongDan'] ??
-              raw['image'] ??
-              raw['imageUrl'] ??
-              raw['link'] ??
-              '')
-          .toString()
-          .trim();
-      return _cleanImageUrl(u);
-    }
-    var s = raw.toString().trim();
-    if (s.startsWith('"') && s.endsWith('"') && s.length > 2) {
-      s = s.substring(1, s.length - 1).trim();
-    }
-    if (s.startsWith("'") && s.endsWith("'") && s.length > 2) {
-      s = s.substring(1, s.length - 1).trim();
-    }
-    if (s.startsWith('{') && s.endsWith('}')) {
-      final match = RegExp(r'(?:duongDan|url|image|imageUrl|link):\s*([^,}]+)')
-          .firstMatch(s);
-      if (match != null) {
-        s = match
-            .group(1)!
-            .trim()
-            .replaceAll('"', '')
-            .replaceAll("'", "");
-      }
-    }
-    return s;
-  }
-
   void _onRoomSelected(RoomModel? room) async {
     if (room == null) return;
     setState(() {
       _selectedRoom = room;
-      _title.text = room.title.isNotEmpty
-          ? room.title
-          : 'Phòng ${room.maPhong} • ${_property?.name ?? ''}';
+      _title.text = room.title.isNotEmpty ? room.title : room.roomCode;
       _areaController.text = room.area > 0
           ? room.area.round().toString()
           : '25';
-      _price.text = room.price > 0 ? room.price.round().toString() : '';
+      _price.text = room.price > 0 ? formatVnd(room.price.round()) : '';
 
       // Tự động điền tiền cọc từ phòng đã chọn:
       if (room.deposit > 0) {
-        _depositController.text = room.deposit.round().toString();
+        _depositController.text = formatVnd(room.deposit.round());
       } else if (room.price > 0) {
-        _depositController.text = room.price.round().toString();
+        _depositController.text = formatVnd(room.price.round());
       } else {
-        _depositController.text = room.deposit.round().toString();
+        _depositController.text = '';
       }
 
       _address.text = room.address.isNotEmpty
@@ -193,7 +155,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       // 1. Lấy ảnh từ room.images
       _existingImageUrls.clear();
       for (final img in room.images) {
-        final c = _cleanImageUrl(img);
+        final c = HostImageUtils.cleanImageUrl(img);
         if (c.isNotEmpty && !_existingImageUrls.contains(c)) {
           _existingImageUrls.add(c);
         }
@@ -277,13 +239,13 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           final docImgs = <String>[];
           if (rawDocImages is List) {
             for (final item in rawDocImages) {
-              final c = _cleanImageUrl(item);
+              final c = HostImageUtils.cleanImageUrl(item);
               if (c.isNotEmpty && !docImgs.contains(c)) {
                 docImgs.add(c);
               }
             }
           } else if (rawDocImages != null) {
-            final c = _cleanImageUrl(rawDocImages);
+            final c = HostImageUtils.cleanImageUrl(rawDocImages);
             if (c.isNotEmpty && !docImgs.contains(c)) {
               docImgs.add(c);
             }
@@ -322,7 +284,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             fromAnhPhong.isNotEmpty) {
           setState(() {
             for (final img in fromAnhPhong) {
-              final c = _cleanImageUrl(img);
+              final c = HostImageUtils.cleanImageUrl(img);
               if (c.isNotEmpty && !_existingImageUrls.contains(c)) {
                 _existingImageUrls.add(c);
               }
@@ -355,7 +317,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           throw StateError('Mỗi ảnh không được vượt quá 5 MB.');
         }
         final bytes = await file.readAsBytes();
-        final contentType = _imageContentType(bytes);
+        final contentType = HostImageUtils.detectContentType(bytes);
         if (contentType == null) {
           throw StateError('Chỉ hỗ trợ ảnh JPG hoặc PNG.');
         }
@@ -367,27 +329,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     } finally {
       if (mounted) setState(() => _picking = false);
     }
-  }
-
-  String? _imageContentType(Uint8List bytes) {
-    final isPng =
-        bytes.length >= 8 &&
-        bytes[0] == 137 &&
-        bytes[1] == 80 &&
-        bytes[2] == 78 &&
-        bytes[3] == 71 &&
-        bytes[4] == 13 &&
-        bytes[5] == 10 &&
-        bytes[6] == 26 &&
-        bytes[7] == 10;
-    final isJpg =
-        bytes.length >= 3 &&
-        bytes[0] == 255 &&
-        bytes[1] == 216 &&
-        bytes[2] == 255;
-    if (isPng) return 'image/png';
-    if (isJpg) return 'image/jpeg';
-    return null;
   }
 
   void _addCustomAmenity(List<Map<String, String>> catalogItems) {
@@ -496,7 +437,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       return;
     }
 
-    final parsedPrice = double.tryParse(_price.text.trim()) ?? 0;
+    final parsedPrice = double.tryParse(vndDigits(_price.text.trim())) ?? 0;
     if (parsedPrice <= 0) {
       _message('Giá thuê phải lớn hơn 0.');
       return;
@@ -508,26 +449,24 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           double.tryParse(_areaController.text.trim().replaceAll(',', '.')) ??
           25.0;
       final parsedDeposit =
-          double.tryParse(_depositController.text.trim()) ??
+          double.tryParse(vndDigits(_depositController.text.trim())) ??
               (_selectedRoom?.deposit ?? 0.0);
       int depositPercent = 20;
       if (parsedPrice > 0 && parsedDeposit > 0) {
         depositPercent = ((parsedDeposit / parsedPrice) * 100).round();
       }
-      if (!const [10, 20, 30, 40, 50].contains(depositPercent)) {
-        const allowed = [10, 20, 30, 40, 50];
+      if (!const [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].contains(depositPercent)) {
+        const allowed = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
         depositPercent = allowed.reduce((a, b) =>
             (depositPercent - a).abs() < (depositPercent - b).abs() ? a : b);
       }
 
-      final effectiveRoomCode = (_selectedRoom?.roomCode.isNotEmpty == true)
-          ? _selectedRoom!.roomCode
-          : (_selectedRoom?.maPhong ?? 'P001');
-
       final roomToSave = RoomModel(
         id: _selectedRoom?.id ?? '',
         propertyId: _property!.id,
-        roomCode: effectiveRoomCode,
+        roomCode: (_selectedRoom?.roomCode.isNotEmpty == true)
+            ? _selectedRoom!.roomCode
+            : (_selectedRoom?.maPhong ?? 'P001'),
         title: _title.text.trim(),
         description: _description.text.trim(),
         price: parsedPrice,
@@ -610,13 +549,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  String _formatCurrency(String text) {
-    if (text.isEmpty) return 'Chưa nhập';
-    final numVal = int.tryParse(text);
-    if (numVal == null) return text;
-    return NumberFormat.decimalPattern('vi').format(numVal);
-  }
-
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(hostSessionProvider).value;
@@ -637,7 +569,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     return PopScope(
       canPop: !_saving,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
+        backgroundColor: HostTheme.background,
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
@@ -654,7 +586,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                 child: const Icon(
                   Icons.arrow_back_ios_new,
                   size: 16,
-                  color: Color(0xFF1E293B),
+                  color: HostTheme.textDark,
                 ),
               ),
             ),
@@ -673,7 +605,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               ),
               Text(
                 'Dành cho chủ nhà & đối tác uy tín',
-                style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                style: TextStyle(fontSize: 11, color: HostTheme.textSecondary),
               ),
             ],
           ),
@@ -686,7 +618,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF1E60F2),
+                  color: HostTheme.primary,
                 ),
               ),
             ),
@@ -705,10 +637,10 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                 child: ElevatedButton(
                   key: const ValueKey('submit_post_button'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E60F2),
+                    backgroundColor: HostTheme.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: HostTheme.radius16,
                     ),
                     elevation: 0,
                   ),
@@ -769,7 +701,10 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                     const SizedBox(height: 16),
 
                     // PHẦN 3: THÔNG TIN CƠ BẢN
-                    _basicInfoTitle(),
+                    const HostSectionTitle(
+                      title: 'THÔNG TIN CƠ BẢN',
+                      icon: Icons.edit_note_rounded,
+                    ),
                     const SizedBox(height: 12),
                     _textField(
                       _title,
@@ -778,7 +713,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                       key: const ValueKey('title_input'),
                       maxLength: 240,
                     ),
-                    // Bố cục mới: [ Giá thuê ] [ Tiền cọc: 10% ▼ ]
+                    // Bố cục mới: [ Giá thuê ] [ Tiền cọc ]
                     _priceAndDepositRow(),
                     const SizedBox(height: 12),
                     _textField(
@@ -807,7 +742,11 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                     const SizedBox(height: 16),
 
                     // PHẦN 5: VỊ TRÍ & LIÊN HỆ
-                    _contactTitle(),
+                    const HostSectionTitle(
+                      title: 'VỊ TRÍ & LIÊN HỆ',
+                      icon: Icons.location_on_outlined,
+                      showChevron: true,
+                    ),
                     const SizedBox(height: 10),
                     _contactField(
                       _address,
@@ -892,68 +831,26 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       roomEnabled = true;
     }
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFD9E7FF), width: 1.2),
-      ),
+    return HostCardSection(
+      title: 'CHỌN DỮ LIỆU CÓ SẴN',
+      icon: Icons.apartment_rounded,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.apartment_rounded, color: Color(0xFF1E60F2), size: 20),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'CHỌN DỮ LIỆU CÓ SẴN',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                    color: Color(0xFF1E293B),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
           // Dropdown Khu nhà
           DropdownButtonFormField<HostProperty>(
             key: const ValueKey('property_select'),
             initialValue: _property,
             isExpanded: true,
             hint: Text(propertyHint, style: const TextStyle(fontSize: 14)),
-            decoration: InputDecoration(
+            decoration: HostTheme.inputDecoration(
               labelText: 'Khu nhà *',
               prefixIcon: const Icon(
                 Icons.home_work_outlined,
-                color: Color(0xFF1E60F2),
+                color: HostTheme.primary,
                 size: 20,
               ),
-              filled: true,
-              fillColor: const Color(0xFFF8FAFC),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(
-                  color: Color(0xFF1E60F2),
-                  width: 1.5,
-                ),
-              ),
+              fillColor: HostTheme.background,
             ),
             items: properties
                 .map(
@@ -978,36 +875,16 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                 : null,
             isExpanded: true,
             hint: Text(roomHint, style: const TextStyle(fontSize: 14)),
-            decoration: InputDecoration(
+            decoration: HostTheme.inputDecoration(
               labelText: 'Phòng *',
               prefixIcon: const Icon(
                 Icons.meeting_room_outlined,
-                color: Color(0xFF1E60F2),
+                color: HostTheme.primary,
                 size: 20,
               ),
-              filled: true,
               fillColor: roomEnabled
-                  ? const Color(0xFFF8FAFC)
-                  : const Color(0xFFF1F5F9),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(
-                  color: Color(0xFF1E60F2),
-                  width: 1.5,
-                ),
-              ),
+                  ? HostTheme.background
+                  : HostTheme.disabledBackground,
             ),
             items: roomEnabled
                 ? propertyRooms
@@ -1015,7 +892,9 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                         (room) => DropdownMenuItem(
                           value: room,
                           child: Text(
-                            '${room.maPhong} - ${room.title.isNotEmpty ? room.title : room.roomType}',
+                            room.title.isNotEmpty
+                                ? '${room.roomCode} - ${room.title}'
+                                : room.roomCode,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -1032,21 +911,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     );
   }
 
-  Widget _basicInfoTitle() => const Row(
-    children: [
-      Icon(Icons.edit_note_rounded, color: Color(0xFF1E60F2), size: 22),
-      SizedBox(width: 8),
-      Text(
-        'THÔNG TIN CƠ BẢN',
-        style: TextStyle(
-          fontWeight: FontWeight.w800,
-          fontSize: 14,
-          color: Color(0xFF1E293B),
-        ),
-      ),
-    ],
-  );
-
   /// Bố cục: [ Giá thuê ] [ Tiền cọc ]
   Widget _priceAndDepositRow() => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1061,39 +925,24 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     key: const ValueKey('deposit_input'),
     controller: _depositController,
     keyboardType: TextInputType.number,
-    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+    inputFormatters: [VndInputFormatter()],
     style: const TextStyle(
       fontSize: 17,
       fontWeight: FontWeight.w700,
-      color: Color(0xFF1E60F2),
+      color: HostTheme.primary,
     ),
-    decoration: InputDecoration(
+    decoration: HostTheme.inputDecoration(
       labelText: 'Tiền cọc *',
       suffixText: 'đ',
-      suffixStyle: const TextStyle(
-        color: Color(0xFF64748B),
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-      ),
-      filled: true,
-      fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF93C5FD), width: 1.2),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF1E60F2), width: 2),
-      ),
+      enabledBorderColor: HostTheme.inputEnabledBorder,
+      enabledBorderWidth: 1.2,
+      focusedBorderColor: HostTheme.primary,
+      focusedBorderWidth: 2.0,
     ),
     validator: (value) {
       if (value == null || value.trim().isEmpty) return 'Nhập tiền cọc';
-      final parsed = double.tryParse(value.trim());
+      final parsed = double.tryParse(vndDigits(value.trim()));
       if (parsed == null || parsed < 0) return 'Tiền cọc không hợp lệ';
       return null;
     },
@@ -1103,39 +952,24 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     key: const ValueKey('price_input'),
     controller: _price,
     keyboardType: TextInputType.number,
-    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+    inputFormatters: [VndInputFormatter()],
     style: const TextStyle(
       fontSize: 17,
       fontWeight: FontWeight.w700,
-      color: Color(0xFF1E60F2),
+      color: HostTheme.primary,
     ),
-    decoration: InputDecoration(
+    decoration: HostTheme.inputDecoration(
       labelText: 'Giá thuê / tháng *',
       suffixText: 'đ/tháng',
-      suffixStyle: const TextStyle(
-        color: Color(0xFF64748B),
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-      ),
-      filled: true,
-      fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF93C5FD), width: 1.2),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF1E60F2), width: 2),
-      ),
+      enabledBorderColor: HostTheme.inputEnabledBorder,
+      enabledBorderWidth: 1.2,
+      focusedBorderColor: HostTheme.primary,
+      focusedBorderWidth: 2.0,
     ),
     validator: (value) {
       if (value == null || value.trim().isEmpty) return 'Nhập giá thuê';
-      final parsed = double.tryParse(value.trim());
+      final parsed = double.tryParse(vndDigits(value.trim()));
       if (parsed == null || parsed <= 0) return 'Giá thuê phải lớn hơn 0';
       return null;
     },
@@ -1144,7 +978,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
   Widget _priceSummary() => ValueListenableBuilder<TextEditingValue>(
     valueListenable: _price,
     builder: (context, value, _) {
-      final formatted = _formatCurrency(value.text.trim());
+      final formatted = HostImageUtils.formatCurrency(value.text.trim());
       return Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Container(
@@ -1153,8 +987,8 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
             color: const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFCBD5E1)),
+            borderRadius: HostTheme.radius14,
+            border: Border.all(color: HostTheme.inputBorder),
           ),
           child: Row(
             children: [
@@ -1164,7 +998,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1E293B),
+                    color: HostTheme.textDark,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1174,7 +1008,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF64748B),
+                  color: HostTheme.textSecondary,
                 ),
               ),
             ],
@@ -1182,24 +1016,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
         ),
       );
     },
-  );
-
-  Widget _contactTitle() => const Row(
-    children: [
-      Icon(Icons.location_on_outlined, color: Color(0xFF1E60F2), size: 22),
-      SizedBox(width: 8),
-      Expanded(
-        child: Text(
-          'VỊ TRÍ & LIÊN HỆ',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 14,
-            color: Color(0xFF1E293B),
-          ),
-        ),
-      ),
-      Icon(Icons.chevron_right_rounded, color: Color(0xFF1E60F2), size: 22),
-    ],
   );
 
   Widget _contactField(
@@ -1218,28 +1034,10 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       inputFormatters: keyboard == TextInputType.phone
           ? [FilteringTextInputFormatter.digitsOnly]
           : null,
-      decoration: InputDecoration(
+      decoration: HostTheme.inputDecoration(
         labelText: label,
         hintText: hint,
-        prefixIcon: Icon(icon, color: const Color(0xFF1E60F2), size: 20),
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFF1E60F2), width: 1.5),
-        ),
+        prefixIcon: Icon(icon, color: HostTheme.primary, size: 20),
       ),
       validator: (value) =>
           label.contains('*') && (value == null || value.trim().isEmpty)
@@ -1250,62 +1048,45 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
 
   Widget _photoSection() {
     final totalImages = _existingImageUrls.length + _images.length;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFD9E7FF), width: 1.2),
+    return HostCardSection(
+      title: 'HÌNH ẢNH & VIDEO PHÒNG',
+      icon: Icons.image_outlined,
+      trailing: Text(
+        totalImages == 0 ? '0/10 ảnh' : 'Đã chọn $totalImages/10',
+        style: const TextStyle(
+          fontSize: 12,
+          color: HostTheme.textSecondary,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.image_outlined,
-                color: Color(0xFF1E60F2),
-                size: 20,
-              ),
-              SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'HÌNH ẢNH & VIDEO PHÒNG',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                    color: Color(0xFF1E293B),
-                  ),
-                ),
-              ),
-              Text(
-                totalImages == 0 ? '0/10 ảnh' : 'Đã chọn $totalImages/10',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF64748B),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
           SizedBox(
             height: 94,
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _addImageButton(),
+                  HostAddImageButton(onTap: _pickImages, disabled: _picking),
                   // Hiển thị ảnh phòng đã nạp từ trước
                   ..._existingImageUrls.asMap().entries.map(
-                    (entry) => _existingImageTile(entry.key, entry.value),
+                    (entry) => HostImageThumbnail(
+                      index: entry.key,
+                      rawUrl: entry.value,
+                      isCover: entry.key == 0,
+                      onRemove: () =>
+                          setState(() => _existingImageUrls.removeAt(entry.key)),
+                    ),
                   ),
                   // Hiển thị ảnh mới chọn qua ImagePicker
                   ..._images.asMap().entries.map(
-                    (entry) => _imageTile(
-                      entry.key,
-                      entry.value,
-                      startIndex: _existingImageUrls.length,
+                    (entry) => HostImageThumbnail(
+                      index: entry.key,
+                      upload: entry.value,
+                      isCover: _existingImageUrls.isEmpty && entry.key == 0,
+                      onRemove: () =>
+                          setState(() => _images.removeAt(entry.key)),
                     ),
                   ),
                 ],
@@ -1315,251 +1096,21 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           const SizedBox(height: 10),
           const Row(
             children: [
-              Icon(Icons.info_rounded, size: 16, color: Color(0xFF1E60F2)),
+              Icon(Icons.info_rounded, size: 16, color: HostTheme.primary),
               SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Ảnh chụp thực tế góc rộng sẽ tăng 65% tỷ lệ liên hệ.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: HostTheme.textSecondary,
+                  ),
                 ),
               ),
             ],
           ),
         ],
       ),
-    );
-  }
-
-  Widget _addImageButton() => InkWell(
-    onTap: _picking ? null : _pickImages,
-    borderRadius: BorderRadius.circular(12),
-    child: Container(
-      width: 92,
-      height: 92,
-      margin: const EdgeInsets.only(right: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF8DB8FF), width: 1.5),
-      ),
-      child: const Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.add_photo_alternate_outlined,
-            color: Color(0xFF1E60F2),
-            size: 26,
-          ),
-          SizedBox(height: 4),
-          Text(
-            'Thêm ảnh',
-            style: TextStyle(
-              fontSize: 11,
-              color: Color(0xFF1E60F2),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-
-  Widget _existingImageTile(int index, String url) => Stack(
-    children: [
-      Container(
-        width: 92,
-        height: 92,
-        margin: const EdgeInsets.only(right: 10),
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFD9E7FF)),
-        ),
-        child: _buildExistingImage(url, index),
-      ),
-      Positioned(
-        top: 4,
-        right: 14,
-        child: InkWell(
-          onTap: () => setState(() => _existingImageUrls.removeAt(index)),
-          child: const CircleAvatar(
-            radius: 11,
-            backgroundColor: Color(0x99000000),
-            child: Icon(Icons.close, size: 13, color: Colors.white),
-          ),
-        ),
-      ),
-      if (index == 0)
-        Positioned(
-          left: 5,
-          bottom: 5,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E60F2),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: const Text(
-              'Ảnh bìa',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
-    ],
-  );
-
-  Widget _buildExistingImage(String rawUrl, int index) {
-    final cleanUrl = _cleanImageUrl(rawUrl);
-    if (cleanUrl.isEmpty) {
-      return _buildImagePlaceholder();
-    }
-    // 1. Data URI hoặc Base64
-    if (cleanUrl.startsWith('data:image') || cleanUrl.startsWith('base64,')) {
-      try {
-        final commaIdx = cleanUrl.indexOf(',');
-        final base64Str = commaIdx != -1
-            ? cleanUrl.substring(commaIdx + 1)
-            : cleanUrl;
-        final bytes = base64Decode(base64Str);
-        return Image.memory(
-          bytes,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => _buildImagePlaceholder(),
-        );
-      } catch (_) {
-        return _buildImagePlaceholder();
-      }
-    }
-    // 2. File cục bộ trên thiết bị (mobile/desktop)
-    if (!kIsWeb &&
-        (cleanUrl.startsWith('/') ||
-            cleanUrl.startsWith('file:') ||
-            cleanUrl.contains(':\\') ||
-            cleanUrl.contains(':/'))) {
-      try {
-        final filePath = cleanUrl.startsWith('file://')
-            ? cleanUrl.replaceFirst('file://', '')
-            : cleanUrl;
-        final file = File(filePath);
-        if (file.existsSync()) {
-          return Image.file(
-            file,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => _buildImagePlaceholder(),
-          );
-        }
-      } catch (_) {}
-    }
-    // 3. Asset cục bộ
-    if (cleanUrl.startsWith('assets/')) {
-      return Image.asset(
-        cleanUrl,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _buildImagePlaceholder(),
-      );
-    }
-    // 4. Web URL (HTTP / HTTPS / Firebase Storage)
-    return Image.network(
-      cleanUrl,
-      fit: BoxFit.cover,
-      webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return Container(
-          color: const Color(0xFFF8FAFC),
-          child: const Center(
-            child: SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Color(0xFF1E60F2),
-              ),
-            ),
-          ),
-        );
-      },
-      errorBuilder: (_, _, _) => _buildImagePlaceholder(),
-    );
-  }
-
-  Widget _buildImagePlaceholder() => Container(
-    color: const Color(0xFFF1F5F9),
-    child: const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.image_outlined,
-            color: Color(0xFF94A3B8),
-            size: 24,
-          ),
-          SizedBox(height: 2),
-          Text(
-            'Ảnh phòng',
-            style: TextStyle(
-              fontSize: 9,
-              color: Color(0xFF64748B),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-
-  Widget _imageTile(int index, HostUpload upload, {int startIndex = 0}) {
-    final overallIndex = startIndex + index;
-    return Stack(
-      children: [
-        Container(
-          width: 92,
-          height: 92,
-          margin: const EdgeInsets.only(right: 10),
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Image.memory(upload.bytes, fit: BoxFit.cover),
-        ),
-        Positioned(
-          top: 4,
-          right: 14,
-          child: InkWell(
-            onTap: () => setState(() => _images.removeAt(index)),
-            child: const CircleAvatar(
-              radius: 11,
-              backgroundColor: Color(0x99000000),
-              child: Icon(Icons.close, size: 13, color: Colors.white),
-            ),
-          ),
-        ),
-        if (overallIndex == 0)
-          Positioned(
-            left: 5,
-            bottom: 5,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E60F2),
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: const Text(
-                'Ảnh bìa',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 
@@ -1582,28 +1133,10 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       inputFormatters: inputFormatters,
       maxLines: maxLines,
       maxLength: maxLength,
-      decoration: InputDecoration(
+      decoration: HostTheme.inputDecoration(
         labelText: label,
         hintText: hint,
         suffixText: suffixText,
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFF1E60F2), width: 1.5),
-        ),
       ),
       validator: (value) =>
           label.contains('*') && (value == null || value.trim().isEmpty)
@@ -1653,57 +1186,32 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
         ? allItems
         : allItems.where((name) => _selectedAmenities.contains(name)).toList();
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFD9E7FF), width: 1.2),
+    return HostCardSection(
+      title: 'Tiện ích & Yêu cầu',
+      icon: Icons.format_list_bulleted_rounded,
+      trailing: Text(
+        '${_selectedAmenities.length} đang chọn',
+        style: const TextStyle(
+          fontSize: 12,
+          color: HostTheme.primary,
+          fontWeight: FontWeight.w700,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.format_list_bulleted_rounded,
-                color: Color(0xFF1E60F2),
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Tiện ích & Yêu cầu',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                    color: Color(0xFF1E293B),
-                  ),
-                ),
-              ),
-              Text(
-                '${_selectedAmenities.length} đang chọn',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF1E60F2),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFCBD5E1)),
+              color: HostTheme.background,
+              borderRadius: HostTheme.radius14,
+              border: Border.all(color: HostTheme.inputBorder),
             ),
             child: Row(
               children: [
                 const Icon(
                   Icons.add_circle_outline,
-                  color: Color(0xFF1E60F2),
+                  color: HostTheme.primary,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -1715,7 +1223,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                       hintText: 'Thêm tiện ích, yêu cầu riêng...',
                       hintStyle: TextStyle(
                         fontSize: 13,
-                        color: Color(0xFF94A3B8),
+                        color: HostTheme.textMuted,
                       ),
                       border: InputBorder.none,
                       isDense: true,
@@ -1727,7 +1235,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                 ElevatedButton(
                   key: const ValueKey('add_custom_amenity_button'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E60F2),
+                    backgroundColor: HostTheme.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -1755,19 +1263,28 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               child: Center(
                 child: Text(
                   'Chưa chọn tiện ích nào. Nhấn "Xem thêm" để chọn.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: HostTheme.textSecondary,
+                  ),
                 ),
               ),
             ),
           ...visible.map((name) {
             final isCustom = _customAmenities.contains(name);
             final isSelected = _selectedAmenities.contains(name);
-            return _amenityTile(name, isCustom, isSelected);
+            return HostAmenityTile(
+              name: name,
+              isCustom: isCustom,
+              isSelected: isSelected,
+              onTap: () => _toggleAmenity(name),
+              onDeleteCustom: isCustom ? () => _removeCustomAmenity(name) : null,
+            );
           }),
           const SizedBox(height: 6),
           InkWell(
             key: const ValueKey('amenities_toggle_button'),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: HostTheme.radius12,
             onTap: () =>
                 setState(() => _amenitiesExpanded = !_amenitiesExpanded),
             child: Container(
@@ -1775,7 +1292,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               height: 38,
               decoration: BoxDecoration(
                 color: const Color(0xFFF0F5FF),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: HostTheme.radius12,
               ),
               alignment: Alignment.center,
               child: Text(
@@ -1783,141 +1300,12 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF1E60F2),
+                  color: HostTheme.primary,
                 ),
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _amenityTile(String name, bool isCustom, bool isSelected) {
-    final Color borderColor;
-    final Color bgColor;
-    final Color checkColor;
-
-    if (isSelected) {
-      if (isCustom) {
-        borderColor = const Color(0xFF60A5FA);
-        bgColor = const Color(0xFFEFF6FF);
-        checkColor = const Color(0xFF1E60F2);
-      } else {
-        borderColor = const Color(0xFF93C5FD);
-        bgColor = const Color(0xFFF0F7FF);
-        checkColor = const Color(0xFF1E60F2);
-      }
-    } else {
-      borderColor = const Color(0xFFE2E8F0);
-      bgColor = const Color(0xFFF8FAFC);
-      checkColor = const Color(0xFFCBD5E1);
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor, width: isSelected ? 1.4 : 1),
-      ),
-      child: InkWell(
-        key: ValueKey('amenity_tile_$name'),
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => _toggleAmenity(name),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: isSelected ? checkColor : Colors.white,
-                  borderRadius: BorderRadius.circular(5),
-                  border: Border.all(
-                    color: isSelected ? checkColor : const Color(0xFFCBD5E1),
-                    width: 1.5,
-                  ),
-                ),
-                child: isSelected
-                    ? const Icon(Icons.check, size: 14, color: Colors.white)
-                    : null,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  name,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected
-                        ? (isCustom
-                              ? const Color(0xFF1E3A8A)
-                              : const Color(0xFF1E40AF))
-                        : const Color(0xFF1E293B),
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (isCustom) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDBEAFE),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Tùy chọn',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1D4ED8),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                IconButton(
-                  key: ValueKey('delete_custom_amenity_$name'),
-                  icon: const Icon(
-                    Icons.close,
-                    size: 16,
-                    color: Color(0xFF64748B),
-                  ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () => _removeCustomAmenity(name),
-                ),
-              ] else if (isSelected) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDBEAFE),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Đã chọn',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1D4ED8),
-                    ),
-                  ),
-                ),
-              ] else ...[
-                const Icon(Icons.add, size: 18, color: Color(0xFF94A3B8)),
-              ],
-            ],
-          ),
-        ),
       ),
     );
   }

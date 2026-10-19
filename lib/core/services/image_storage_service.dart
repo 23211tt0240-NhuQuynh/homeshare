@@ -144,7 +144,31 @@ class ImageStorageService {
     return uploadedUrls;
   }
 
-  /// Tải ảnh đại diện từ bộ nhớ. Storage nếu có, không thì Base64 của chính ảnh đó.
+  /// Ảnh đại diện nằm cố định trên Storage, không ghi vào document người dùng.
+  static String avatarObjectPath(String uid) => 'avatars/${uid.trim()}/avatar.jpg';
+
+  static final Set<String> _avatarsKnownMissing = {};
+
+  Future<String?> avatarDownloadUrl(String uid) async {
+    final id = uid.trim();
+    if (id.isEmpty || _avatarsKnownMissing.contains(id)) return null;
+    try {
+      final url = await _storage.ref().child(avatarObjectPath(id)).getDownloadURL();
+      if (url.startsWith('http')) {
+        _avatarsKnownMissing.remove(id);
+        return url;
+      }
+    } on FirebaseException catch (e) {
+      if (e.code == 'object-not-found') {
+        _avatarsKnownMissing.add(id);
+      } else {
+        debugPrint('[ImageStorageService] Đọc avatar $id lỗi: $e');
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Tải ảnh đại diện lên Firebase Storage và trả link https, cùng kiểu tài khoản vanthe.
   Future<String> uploadImageBytes({
     required Uint8List bytes,
     required String folder,
@@ -152,22 +176,25 @@ class ImageStorageService {
   }) async {
     const maxBytes = 180 * 1024;
     final prepared = bytes.length <= maxBytes ? bytes : await compute(compressJpegToLimit, (bytes, maxBytes));
-
-    if (!skipRemoteUpload) {
-      try {
-        final storageRef = _storage.ref().child('$folder/$fileName');
-        final metadata = SettableMetadata(
-          contentType: 'image/jpeg',
-          customMetadata: {'uploadedAt': DateTime.now().toIso8601String()},
-        );
-        final snapshot = await storageRef.putData(prepared, metadata).timeout(const Duration(seconds: 8));
-        return await snapshot.ref.getDownloadURL();
-      } catch (e) {
-        debugPrint('[ImageStorageService] Storage chưa dùng được ($e). Lưu ảnh đại diện dạng Base64.');
+    final storageRef = _storage.ref().child('$folder/$fileName');
+    final metadata = SettableMetadata(
+      contentType: 'image/jpeg',
+      customMetadata: {'uploadedAt': DateTime.now().toIso8601String()},
+    );
+    try {
+      final snapshot = await storageRef.putData(prepared, metadata).timeout(const Duration(seconds: 30));
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+      if (!downloadUrl.startsWith('http')) {
+        throw Exception('Không nhận được link ảnh.');
       }
+      if (fileName == 'avatar.jpg' && folder.startsWith('avatars/')) {
+        _avatarsKnownMissing.remove(folder.substring('avatars/'.length));
+      }
+      return downloadUrl;
+    } catch (e) {
+      debugPrint('[ImageStorageService] Tải ảnh đại diện lên Storage lỗi: $e');
+      throw Exception('Không tải được ảnh đại diện. Kiểm tra mạng rồi lưu lại.');
     }
-
-    return 'data:image/jpeg;base64,${base64Encode(prepared)}';
   }
 }
 

@@ -35,6 +35,14 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(renterBottomNavIndexProvider.notifier).setIndex(0);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     // App đang mở: Firestore báo cuộc gọi đến thì hiện màn hình nhận.
     // IncomingCallRouter dùng chung với lúc bấm thông báo, nên không mở hai lần.

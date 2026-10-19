@@ -10,6 +10,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
 import 'room_detail_screen.dart';
+import 'user_notifications_screen.dart';
 
 /// Màn hình Tìm kiếm & Bộ lọc chuẩn 100% Figma HomeShare
 /// Hỗ trợ 3 trạng thái rõ ràng, không giật lag, không lỗi layout:
@@ -357,13 +358,25 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Badge(
-              smallSize: 8,
-              backgroundColor: AppColors.danger,
-              child: Icon(Icons.notifications_none, size: 22, color: AppColors.textDark),
-            ),
-            onPressed: () {},
+          Consumer(
+            builder: (context, ref, _) {
+              final unread = ref.watch(userUnreadNotificationCountProvider);
+              return IconButton(
+                icon: Badge(
+                  isLabelVisible: unread > 0,
+                  label: Text('$unread', style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
+                  backgroundColor: AppColors.danger,
+                  child: const Icon(Icons.notifications_none, size: 22, color: AppColors.textDark),
+                ),
+                tooltip: 'Thông báo',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const UserNotificationsScreen()),
+                  );
+                },
+              );
+            },
           ),
           Padding(
             padding: const EdgeInsets.only(right: 14),

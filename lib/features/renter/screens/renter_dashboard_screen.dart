@@ -609,6 +609,7 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                         isLandlord: false,
                         currentUserId: currentUser.uid,
                         currentUserName: profile?.displayName ?? currentUser.displayName ?? 'Khách thuê',
+                        pinnedPost: post,
                       ),
                     ),
                   );

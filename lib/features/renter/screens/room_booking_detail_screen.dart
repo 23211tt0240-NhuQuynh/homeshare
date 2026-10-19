@@ -361,8 +361,8 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
               CircleAvatar(
                 radius: 17,
                 backgroundColor: const Color(0xFFE2E8F0),
-                backgroundImage: profile?.avatarUrl.isNotEmpty == true ? NetworkImage(profile!.avatarUrl) : null,
-                child: profile?.avatarUrl.isEmpty != false
+                backgroundImage: (profile?.avatarUrl.startsWith('http') == true) ? NetworkImage(profile!.avatarUrl) : null,
+                child: profile?.avatarUrl.startsWith('http') != true
                     ? const Icon(Icons.person, size: 20, color: Color(0xFF64748B))
                     : null,
               ),

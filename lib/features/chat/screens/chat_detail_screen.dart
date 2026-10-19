@@ -10,10 +10,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/chat_model.dart';
 import '../../../data/models/room_model.dart';
+import '../../../data/models/roommate_post_model.dart';
 import '../../../core/services/call_service.dart';
 import '../../../core/services/chat_service.dart';
+import '../../../core/services/roommate_service.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../renter/screens/room_detail_screen.dart';
+import '../../renter/screens/roommate_room_detail_screen.dart';
 import 'call_screen.dart';
 
 /// Màn hình Chi tiết Tin nhắn & Trao đổi (Feature #10 theo chuẩn SRS CDLTDD & Tc_CHAT_01 -> 50)
@@ -26,6 +29,8 @@ class ChatDetailScreen extends ConsumerStatefulWidget {
   final String currentUserId;
   final String currentUserName;
   final RoomModel? pinnedRoom;
+  final RoommatePostModel? pinnedPost;
+  final String? roommatePostId;
 
   const ChatDetailScreen({
     super.key,
@@ -37,6 +42,8 @@ class ChatDetailScreen extends ConsumerStatefulWidget {
     required this.currentUserId,
     required this.currentUserName,
     this.pinnedRoom,
+    this.pinnedPost,
+    this.roommatePostId,
   });
 
   @override
@@ -50,6 +57,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   bool _isBlocked = false;
   bool _showPinnedRoom = true;
+  bool _showPinnedPost = true;
+  RoommatePostModel? _linkedPost;
   bool _showScrollToBottom = false;
   bool _isRecordingAudio = false;
   bool _receiverIsHost = false;
@@ -71,11 +80,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     super.initState();
     _scrollController.addListener(_onScroll);
     // Tự động đánh dấu đã đọc khi mở chi tiết cuộc trò chuyện và kiểm tra vai trò đối phương
+    _linkedPost = widget.pinnedPost;
     Future.microtask(() {
       if (mounted) {
         ref.read(chatServiceProvider).markAsRead(widget.currentUserId, widget.receiverId);
         _fetchReceiverRole();
         _fetchActiveRentedRoom();
+        _attachRoommatePost();
       }
     });
   }
@@ -217,14 +228,20 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
 
     try {
-      final roomMeta = widget.pinnedRoom != null
-          ? {
-              'roomCode': '#LT-${widget.pinnedRoom!.id.hashCode.abs() % 1000}',
-              'roomTitle': widget.pinnedRoom!.title,
-              'roomPrice': widget.pinnedRoom!.price,
-              'roomImage': widget.pinnedRoom!.images.isNotEmpty ? widget.pinnedRoom!.images.first : '',
-            }
-          : null;
+      final roomMeta = <String, dynamic>{};
+      if (widget.pinnedRoom != null) {
+        roomMeta.addAll({
+          'roomCode': '#LT-${widget.pinnedRoom!.id.hashCode.abs() % 1000}',
+          'roomTitle': widget.pinnedRoom!.title,
+          'roomPrice': widget.pinnedRoom!.price,
+          'roomImage': widget.pinnedRoom!.images.isNotEmpty ? widget.pinnedRoom!.images.first : '',
+        });
+      }
+      final linkedPostId = (_linkedPost?.id ?? widget.pinnedPost?.id ?? '').trim();
+      if (linkedPostId.isNotEmpty) {
+        roomMeta['roommatePostId'] = linkedPostId;
+        roomMeta['tinOGhepId'] = linkedPostId;
+      }
 
       await ref.read(chatServiceProvider).sendMessage(
         message,
@@ -1392,6 +1409,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               if (_showPinnedRoom && widget.pinnedRoom != null)
                 _buildPinnedRoomCard(widget.pinnedRoom!),
 
+              if (_showPinnedPost && widget.pinnedRoom == null && _linkedPost != null)
+                _buildPinnedPostCard(_linkedPost!),
+
               // 3. Danh sách tin nhắn Realtime
               Expanded(
                 child: messagesAsync.when(
@@ -1476,6 +1496,155 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   }
 
   // Widget Thẻ phòng trọ ghim trên đầu khung chat (Tc_CHAT_09 -> 11)
+  /// Ghi tinOGhepId lên cuộc trò chuyện đã có, hoặc đọc lại id đó khi mở từ danh sách tin nhắn.
+  Future<void> _attachRoommatePost() async {
+    final chatId = ChatService.getChatId(widget.currentUserId, widget.receiverId);
+    final chatRef = FirebaseFirestore.instance.collection('chats').doc(chatId);
+    final current = _linkedPost;
+    if (current != null && current.id.isNotEmpty) {
+      final snap = await chatRef.get();
+      if (snap.exists) {
+        await chatRef.set({
+          'roommatePostId': current.id,
+          'tinOGhepId': current.id,
+        }, SetOptions(merge: true));
+      }
+      return;
+    }
+
+    var postId = (widget.roommatePostId ?? '').trim();
+    if (postId.isEmpty) {
+      final snap = await chatRef.get();
+      postId = '${snap.data()?['roommatePostId'] ?? snap.data()?['tinOGhepId'] ?? ''}'.trim();
+    }
+    if (postId.isEmpty || !mounted) return;
+    final post = await ref.read(roommateServiceProvider).loadPost(postId);
+    if (!mounted || post == null) return;
+    setState(() => _linkedPost = post);
+  }
+
+  void _openRoommatePost(RoommatePostModel post) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => RoommateRoomDetailScreen(post: post)),
+    );
+  }
+
+  Widget _buildPinnedPostCard(RoommatePostModel post) {
+    final price = post.pricePerPerson > 0 ? post.pricePerPerson : 0.0;
+    final image = post.images.isNotEmpty ? post.images.first.trim() : '';
+    final address = post.address.trim();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 58,
+              height: 58,
+              child: _pinnedPostImage(image),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: InkWell(
+              onTap: () => _openRoommatePost(post),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    post.title.trim().isEmpty ? 'Bài tìm ở ghép' : post.title.trim(),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (price > 0) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '${NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(price)}/người',
+                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ],
+                  if (address.isNotEmpty)
+                    Text(
+                      address,
+                      style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Column(
+            children: [
+              InkWell(
+                onTap: () => setState(() => _showPinnedPost = false),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.close, size: 16, color: AppColors.textMuted),
+                ),
+              ),
+              const SizedBox(height: 4),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  minimumSize: const Size(72, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => _openRoommatePost(post),
+                child: const Text('Xem bài', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pinnedPostImage(String image) {
+    if (image.startsWith('http://') || image.startsWith('https://')) {
+      return Image.network(
+        image,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => const ColoredBox(
+          color: AppColors.primaryContainer,
+          child: Icon(Icons.article_outlined, color: AppColors.primary),
+        ),
+      );
+    }
+    if (image.startsWith('data:image')) {
+      try {
+        final comma = image.indexOf(',');
+        final bytes = base64Decode(comma == -1 ? image : image.substring(comma + 1));
+        return Image.memory(bytes, fit: BoxFit.cover);
+      } catch (_) {}
+    }
+    return const ColoredBox(
+      color: AppColors.primaryContainer,
+      child: Icon(Icons.article_outlined, color: AppColors.primary),
+    );
+  }
+
   Widget _buildPinnedRoomCard(RoomModel room) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

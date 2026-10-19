@@ -37,6 +37,12 @@ class HostNotificationModel {
   final DateTime? oldCheckInDate;
   final DateTime? newCheckInDate;
   final String? adjustmentReason;
+  final String primaryTenantId;
+  final String primaryTenantName;
+  final String newRoommateId;
+  final String newRoommateName;
+  final String actionType;
+  final String userNotificationId;
 
   const HostNotificationModel({
     required this.id,
@@ -69,7 +75,19 @@ class HostNotificationModel {
     this.oldCheckInDate,
     this.newCheckInDate,
     this.adjustmentReason,
+    this.primaryTenantId = '',
+    this.primaryTenantName = '',
+    this.newRoommateId = '',
+    this.newRoommateName = '',
+    this.actionType = '',
+    this.userNotificationId = '',
   });
+
+  bool get isRoommateApproval =>
+      actionType == 'roommate_approval' ||
+      newRoommateId.isNotEmpty ||
+      title.contains('ở ghép') ||
+      message.contains('ở ghép');
 
   // Vietnamese Database.docx Alias Getters
   String get notificationId => id;
@@ -89,9 +107,19 @@ class HostNotificationModel {
   DateTime get ngayTao => createdAt;
   DateTime? get ngayCapNhat => updatedAt;
 
-  /// Hiển thị mã booking dạng chuẩn #BK12345
+  /// Hiển thị mã booking dạng chuẩn #BK12345 hoặc #DP_...
   String get displayBookingCode {
     if (bookingCode.isNotEmpty) {
+      if (bookingCode.length > 15) {
+        final clean = bookingCode.replaceAll('#', '');
+        final parts = clean.split('_');
+        if (parts.length > 1) {
+          final last = parts.last;
+          final sub = last.length > 6 ? last.substring(last.length - 6) : last;
+          return '#DP_${sub.toUpperCase()}';
+        }
+        return '#${clean.substring(0, 10).toUpperCase()}...';
+      }
       return bookingCode.startsWith('#') ? bookingCode : '#$bookingCode';
     }
     if (bookingId.isNotEmpty) {
@@ -104,7 +132,14 @@ class HostNotificationModel {
 
   /// Hiển thị số phòng gắn trên huy hiệu đầu card (vd: "101")
   String get displayRoomCode {
-    if (roomCode.isNotEmpty) return roomCode;
+    if (roomCode.isNotEmpty) {
+      if (roomCode.length > 5) {
+        final match = RegExp(r'\d+').firstMatch(roomTitle);
+        if (match != null) return 'P.${match.group(0)!}';
+        return roomCode.substring(0, 4).toUpperCase();
+      }
+      return roomCode;
+    }
     final match = RegExp(r'\d+').firstMatch(roomTitle);
     if (match != null) return match.group(0)!;
     return '101';
@@ -296,6 +331,12 @@ class HostNotificationModel {
       newCheckInDate: parseNullableDate(data[NotificationFields.newCheckInDate]),
       adjustmentReason: data[NotificationFields.adjustmentReason] ??
           data['lyDoDieuChinh'],
+      primaryTenantId: data['primaryTenantId']?.toString() ?? '',
+      primaryTenantName: data['primaryTenantName']?.toString() ?? '',
+      newRoommateId: data['newRoommateId']?.toString() ?? '',
+      newRoommateName: data['newRoommateName']?.toString() ?? '',
+      actionType: data['actionType']?.toString() ?? (data['notificationType'] == 'roommate_approval' ? 'roommate_approval' : ''),
+      userNotificationId: data['userNotificationId']?.toString() ?? '',
     );
   }
 
@@ -308,31 +349,19 @@ class HostNotificationModel {
       NotificationFields.senderId: senderId,
       NotificationFields.legacySenderId: senderId,
       NotificationFields.notificationType: type.code,
-      NotificationFields.legacyNotificationType: type.code,
       NotificationFields.title: title,
-      NotificationFields.legacyTitle: title,
       NotificationFields.message: message,
-      NotificationFields.legacyMessage: message,
       NotificationFields.bookingId: bookingId,
-      NotificationFields.legacyBookingId: bookingId,
       NotificationFields.paymentId: paymentId,
-      NotificationFields.legacyPaymentId: paymentId,
       NotificationFields.roomId: roomId,
-      NotificationFields.legacyRoomId: roomId,
       NotificationFields.propertyId: propertyId,
-      NotificationFields.legacyPropertyId: propertyId,
       NotificationFields.amount: amount,
       NotificationFields.legacyAmount: amount,
       NotificationFields.statusId: statusId,
-      NotificationFields.legacyStatusId: statusId,
       NotificationFields.isRead: isRead,
-      NotificationFields.legacyIsRead: isRead,
       NotificationFields.createdAt: Timestamp.fromDate(createdAt),
-      NotificationFields.legacyCreatedAt: Timestamp.fromDate(createdAt),
       if (updatedAt != null)
         NotificationFields.updatedAt: Timestamp.fromDate(updatedAt!),
-      if (updatedAt != null)
-        NotificationFields.legacyUpdatedAt: Timestamp.fromDate(updatedAt!),
       NotificationFields.bookingCode: bookingCode,
       NotificationFields.roomCode: roomCode,
       NotificationFields.roomTitle: roomTitle,
@@ -352,6 +381,12 @@ class HostNotificationModel {
         NotificationFields.newCheckInDate: Timestamp.fromDate(newCheckInDate!),
       if (adjustmentReason != null)
         NotificationFields.adjustmentReason: adjustmentReason,
+      if (primaryTenantId.isNotEmpty) 'primaryTenantId': primaryTenantId,
+      if (primaryTenantName.isNotEmpty) 'primaryTenantName': primaryTenantName,
+      if (newRoommateId.isNotEmpty) 'newRoommateId': newRoommateId,
+      if (newRoommateName.isNotEmpty) 'newRoommateName': newRoommateName,
+      if (actionType.isNotEmpty) 'actionType': actionType,
+      if (userNotificationId.isNotEmpty) 'userNotificationId': userNotificationId,
     };
   }
 }

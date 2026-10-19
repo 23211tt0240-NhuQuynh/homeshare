@@ -67,6 +67,7 @@ class HandoverItemModel {
 
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'periodId': periodId,
       'itemName': itemName,
       'description': description,
@@ -75,4 +76,3 @@ class HandoverItemModel {
     };
   }
 }
-

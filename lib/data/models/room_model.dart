@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/firestore_collections.dart';
+import '../../core/utils/room_identity.dart';
 
 /// Model Phòng trọ & Bài đăng chuẩn hóa theo Database homeShare
 /// Bảng: Nhà trọ, Phòng, ẢnhPhong, Tiện ích, Bài đăng
@@ -20,6 +21,9 @@ class RoomModel {
   final String description; // moTa / noiDung
   final double price; // giaThueThang / giaThue / gia (VNĐ / tháng)
   final double deposit; // tienCoc
+  // Chủ trọ - Tỷ lệ cọc - Luồng đi: Lưu mức 10–100% đã chọn;
+  // phòng cũ thiếu tỷ lệ được đối chiếu với số cọc khi mở chỉnh sửa.
+  final int? depositPercentage;
   final String address; // diaChi
   final String district; // quanHuyen / khuVuc (diaDiemId)
   final String city; // thanhPho
@@ -68,12 +72,25 @@ class RoomModel {
   int get tang => floor;
   DateTime get ngayTao => createdAt;
   String get maPhong {
-    if (roomCode.isNotEmpty) return roomCode;
+    final clean = roomCode.trim().toUpperCase();
+    if (clean.isNotEmpty && !isShortRoomId(clean)) {
+      if (RegExp(r'^P\d+$').hasMatch(clean)) return clean;
+      if (RegExp(r'^[A-Z]?\d{2,4}$').hasMatch(clean)) {
+        return clean.startsWith('P') ? clean : 'P$clean';
+      }
+      if (clean.length <= 8) return clean;
+    }
     final match = RegExp(r'P\d{3,}', caseSensitive: false).firstMatch(id);
     if (match != null) return match.group(0)!.toUpperCase();
     if (id.startsWith('sample_room_')) {
       final num = id.replaceAll('sample_room_', '');
       return 'P${num.padLeft(3, '0')}';
+    }
+    final titleMatch =
+        RegExp(r'P\d{3,}|\b\d{3}\b', caseSensitive: false).firstMatch(title);
+    if (titleMatch != null) {
+      final val = titleMatch.group(0)!.toUpperCase();
+      return val.startsWith('P') ? val : 'P$val';
     }
     return 'P001';
   }
@@ -100,6 +117,7 @@ class RoomModel {
     required this.description,
     required this.price,
     required this.deposit,
+    this.depositPercentage,
     required this.address,
     required this.district,
     this.city = 'TP. Hồ Chí Minh',
@@ -140,10 +158,26 @@ class RoomModel {
       contractStart: (data['contractStart'] as Timestamp?)?.toDate(),
       contractEnd: (data['contractEnd'] as Timestamp?)?.toDate(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
-      propertyId: (data['propertyId'] ?? data['maNhaTro'] ?? data['nhaTroId'] ?? '').toString().trim(),
+      hasRentDebt: data['hasRentDebt'] == true,
+      propertyId:
+          data['propertyId'] ??
+          data[PhongTroSqlFields.batDongSanId] ??
+          data['bat_dong_san_id'] ??
+          data['nhaTroId'] ??
+          data['maNhaTro'] ??
+          '',
+      // Chủ trọ - Tương thích phòng cũ - Luồng đi: Đọc mã cũ nếu có;
+      // không nhận ID ngẫu nhiên làm mã phòng để tránh hiển thị nhầm hash code.
       roomCode: () {
-        final val = (data['roomCode'] ?? data['maPhong'] ?? data['soPhong'] ?? '').toString().trim();
-        if (val.isNotEmpty) return val;
+        final explicit = data['roomCode'] ??
+            data['maPhong'] ??
+            data[PhongTroSqlFields.maPhong] ??
+            data['ma_phong'] ??
+            data['soPhong'];
+        if (explicit != null && explicit.toString().trim().isNotEmpty) {
+          final s = explicit.toString().trim().toUpperCase();
+          if (!isShortRoomId(s)) return s;
+        }
         final match = RegExp(r'P\d{3,}', caseSensitive: false).firstMatch(id);
         if (match != null) return match.group(0)!.toUpperCase();
         if (id.startsWith('sample_room_')) {
@@ -156,6 +190,7 @@ class RoomModel {
           data['status'] ??
           ((data['isAvailable'] ??
                   (data['trangThai'] == 'conPhong' ||
+                      data['trangThai'] == 'TRONG' ||
                       data['trangThai'] == 'dangMo' ||
                       data['trangThai'] == null))
               ? 'available'
@@ -176,6 +211,7 @@ class RoomModel {
         }
         return 0.0;
       }(),
+      depositPercentage: (data['depositPercentage'] as num?)?.toInt(),
       deposit: () {
         final val = data['deposit'] ??
             data['tienCoc'] ??
@@ -200,7 +236,9 @@ class RoomModel {
           double? p;
           if (priceRaw is num) p = priceRaw.toDouble();
           if (priceRaw is String && priceRaw.trim().isNotEmpty) {
-            p = double.tryParse(priceRaw.trim().replaceAll(',', '').replaceAll('.', ''));
+            p = double.tryParse(
+              priceRaw.trim().replaceAll(',', '').replaceAll('.', ''),
+            );
           }
           if (p != null && p > 0) return p * percent / 100;
         }
@@ -222,7 +260,12 @@ class RoomModel {
       roomType: data['roomType'] ?? data['loaiPhong'] ?? 'Phòng trọ',
       amenities: () {
         final raw =
-            data['amenities'] ?? data['tienIch'] ?? data['danhSachTienIch'];
+            data['amenities'] ??
+            data['tienIch'] ??
+            data['danhSachTienIch'] ??
+            data['tien_ich'] ??
+            data['room_amenities'] ??
+            data['roomAmenities'];
         if (raw is List) {
           final list = <String>[];
           for (final item in raw) {
@@ -250,13 +293,15 @@ class RoomModel {
       images: () {
         final raw =
             data['images'] ??
-            data['roomImages'] ??
             data['anhPhong'] ??
+            data['roomImages'] ??
             data['imageUrls'] ??
             data['photos'] ??
             data['photoUrls'] ??
             data['danhSachAnh'] ??
             data['hinhAnh'] ??
+            data['anh_phong'] ??
+            data['room_images'] ??
             data['anhList'];
         if (raw is List) {
           final list = <String>[];
@@ -265,7 +310,7 @@ class RoomModel {
               var s = item.trim();
               if (s.startsWith('{') && s.endsWith('}')) {
                 final match = RegExp(
-                  r'(?:duongDan|url|image|imageUrl):\s*([^,}]+)',
+                  r'(?:duongDan|url|image|imageUrl|url_anh):\s*([^,}]+)',
                 ).firstMatch(s);
                 if (match != null) {
                   s = match
@@ -279,6 +324,7 @@ class RoomModel {
             } else if (item is Map) {
               final url =
                   (item['url'] ??
+                          item['url_anh'] ??
                           item['duongDan'] ??
                           item['image'] ??
                           item['imageUrl'] ??
@@ -300,7 +346,9 @@ class RoomModel {
             data['duongDan'] ??
             data['photoUrl'] ??
             data['anh'] ??
-            data['hinhAnh'];
+            data['hinhAnh'] ??
+            data['url_anh'] ??
+            data['url'];
         if (single is String && single.trim().isNotEmpty) {
           return [single.trim()];
         }
@@ -350,75 +398,167 @@ class RoomModel {
     );
   }
 
-  /// Mapper chuẩn ghi Firestore theo Database.docx
+  /// Mapper chuẩn ghi Firestore theo Database.docx & ERD (100% tiếng Anh)
   Map<String, dynamic> toFirestore() {
-    final effectiveCode = roomCode.isNotEmpty ? roomCode : maPhong;
-    return {
-      RoomFields.roomId: id,
-      'id': id,
-      RoomFields.propertyId: propertyId,
-      RoomFields.hostId: hostId,
-      RoomFields.roomCode: effectiveCode,
-      RoomFields.title: title,
-      RoomFields.description: description,
-      RoomFields.rentalPrice: price,
-      RoomFields.depositAmount: deposit,
-      RoomFields.area: area,
-      RoomFields.capacity: capacity,
-      RoomFields.floor: floor,
-      RoomFields.status: status,
-      RoomFields.statusId: isAvailable ? 'available' : 'hidden',
-      RoomFields.amenities: amenities,
-      RoomFields.images: images,
-      RoomFields.address: address,
-      'district': district,
-      'city': city,
-      RoomFields.createdAt: Timestamp.fromDate(createdAt),
-    };
-  }
-
-  Map<String, dynamic> toMap() {
-    final effectiveCode = roomCode.isNotEmpty ? roomCode : maPhong;
     return {
       'id': id,
-      'roomId': id,
       'propertyId': propertyId,
-      'roomCode': effectiveCode,
-      if (electricityRate != null) 'electricityRate': electricityRate,
-      if (waterRate != null) 'waterRate': waterRate,
-      if (serviceFee != null) 'serviceFee': serviceFee,
-      'tenantName': tenantName,
-      'tenantPhone': tenantPhone,
-      'tenantAvatar': tenantAvatar,
-      'contractId': contractId,
-      if (contractStart != null)
-        'contractStart': Timestamp.fromDate(contractStart!),
-      if (contractEnd != null) 'contractEnd': Timestamp.fromDate(contractEnd!),
-      if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
-      'hasRentDebt': hasRentDebt,
-      'title': title,
-      'description': description,
-      'rentalPrice': price,
-      'depositAmount': deposit,
-      'address': address,
-      'district': district,
-      'city': city,
-      'area': area,
-      if (minArea != null) 'minArea': minArea,
-      if (maxArea != null) 'maxArea': maxArea,
-      'roomType': roomType,
-      'amenities': amenities,
-      'images': images,
+      'roomCode': roomCode.isNotEmpty ? roomCode : maPhong,
       'hostId': hostId,
       'hostName': hostName,
       'hostPhone': hostPhone,
-      'hostAvatar': hostAvatar,
-      'rating': rating,
-      'reviewCount': reviewCount,
-      'status': isAvailable ? 'available' : 'unavailable',
+      'title': title,
+      'description': description,
+      'price': price,
+      'deposit': deposit,
+      if (depositPercentage != null) 'depositPercentage': depositPercentage,
+      'area': area,
       'capacity': capacity,
       'floor': floor,
+      'roomType': roomType,
+      'status': status,
+      'isAvailable': isAvailable,
+      'amenities': amenities,
+      'images': images,
+      'address': address,
+      'district': district,
+      'city': city,
+      if (electricityRate != null) 'electricityRate': electricityRate,
+      if (waterRate != null) 'waterRate': waterRate,
+      if (serviceFee != null) 'serviceFee': serviceFee,
       'createdAt': Timestamp.fromDate(createdAt),
+      if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
     };
+  }
+
+  Map<String, dynamic> toMap() => toFirestore();
+
+  /// Đường dẫn Sub-collection trên Firestore:
+  /// Mối quan hệ 1-N giữa properties và rooms:
+  /// Path: properties/{propertyId}/rooms
+  static String subCollectionPath(String propertyId) =>
+      HostFirestorePaths.rooms(propertyId);
+
+  /// Đường dẫn Document trong Sub-collection:
+  /// Path: properties/{propertyId}/rooms/{roomId}
+  static String docPath(String propertyId, String roomId) =>
+      HostFirestorePaths.roomDoc(propertyId, roomId);
+
+  /// Đường dẫn lồng sâu từ Chủ trọ (1-N lồng):
+  /// Path: users/{hostId}/properties/{propertyId}/rooms
+  static String nestedSubCollectionPath(String hostId, String propertyId) =>
+      HostFirestorePaths.nestedRooms(hostId, propertyId);
+
+  /// CollectionReference cho Sub-collection rooms
+  static CollectionReference<Map<String, dynamic>> subColRef(
+    String propertyId, [
+    FirebaseFirestore? firestore,
+  ]) => (firestore ?? FirebaseFirestore.instance)
+      .collection(FirestoreCollections.properties)
+      .doc(propertyId)
+      .collection(FirestoreCollections.rooms);
+
+  /// Mapper chuẩn bảng phong_tro theo SQL_NHOM4_CHUYENDEDIDONG.sql (100% trường SQL)
+  Map<String, dynamic> toPhongTroSql() => {
+    PhongTroSqlFields.id: id,
+    PhongTroSqlFields.batDongSanId: propertyId,
+    PhongTroSqlFields.maPhong: roomCode,
+    PhongTroSqlFields.dienTich: area,
+    PhongTroSqlFields.giaThue: price,
+    PhongTroSqlFields.tienCoc: deposit,
+    PhongTroSqlFields.giaDien: electricityRate ?? 0.0,
+    PhongTroSqlFields.giaNuoc: waterRate ?? 0.0,
+    PhongTroSqlFields.giaWifi: serviceFee ?? 0.0,
+    PhongTroSqlFields.trangThai: isAvailable ? 'TRONG' : 'DA_THUE',
+    PhongTroSqlFields.ngayTao: Timestamp.fromDate(createdAt),
+  };
+
+  /// Factory đọc từ dữ liệu bảng phong_tro chuẩn SQL
+  factory RoomModel.fromPhongTroSql(Map<String, dynamic> data, String id) {
+    return RoomModel.fromMap(data, id);
+  }
+
+  RoomModel copyWith({
+    String? id,
+    String? propertyId,
+    String? roomCode,
+    String? title,
+    String? description,
+    double? price,
+    double? deposit,
+    int? depositPercentage,
+    String? address,
+    String? district,
+    String? city,
+    double? area,
+    double? minArea,
+    double? maxArea,
+    String? roomType,
+    List<String>? amenities,
+    List<String>? images,
+    String? hostId,
+    String? hostName,
+    String? hostPhone,
+    String? hostAvatar,
+    double? rating,
+    int? reviewCount,
+    bool? isAvailable,
+    int? capacity,
+    int? floor,
+    DateTime? createdAt,
+    String? status,
+    String? tenantName,
+    String? tenantPhone,
+    String? tenantAvatar,
+    String? contractId,
+    DateTime? contractStart,
+    DateTime? contractEnd,
+    DateTime? updatedAt,
+    bool? hasRentDebt,
+    double? electricityRate,
+    double? waterRate,
+    double? serviceFee,
+  }) {
+    return RoomModel(
+      id: id ?? this.id,
+      propertyId: propertyId ?? this.propertyId,
+      roomCode: roomCode ?? this.roomCode,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      price: price ?? this.price,
+      deposit: deposit ?? this.deposit,
+      depositPercentage: depositPercentage ?? this.depositPercentage,
+      address: address ?? this.address,
+      district: district ?? this.district,
+      city: city ?? this.city,
+      area: area ?? this.area,
+      minArea: minArea ?? this.minArea,
+      maxArea: maxArea ?? this.maxArea,
+      roomType: roomType ?? this.roomType,
+      amenities: amenities ?? this.amenities,
+      images: images ?? this.images,
+      hostId: hostId ?? this.hostId,
+      hostName: hostName ?? this.hostName,
+      hostPhone: hostPhone ?? this.hostPhone,
+      hostAvatar: hostAvatar ?? this.hostAvatar,
+      rating: rating ?? this.rating,
+      reviewCount: reviewCount ?? this.reviewCount,
+      isAvailable: isAvailable ?? this.isAvailable,
+      capacity: capacity ?? this.capacity,
+      floor: floor ?? this.floor,
+      createdAt: createdAt ?? this.createdAt,
+      status: status ?? this.status,
+      tenantName: tenantName ?? this.tenantName,
+      tenantPhone: tenantPhone ?? this.tenantPhone,
+      tenantAvatar: tenantAvatar ?? this.tenantAvatar,
+      contractId: contractId ?? this.contractId,
+      contractStart: contractStart ?? this.contractStart,
+      contractEnd: contractEnd ?? this.contractEnd,
+      updatedAt: updatedAt ?? this.updatedAt,
+      hasRentDebt: hasRentDebt ?? this.hasRentDebt,
+      electricityRate: electricityRate ?? this.electricityRate,
+      waterRate: waterRate ?? this.waterRate,
+      serviceFee: serviceFee ?? this.serviceFee,
+    );
   }
 }

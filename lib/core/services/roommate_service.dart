@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/roommate_post_model.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../constants/vietnam_locations.dart';
+import '../utils/vietnamese_utils.dart';
+import 'image_storage_service.dart';
 import 'user_profile_service.dart';
 
 class RoommateFilterParams {
@@ -312,28 +314,12 @@ class RoommateService {
   }
 
   Future<Map<String, List<String>>> _hobbyNamesByUser(Set<String> uids) async {
-    final names = <String, List<String>>{};
-    final ids = uids.toList();
-    for (var i = 0; i < ids.length; i += 10) {
-      final end = i + 10 > ids.length ? ids.length : i + 10;
-      final chunk = ids.sublist(i, end);
-      try {
-        final links = await _firestore.collection('user_hobbies').where('nguoiDungId', whereIn: chunk).get();
-        for (final doc in links.docs) {
-          final uid = '${doc.data()['nguoiDungId'] ?? ''}';
-          final hobbyId = '${doc.data()['soThichId'] ?? ''}';
-          if (uid.isEmpty || hobbyId.isEmpty) continue;
-          final hobby = await _firestore.collection('hobbies').doc(hobbyId).get();
-          final name = hobby.data()?['tenSoThich']?.toString().trim() ?? '';
-          if (name.isEmpty) continue;
-          final list = names.putIfAbsent(uid, () => []);
-          if (!list.any((item) => item.toLowerCase() == name.toLowerCase())) list.add(name);
-        }
-      } catch (e) {
-        debugPrint('Đọc sở thích người đăng: $e');
-      }
+    try {
+      return UserProfileService().loadInterestNamesForUsers(uids);
+    } catch (e) {
+      debugPrint('Đọc sở thích người đăng: $e');
+      return {};
     }
-    return names;
   }
 
   /// Avatar trên bài lấy ảnh hiện tại của người đăng.
@@ -345,6 +331,11 @@ class RoommateService {
     final avatars = <String, String>{};
     for (final authorId in real.map((post) => post.authorId).where((id) => id.isNotEmpty).toSet()) {
       try {
+        final stored = await ImageStorageService().avatarDownloadUrl(authorId);
+        if (stored != null) {
+          avatars[authorId] = stored;
+          continue;
+        }
         final doc = await _firestore.collection('users').doc(authorId).get();
         final data = doc.data();
         if (data == null) continue;
@@ -403,6 +394,16 @@ class RoommateService {
             : List<String>.filled(images.length, ''),
       );
     }).toList();
+  }
+
+  /// Đọc một bài ở ghép theo id, kèm ảnh trong roommate_post_images nếu bài không lưu mảng ảnh.
+  Future<RoommatePostModel?> loadPost(String postId) async {
+    final id = postId.trim();
+    if (id.isEmpty) return null;
+    final doc = await _firestore.collection('roommate_posts').doc(id).get();
+    if (!doc.exists) return null;
+    final filled = await _withLiveAuthorAndImages([RoommatePostModel.fromFirestore(doc)]);
+    return filled.isEmpty ? null : filled.first;
   }
 
   // Đăng bài tìm ở ghép mới
@@ -474,11 +475,7 @@ class RoommateService {
   }
 
   String _habitKey(String raw) {
-    return raw
-        .toLowerCase()
-        .replaceAll(RegExp(r'[,./()]'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    return normalizeVietnameseComparison(raw.replaceAll(RegExp(r'[,./()]'), ' '));
   }
 
   bool _sameHabitFamily(String a, String b) {
@@ -489,7 +486,8 @@ class RoommateService {
       ['giờ giấc tự do'],
     ];
     for (final group in groups) {
-      if (group.any(a.contains) && group.any(b.contains)) return true;
+      final keys = group.map(normalizeVietnameseComparison);
+      if (keys.any((key) => a.contains(key)) && keys.any((key) => b.contains(key))) return true;
     }
     return false;
   }
