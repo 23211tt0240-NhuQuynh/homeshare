@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -46,19 +45,7 @@ class UserAvatar extends StatelessWidget {
       return MemoryImage(localBytes!);
     }
     final url = imageUrl.trim();
-    if (url.startsWith('data:image')) {
-      final comma = url.indexOf(',');
-      if (comma > 0) {
-        try {
-          return MemoryImage(base64Decode(url.substring(comma + 1)));
-        } catch (_) {
-          return null;
-        }
-      }
-    }
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return NetworkImage(url);
-    }
+    if (url.startsWith('http://') || url.startsWith('https://')) return NetworkImage(url);
     return null;
   }
 }

@@ -58,7 +58,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     try {
       final authService = ref.read(authServiceProvider);
       await authService.signUpWithEmail(
-        email: _resolveEmail(_emailController.text),
+        email: _emailController.text.trim().toLowerCase(),
         password: _passwordController.text.trim(),
         displayName: _nameController.text.trim(),
         phoneNumber: _phoneController.text.trim(),
@@ -80,7 +80,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         );
 
         // Quay trở lại màn hình Đăng nhập và truyền email vừa tạo để điền sẵn
-        Navigator.pop(context, _resolveEmail(_emailController.text));
+        Navigator.pop(context, _emailController.text.trim().toLowerCase());
       }
     } catch (e) {
       if (mounted) {
@@ -172,16 +172,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       AuthTextField(
                         controller: _emailController,
                         label: 'Email *',
-                        hint: 'vidu@gmail.com',
+                        hint: 'an.nguyen@gmail.com',
                         icon: Icons.email_outlined,
                         keyboardType: TextInputType.emailAddress,
-                        suffixIcon: _emailController.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
-                                onPressed: () => setState(() => _emailController.clear()),
-                              )
-                            : null,
-                        validator: _validateEmail,
+                        validator: _validateGmailLocal,
                       ),
                       const SizedBox(height: 16),
 
@@ -340,26 +334,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     );
   }
 
-  String _resolveEmail(String raw) {
-    final value = raw.trim();
-    if (!value.contains('@') && value.isNotEmpty) {
-      return '$value@gmail.com';
-    }
-    return value;
-  }
-
-  String? _validateEmail(String? val) {
-    final text = (val ?? '').trim();
-    if (text.isEmpty) return 'Vui lòng nhập email';
-    if (text.contains('@')) {
-      final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-      if (!emailRegex.hasMatch(text)) {
-        return 'Email không hợp lệ (Ví dụ: vidu@gmail.com)';
-      }
-    } else {
-      if (!RegExp(r'^[A-Za-z0-9._+-]+$').hasMatch(text)) {
-        return 'Email chứa ký tự không hợp lệ';
-      }
+  String? _validateGmailLocal(String? val) {
+    final email = (val ?? '').trim().toLowerCase();
+    if (email.isEmpty) return 'Vui lòng nhập đủ email';
+    if (!RegExp(r'^[A-Za-z0-9._+-]+@gmail\.com$').hasMatch(email)) {
+      return 'Nhập đủ địa chỉ, ví dụ ten@gmail.com';
     }
     return null;
   }

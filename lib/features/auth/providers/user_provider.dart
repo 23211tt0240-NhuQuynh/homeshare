@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/role_resolver.dart';
+import '../../../core/services/image_storage_service.dart';
 import '../../../core/utils/id_generator.dart';
 import 'auth_provider.dart';
 
@@ -109,7 +110,7 @@ class UserProfile {
             : generateUserCode(seed: uid, role: role);
 
   factory UserProfile.fromMap(Map<String, dynamic> data, String uid) {
-    final rawHobbies = (data['soThich'] ?? data['hobbies']) as List<dynamic>?;
+    final rawHobbies = (data['hobbies'] ?? data['soThich']) as List<dynamic>?;
     final parsedHobbies = rawHobbies
             ?.map((e) => e?.toString() ?? '')
             .where((e) => e.isNotEmpty)
@@ -121,7 +122,7 @@ class UserProfile {
         (data['role'] != null ? RoleResolver.normalizeRole(data['role']) : null) ??
         'renter';
 
-    final rawUserCode = (data['maNguoiDung'] ?? data['userCode'] ?? data['idNguoiDung'])?.toString();
+    final rawUserCode = (data['userCode'] ?? data['maNguoiDung'] ?? data['idNguoiDung'])?.toString();
     final userCode = (rawUserCode != null && isValidUserCode(rawUserCode))
         ? rawUserCode.trim().toUpperCase()
         : generateUserCode(seed: uid, role: resolvedRole);
@@ -130,77 +131,74 @@ class UserProfile {
       uid: uid,
       userCode: userCode,
       email: data['email'] ?? '',
-      displayName: data['hoTen'] ?? data['displayName'] ?? 'Người dùng HomeShare',
-      phoneNumber: data['soDienThoai'] ?? data['phoneNumber'] ?? '',
+      displayName: data['displayName'] ?? data['hoTen'] ?? 'Người dùng HomeShare',
+      phoneNumber: data['phoneNumber'] ?? data['soDienThoai'] ?? '',
       role: resolvedRole,
-      avatarUrl: data['anhDaiDien'] ?? data['avatarUrl'] ?? '',
-      gender: data['gioiTinh'] ?? data['gender'] ?? 'Nam',
-      address: data['diaChi'] ?? data['address'] ?? '',
-      hometown: data['queQuan'] ?? data['hometown'] ?? '',
-      reputationScore: ((data['diemUyTin'] ?? data['reputationScore']) as num?)?.toInt() ?? 100,
-      occupation: data['ngheNghiep'] ?? data['occupation'] ?? 'Sinh viên',
+      avatarUrl: data['avatarUrl'] ?? data['anhDaiDien'] ?? '',
+      gender: data['gender'] ?? data['gioiTinh'] ?? 'Nam',
+      address: data['address'] ?? data['diaChi'] ?? '',
+      hometown: data['hometown'] ?? data['queQuan'] ?? '',
+      reputationScore: ((data['reputationScore'] ?? data['diemUyTin']) as num?)?.toInt() ?? 100,
+      occupation: data['occupation'] ?? data['ngheNghiep'] ?? 'Sinh viên',
       workplace: data['workplace'] ?? data['noiLamViec'] ?? '',
       bio: data['bio'] ?? data['gioiThieu'] ?? '',
       hobbies: parsedHobbies,
-      birthDate: (data['ngaySinh'] is Timestamp)
-          ? (data['ngaySinh'] as Timestamp).toDate()
-          : (data['birthDate'] is Timestamp)
-              ? (data['birthDate'] as Timestamp).toDate()
+      birthDate: (data['birthDate'] is Timestamp)
+          ? (data['birthDate'] as Timestamp).toDate()
+          : (data['ngaySinh'] is Timestamp)
+              ? (data['ngaySinh'] as Timestamp).toDate()
               : null,
-      createdAt: (data['ngayTao'] is Timestamp)
-          ? (data['ngayTao'] as Timestamp).toDate()
-          : (data['createdAt'] is Timestamp)
-              ? (data['createdAt'] as Timestamp).toDate()
+      createdAt: (data['createdAt'] is Timestamp)
+          ? (data['createdAt'] as Timestamp).toDate()
+          : (data['ngayTao'] is Timestamp)
+              ? (data['ngayTao'] as Timestamp).toDate()
               : null,
-      isCccdVerified: (data['daXacThucCccd'] ??
-              data['isCccdVerified'] ??
+      isCccdVerified: (data['isCccdVerified'] ??
+              data['daXacThucCccd'] ??
               (data['trangThaiXacMinh'] == 'daXacThuc') ??
               (data['trangThaiXacMinh_id'] == 'daXacThuc')) ??
           false,
-      cccdNumber: data['soCccd'] ?? data['soGiayTo'] ?? data['cccdNumber'] ?? '',
-      cccdFullName: data['hoTenCccd'] ?? data['cccdFullName'] ?? '',
-      cccdIssueDate: data['ngayCap'] ?? data['cccdIssueDate'] ?? '',
-      cccdHometown: data['queQuanCccd'] ?? data['cccdHometown'] ?? '',
-      cccdVerifiedAt: (data['ngayXacMinh'] is Timestamp)
-          ? (data['ngayXacMinh'] as Timestamp).toDate()
-          : (data['cccdVerifiedAt'] is Timestamp)
-              ? (data['cccdVerifiedAt'] as Timestamp).toDate()
+      cccdNumber: data['cccdNumber'] ?? data['soCccd'] ?? data['soGiayTo'] ?? '',
+      cccdFullName: data['cccdFullName'] ?? data['hoTenCccd'] ?? '',
+      cccdIssueDate: data['cccdIssueDate'] ?? data['ngayCap'] ?? '',
+      cccdHometown: data['cccdHometown'] ?? data['queQuanCccd'] ?? '',
+      cccdVerifiedAt: (data['cccdVerifiedAt'] is Timestamp)
+          ? (data['cccdVerifiedAt'] as Timestamp).toDate()
+          : (data['ngayXacMinh'] is Timestamp)
+              ? (data['ngayXacMinh'] as Timestamp).toDate()
               : null,
-      cccdFrontImageUrl: data['anhMatTruoc'] ?? data['cccdFrontImageUrl'] ?? '',
-      cccdBackImageUrl: data['anhMatSau'] ?? data['cccdBackImageUrl'] ?? '',
+      cccdFrontImageUrl: data['cccdFrontImageUrl'] ?? data['anhMatTruoc'] ?? '',
+      cccdBackImageUrl: data['cccdBackImageUrl'] ?? data['anhMatSau'] ?? '',
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,
-      'maNguoiDung': userCode,
+      'userCode': userCode,
       'email': email,
-      'hoTen': displayName,
-      'soDienThoai': phoneNumber,
-      'vaiTro': role,
-      'anhDaiDien': avatarUrl,
-      'gioiTinh': gender,
-      'diaChi': address,
-      'queQuan': hometown,
-      'diemUyTin': reputationScore,
-      'ngheNghiep': occupation,
+      'displayName': displayName,
+      'phoneNumber': phoneNumber,
+      'role': role,
+      'avatarUrl': avatarUrl,
+      'gender': gender,
+      'address': address,
+      'hometown': hometown,
+      'reputationScore': reputationScore,
+      'occupation': occupation,
       'workplace': workplace,
-      'noiLamViec': workplace,
       'bio': bio,
-      'gioiThieu': bio,
-      'soThich': hobbies,
-      'daXacThucCccd': isCccdVerified,
-      'trangThaiXacMinh': isCccdVerified ? 'daXacThuc' : 'chuaXacThuc',
-      'soCccd': cccdNumber,
-      'hoTenCccd': cccdFullName,
-      'ngayCap': cccdIssueDate,
-      'queQuanCccd': cccdHometown,
-      'anhMatTruoc': cccdFrontImageUrl,
-      'anhMatSau': cccdBackImageUrl,
-      if (birthDate != null) 'ngaySinh': Timestamp.fromDate(birthDate!),
-      if (cccdVerifiedAt != null) 'ngayXacMinh': Timestamp.fromDate(cccdVerifiedAt!),
-      'ngayTao': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
+      'hobbies': hobbies,
+      'isCccdVerified': isCccdVerified,
+      'cccdNumber': cccdNumber,
+      'cccdFullName': cccdFullName,
+      'cccdIssueDate': cccdIssueDate,
+      'cccdHometown': cccdHometown,
+      'cccdFrontImageUrl': cccdFrontImageUrl,
+      'cccdBackImageUrl': cccdBackImageUrl,
+      if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate!),
+      if (cccdVerifiedAt != null) 'cccdVerifiedAt': Timestamp.fromDate(cccdVerifiedAt!),
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
     };
   }
 
@@ -276,31 +274,30 @@ Future<void> saveCccdVerificationToBackend({
   final firestore = FirebaseFirestore.instance;
   final updateData = <String, dynamic>{
     'isCccdVerified': true,
-    'daXacThucCccd': true,
-    'trangThaiXacMinh_id': 'daXacThuc',
     'cccdNumber': cccdNumber,
-    'soGiayTo': cccdNumber,
-    'soCccd': cccdNumber,
     'cccdFullName': cccdFullName,
-    'hoTenCccd': cccdFullName,
     'displayName': cccdFullName,
-    'hoTen': cccdFullName,
     'cccdIssueDate': cccdIssueDate,
     'cccdHometown': cccdHometown,
     'gender': gender,
-    'gioiTinh': gender,
     if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate),
-    if (birthDate != null) 'ngaySinh': Timestamp.fromDate(birthDate),
-    if (cccdFrontImageUrl.isNotEmpty) ...{
-      'cccdFrontImageUrl': cccdFrontImageUrl,
-      'anhMatTruoc': cccdFrontImageUrl,
-    },
-    if (cccdBackImageUrl.isNotEmpty) ...{
-      'cccdBackImageUrl': cccdBackImageUrl,
-      'anhMatSau': cccdBackImageUrl,
-    },
+    if (cccdFrontImageUrl.isNotEmpty) 'cccdFrontImageUrl': cccdFrontImageUrl,
+    if (cccdBackImageUrl.isNotEmpty) 'cccdBackImageUrl': cccdBackImageUrl,
     'cccdVerifiedAt': FieldValue.serverTimestamp(),
-    'ngayXacMinh': FieldValue.serverTimestamp(),
+    'hoTen': FieldValue.delete(),
+    'gioiTinh': FieldValue.delete(),
+    'ngaySinh': FieldValue.delete(),
+    'daXacThucCccd': FieldValue.delete(),
+    'trangThaiXacMinh': FieldValue.delete(),
+    'trangThaiXacMinh_id': FieldValue.delete(),
+    'soCccd': FieldValue.delete(),
+    'soGiayTo': FieldValue.delete(),
+    'hoTenCccd': FieldValue.delete(),
+    'ngayCap': FieldValue.delete(),
+    'queQuanCccd': FieldValue.delete(),
+    'anhMatTruoc': FieldValue.delete(),
+    'anhMatSau': FieldValue.delete(),
+    'ngayXacMinh': FieldValue.delete(),
   };
 
   try {
@@ -323,6 +320,68 @@ Future<void> saveCccdVerificationToBackend({
   } catch (_) {}
 }
 
+bool _userFieldMissing(Object? value) {
+  if (value == null) return true;
+  if (value is String && value.trim().isEmpty) return true;
+  return false;
+}
+
+/// Chép giá trị sang tên tiếng Anh nếu bản tiếng Anh đang trống, rồi xóa bản trùng.
+Map<String, dynamic> englishUserFieldPatch(Map<String, dynamic> data) {
+  final patch = <String, dynamic>{};
+
+  void move(String english, List<String> aliases) {
+    if (_userFieldMissing(data[english])) {
+      for (final alias in aliases) {
+        final value = data[alias];
+        if (_userFieldMissing(value)) continue;
+        patch[english] = value;
+        break;
+      }
+    }
+    for (final alias in aliases) {
+      if (data.containsKey(alias)) patch[alias] = FieldValue.delete();
+    }
+  }
+
+  move('displayName', ['hoTen']);
+  move('phoneNumber', ['soDienThoai']);
+  move('userCode', ['maNguoiDung', 'idNguoiDung']);
+  move('createdAt', ['ngayTao']);
+  move('reputationScore', ['diemUyTin']);
+  move('gender', ['gioiTinh']);
+  move('address', ['diaChi']);
+  move('hometown', ['queQuan']);
+  move('occupation', ['ngheNghiep']);
+  move('workplace', ['noiLamViec']);
+  move('bio', ['gioiThieu']);
+  move('birthDate', ['ngaySinh']);
+  move('cccdNumber', ['soCccd', 'soGiayTo']);
+  move('cccdFullName', ['hoTenCccd']);
+  move('cccdIssueDate', ['ngayCap']);
+  move('cccdHometown', ['queQuanCccd']);
+  move('cccdFrontImageUrl', ['anhMatTruoc']);
+  move('cccdBackImageUrl', ['anhMatSau']);
+  move('cccdVerifiedAt', ['ngayXacMinh']);
+
+  if (_userFieldMissing(data['role'])) {
+    final named = data['vaiTro'];
+    if (named is String && named.trim().isNotEmpty) {
+      patch['role'] = named.trim();
+    }
+  }
+  if (data['isCccdVerified'] == null &&
+      (data['daXacThucCccd'] == true ||
+          data['trangThaiXacMinh'] == 'daXacThuc' ||
+          data['trangThaiXacMinh_id'] == 'daXacThuc')) {
+    patch['isCccdVerified'] = true;
+  }
+  for (final key in ['vaiTro', 'vaiTro_id', 'daXacThucCccd', 'trangThaiXacMinh', 'trangThaiXacMinh_id']) {
+    if (data.containsKey(key)) patch[key] = FieldValue.delete();
+  }
+  return patch;
+}
+
 // StreamProvider lấy thông tin chi tiết user từ Cloud Firestore
 final userProfileProvider = StreamProvider<UserProfile?>((ref) {
   final user = ref.watch(currentUserProvider);
@@ -332,7 +391,7 @@ final userProfileProvider = StreamProvider<UserProfile?>((ref) {
       .collection('users')
       .doc(user.uid)
       .snapshots()
-      .map((snapshot) {
+      .asyncMap((snapshot) async {
     if (!snapshot.exists || snapshot.data() == null) {
       final code = UserProfile.generateUserCode(seed: user.uid, role: 'renter');
       return UserProfile(
@@ -346,15 +405,17 @@ final userProfileProvider = StreamProvider<UserProfile?>((ref) {
     }
     final data = snapshot.data()!;
     final resolvedRole = RoleResolver.extractRoleFromMap(data) ?? 'renter';
-    if (data['userCode'] == null || data['maNguoiDung'] == null) {
-      final code = UserProfile.generateUserCode(seed: user.uid, role: resolvedRole);
-      FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'userCode': code,
-        'maNguoiDung': code,
-        'idNguoiDung': code,
-      }, SetOptions(merge: true));
+    final patch = englishUserFieldPatch(data);
+    if (data['userCode'] == null && data['maNguoiDung'] == null && data['idNguoiDung'] == null) {
+      patch['userCode'] = UserProfile.generateUserCode(seed: user.uid, role: resolvedRole);
     }
-    return UserProfile.fromMap(data, user.uid);
+    if (patch.isNotEmpty) {
+      FirebaseFirestore.instance.collection('users').doc(user.uid).set(patch, SetOptions(merge: true));
+    }
+    final profile = UserProfile.fromMap(data, user.uid);
+    final storedAvatar = await ImageStorageService().avatarDownloadUrl(user.uid);
+    if (storedAvatar == null) return profile;
+    return profile.copyWith(avatarUrl: storedAvatar);
   });
 });
 
@@ -366,8 +427,8 @@ Future<void> updateUserRole({
   final normalized = RoleResolver.normalizeRole(newRole) ?? 'renter';
   await FirebaseFirestore.instance.collection('users').doc(uid).set({
     'role': normalized,
-    'vaiTro': normalized,
-    'vaiTro_id': normalized == 'host' ? 2 : (normalized == 'admin' ? 3 : 1),
+    'vaiTro': FieldValue.delete(),
+    'vaiTro_id': FieldValue.delete(),
   }, SetOptions(merge: true));
 }
 

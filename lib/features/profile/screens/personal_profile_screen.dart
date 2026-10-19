@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/vietnam_banks.dart';
 import '../../../core/services/user_profile_service.dart';
 import '../../auth/providers/user_provider.dart';
 import '../widgets/user_avatar.dart';
@@ -13,7 +14,9 @@ import 'cccd_verification_screen.dart';
 /// Tên, ảnh, mã, điện thoại, email và trạng thái VNeID/CCCD lấy từ tài khoản.
 /// Giới thiệu để trống cho người dùng tự viết. Sở thích mặc định không có.
 class PersonalProfileScreen extends ConsumerStatefulWidget {
-  const PersonalProfileScreen({super.key});
+  final String? userId;
+
+  const PersonalProfileScreen({super.key, this.userId});
 
   @override
   ConsumerState<PersonalProfileScreen> createState() => _PersonalProfileScreenState();
@@ -30,6 +33,8 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   final _workplaceController = TextEditingController();
   final _bioController = TextEditingController();
   final _interestController = TextEditingController();
+  final _accountNumberController = TextEditingController();
+  final _accountHolderController = TextEditingController();
   final _picker = ImagePicker();
 
   final _emailController = TextEditingController();
@@ -41,10 +46,53 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   bool _verified = false;
   bool _hydrated = false;
   bool _loadingInterests = true;
+  bool _bankLoaded = false;
+  bool _bankLoadFailed = false;
+  String _bankName = '';
   bool _saving = false;
+  bool _viewOnly = false;
+  bool _loadingUser = false;
+  String? _loadError;
   Uint8List? _pickedAvatar;
   DateTime? _birthDate;
   final List<String> _interests = [];
+
+  @override
+  void initState() {
+    super.initState();
+    final requested = widget.userId?.trim() ?? '';
+    if (requested.isEmpty) return;
+    _loadingUser = true;
+    Future.microtask(() => _loadViewedUser(requested));
+  }
+
+  Future<void> _loadViewedUser(String requested) async {
+    final mine = ref.read(userProfileProvider).value;
+    if (mine != null && mine.uid == requested) {
+      if (mounted) setState(() => _loadingUser = false);
+      return;
+    }
+    try {
+      final profile = await ref.read(userProfileServiceProvider).loadUser(requested);
+      if (!mounted) return;
+      setState(() {
+        _loadingUser = false;
+        _viewOnly = profile != null;
+        _loadError = profile == null ? 'Không tìm thấy hồ sơ.' : null;
+        if (profile != null) {
+          _hydrated = true;
+          _hydrate(profile);
+          _loadInterests(profile);
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingUser = false;
+        _loadError = 'Không tải được hồ sơ.';
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -58,6 +106,8 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     _workplaceController.dispose();
     _bioController.dispose();
     _interestController.dispose();
+    _accountNumberController.dispose();
+    _accountHolderController.dispose();
     super.dispose();
   }
 
@@ -216,7 +266,47 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     if (_bioController.text.trim().length > 500) {
       issues.add('Giới thiệu tối đa 500 ký tự.');
     }
+    issues.addAll(_bankIssues());
     return issues;
+  }
+
+  List<String> _bankIssues() {
+    if (_bankLoadFailed) return const [];
+    final number = _accountNumberController.text.trim();
+    final holder = _accountHolderController.text.trim();
+    final bank = _bankName.trim();
+    if (number.isEmpty && holder.isEmpty && bank.isEmpty) return const [];
+    final issues = <String>[];
+    if (!RegExp(r'^\d{6,19}$').hasMatch(number)) {
+      issues.add('Số tài khoản gồm từ 6 đến 19 chữ số.');
+    }
+    if (holder.length < 2 || !RegExp(r'\p{L}', unicode: true).hasMatch(holder)) {
+      issues.add('Nhập tên chủ tài khoản.');
+    }
+    if (bank.isEmpty) {
+      issues.add('Chọn ngân hàng.');
+    }
+    return issues;
+  }
+
+  Future<void> _loadBankAccount(String uid) async {
+    try {
+      final account = await ref.read(userProfileServiceProvider).loadBankAccount(uid);
+      if (!mounted) return;
+      setState(() {
+        _accountNumberController.text = account.accountNumber;
+        _accountHolderController.text = account.accountHolder;
+        _bankName = account.bankName;
+        _bankLoaded = true;
+        _bankLoadFailed = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _bankLoaded = true;
+        _bankLoadFailed = true;
+      });
+    }
   }
 
   Future<void> _showResult({
@@ -263,6 +353,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
       return;
     }
 
+    if (!_bankLoaded) return;
     setState(() => _saving = true);
     try {
       await ref.read(userProfileServiceProvider).saveProfile(
@@ -278,11 +369,17 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
             role: _role,
             birthDate: _birthDateFromYear(),
             avatarBytes: _pickedAvatar,
+            accountNumber: _accountNumberController.text.trim(),
+            accountHolder: _accountHolderController.text.trim(),
+            bankName: _bankName.trim(),
+            updateBankAccount: !_bankLoadFailed,
           );
       if (!mounted) return;
       await _showResult(
         title: 'Đã lưu hồ sơ',
-        message: 'Thông tin cá nhân và sở thích đã được cập nhật.',
+        message: _bankLoadFailed
+            ? 'Thông tin cá nhân và sở thích đã được cập nhật. Tài khoản ngân hàng chưa được đổi.'
+            : 'Thông tin cá nhân, tài khoản ngân hàng và sở thích đã được cập nhật.',
         success: true,
       );
       if (mounted) Navigator.pop(context);
@@ -302,33 +399,39 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
     final profile = profileAsync.value;
-    if (profile != null) {
+    final requested = widget.userId?.trim() ?? '';
+    final viewingOther = requested.isNotEmpty && requested != profile?.uid;
+    if (profile != null && !viewingOther) {
       _verified = profile.isCccdVerified;
       if (!_hydrated) {
         _hydrated = true;
         _hydrate(profile);
         _loadInterests(profile);
+        _loadBankAccount(profile.uid);
       }
     }
 
+    final waiting = _loadingUser || (profileAsync.isLoading && profile == null && !_viewOnly);
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Hồ sơ cá nhân'),
+        title: Text(_viewOnly ? 'Hồ sơ' : 'Hồ sơ cá nhân'),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textDark,
         elevation: 0,
       ),
-      body: profileAsync.isLoading && profile == null
+      body: waiting
           ? const Center(child: CircularProgressIndicator())
-          : profile == null
+          : _loadError != null
+              ? Center(child: Text(_loadError!))
+              : profile == null && !_viewOnly
               ? const Center(child: Text('Không tìm thấy tài khoản.'))
               : Column(
                   children: [
                     Expanded(
                       child: Form(
                         key: _formKey,
-                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        autovalidateMode: _viewOnly ? AutovalidateMode.disabled : AutovalidateMode.onUserInteraction,
                         child: ListView(
                           controller: _scrollController,
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -345,12 +448,15 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                                     controller: _nameController,
                                     label: 'Họ và tên *',
                                     hint: 'Họ và tên trên tài khoản',
-                                    validator: (val) {
-                                      final name = val?.trim() ?? '';
-                                      if (name.length < 2) return 'Họ và tên cần ít nhất 2 ký tự';
-                                      if (!RegExp(r'\p{L}', unicode: true).hasMatch(name)) return 'Họ và tên cần có chữ cái';
-                                      return null;
-                                    },
+                                    readOnly: _viewOnly,
+                                    validator: _viewOnly
+                                        ? null
+                                        : (val) {
+                                            final name = val?.trim() ?? '';
+                                            if (name.length < 2) return 'Họ và tên cần ít nhất 2 ký tự';
+                                            if (!RegExp(r'\p{L}', unicode: true).hasMatch(name)) return 'Họ và tên cần có chữ cái';
+                                            return null;
+                                          },
                                   ),
                                   const SizedBox(height: 12),
                                   _yearField(),
@@ -363,12 +469,15 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                                     hint: '10 số, bắt đầu bằng 0',
                                     keyboardType: TextInputType.phone,
                                     inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-                                    validator: (val) {
-                                      if (!RegExp(r'^0\d{9}$').hasMatch(val?.trim() ?? '')) {
-                                        return 'Số điện thoại phải gồm đúng 10 số và bắt đầu bằng 0';
-                                      }
-                                      return null;
-                                    },
+                                    readOnly: _viewOnly,
+                                    validator: _viewOnly
+                                        ? null
+                                        : (val) {
+                                            if (!RegExp(r'^0\d{9}$').hasMatch(val?.trim() ?? '')) {
+                                              return 'Số điện thoại phải gồm đúng 10 số và bắt đầu bằng 0';
+                                            }
+                                            return null;
+                                          },
                                   ),
                                   const SizedBox(height: 12),
                                   _textField(
@@ -382,7 +491,8 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                                     controller: _hometownController,
                                     label: 'Quê quán / Tỉnh thành *',
                                     hint: 'Nhập quê quán',
-                                    validator: (val) => (val?.trim().length ?? 0) < 2 ? 'Nhập quê quán / tỉnh thành' : null,
+                                    readOnly: _viewOnly,
+                                    validator: _viewOnly ? null : (val) => (val?.trim().length ?? 0) < 2 ? 'Nhập quê quán / tỉnh thành' : null,
                                   ),
                                 ],
                               ),
@@ -398,25 +508,31 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                                     controller: _occupationController,
                                     label: 'Nghề nghiệp / Vị trí *',
                                     hint: 'Ví dụ: Sinh viên, Kỹ sư',
-                                    validator: (val) => (val?.trim().length ?? 0) < 2 ? 'Nhập nghề nghiệp / vị trí' : null,
+                                    readOnly: _viewOnly,
+                                    validator: _viewOnly ? null : (val) => (val?.trim().length ?? 0) < 2 ? 'Nhập nghề nghiệp / vị trí' : null,
                                   ),
                                   const SizedBox(height: 12),
                                   _textField(
                                     controller: _workplaceController,
                                     label: 'Nơi làm việc / Công ty',
                                     hint: 'Trường hoặc nơi làm việc',
-                                    validator: (val) => (val?.trim().length ?? 0) > 80 ? 'Tối đa 80 ký tự' : null,
+                                    readOnly: _viewOnly,
+                                    validator: _viewOnly ? null : (val) => (val?.trim().length ?? 0) > 80 ? 'Tối đa 80 ký tự' : null,
                                   ),
                                 ],
                               ),
                             ),
+                            if (!_viewOnly) ...[
+                              const SizedBox(height: 14),
+                              _buildBankSection(),
+                            ],
                             const SizedBox(height: 14),
                             _buildIntroSection(),
                           ],
                         ),
                       ),
                     ),
-                    _buildFooter(),
+                    if (!_viewOnly) _buildFooter(),
                   ],
                 ),
     );
@@ -434,36 +550,40 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               localBytes: _pickedAvatar,
               radius: 48,
             ),
-            Positioned(
-              right: -2,
-              bottom: -2,
-              child: Material(
-                color: AppColors.primary,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: _pickAvatar,
-                  child: const Padding(
-                    padding: EdgeInsets.all(6),
-                    child: Icon(Icons.photo_camera_outlined, color: Colors.white, size: 16),
+            if (!_viewOnly)
+              Positioned(
+                right: -2,
+                bottom: -2,
+                child: Material(
+                  color: AppColors.primary,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _pickAvatar,
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(Icons.photo_camera_outlined, color: Colors.white, size: 16),
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
-        const SizedBox(height: 8),
-        TextButton(
-          onPressed: _pickAvatar,
-          child: const Text('Đổi ảnh đại diện', style: TextStyle(fontWeight: FontWeight.w600)),
-        ),
+        if (!_viewOnly) ...[
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: _pickAvatar,
+            child: const Text('Đổi ảnh đại diện', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ] else
+          const SizedBox(height: 8),
         Text(
           'ID #$_userCode',
           style: const TextStyle(fontSize: 13, color: AppColors.textMuted, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         InkWell(
-          onTap: _verified
+          onTap: _viewOnly || _verified
               ? null
               : () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const CccdVerificationScreen()));
@@ -565,10 +685,11 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
           const SizedBox(height: 6),
           TextFormField(
             controller: _bioController,
+            readOnly: _viewOnly,
             maxLines: 4,
             maxLength: 500,
             buildCounter: (_, {required currentLength, required isFocused, maxLength}) => const SizedBox.shrink(),
-            onChanged: (_) => setState(() {}),
+            onChanged: _viewOnly ? null : (_) => setState(() {}),
             decoration: _decoration('Viết vài dòng về bạn'),
           ),
           const SizedBox(height: 8),
@@ -580,12 +701,26 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               child: LinearProgressIndicator(minHeight: 2),
             )
           else if (_interests.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
               child: Text(
-                'Chưa có sở thích nào. Hãy thêm sở thích của bạn.',
-                style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+                _viewOnly ? 'Chưa có sở thích.' : 'Chưa có sở thích nào. Hãy thêm sở thích của bạn.',
+                style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted),
               ),
+            )
+          else if (_viewOnly)
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _interests.length,
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.favorite_border_rounded, color: AppColors.primary),
+                  title: Text(_interests[index], style: const TextStyle(fontWeight: FontWeight.w600)),
+                );
+              },
             )
           else
             Padding(
@@ -605,6 +740,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                 ],
               ),
             ),
+          if (!_viewOnly)
           Row(
             children: [
               Expanded(
@@ -628,6 +764,111 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     );
   }
 
+  Widget _buildBankSection() {
+    return _buildSection(
+      icon: Icons.account_balance_outlined,
+      title: 'Tài khoản ngân hàng',
+      subtitle: 'Dùng khi nhận hoặc chuyển tiền. Chưa có thì để trống.',
+      child: !_bankLoaded
+          ? const LinearProgressIndicator(minHeight: 2)
+          : Column(
+              children: [
+                if (_bankLoadFailed)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'Không tải được tài khoản ngân hàng. Lần lưu này không đổi thông tin ngân hàng.',
+                      style: TextStyle(fontSize: 12.5, color: AppColors.danger, height: 1.35),
+                    ),
+                  ),
+                _textField(
+                  controller: _accountNumberController,
+                  label: 'Số tài khoản',
+                  hint: 'Nhập số tài khoản',
+                  readOnly: _bankLoadFailed,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(19),
+                  ],
+                  validator: _bankLoadFailed
+                      ? null
+                      : (val) {
+                          final number = val?.trim() ?? '';
+                          if (_bankFieldsEmpty(number: number)) return null;
+                          if (!RegExp(r'^\d{6,19}$').hasMatch(number)) return 'Gồm từ 6 đến 19 chữ số';
+                          return null;
+                        },
+                ),
+                const SizedBox(height: 12),
+                _textField(
+                  controller: _accountHolderController,
+                  label: 'Chủ tài khoản',
+                  hint: 'Tên chủ tài khoản',
+                  readOnly: _bankLoadFailed,
+                  inputFormatters: [LengthLimitingTextInputFormatter(70)],
+                  validator: _bankLoadFailed
+                      ? null
+                      : (val) {
+                          final holder = val?.trim() ?? '';
+                          if (_bankFieldsEmpty(holder: holder)) return null;
+                          if (holder.length < 2 || !RegExp(r'\p{L}', unicode: true).hasMatch(holder)) {
+                            return 'Nhập tên chủ tài khoản';
+                          }
+                          return null;
+                        },
+                ),
+                const SizedBox(height: 12),
+                _bankDropdown(),
+              ],
+            ),
+    );
+  }
+
+  bool _bankFieldsEmpty({String? number, String? holder, String? bank}) {
+    final accountNumber = number ?? _accountNumberController.text.trim();
+    final accountHolder = holder ?? _accountHolderController.text.trim();
+    final bankName = bank ?? _bankName.trim();
+    return accountNumber.isEmpty && accountHolder.isEmpty && bankName.isEmpty;
+  }
+
+  Widget _bankDropdown() {
+    final selected = _bankName.trim();
+    final choices = selected.isNotEmpty && !vietnamBanks.contains(selected)
+        ? [selected, ...vietnamBanks]
+        : vietnamBanks;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Ngân hàng', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          key: const ValueKey('bank-account-name'),
+          isExpanded: true,
+          initialValue: selected.isEmpty ? null : selected,
+          menuMaxHeight: 280,
+          items: [
+            for (final name in choices)
+              DropdownMenuItem(
+                value: name,
+                child: Text(name, overflow: TextOverflow.ellipsis),
+              ),
+          ],
+          onChanged: _bankLoadFailed ? null : (value) => setState(() => _bankName = value ?? ''),
+          decoration: _decoration('Chọn ngân hàng'),
+          validator: _bankLoadFailed
+              ? null
+              : (val) {
+                  final bank = (val ?? '').trim();
+                  if (_bankFieldsEmpty(bank: bank)) return null;
+                  if (bank.isEmpty) return 'Chọn ngân hàng';
+                  return null;
+                },
+        ),
+      ],
+    );
+  }
+
   Widget _yearField() {
     final age = _age();
     return Column(
@@ -637,21 +878,24 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
         const SizedBox(height: 6),
         TextFormField(
           controller: _yearController,
+          readOnly: _viewOnly,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)],
           onChanged: (_) => setState(() {}),
           decoration: _decoration('Năm sinh').copyWith(
             suffixText: age == null ? null : '$age tuổi',
           ),
-          validator: (val) {
-            final year = int.tryParse(val?.trim() ?? '');
-            final now = DateTime.now().year;
-            if (year == null) return 'Nhập năm sinh';
-            if (year < now - 100 || year > now - 16) {
-              return 'Năm sinh từ ${now - 100} đến ${now - 16} (đủ 16 tuổi)';
-            }
-            return null;
-          },
+          validator: _viewOnly
+              ? null
+              : (val) {
+                  final year = int.tryParse(val?.trim() ?? '');
+                  final now = DateTime.now().year;
+                  if (year == null) return 'Nhập năm sinh';
+                  if (year < now - 100 || year > now - 16) {
+                    return 'Năm sinh từ ${now - 100} đến ${now - 16} (đủ 16 tuổi)';
+                  }
+                  return null;
+                },
         ),
       ],
     );
@@ -682,10 +926,12 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   Widget _genderChip(String label) {
     final selected = _gender == label;
     return InkWell(
-      onTap: () => setState(() {
-        _gender = label;
-        _genderError = null;
-      }),
+      onTap: _viewOnly
+          ? null
+          : () => setState(() {
+                _gender = label;
+                _genderError = null;
+              }),
       borderRadius: BorderRadius.circular(10),
       child: Container(
         height: 42,
@@ -772,7 +1018,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton(
-                onPressed: _saving ? null : _save,
+                onPressed: _saving || !_bankLoaded ? null : _save,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,

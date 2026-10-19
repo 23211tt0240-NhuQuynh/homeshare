@@ -525,7 +525,7 @@ class HostRepository {
       if (count >= (data['plannedRooms'] as num).toInt()) {
         throw StateError('Đã đạt tổng số phòng của cơ sở.');
       }
-      final resolvedCode = room.roomCode.isNotEmpty ? room.roomCode : 'P001';
+      final resolvedCode = room.roomCode.isNotEmpty ? room.roomCode : roomRef.id;
       final roomData = {
         'id': roomRef.id,
         'propertyId': room.propertyId,

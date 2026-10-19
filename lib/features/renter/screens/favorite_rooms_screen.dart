@@ -388,15 +388,13 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                     CircleAvatar(
                       radius: 20,
                       backgroundColor: AppColors.primarySurface,
-                      backgroundImage: post.authorAvatar.isNotEmpty
-                          ? NetworkImage(post.authorAvatar)
-                          : null,
-                      child: post.authorAvatar.isEmpty
-                          ? Text(
+                      backgroundImage: post.authorAvatar.startsWith('http') ? NetworkImage(post.authorAvatar) : null,
+                      child: post.authorAvatar.startsWith('http')
+                          ? null
+                          : Text(
                               post.authorName.isNotEmpty ? post.authorName[0].toUpperCase() : 'U',
                               style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
-                            )
-                          : null,
+                            ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(

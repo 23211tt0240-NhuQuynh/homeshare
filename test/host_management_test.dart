@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:home_share/core/constants/vietnam_locations.dart';
 import 'package:home_share/core/theme/app_theme.dart';
+import 'package:home_share/core/utils/room_identity.dart';
 import 'package:home_share/data/models/room_model.dart';
 import 'package:home_share/features/auth/providers/user_provider.dart';
 import 'package:home_share/features/host/data/host_property.dart';
@@ -382,14 +383,25 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(photos);
       await tester.pumpAndSettle();
-      await enter(tester, 'code', 'a101');
+      final codeInput = tester.widget<TextFormField>(
+        find.byKey(const ValueKey('host_field_code')),
+      );
+      final editableCode = tester.widget<EditableText>(
+        find.descendant(
+          of: find.byKey(const ValueKey('host_field_code')),
+          matching: find.byType(EditableText),
+        ),
+      );
+      expect(editableCode.readOnly, isTrue);
+      expect(isShortRoomId(codeInput.controller!.text), isTrue);
       await enter(tester, 'price', '2500000');
       await enter(tester, 'capacity', '30');
       await tester.tap(find.text('Lưu phòng'));
       await tester.pumpAndSettle();
       expect(repo.roomWrites, 1);
       expect(repo.savedRoom!.propertyId, 'new-house');
-      expect(repo.savedRoom!.roomCode, 'A101');
+      expect(isShortRoomId(repo.savedRoom!.roomCode), isTrue);
+      expect(repo.savedRoom!.roomCode, repo.savedRoom!.id);
       expect(repo.savedRoom!.price, 2500000);
       expect(repo.savedRoom!.capacity, 30);
       expect(repo.savedRoom!.hostId, 'host-test');
@@ -455,7 +467,17 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Thêm ảnh'));
     await tester.pumpAndSettle();
-    await enter(tester, 'code', 'A101');
+    final inputBefore = tester.widget<TextFormField>(
+      find.byKey(const ValueKey('host_field_code')),
+    );
+    final editableBefore = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const ValueKey('host_field_code')),
+        matching: find.byType(EditableText),
+      ),
+    );
+    expect(editableBefore.readOnly, isTrue);
+    expect(isShortRoomId(inputBefore.controller!.text), isTrue);
     await enter(tester, 'price', '2500000');
     await tester.tap(find.text('Lưu phòng'));
     await tester.pumpAndSettle();
@@ -465,7 +487,7 @@ void main() {
     final input = tester.widget<TextFormField>(
       find.byKey(const ValueKey('host_field_code')),
     );
-    expect(input.controller!.text, 'A101');
+    expect(isShortRoomId(input.controller!.text), isTrue);
     expect(
       tester
           .widget<FilledButton>(find.widgetWithText(FilledButton, 'Lưu phòng'))

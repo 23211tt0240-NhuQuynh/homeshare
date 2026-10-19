@@ -8,7 +8,6 @@ import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/id_generator.dart';
-import '../../../core/utils/room_identity.dart';
 import '../../../core/utils/vietqr_helper.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/room_model.dart';
@@ -36,9 +35,9 @@ class BookingPaymentScreen extends ConsumerStatefulWidget {
 }
 
 class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
-  late final String _transferContent;
-  late final String _qrImageUrl;
-  late final String _emvcoPayload;
+  late String _transferContent;
+  late String _qrImageUrl;
+  late String _emvcoPayload;
 
   Timer? _countdownTimer;
   int _secondsRemaining = 15 * 60; // 15 phút đếm ngược giữ phòng
@@ -54,31 +53,15 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
         : ((profile?.userCode.isNotEmpty == true)
             ? profile!.userCode
             : UserProfile.generateUserCode(seed: widget.booking.renterId, role: 'renter'));
-    var roomCode = widget.room.roomCode.isNotEmpty ? widget.room.roomCode : widget.room.maPhong;
-    if (roomCode.isEmpty || isShortRoomId(roomCode)) {
-      roomCode = 'P001';
-    }
+    // Nội dung chuyển khoản chỉ cần lấy ID của phòng
+    final roomId = widget.room.id.isNotEmpty
+        ? widget.room.id
+        : widget.booking.roomId;
 
-    final existingNote = widget.booking.transferNote;
-    String? cleanNote;
-    if (existingNote != null && existingNote.trim().isNotEmpty) {
-      final parts = existingNote.trim().split(RegExp(r'\s+'));
-      if (parts.length == 2 && !parts[1].startsWith('CT') && !isShortRoomId(parts[1])) {
-        cleanNote = existingNote.trim();
-      } else if (parts.length >= 3) {
-        final lastPart = parts.last.toUpperCase();
-        final firstPart = parts.first.toUpperCase();
-        if (!isShortRoomId(lastPart)) {
-          cleanNote = '$firstPart $lastPart';
-        }
-      }
-    }
-
-    _transferContent = cleanNote ??
-        IdGenerator.transferContent(
-          renterCode: rCode,
-          roomCode: roomCode,
-        );
+    _transferContent = IdGenerator.transferContent(
+      renterCode: rCode,
+      roomCode: roomId,
+    );
 
     // Tạo link ảnh VietQR.io và chuỗi EMVCo Napas247 thật
     _qrImageUrl = VietQRHelper.buildVietQrImageUrl(
@@ -98,57 +81,47 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
     // Kích hoạt đồng hồ đếm ngược
     _startTimer();
 
-    // Query collection 'rooms' để tìm mã phòng nếu có (100% tiếng Anh)
-    _resolveRoomCodeFromFirestore(rCode, roomCode);
+    // Nếu ID phòng còn trống thì mới truy vấn ID từ Firestore
+    if (roomId.isEmpty) {
+      _resolveRoomCodeFromFirestore(rCode);
+    }
   }
 
-  Future<void> _resolveRoomCodeFromFirestore(String renterCode, String currentRoomCode) async {
-    final existingNote = widget.booking.transferNote;
-    if (existingNote != null && existingNote.trim().isNotEmpty) {
-      final parts = existingNote.trim().split(RegExp(r'\s+'));
-      if (parts.length == 2 && !parts[1].startsWith('CT') && !isShortRoomId(parts[1]) && parts[1] != 'P001') {
-        return;
-      }
-    }
-
-    var roomCode = currentRoomCode;
-    if (roomCode.isEmpty || roomCode == 'P001' || isShortRoomId(roomCode)) {
-      try {
-        var roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(widget.room.id).get();
+  Future<void> _resolveRoomCodeFromFirestore(String renterCode) async {
+    try {
+      final targetDocId = widget.room.id.isNotEmpty
+          ? widget.room.id
+          : widget.booking.roomId;
+      if (targetDocId.isNotEmpty) {
+        var roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(targetDocId).get();
         if (!roomDoc.exists) {
-          roomDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(widget.room.id).get();
+          roomDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(targetDocId).get();
         }
         if (roomDoc.exists) {
-          final data = roomDoc.data() ?? {};
-          // Firebase chuẩn 100% tiếng Anh: Chỉ đọc trường 'roomCode', không đọc tiếng Việt (maPhong, maphong, trangthai)
-          final fetched = (data['roomCode'] ?? '').toString().trim().toUpperCase();
-          if (fetched.isNotEmpty && !isShortRoomId(fetched)) {
-            roomCode = fetched.startsWith('P') ? fetched : 'P$fetched';
-            final newContent = IdGenerator.transferContent(
-              renterCode: renterCode,
-              roomCode: roomCode,
-            );
-            if (mounted && _transferContent != newContent) {
-              setState(() {
-                _transferContent = newContent;
-                _qrImageUrl = VietQRHelper.buildVietQrImageUrl(
-                  amount: widget.paymentAmount,
-                  addInfo: _transferContent,
-                  accountNo: VietQRHelper.defaultAccountNo,
-                  accountName: VietQRHelper.defaultAccountName,
-                );
-                _emvcoPayload = VietQRHelper.generateNapasEmvcoPayload(
-                  amount: widget.paymentAmount,
-                  addInfo: _transferContent,
-                  accountNo: VietQRHelper.defaultAccountNo,
-                  bankBin: VietQRHelper.defaultBankBin,
-                );
-              });
-            }
+          final newContent = IdGenerator.transferContent(
+            renterCode: renterCode,
+            roomCode: roomDoc.id,
+          );
+          if (mounted && _transferContent != newContent) {
+            setState(() {
+              _transferContent = newContent;
+              _qrImageUrl = VietQRHelper.buildVietQrImageUrl(
+                amount: widget.paymentAmount,
+                addInfo: _transferContent,
+                accountNo: VietQRHelper.defaultAccountNo,
+                accountName: VietQRHelper.defaultAccountName,
+              );
+              _emvcoPayload = VietQRHelper.generateNapasEmvcoPayload(
+                amount: widget.paymentAmount,
+                addInfo: _transferContent,
+                accountNo: VietQRHelper.defaultAccountNo,
+                bankBin: VietQRHelper.defaultBankBin,
+              );
+            });
           }
         }
-      } catch (_) {}
-    }
+      }
+    } catch (_) {}
   }
 
   void _startTimer() {
@@ -656,13 +629,13 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
 
           // Nội dung chuyển khoản
           _buildCopyableTile(
-            label: 'Nội dung chuyển khoản (Mã người dùng & Mã phòng)',
+            label: 'Nội dung chuyển khoản (Mã người dùng & ID phòng)',
             value: _transferContent,
             copyText: _transferContent,
             isBold: true,
             isHighlight: true,
             highlightColor: AppColors.primary,
-            subtitle: 'Chỉ gồm mã người dùng và mã phòng (Ví dụ: $_transferContent)',
+            subtitle: 'Chỉ gồm mã người dùng và ID phòng (Ví dụ: $_transferContent)',
           ),
         ],
       ),

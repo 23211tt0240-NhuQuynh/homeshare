@@ -1,11 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/booking_service.dart';
 import '../../../core/utils/id_generator.dart';
-import '../../../core/utils/room_identity.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -137,12 +135,10 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
   /// Tiền cọc giữ phòng tạm tính
   double get _depositAmount => widget.room.deposit > 0 ? widget.room.deposit : 1000000.0;
 
-  /// Tổng tiền cần thanh toán tùy theo phương thức chọn:
-  /// - 'deposit': Tiền cọc giữ phòng
-  /// - 'full': Toàn bộ tiền phòng (không tính cọc)
+  /// Tổng tiền cần thanh toán tùy theo phương thức chọn
   double get _selectedPaymentAmount {
     if (_paymentOption == 'full') {
-      return widget.room.price;
+      return _depositAmount + widget.room.price;
     }
     return _depositAmount;
   }
@@ -192,45 +188,11 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
       final user = ref.read(currentUserProvider);
       final profile = ref.read(userProfileProvider).value;
       final renterCode = profile?.userCode ?? (user != null ? UserProfile.generateUserCode(seed: user.uid, role: 'renter') : 'NT001');
-      var roomCode = widget.room.roomCode.isNotEmpty
-          ? widget.room.roomCode.trim().toUpperCase()
-          : widget.room.maPhong;
-      if (roomCode.isEmpty || roomCode == 'P001' || isShortRoomId(roomCode)) {
-        try {
-          // Query collection 'rooms' để tìm mã phòng nếu có (100% tiếng Anh)
-          var roomDoc = await FirebaseFirestore.instance
-              .collection('rooms')
-              .doc(widget.room.id)
-              .get();
-          if (!roomDoc.exists) {
-            roomDoc = await FirebaseFirestore.instance
-                .collection('host_rooms')
-                .doc(widget.room.id)
-                .get();
-          }
-          if (roomDoc.exists) {
-            final data = roomDoc.data() ?? {};
-            // Firebase chuẩn 100% tiếng Anh: Chỉ đọc trường 'roomCode', không đọc tiếng Việt (maPhong, maphong, trangthai)
-            final fetched =
-                (data['roomCode'] ?? '').toString().trim().toUpperCase();
-            if (fetched.isNotEmpty && !isShortRoomId(fetched)) {
-              roomCode = fetched.startsWith('P') ? fetched : 'P$fetched';
-            }
-          }
-        } catch (_) {}
-
-        if (roomCode.isEmpty || isShortRoomId(roomCode) || roomCode == 'P001') {
-          roomCode = widget.room.maPhong;
-        }
-      }
-
-      if (roomCode.isEmpty || isShortRoomId(roomCode)) {
-        roomCode = 'P001';
-      }
-
+      // Nội dung chuyển khoản chỉ cần lấy ID của phòng
+      final roomId = widget.room.id;
       final transferContent = IdGenerator.transferContent(
         renterCode: renterCode,
-        roomCode: roomCode,
+        roomCode: roomId,
       );
 
       final booking = BookingRequestModel(
@@ -389,8 +351,8 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
               CircleAvatar(
                 radius: 17,
                 backgroundColor: const Color(0xFFE2E8F0),
-                backgroundImage: profile?.avatarUrl.isNotEmpty == true ? NetworkImage(profile!.avatarUrl) : null,
-                child: profile?.avatarUrl.isEmpty != false
+                backgroundImage: (profile?.avatarUrl.startsWith('http') == true) ? NetworkImage(profile!.avatarUrl) : null,
+                child: profile?.avatarUrl.startsWith('http') != true
                     ? const Icon(Icons.person, size: 20, color: Color(0xFF64748B))
                     : null,
               ),
@@ -1343,23 +1305,18 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                 child: Text(
                   'Phương thức thanh toán',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
                   color: const Color(0xFFDCFCE7),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.shield_outlined, size: 12, color: Color(0xFF16A34A)),
-                    SizedBox(width: 3),
-                    Text('An toàn', style: TextStyle(color: Color(0xFF16A34A), fontSize: 10.5, fontWeight: FontWeight.bold)),
-                  ],
-                ),
+                child: const Text('An toàn qua ứng dụng', style: TextStyle(color: Color(0xFF16A34A), fontSize: 10, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -1383,8 +1340,8 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                 _buildPaymentOptionTile(
                   value: 'full',
                   title: 'Thanh toán toàn bộ',
-                  amount: currencyFmt.format(widget.room.price),
-                  subtitle: 'Toàn bộ tiền thuê phòng tháng đầu (${currencyFmt.format(widget.room.price)}), không tính tiền cọc. Ký nhận chìa khóa nhanh.',
+                  amount: currencyFmt.format(_depositAmount + widget.room.price),
+                  subtitle: 'Bao gồm cọc (${currencyFmt.format(_depositAmount)}) + Tháng đầu tiên (${currencyFmt.format(widget.room.price)}). Ký nhận chìa khóa nhanh.',
                 ),
               ],
             ),
@@ -1429,12 +1386,13 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
                         child: Text(
                           title,
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(width: 8),

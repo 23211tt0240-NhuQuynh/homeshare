@@ -1870,3 +1870,142 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
      - `dart analyze lib/`: **0 errors, 0 warnings (No issues found!)**.
      - `flutter build apk --debug`: Biên dịch thành công `app-debug.apk`.
      - `adb install -r`: Cài đặt thành công lên điện thoại Xiaomi/Redmi (`192.168.2.50:40171`).
+
+---
+
+### Phase 2.51: Khóa Cứng Mã Phòng Tự Sinh Theo ID Của host_rooms (Không Cho Nhập Tay)
+* **Ngày hoàn thành:** 19/10/2026
+* **Yêu cầu người dùng:**
+  - Phần mã phòng khóa cứng tự sinh không cho nhập tay, giá trị sinh ra chính là ID của tài liệu `host_rooms` (ví dụ: `3EXJLGVJD4UD`).
+* **Các thay đổi đã triển khai:**
+  1. **[host_create_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_create_screen.dart):**
+     - Đặt trường `code` (Mã phòng) thành `readOnly: true`, giao diện khóa cố định với màu nền `Color(0xFFF0F4FF)`, icon chìa khóa `Icons.vpn_key_outlined` và icon khóa `Icons.lock_outline`.
+     - Tự động điền giá trị `_roomId` (ID 12 ký tự ngẫu nhiên chuẩn hóa từ `newRoomId()`, trùng khớp hoàn toàn với Document ID và trường `id` của collection `host_rooms`).
+     - Gỡ bỏ hoàn toàn logic cũ tự gán `defaultCode` (`P001`, `P002`...) và nút làm mới mã phòng.
+     - Khi lưu phòng, `roomCode` được truyền chính xác là `_roomId`.
+  2. **[room_model.dart](file:///d:/App/homeshare-dev-THE/lib/data/models/room_model.dart):**
+     - `fromMap()`: Cho phép nhận chuỗi ID phòng 12 ký tự làm `roomCode` và fallback về `id` của document khi trường `roomCode` chưa có sẵn trên Firestore.
+     - Getter `maPhong`: Trả về `roomCode` hoặc `id` phòng mà không bị chặn hay ép về `P001` bởi bộ lọc `isShortRoomId`.
+     - `toFirestore()`: Tự động ghi `roomCode` bằng `roomCode` (hoặc fallback `id`) lên Firestore.
+  3. **[host_management_provider.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/providers/host_management_provider.dart):**
+     - `createRoom()`: `resolvedCode = room.roomCode.isNotEmpty ? room.roomCode : roomRef.id;`, đảm bảo luôn lưu đúng ID của phòng trong `host_rooms`.
+  4. **[booking_payment_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/booking_payment_screen.dart):**
+     - Cho phép nội dung chuyển khoản và mã phòng chấp nhận chuỗi ID phòng thực tế từ `host_rooms`, không tự động ép về `P001`.
+  5. **Kiểm tra chất lượng & Test:**
+     - `flutter test test/id_generator_test.dart test/host_management_test.dart test/host_management_screens_test.dart`: **28/28 PASSED (100%)**.
+     - `flutter analyze`: Không có lỗi hoặc cảnh báo nào trong các file đã chỉnh sửa.
+
+---
+
+### Phase 2.52: Tinh Gọn Trang Cá Nhân — Đưa Cài Đặt Chung Ra Ngoài & Chuyển Nút Mở Cài Đặt Thành Đăng Xuất Trực Tiếp
+* **Ngày hoàn thành:** 19/10/2026
+* **Yêu cầu người dùng:**
+  1. Bê những chức năng trong ô vuông (hình ảnh chụp từ màn hình Cài đặt tài khoản) ra màn hình chính Profile (`HomeScreen`), đặt ngay dưới mục báo cáo sự cố (phía dưới "Biên bản sự cố & Vi phạm" của Chủ trọ và "Báo cáo sự cố phòng trọ" của Người thuê).
+  2. Xóa bỏ hoàn toàn màn hình "Cài đặt tài khoản" (`account_settings_screen.dart`).
+  3. Xóa dòng menu "Cài đặt tài khoản & Đăng xuất" trong danh sách menu hiện tại của `HomeScreen`.
+  4. Thay thế nút "Mở Cài Đặt & Đăng Xuất" ở cuối màn hình thành nút "Đăng xuất" trực tiếp (kèm hộp thoại xác nhận đăng xuất chuẩn).
+  5. Sau khi làm xong, ghi ra chi tiết những gì đã làm.
+* **Các thay đổi đã triển khai:**
+  1. **[home_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/home/screens/home_screen.dart):**
+     - **Thêm Card Section "CÀI ĐẶT CHUNG & HỖ TRỢ":** Đặt ngay bên dưới Card Quản lý & Tiện ích (dưới mục Báo cáo sự cố phòng trọ / Biên bản sự cố & Vi phạm) với 5 chức năng chuẩn:
+       + *Ngôn ngữ* (Tiếng Việt >) kèm BottomSheet chọn ngôn ngữ.
+       + *Giao diện* (Sáng >) kèm BottomSheet chọn theme (Sáng, Tối, Hệ thống).
+       + *Trung tâm trợ giúp & FAQ* kèm BottomSheet câu hỏi thường gặp.
+       + *Liên hệ hỗ trợ / Hotline* (1900 1234, email, Zalo hỗ trợ).
+       + *Điều khoản & Chính sách bảo mật* kèm bản tóm tắt điều khoản sử dụng & an toàn thông tin.
+     - **Xóa mục menu "Cài đặt tài khoản & Đăng xuất":** Đã gỡ bỏ hoàn toàn khỏi danh sách menu tiện ích của cả Host và Renter.
+     - **Thay thế nút "Mở Cài Đặt & Đăng Xuất":** Thay nút OutlinedButton cũ bằng Card ListTile "Đăng xuất" màu đỏ nổi bật theo đúng chuẩn thiết kế Figma, kết nối hàm `_confirmLogout(context, ref)` gọi `authService.signOut()`.
+     - **Cập nhật điều hướng Profile:** Khi bấm vào thẻ Profile Header Card (Avatar, Tên) hoặc icon chỉnh sửa trên AppBar, chuyển hướng trực tiếp tới [personal_profile_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/profile/screens/personal_profile_screen.dart).
+  2. **Xóa bỏ file [account_settings_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/profile/screens/account_settings_screen.dart):**
+     - Đã xóa hoàn toàn file không còn sử dụng, dọn sạch mọi tham chiếu và import thừa trong toàn bộ dự án.
+  3. **Kiểm tra chất lượng & Test:**
+     - `flutter analyze lib/features/home/screens/home_screen.dart`: **No issues found!**
+     - `flutter test test/profile_screen_test.dart`: **20/20 PASSED (100%)**.
+     - `flutter test test/host_management_test.dart`: **9/9 PASSED (100%)**.
+  4. **Build & Cài đặt lên thiết bị di động vật lý:**
+     - `flutter build apk --debug`: Biên dịch thành công `app-debug.apk`.
+     - `adb connect 192.168.2.5:32933`: Kết nối thành công tới thiết bị.
+     - `adb install -r`: Nạp file APK thành công (`Success`) và khởi chạy ứng dụng trực tiếp trên điện thoại.
+
+---
+
+### Phase 2.53: Ràng Buộc Đăng Tin Ở Ghép — Chưa Có Phòng Không Thể Tích "Đã Có Phòng"
+* **Ngày hoàn thành:** 19/10/2026
+* **Yêu cầu người dùng:**
+  - Phần đăng bài nếu người dùng chưa có phòng thì không thể tích chọn "Đã có phòng" để đăng bài.
+* **Các thay đổi đã triển khai:**
+  1. **[create_roommate_post_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/create_roommate_post_screen.dart):**
+     - **Tích hợp kiểm tra phòng thực tế (`hasRealRoom`):**
+       + Lấy danh sách hợp đồng thuê phòng của tài khoản qua `renterBookingsStreamProvider`.
+       + Xác định người dùng có phòng khi: Tài khoản là Host (`isHost == true`), hoặc có booking đang ở / đã duyệt (`isActive || isApproved`).
+     - **Ràng buộc trạng thái & Mặc định an toàn:**
+       + Giá trị `_hasRoom` mặc định là `false` (Chưa có phòng).
+       + Khi người dùng chưa có phòng (`hasRealRoom == false`): Ép cứng `_hasRoom = false`.
+       + Thẻ lựa chọn "Đã có phòng" bị vô hiệu hóa (`isEnabled: false`), hiển thị icon ổ khóa, chữ xám mờ và badge cảnh báo `Chưa thuê phòng`.
+       + Khi người dùng cố nhấn vào ô "Đã có phòng", hệ thống chặn lại và hiển thị thông báo SnackBar: *"Bạn hiện chưa có phòng đang thuê trên hệ thống nên không thể chọn 'Đã có phòng'. Vui lòng chọn 'Chưa có phòng' để tìm bạn cùng thuê."*
+       + Hiển thị banner hướng dẫn màu vàng giải thích rõ người dùng chỉ có thể đăng tin "Chưa có phòng" để tìm bạn cùng đi thuê phòng mới.
+     - **Hỗ trợ người dùng đã có phòng thuê:**
+       + Cho phép tự do chọn "Đã có phòng" hoặc "Chưa có phòng".
+       + Tích hợp card hiển thị thông tin phòng đang thuê kèm nút **"Điền nhanh"** (tự động điền tiêu đề, địa chỉ, giá nửa phòng vào form đăng bài chỉ với 1-chạm).
+     - **Xác thực bảo vệ tầng nộp bài (`_submitPost`):**
+       + Chặn dứt điểm nếu client bị can thiệp gửi `_hasRoom == true` khi chưa có phòng thuê.
+  2. **[create_roommate_post_has_room_test.dart](file:///d:/App/homeshare-dev-THE/test/create_roommate_post_has_room_test.dart):**
+     - Xây dựng bộ test tự động kiểm thử 2 tình huống:
+       + Trường hợp 1: Người dùng chưa có phòng -> ô "Đã có phòng" bị vô hiệu hóa, có nhãn "Chưa thuê phòng" và không thể tích chọn.
+       + Trường hợp 2: Người dùng có phòng đang thuê -> cho phép chọn "Đã có phòng" và hoạt động nút "Điền nhanh" thành công.
+  3. **Kiểm tra chất lượng & Test:**
+     - `flutter analyze lib/features/renter/screens/create_roommate_post_screen.dart`: **No issues found!**
+     - `flutter test test/create_roommate_post_has_room_test.dart`: **2/2 PASSED (100%)**.
+     - `flutter test ...`: **31/31 PASSED (100%)** bao gồm cả test Profile và Host management.
+---
+
+### Phase 2.54: Chuẩn Hóa Nội Dung Chuyển Khoản Ngân Hàng Lấy Trực Tiếp Từ ID Phòng (VietQR & Napas247)
+* **Ngày hoàn thành:** 19/10/2026
+* **Yêu cầu người dùng:**
+  - Phần nội dung chuyển khoản phải lấy từ ID của phòng (`widget.room.id`).
+* **Các thay đổi đã triển khai:**
+  1. **[room_booking_detail_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/room_booking_detail_screen.dart):**
+     - Tại thời điểm tạo đơn đặt phòng (`_onSubmitBooking`): Ưu tiên lấy trực tiếp `roomId = widget.room.id.isNotEmpty ? widget.room.id : (widget.room.roomCode.isNotEmpty ? widget.room.roomCode : 'P001')`.
+     - Sinh `transferContent` theo cú pháp `IdGenerator.transferContent(renterCode: renterCode, roomCode: roomId)` và gán vào `transferNote` của `BookingRequestModel`.
+     - Dọn sạch import thừa `package:cloud_firestore/cloud_firestore.dart`.
+  2. **[booking_payment_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/booking_payment_screen.dart):**
+     - Chuyển `_transferContent`, `_qrImageUrl`, `_emvcoPayload` thành các biến state có thể cập nhật động (bỏ `final`).
+     - Trong `initState()`: Ưu tiên lấy ID phòng từ `widget.room.id` (fallback `widget.booking.roomId`), loại bỏ việc lấy `roomCode` trước hoặc giữ note cũ chứa `P001`.
+     - Cập nhật hàm `_resolveRoomCodeFromFirestore`: Truy vấn đúng Firestore Document ID (`rooms` hoặc `host_rooms`), lấy Document ID của phòng để đồng bộ lại mã VietQR / Napas247.
+     - Cập nhật UI: Đổi nhãn hiển thị thành `'Nội dung chuyển khoản (Mã người dùng & ID phòng)'` và `'Chỉ gồm mã người dùng và ID phòng (Ví dụ: $_transferContent)'`.
+  3. **[id_generator_test.dart](file:///d:/App/homeshare-dev-THE/test/id_generator_test.dart):**
+     - Bổ sung test case kiểm thử `IdGenerator.transferContent` với chuỗi ID phòng thực tế (`3EXJLGVJD4UD`).
+  4. **Kiểm tra chất lượng & Test:**
+     - `flutter test test/id_generator_test.dart`: **6/6 PASSED (100%)**.
+     - `flutter analyze lib/features/renter/screens/booking_payment_screen.dart lib/features/renter/screens/room_booking_detail_screen.dart`: **No issues found (0 errors, 0 warnings)**.
+
+- **Tinh chỉnh tối giản (Theo chỉ đạo trực tiếp của người dùng):**
+  + Loại bỏ toàn bộ các logic kiểm tra, so sánh điều kiện phức tạp (loại bỏ so sánh note cũ, không parse chuỗi).
+  + Lấy trực tiếp và duy nhất ID của phòng (`widget.room.id` / `widget.booking.roomId`) để tạo nội dung chuyển khoản `IdGenerator.transferContent(renterCode: rCode, roomCode: roomId)`.
+  + `flutter analyze` & `flutter test`: 100% Passed.
+
+---
+
+### Phase 2.55: Gộp Dự Án `homeshare-dev-MAN` Vào Gốc Chuẩn `homeshare-dev-THE`
+* **Ngày hoàn thành:** 19/10/2026
+* **Yêu cầu người dùng:**
+  - Lấy project hiện tại (`homeshare-dev-THE`) làm gốc chuẩn, tiến hành gộp dự án `homeshare-dev-MAN` vào.
+* **Đối soát chi tiết toàn diện giữa hai dự án:**
+  1. **Thư mục cấu hình, dependencies & dịch vụ nền:**
+     - `pubspec.yaml`, `pubspec.lock`, `analysis_options.yaml`: Trùng khớp 100%.
+     - `firebase.json`, `.firebaserc`, `storage.rules`: Trùng khớp 100%.
+     - `functions/`, `tasks/`, `SQL_NHOM4_CHUYENDEDIDONG.sql`, `srs_summary.txt`: Trùng khớp 100%.
+  2. **Thư mục tài liệu `docs/`:**
+     - Dự án `MAN` có file tài liệu [docs/host-role-files.md](file:///d:/App/homeshare-dev-THE/docs/host-role-files.md) tổng hợp toàn bộ 57 file mã nguồn thuộc phân hệ Chủ trọ.
+     - **Hành động:** Đã sao chép an toàn [docs/host-role-files.md](file:///d:/App/homeshare-dev-THE/docs/host-role-files.md) sang dự án `homeshare-dev-THE`.
+  3. **Thư mục mã nguồn `lib/`:**
+     - File duy nhất có trong `MAN` mà không có trong `THE`: `account_settings_screen.dart` (đã được xóa có chủ đích tại Phase 2.52 theo đúng yêu cầu người dùng, giữ nguyên trạng thái đã tinh gọn của `THE`).
+     - 7 file có khác biệt hash (`home_screen.dart`, `host_create_screen.dart`, `id_generator.dart`, `room_model.dart`, `booking_payment_screen.dart`, `create_roommate_post_screen.dart`, `room_booking_detail_screen.dart`): Toàn bộ các file này ở `THE` là phiên bản mới hơn đã hoàn thiện các Phase 2.51 - 2.54, còn ở `MAN` là phiên bản cũ tại Phase 2.50. Bảo toàn 100% code mới nhất của `THE` làm gốc chuẩn.
+  4. **Dọn sạch warnings & lints toàn bộ dự án `THE`:**
+     - Xóa unused imports `dart:convert`, `qr_flutter` trong [renter_bookings_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/renter_bookings_screen.dart).
+     - Xóa unused helper `_networkImage` trong [roommate_room_detail_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/roommate_room_detail_screen.dart).
+     - Xóa unused import `dart:typed_data` và null check thừa trong [user_profile_service.dart](file:///d:/App/homeshare-dev-THE/lib/core/services/user_profile_service.dart).
+     - Xóa dead code & null check thừa trong [admin_orders_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_orders_screen.dart).
+* **Kiểm định chất lượng sau khi gộp:**
+  - `flutter analyze lib/ test/`: **No issues found! (0 errors, 0 warnings)** trên toàn bộ codebase.
+  - `flutter test`: **37/37 PASSED (100%)** trên toàn bộ các bộ test suite (IdGenerator, CreateRoommatePost, HostManagement, ProfileScreen).

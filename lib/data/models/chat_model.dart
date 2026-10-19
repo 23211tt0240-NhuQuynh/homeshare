@@ -66,38 +66,13 @@ class ChatMessageModel {
       text: data['text'] ?? data['noiDung'] ?? '',
       attachmentUrl: data['attachmentUrl'] ?? data['duongDan'] ?? '',
       messageType: data['messageType'] ?? data['loaiTinNhan_id'] ?? 'text',
-      timestamp: (data['timestamp'] is Timestamp)
-          ? (data['timestamp'] as Timestamp).toDate()
-          : (data['timestamp'] is int)
-              ? DateTime.fromMillisecondsSinceEpoch(data['timestamp'] as int)
-              : (data['timestamp'] is num)
-                  ? DateTime.fromMillisecondsSinceEpoch((data['timestamp'] as num).toInt())
-                  : (data['ngayGui'] is Timestamp)
-                      ? (data['ngayGui'] as Timestamp).toDate()
-                      : DateTime.now(),
+      timestamp: _readChatTime(data['timestamp'] ?? data['ngayGui']),
       isRead: readVal,
       status: statusVal,
       extraData: (data['extraData'] is Map)
           ? Map<String, dynamic>.from(data['extraData'] as Map)
           : {},
     );
-  }
-
-  Map<String, dynamic> toRealtimeMap() {
-    return {
-      'id': id,
-      'conversationId': conversationId,
-      'senderId': senderId,
-      'senderName': senderName,
-      'receiverId': receiverId,
-      'text': text,
-      'attachmentUrl': attachmentUrl,
-      'messageType': messageType,
-      'timestamp': timestamp.millisecondsSinceEpoch,
-      'isRead': isRead,
-      'status': status,
-      'extraData': extraData,
-    };
   }
 
   ChatMessageModel copyWith({
@@ -145,6 +120,14 @@ class ChatMessageModel {
       'extraData': extraData,
     };
   }
+
+  /// Bản ghi Realtime Database không nhận Timestamp của Firestore.
+  Map<String, dynamic> toRealtimeMap() {
+    final map = toMap();
+    map['id'] = id;
+    map['timestamp'] = timestamp.millisecondsSinceEpoch;
+    return map;
+  }
 }
 
 /// Model Cuộc trò chuyện theo chuẩn DrawIO pkg_5 & SRS CDLTDD
@@ -163,6 +146,7 @@ class ConversationModel {
   final String? roomTitle;
   final double? roomPrice;
   final String? roomImage;
+  final String? roommatePostId;
 
   int get computedUnread => unreadCount;
   bool get isReadVal => isRead;
@@ -182,30 +166,19 @@ class ConversationModel {
     this.roomTitle,
     this.roomPrice,
     this.roomImage,
+    this.roommatePostId,
   });
 
   factory ConversationModel.fromFirestore(DocumentSnapshot doc, String currentUserId) {
-    return ConversationModel.fromMap(
-      doc.data() as Map<String, dynamic>? ?? {},
-      doc.id,
-      currentUserId,
-    );
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    return ConversationModel.fromMap(data, doc.id, currentUserId);
   }
 
   factory ConversationModel.fromMap(Map<String, dynamic> data, String id, String currentUserId) {
     final users = List<String>.from(data['users'] ?? data['nguoiThamGia'] ?? []);
     final partnerId = users.firstWhere((u) => u != currentUserId, orElse: () => '');
     
-    DateTime timestamp = DateTime.now();
-    if (data['lastTimestamp'] is int) {
-      timestamp = DateTime.fromMillisecondsSinceEpoch(data['lastTimestamp'] as int);
-    } else if (data['lastTimestamp'] is num) {
-      timestamp = DateTime.fromMillisecondsSinceEpoch((data['lastTimestamp'] as num).toInt());
-    } else if (data['lastTimestamp'] is Timestamp) {
-      timestamp = (data['lastTimestamp'] as Timestamp).toDate();
-    } else if (data['ngayGuiCuoi'] is Timestamp) {
-      timestamp = (data['ngayGuiCuoi'] as Timestamp).toDate();
-    }
+    final timestamp = _readChatTime(data['lastTimestamp'] ?? data['ngayGuiCuoi']);
 
     final userNames = (data['userNames'] is Map) ? Map<String, dynamic>.from(data['userNames'] as Map) : {};
     final partnerNames = (data['partnerNames'] is Map) ? Map<String, dynamic>.from(data['partnerNames'] as Map) : {};
@@ -269,6 +242,19 @@ class ConversationModel {
       roomTitle: data['roomTitle'],
       roomPrice: (data['roomPrice'] is num) ? (data['roomPrice'] as num).toDouble() : null,
       roomImage: data['roomImage'],
+      roommatePostId: _linkedRoommatePostId(data),
     );
   }
+}
+
+DateTime _readChatTime(dynamic value) {
+  if (value is Timestamp) return value.toDate();
+  if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+  if (value is num) return DateTime.fromMillisecondsSinceEpoch(value.toInt());
+  return DateTime.now();
+}
+
+String? _linkedRoommatePostId(Map<String, dynamic> data) {
+  final raw = '${data['roommatePostId'] ?? data['tinOGhepId'] ?? ''}'.trim();
+  return raw.isEmpty ? null : raw;
 }
