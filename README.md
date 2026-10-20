@@ -1,17 +1,26 @@
-# home_share
+# 🏠 HomeShare
 
-A new Flutter project.
+HomeShare is a Flutter mobile app for Android that connects landlords and tenants. This branch contains the **Admin** role, which oversees the whole system.
+
+## Features
+
+### Admin
+- Dashboard
+- Order management
+- Listing management
+- Operation history, system configuration, and audit log
+- User management
+
+## Tech
+
+- Flutter (Android)
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+git clone https://github.com/23211tt0240-NhuQuynh/homeshare.git
+cd homeshare
+git checkout dev-QUYNH
+flutter pub get
+flutter run
+```
