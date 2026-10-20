@@ -17,6 +17,20 @@ import 'roommate_search_screen.dart';
 
 /// Màn hình Tìm Ở Ghép chuẩn Figma 100% (Hình 1)
 /// Tích hợp Bộ lọc Lifestyle & Ở ghép AI Match (Hình 2)
+/// Tab Tìm ở ghép thu thanh trên và thanh dưới khi người dùng kéo danh sách bài lên.
+class RoommateListChromeHiddenNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void setHidden(bool hidden) {
+    if (state == hidden) return;
+    state = hidden;
+  }
+}
+
+final roommateListChromeHiddenProvider =
+    NotifierProvider<RoommateListChromeHiddenNotifier, bool>(RoommateListChromeHiddenNotifier.new);
+
 class RoommateCommunityScreen extends ConsumerStatefulWidget {
   const RoommateCommunityScreen({super.key});
 
@@ -25,6 +39,9 @@ class RoommateCommunityScreen extends ConsumerStatefulWidget {
 }
 
 class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScreen> {
+  double _scrollDistance = 0;
+  DateTime? _suppressShowUntil;
+
   RoommateFilterParams _currentFilters = const RoommateFilterParams(
     district: 'Tất cả',
     targetGender: 'Tất cả',
@@ -165,10 +182,61 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
     );
   }
 
+  void _setChromeHidden(bool hidden) {
+    final current = ref.read(roommateListChromeHiddenProvider);
+    if (current == hidden) return;
+    if (hidden) {
+      _suppressShowUntil = DateTime.now().add(const Duration(milliseconds: 280));
+    }
+    ref.read(roommateListChromeHiddenProvider.notifier).setHidden(hidden);
+  }
+
+  bool get _showSuppressed =>
+      _suppressShowUntil != null && DateTime.now().isBefore(_suppressShowUntil!);
+
+  bool _onPostsScroll(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical || notification.depth != 0) return false;
+    final hidden = ref.read(roommateListChromeHiddenProvider);
+    if (notification is OverscrollNotification && notification.overscroll < 0 && !_showSuppressed) {
+      _scrollDistance = 0;
+      _setChromeHidden(false);
+      return false;
+    }
+    if (notification is! ScrollUpdateNotification) return false;
+
+    final delta = notification.scrollDelta ?? 0;
+    if (delta == 0) return false;
+    if (notification.metrics.pixels <= 4 && delta < 0 && !_showSuppressed) {
+      _scrollDistance = 0;
+      _setChromeHidden(false);
+      return false;
+    }
+
+    if (delta > 0 && _scrollDistance < 0) _scrollDistance = 0;
+    if (delta < 0 && _scrollDistance > 0) _scrollDistance = 0;
+    _scrollDistance += delta;
+
+    if (!hidden && _scrollDistance > 56) {
+      _scrollDistance = 0;
+      _setChromeHidden(true);
+    } else if (hidden && _scrollDistance < -24 && !_showSuppressed) {
+      _scrollDistance = 0;
+      _setChromeHidden(false);
+    }
+    return false;
+  }
+
+  @override
+  void dispose() {
+    ref.read(roommateListChromeHiddenProvider.notifier).setHidden(false);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(userProfileProvider).value;
     final postsAsync = ref.watch(roommatePostsStreamProvider(_currentFilters));
+    final chromeHidden = ref.watch(roommateListChromeHiddenProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -201,17 +269,31 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
         bottom: false,
         child: Column(
           children: [
-            _buildFigmaAppBar(profile),
-
-            _buildSegmentTabSwitcher(),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: chromeHidden
+                  ? const SizedBox(width: double.infinity, height: 0)
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildFigmaAppBar(profile),
+                        _buildSegmentTabSwitcher(),
+                      ],
+                    ),
+            ),
 
             Expanded(
               child: postsAsync.when(
                 skipLoadingOnReload: true,
-                data: (posts) => RefreshIndicator(
-                  color: AppColors.primary,
-                  onRefresh: _reloadPosts,
-                  child: _buildPostsList(posts),
+                data: (posts) => NotificationListener<ScrollNotification>(
+                  onNotification: _onPostsScroll,
+                  child: RefreshIndicator(
+                    color: AppColors.primary,
+                    onRefresh: _reloadPosts,
+                    child: _buildPostsList(posts),
+                  ),
                 ),
                 loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
                 error: (err, _) => Center(
@@ -398,7 +480,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
   /// Danh sách bài đăng
   Widget _buildPostsList(List<RoommatePostModel> posts) {
     return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
+      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       children: [
         // Danh sách thẻ bài đăng

@@ -51,6 +51,10 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   String _bankName = '';
   bool _saving = false;
   bool _viewOnly = false;
+  bool _chromeHidden = false;
+  bool _keyboardOpen = false;
+  double _scrollDistance = 0;
+  DateTime? _suppressShowUntil;
   bool _loadingUser = false;
   String? _loadError;
   Uint8List? _pickedAvatar;
@@ -395,8 +399,79 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     }
   }
 
+  void _setChromeHidden(bool hidden) {
+    if (_viewOnly || _chromeHidden == hidden) return;
+    if (hidden) {
+      _suppressShowUntil = DateTime.now().add(const Duration(milliseconds: 400));
+    }
+    setState(() => _chromeHidden = hidden);
+  }
+
+  bool get _showSuppressed =>
+      _suppressShowUntil != null && DateTime.now().isBefore(_suppressShowUntil!);
+
+  void _revealFocusedField() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final focused = FocusManager.instance.primaryFocus?.context;
+      if (focused == null) return;
+      Scrollable.ensureVisible(
+        focused,
+        alignment: 0.3,
+        duration: const Duration(milliseconds: 220),
+      );
+    });
+  }
+
+  void _syncKeyboard(bool open) {
+    if (_viewOnly || _keyboardOpen == open) return;
+    _keyboardOpen = open;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _viewOnly) return;
+      if (open) {
+        _scrollDistance = 0;
+        _setChromeHidden(true);
+        _revealFocusedField();
+      } else if (!_scrollController.hasClients || _scrollController.offset <= 8) {
+        _scrollDistance = 0;
+        _setChromeHidden(false);
+      }
+    });
+  }
+
+  bool _onProfileScroll(ScrollNotification notification) {
+    if (_viewOnly) return false;
+    if (notification.metrics.axis != Axis.vertical || notification.depth != 0) return false;
+    if (notification is OverscrollNotification && notification.overscroll < 0 && !_showSuppressed) {
+      _scrollDistance = 0;
+      _setChromeHidden(false);
+      return false;
+    }
+    if (notification is! ScrollUpdateNotification) return false;
+    final delta = notification.scrollDelta ?? 0;
+    if (delta == 0) return false;
+    if (notification.metrics.pixels <= 8 && !_showSuppressed) {
+      _scrollDistance = 0;
+      _setChromeHidden(false);
+      return false;
+    }
+    if (delta > 0 && _scrollDistance < 0) _scrollDistance = 0;
+    if (delta < 0 && _scrollDistance > 0) _scrollDistance = 0;
+    _scrollDistance += delta;
+    if (!_chromeHidden && _scrollDistance >= 100) {
+      _scrollDistance = 0;
+      _setChromeHidden(true);
+      if (_keyboardOpen) _revealFocusedField();
+    } else if (_chromeHidden && _scrollDistance <= -80 && !_showSuppressed) {
+      _scrollDistance = 0;
+      _setChromeHidden(false);
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
+    _syncKeyboard(MediaQueryData.fromView(View.of(context)).viewInsets.bottom > 0);
     final profileAsync = ref.watch(userProfileProvider);
     final profile = profileAsync.value;
     final requested = widget.userId?.trim() ?? '';
@@ -414,26 +489,43 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     final waiting = _loadingUser || (profileAsync.isLoading && profile == null && !_viewOnly);
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(_viewOnly ? 'Hồ sơ' : 'Hồ sơ cá nhân'),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textDark,
-        elevation: 0,
-      ),
+      resizeToAvoidBottomInset: true,
       body: waiting
           ? const Center(child: CircularProgressIndicator())
           : _loadError != null
               ? Center(child: Text(_loadError!))
               : profile == null && !_viewOnly
               ? const Center(child: Text('Không tìm thấy tài khoản.'))
-              : Column(
+              : SafeArea(
+                  bottom: false,
+                  child: Column(
                   children: [
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: _chromeHidden && !_viewOnly
+                          ? const SizedBox(width: double.infinity, height: 0)
+                          : SizedBox(
+                              height: kToolbarHeight,
+                              child: AppBar(
+                                primary: false,
+                                title: Text(_viewOnly ? 'Hồ sơ' : 'Hồ sơ cá nhân'),
+                                backgroundColor: Colors.white,
+                                foregroundColor: AppColors.textDark,
+                                elevation: 0,
+                              ),
+                            ),
+                    ),
                     Expanded(
-                      child: Form(
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: _onProfileScroll,
+                        child: Form(
                         key: _formKey,
                         autovalidateMode: _viewOnly ? AutovalidateMode.disabled : AutovalidateMode.onUserInteraction,
                         child: ListView(
                           controller: _scrollController,
+                          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                           children: [
                             _buildHeader(),
@@ -533,10 +625,19 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                           ],
                         ),
                       ),
+                      ),
                     ),
-                    if (!_viewOnly) _buildFooter(),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.bottomCenter,
+                      child: !_viewOnly && !_chromeHidden
+                          ? _buildFooter()
+                          : const SizedBox(width: double.infinity, height: 0),
+                    ),
                   ],
                 ),
+              ),
     );
   }
 

@@ -2022,3 +2022,22 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
   4. `lib/features/home/screens/home_screen.dart` và `lib/features/home/widgets/profile_header_card.dart` — người thuê không thấy mã ID. Chủ trọ và quản trị vẫn thấy mã.
 * **Cuộc gọi:** chủ trọ gọi chủ trọ, chủ trọ gọi người thuê và người thuê gọi chủ trọ đều đổ chuông. Admin chỉ nhận và trả lời, không có nút gọi đi.
 * **Sở thích:** phải bấm dấu **+** rồi mới lưu. Gõ trong ô mà chưa bấm **+** thì không được ghi.
+
+---
+
+### Phase 2.57: Ẩn thanh khi lướt bài ở ghép và khi sửa hồ sơ xoay ngang
+* **Ngày:** 20/10/2026
+* **Project:** `D:\Downloads\homeshare-dev-TOAN` và `homeshare-main`. Chưa commit. Không đổi Firebase.
+
+#### Tab Tìm ở ghép
+* **File:** `lib/features/renter/screens/roommate_community_screen.dart`, `lib/features/renter/screens/renter_main_screen.dart`
+* Khi xoay ngang, tiêu đề **Tìm Ở Ghép**, hai tab **Đã có phòng** / **Cần tìm phòng** và thanh dưới cùng chiếm mất chỗ danh sách.
+* Kéo bài lên một đoạn ngắn thì ba phần đó thu lại. Kéo xuống, hoặc kéo nhẹ khi đang ở đầu danh sách, thì hiện lại.
+* Chỉ áp dụng tab **Tìm ở ghép**. Màn **Đăng bài** không dùng cách này. Nút **Đăng tin ở ghép** vẫn nổi trên danh sách.
+
+#### Chỉnh sửa hồ sơ khi xoay ngang
+* **File:** `lib/features/profile/screens/personal_profile_screen.dart`
+* Bàn phím mở thì ô nhập gần như khuất hết, vì thanh **Hồ sơ cá nhân** và hàng **Hủy bỏ** / **Lưu thay đổi** vẫn chiếm chỗ.
+* Hai phần đó thu lại khi bàn phím mở hoặc khi kéo form lên, để thấy ô đang nhập.
+* Kéo form xuống thì hiện lại. Đóng bàn phím cũng hiện lại để bấm lưu.
+* Màn chỉ xem hồ sơ người khác không đổi.

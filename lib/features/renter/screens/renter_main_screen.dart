@@ -43,13 +43,20 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
   @override
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(renterBottomNavIndexProvider);
+    final hideNav = currentIndex == 3 && ref.watch(roommateListChromeHiddenProvider);
 
     return Scaffold(
       body: IndexedStack(
         index: currentIndex,
         children: _screens,
       ),
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar: AnimatedSize(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.bottomCenter,
+        child: hideNav
+            ? const SizedBox(width: double.infinity, height: 0)
+            : BottomNavigationBar(
         currentIndex: currentIndex,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppColors.primary,
@@ -57,6 +64,9 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
         selectedFontSize: 11,
         unselectedFontSize: 11,
         onTap: (index) {
+          if (index != 3) {
+            ref.read(roommateListChromeHiddenProvider.notifier).setHidden(false);
+          }
           ref.read(renterBottomNavIndexProvider.notifier).setIndex(index);
         },
         items: const [
@@ -94,6 +104,7 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
             label: 'Cá nhân',
           ),
         ],
+      ),
       ),
     );
   }
