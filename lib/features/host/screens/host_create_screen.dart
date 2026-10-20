@@ -10,7 +10,6 @@ import '../../../core/utils/room_deposit.dart';
 import '../widgets/host_deposit_input.dart';
 import '../../../core/utils/room_identity.dart';
 import '../../../core/constants/vietnam_locations.dart';
-import '../../../core/utils/id_generator.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/user_provider.dart';
 import '../data/host_property.dart';
@@ -86,7 +85,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0'),
   ).join();
   int _depositPercentage = 20;
-  final String _roomId = newRoomId();
+  String _roomId = newRoomId();
   static const _amenityOptions = roomAmenityOptions;
 
   // Chủ trọ - Khởi tạo form - Luồng đi: Nhận cơ sở khi mở từ thẻ nhà;
@@ -99,6 +98,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     _fields['floors']!.text = '1';
     _fields['floor']!.text = '1';
     _fields['capacity']!.text = '2';
+    _fields['code']!.text = _roomId;
     final property = widget.propertyToEdit;
     if (property != null) {
       _roomTab = false;
@@ -233,12 +233,8 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
       if (_roomTab) {
         final user = ref.read(userProfileProvider).value;
         final parent = property!;
-        final allRooms = ref.read(hostRoomsProvider).value ?? [];
-        final currentCount =
-            allRooms.where((r) => r.propertyId == parent.id).length;
-        final defaultCode = IdGenerator.roomCode(currentCount + 1);
         final inputCode = _fields['code']!.text.trim().toUpperCase();
-        final finalRoomCode = inputCode.isNotEmpty ? inputCode : defaultCode;
+        final finalRoomCode = inputCode.isNotEmpty ? inputCode : _roomId;
         final inputTitle = _fields['title']!.text.trim();
         final finalTitle = inputTitle.isNotEmpty ? inputTitle : 'Phòng $finalRoomCode';
         await repository.createRoom(
@@ -334,6 +330,8 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         for (final field in ['name', 'address', 'ward', 'planned']) {
           _fields[field]!.clear();
         }
+        _roomId = newRoomId();
+        _fields['code']!.text = _roomId;
       });
       _message('Đã lưu cơ sở. Bạn có thể tạo phòng cho cơ sở này.');
     } catch (error) {
@@ -727,12 +725,8 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     if (selectedFloor != null) {
       _fields['floor']!.text = selectedFloor.toString();
     }
-    final allRooms = ref.watch(hostRoomsProvider).value ?? [];
-    final currentCount =
-        allRooms.where((r) => r.propertyId == selected?.id).length;
-    final defaultCode = IdGenerator.roomCode(currentCount + 1);
-    if (_fields['code']!.text.isEmpty || isShortRoomId(_fields['code']!.text)) {
-      _fields['code']!.text = defaultCode;
+    if (_fields['code']!.text.isEmpty) {
+      _fields['code']!.text = _roomId;
     }
     return Form(
       key: _roomForm,
@@ -784,29 +778,32 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
               child: TextFormField(
                 key: const ValueKey('host_field_code'),
                 controller: _fields['code'],
-                textCapitalization: TextCapitalization.characters,
+                readOnly: true,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.1,
+                  color: AppColors.primary,
+                ),
                 decoration: InputDecoration(
-                  labelText: 'Mã phòng (ví dụ: P001, P101) *',
-                  hintText: defaultCode,
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.refresh),
-                    tooltip: 'Tự sinh mã phòng ($defaultCode)',
-                    onPressed: () {
-                      setState(() {
-                        _fields['code']!.text = defaultCode;
-                      });
-                    },
+                  labelText: 'Mã phòng (Tự động sinh từ ID) *',
+                  helperText: 'Mã phòng khóa cứng tự sinh từ ID của host_rooms.',
+                  prefixIcon: const Icon(Icons.vpn_key_outlined),
+                  suffixIcon: const Icon(Icons.lock_outline),
+                  filled: true,
+                  fillColor: const Color(0xFFF0F4FF),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 validator: (value) => value == null || value.trim().isEmpty
-                    ? 'Không có mã phòng. Vui lòng nhập hoặc tự sinh.'
+                    ? 'Không có mã phòng. Vui lòng mở lại form.'
                     : null,
               ),
             ),
             _field(
               'title',
               'Tên phòng (tùy chọn)',
-              hint: 'Ví dụ: Phòng ${_fields['code']!.text.isNotEmpty ? _fields['code']!.text : defaultCode}',
+              hint: 'Ví dụ: Phòng ${_fields['code']!.text.isNotEmpty ? _fields['code']!.text : _roomId}',
               optional: true,
               maxLength: 100,
             ),

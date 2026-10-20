@@ -7,6 +7,8 @@ import '../../../core/constants/vietnam_locations.dart';
 import '../../../core/services/image_storage_service.dart';
 import '../../../core/services/roommate_service.dart';
 import '../../../core/services/user_profile_service.dart';
+import '../../../core/services/booking_service.dart';
+import '../../../data/models/booking_model.dart';
 import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
@@ -36,7 +38,8 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
   String _authorGender = 'Nữ';
 
   // 2. Thông tin bài đăng & phòng
-  bool _hasRoom = true; // true: Đã có phòng, false: Chưa có phòng
+  bool _hasRoom = false; // Mặc định false (Chưa có phòng)
+  bool _hasRoomInitChecked = false;
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
   final _priceController = TextEditingController();
@@ -305,6 +308,25 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
       return;
     }
 
+    // Kiểm tra ràng buộc: Nếu chưa có phòng thì không thể đăng tin dạng 'Đã có phòng'
+    final isHost = profile?.isHost == true || profile?.role == 'host';
+    final bookings = ref.read(renterBookingsStreamProvider(user.uid)).value ?? [];
+    final hasRealRoom = isHost || bookings.any((b) => b.isActive || b.isApproved);
+    if (_hasRoom && !hasRealRoom) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bạn hiện chưa có phòng đang thuê trên hệ thống nên không thể đăng tin "Đã có phòng".'),
+          backgroundColor: AppColors.danger,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      setState(() {
+        _hasRoom = false;
+        _currentStep = 1;
+      });
+      return;
+    }
+
     final title = _titleController.text.trim();
     final rawPrice = _priceController.text.trim().replaceAll('.', '').replaceAll(',', '');
     final price = double.tryParse(rawPrice) ?? 0.0;
@@ -428,6 +450,30 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(currentUserProvider);
+    final profile = ref.watch(userProfileProvider).value;
+    final isHost = profile?.isHost == true || profile?.role == 'host';
+    final bookingsAsync = ref.watch(renterBookingsStreamProvider(user?.uid ?? ''));
+    final bookings = bookingsAsync.value ?? [];
+    final activeBookings = bookings.where((b) => b.isActive || b.isApproved).toList();
+    final bool hasRealRoom = isHost || activeBookings.isNotEmpty;
+
+    // Đảm bảo: Nếu user chưa có phòng đang thuê thì _hasRoom luôn luôn bị ép về false
+    if (!hasRealRoom && _hasRoom) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _hasRoom) {
+          setState(() => _hasRoom = false);
+        }
+      });
+    } else if (!_hasRoomInitChecked && hasRealRoom) {
+      _hasRoomInitChecked = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_hasRoom) {
+          setState(() => _hasRoom = true);
+        }
+      });
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -459,7 +505,10 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 physics: const BouncingScrollPhysics(),
-                child: _buildCurrentStepContent(),
+                child: _buildCurrentStepContent(
+                  hasRealRoom: hasRealRoom,
+                  activeBookings: activeBookings,
+                ),
               ),
             ),
           ),
@@ -526,12 +575,18 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
     );
   }
 
-  Widget _buildCurrentStepContent() {
+  Widget _buildCurrentStepContent({
+    required bool hasRealRoom,
+    List<BookingRequestModel> activeBookings = const [],
+  }) {
     switch (_currentStep) {
       case 0:
         return _buildStep1Profile();
       case 1:
-        return _buildStep2RoomAndPrice();
+        return _buildStep2RoomAndPrice(
+          hasRealRoom: hasRealRoom,
+          activeBookings: activeBookings,
+        );
       case 2:
       default:
         return _buildStep3LifestyleAndImages();
@@ -622,7 +677,10 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
   }
 
   // BƯỚC 2: Thông tin bài đăng & phòng
-  Widget _buildStep2RoomAndPrice() {
+  Widget _buildStep2RoomAndPrice({
+    required bool hasRealRoom,
+    List<BookingRequestModel> activeBookings = const [],
+  }) {
     final provinces = VietnamLocations.provinces;
     final districts = VietnamLocations.getAdministrativeDistricts(_selectedProvince);
     final wards = VietnamLocations.getWards(_selectedProvince, _selectedDistrict);
@@ -640,9 +698,23 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
                 Expanded(
                   child: _buildSelectCard(
                     title: 'Đã có phòng',
-                    subtitle: 'Tìm người dọn vào ở cùng',
+                    subtitle: hasRealRoom ? 'Tìm người dọn vào ở cùng' : 'Cần có phòng đang thuê',
                     isSelected: _hasRoom,
-                    onTap: () => setState(() => _hasRoom = true),
+                    isEnabled: hasRealRoom,
+                    badgeText: hasRealRoom ? null : 'Chưa thuê phòng',
+                    onTap: () {
+                      if (!hasRealRoom) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Bạn hiện chưa có phòng đang thuê trên hệ thống nên không thể chọn "Đã có phòng". Vui lòng chọn "Chưa có phòng" để tìm bạn cùng thuê.'),
+                            backgroundColor: Color(0xFF1E293B),
+                            duration: Duration(seconds: 3),
+                          ),
+                        );
+                        return;
+                      }
+                      setState(() => _hasRoom = true);
+                    },
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -651,11 +723,89 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
                     title: 'Chưa có phòng',
                     subtitle: 'Tìm bạn cùng đi thuê',
                     isSelected: !_hasRoom,
+                    isEnabled: true,
                     onTap: () => setState(() => _hasRoom = false),
                   ),
                 ),
               ],
             ),
+            if (!hasRealRoom)
+              Container(
+                margin: const EdgeInsets.only(top: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: Color(0xFFD97706)),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Tài khoản của bạn chưa có hợp đồng thuê phòng nào đang hoạt động. Bạn chỉ có thể đăng tin "Chưa có phòng" để tìm bạn cùng đi thuê.',
+                        style: TextStyle(fontSize: 11.5, color: Color(0xFF92400E), height: 1.35),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (hasRealRoom && _hasRoom && activeBookings.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 10),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline, size: 16, color: Color(0xFF16A34A)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Phòng đang thuê: ${activeBookings.first.roomTitle}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF15803D)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        final b = activeBookings.first;
+                        setState(() {
+                          if (b.roomTitle.isNotEmpty) {
+                            _titleController.text = 'Tìm bạn ở ghép - ${b.roomTitle}';
+                          }
+                          if (b.roomAddress.isNotEmpty) {
+                            _addressController.text = b.roomAddress;
+                          }
+                          if (b.roomPrice > 0) {
+                            _priceController.text = (b.roomPrice / 2).round().toString();
+                          }
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Đã điền nhanh thông tin từ phòng đang thuê của bạn!')),
+                        );
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        child: Text(
+                          'Điền nhanh',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF16A34A),
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             const SizedBox(height: 16),
             _buildTextField(
               label: 'Tiêu đề bài đăng *',
@@ -1100,40 +1250,82 @@ class _CreateRoommatePostScreenState extends ConsumerState<CreateRoommatePostScr
     required String title,
     required String subtitle,
     required bool isSelected,
+    bool isEnabled = true,
+    String? badgeText,
     required VoidCallback onTap,
   }) {
+    final effectiveColor = !isEnabled
+        ? const Color(0xFFF1F5F9)
+        : (isSelected ? AppColors.primarySurface : Colors.white);
+    final borderColor = !isEnabled
+        ? const Color(0xFFE2E8F0)
+        : (isSelected ? AppColors.primary : const Color(0xFFCBD5E1));
+    final textColor = !isEnabled
+        ? const Color(0xFF94A3B8)
+        : (isSelected ? AppColors.primary : const Color(0xFF0F172A));
+    final subTextColor = !isEnabled
+        ? const Color(0xFFA0AEC0)
+        : (isSelected ? AppColors.primary : const Color(0xFF64748B));
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primarySurface : Colors.white,
+          color: effectiveColor,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? AppColors.primary : const Color(0xFFCBD5E1),
+            color: borderColor,
             width: isSelected ? 1.5 : 1.0,
           ),
         ),
         child: Column(
           children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                color: isSelected ? AppColors.primary : const Color(0xFF0F172A),
-                fontSize: 13.5,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (!isEnabled) ...[
+                  const Icon(Icons.lock_outline, size: 14, color: Color(0xFF94A3B8)),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    color: textColor,
+                    fontSize: 13.5,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 2),
             Text(
               subtitle,
               style: TextStyle(
                 fontSize: 11,
-                color: isSelected ? AppColors.primary : const Color(0xFF64748B),
+                color: subTextColor,
               ),
               textAlign: TextAlign.center,
             ),
+            if (badgeText != null) ...[
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEE2E2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  badgeText,
+                  style: const TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFDC2626),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

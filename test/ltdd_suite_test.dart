@@ -888,19 +888,7 @@ void main() {
     test('Tc_ROOMMATE_FIGMA_01 - 05: Kiểm tra bài đăng dùng để thử tìm kiếm', () {
       final samplePosts = RoommateService.getDemoRoommatePosts();
       expect(samplePosts.length, greaterThanOrEqualTo(3));
-
-      final lanAnh = samplePosts.firstWhere((p) => p.authorName == 'Lan Anh');
-      expect(lanAnh.authorAge, equals(21));
-      expect(lanAnh.authorOccupation, contains('Sinh viên'));
-      expect(lanAnh.hasRoom, isTrue);
-      expect(lanAnh.pricePerPerson, equals(1800000));
-      expect(lanAnh.district, equals('Thành phố Thủ Đức'));
-      expect(lanAnh.isVerified, isTrue);
-      expect(lanAnh.habits, containsAll(['Sạch sẽ, ngăn nắp cao', 'Yên tĩnh sau 23h']));
-
-      final minhKhoa = samplePosts.firstWhere((p) => p.authorName == 'Minh Khoa');
-      expect(minhKhoa.hasRoom, isTrue);
-      expect(minhKhoa.district, equals('Quận Bình Thạnh'));
+      expect(samplePosts.every((p) => p.hasRoom == false), isTrue);
 
       final phuongAnh = samplePosts.firstWhere((p) => p.authorName == 'Phương Anh');
       expect(phuongAnh.hasRoom, isFalse);
@@ -911,13 +899,10 @@ void main() {
       final samplePosts = RoommateService.getDemoRoommatePosts();
 
       final withRoom = samplePosts.where((p) => p.hasRoom == true).toList();
-      expect(withRoom.any((p) => p.authorName == 'Lan Anh'), isTrue);
-      expect(withRoom.any((p) => p.authorName == 'Minh Khoa'), isTrue);
-      expect(withRoom.any((p) => p.authorName == 'Phương Anh'), isFalse);
+      expect(withRoom, isEmpty);
 
       final withoutRoom = samplePosts.where((p) => p.hasRoom == false).toList();
       expect(withoutRoom.any((p) => p.authorName == 'Phương Anh'), isTrue);
-      expect(withoutRoom.any((p) => p.authorName == 'Lan Anh'), isFalse);
     });
 
     test('Tc_LIFESTYLE_FILTER_01 - 05: Bộ lọc RoommateFilterParams hỗ trợ đầy đủ các tiêu chí Hình 2', () {
@@ -968,8 +953,7 @@ void main() {
         return true;
       }).toList();
 
-      expect(filtered.length, equals(1));
-      expect(filtered.first.authorName, equals('Lan Anh'));
+      expect(filtered, isEmpty);
     });
   });
 

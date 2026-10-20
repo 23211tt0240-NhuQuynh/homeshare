@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -189,20 +188,11 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
       final user = ref.read(currentUserProvider);
       final profile = ref.read(userProfileProvider).value;
       final renterCode = profile?.userCode ?? (user != null ? UserProfile.generateUserCode(seed: user.uid, role: 'renter') : 'NT001');
-      var roomCode = widget.room.roomCode.isNotEmpty ? widget.room.roomCode : widget.room.maPhong;
-      if (roomCode.isEmpty || roomCode == 'P001') {
-        try {
-          final roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(widget.room.id).get();
-          if (roomDoc.exists) {
-            final data = roomDoc.data() ?? {};
-            final fetched = (data['maPhong'] ?? data['roomCode'] ?? data['soPhong'] ?? '').toString().trim();
-            if (fetched.isNotEmpty) roomCode = fetched;
-          }
-        } catch (_) {}
-      }
+      // Nội dung chuyển khoản chỉ cần lấy ID của phòng
+      final roomId = widget.room.id;
       final transferContent = IdGenerator.transferContent(
         renterCode: renterCode,
-        roomCode: roomCode,
+        roomCode: roomId,
       );
 
       final booking = BookingRequestModel(

@@ -278,8 +278,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
               for (final doc in bookingDocs) {
                 final data = doc.data() as Map<String, dynamic>? ?? {};
                 final docId = doc.id;
-                final String? status = _determineStatus(data);
-                if (status == null) continue; // bỏ qua đơn không thuộc trạng thái cọc/giải ngân
+                final status = _determineStatus(data);
 
                 final rawHostName = (data['tenChuNha'] ?? data['hostName'] ?? data['landlordName'] ?? 'Chủ trọ').toString().trim();
 
