@@ -1,17 +1,49 @@
-# home_share
+# 🏠 HomeShare
 
-A new Flutter project.
+HomeShare is a Flutter mobile app for Android that connects landlords and tenants. Landlords can list and manage their houses and rooms, while tenants can find a single room or a roommate, pay rent, and track their rental. An admin role oversees the whole system.
+
+## Features
+
+### Landlord
+- Dashboard
+- Messaging
+- Create rental listings for houses/rooms
+- House management (create, view, edit, delete)
+- Room management (create, view, edit, delete)
+- Notifications (Paid / Pending / Deposited)
+- Deposit information
+- Check-in / Check-out
+- Violations and incident reports
+- Tenant management
+- Financial management
+
+### Tenant
+- Dashboard
+- Search for single rooms or shared rooms
+- Messaging
+- Create posts to find a room or a roommate
+- Room payment
+- Room reports
+- Edit profile
+- Rental order management
+- Notifications
+- Comments and reviews
+- Check-in slip
+
+### Admin
+- Dashboard
+- Order management
+- Listing management
+- Operation history, system configuration, and audit log
+- User management
+
+## Tech
+
+- Flutter (Android)
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter pub get
+flutter run
+```
