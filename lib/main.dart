@@ -8,6 +8,7 @@ import 'features/admin/screens/admin_main_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/providers/user_provider.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/chat/screens/call_screen.dart';
 import 'features/host/screens/host_main_screen.dart';
 import 'features/renter/screens/renter_main_screen.dart';
 
@@ -94,6 +95,12 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
+    // Người thuê, chủ trọ và quản trị đều nhận cuộc gọi. Trước đây chỉ màn người thuê nghe chuông.
+    ref.listen(incomingCallProvider, (prev, next) {
+      final call = next.value;
+      if (call == null) return;
+      IncomingCallRouter.show(call);
+    });
 
     return profileAsync.when(
       data: (profile) {

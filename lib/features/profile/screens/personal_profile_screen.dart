@@ -441,8 +441,9 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                             _buildSection(
                               icon: Icons.badge_outlined,
                               title: 'Thông tin cơ bản & Liên hệ',
-                              subtitle: 'Thông tin dùng để xác minh danh tính và hồ sơ ở ghép',
+                              subtitle: _viewOnly ? '' : 'Thông tin dùng để xác minh danh tính và hồ sơ ở ghép',
                               child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   _textField(
                                     controller: _nameController,
@@ -501,8 +502,9 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                             _buildSection(
                               icon: Icons.work_outline,
                               title: 'Nghề nghiệp & Đơn vị công tác',
-                              subtitle: 'Giúp bạn cùng phòng hiểu về lịch trình công việc và thời gian biểu của bạn',
+                              subtitle: _viewOnly ? '' : 'Giúp bạn cùng phòng hiểu về lịch trình công việc và thời gian biểu của bạn',
                               child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   _textField(
                                     controller: _occupationController,
@@ -578,8 +580,9 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
         ] else
           const SizedBox(height: 8),
         Text(
-          'ID #$_userCode',
-          style: const TextStyle(fontSize: 13, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+          _nameController.text.trim().isEmpty ? 'Chưa cập nhật tên' : _nameController.text.trim(),
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 18, color: AppColors.textDark, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
         InkWell(
@@ -645,8 +648,10 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.35)),
+          if (subtitle.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.35)),
+          ],
           const SizedBox(height: 14),
           child,
         ],
@@ -654,7 +659,90 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     );
   }
 
+  Widget _profileLine(String label, String raw) {
+    final value = raw.trim();
+    final empty = value.isEmpty;
+    return SizedBox(
+      width: double.infinity,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 3),
+            Text(
+              empty ? 'Chưa cập nhật' : value,
+              style: TextStyle(
+                fontSize: 15.5,
+                height: 1.35,
+                fontWeight: FontWeight.w700,
+                color: empty ? AppColors.textMuted : AppColors.textDark,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildIntroSection() {
+    if (_viewOnly) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.notes_rounded, size: 18, color: AppColors.primary),
+                SizedBox(width: 8),
+                Text('Giới thiệu & Sở thích', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textDark)),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _profileLine('Giới thiệu', _bioController.text),
+            const Text('Sở thích', style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            if (_loadingInterests)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 14),
+                child: LinearProgressIndicator(minHeight: 2),
+              )
+            else if (_interests.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 14),
+                child: Text('Chưa có sở thích.', style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: AppColors.textMuted)),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final interest in _interests)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryContainer,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(interest, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
     final length = _bioController.text.characters.length;
     return Container(
       padding: const EdgeInsets.all(16),
@@ -871,6 +959,11 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
 
   Widget _yearField() {
     final age = _age();
+    if (_viewOnly) {
+      final year = _yearController.text.trim();
+      final shown = year.isEmpty ? '' : (age == null ? year : '$year · $age tuổi');
+      return _profileLine('Năm sinh', shown);
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -902,6 +995,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   }
 
   Widget _genderField() {
+    if (_viewOnly) return _profileLine('Giới tính', _gender);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -961,6 +1055,9 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
+    if (_viewOnly) {
+      return _profileLine(label.replaceAll(' *', ''), controller?.text ?? '');
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -2009,3 +2009,16 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
 * **Kiểm định chất lượng sau khi gộp:**
   - `flutter analyze lib/ test/`: **No issues found! (0 errors, 0 warnings)** trên toàn bộ codebase.
   - `flutter test`: **37/37 PASSED (100%)** trên toàn bộ các bộ test suite (IdGenerator, CreateRoommatePost, HostManagement, ProfileScreen).
+
+---
+
+### Phase 2.56: Chuông cuộc gọi mọi role và hồ sơ người dùng
+* **Ngày:** 20/10/2026
+* **Commit:** `fix call video and profile` trên nhánh `dev-THE`, ngay sau `baa93ba`. Không sửa Firebase.
+* **File:**
+  1. `lib/main.dart` — nghe chuông cuộc gọi sau khi đăng nhập, cho người thuê, chủ trọ và admin.
+  2. `lib/features/renter/screens/renter_main_screen.dart` — bỏ chỗ nghe chuông cũ chỉ dành cho người thuê.
+  3. `lib/features/profile/screens/personal_profile_screen.dart` — màn xem hồ sơ người khác là dòng chữ căn trái, dưới avatar hiện tên.
+  4. `lib/features/home/screens/home_screen.dart` và `lib/features/home/widgets/profile_header_card.dart` — người thuê không thấy mã ID. Chủ trọ và quản trị vẫn thấy mã.
+* **Cuộc gọi:** chủ trọ gọi chủ trọ, chủ trọ gọi người thuê và người thuê gọi chủ trọ đều đổ chuông. Admin chỉ nhận và trả lời, không có nút gọi đi.
+* **Sở thích:** phải bấm dấu **+** rồi mới lưu. Gõ trong ô mà chưa bấm **+** thì không được ghi.
