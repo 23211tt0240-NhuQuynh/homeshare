@@ -10,6 +10,7 @@ import '../../../core/utils/room_deposit.dart';
 import '../widgets/host_deposit_input.dart';
 import '../../../core/utils/room_identity.dart';
 import '../../../core/constants/vietnam_locations.dart';
+import '../../../core/utils/id_generator.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/user_provider.dart';
 import '../data/host_property.dart';
@@ -232,11 +233,20 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
       if (_roomTab) {
         final user = ref.read(userProfileProvider).value;
         final parent = property!;
+        final allRooms = ref.read(hostRoomsProvider).value ?? [];
+        final currentCount =
+            allRooms.where((r) => r.propertyId == parent.id).length;
+        // Chủ trọ - Lưu mã phòng tự sinh - Luồng đi: Đếm phòng thuộc cơ sở
+        // đang chọn rồi sinh mã để lưu, không lấy mã do người dùng nhập.
+        final finalRoomCode = IdGenerator.roomCode(currentCount + 1);
+        final inputTitle = _fields['title']!.text.trim();
+        final finalTitle = inputTitle.isNotEmpty ? inputTitle : 'Phòng $finalRoomCode';
         await repository.createRoom(
           RoomModel(
             id: _roomId,
             propertyId: parent.id,
-            title: _fields['title']!.text.trim(),
+            roomCode: finalRoomCode,
+            title: finalTitle,
             description: _fields['notes']!.text.trim(),
             price: double.parse(vndDigits(_fields['price']!.text)),
             // Chủ trọ - Lưu cọc - Luồng đi: Lưu tỷ lệ đã chọn và số
@@ -717,9 +727,15 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     if (selectedFloor != null) {
       _fields['floor']!.text = selectedFloor.toString();
     }
-    // Chủ trọ - Mã phòng - Luồng đi: Hiển thị chính ID document,
-    // giữ nguyên khi đổi tầng hoặc nhập tên; người dùng không sửa được.
-    if (_fields['code']!.text != _roomId) _fields['code']!.text = _roomId;
+    final allRooms = ref.watch(hostRoomsProvider).value ?? [];
+    final currentCount =
+        allRooms.where((r) => r.propertyId == selected?.id).length;
+    // Chủ trọ - Đồng bộ mã phòng - Luồng đi: Khi đổi cơ sở hoặc danh sách
+    // phòng thay đổi, cập nhật ô mã theo số phòng của cơ sở đang chọn.
+    final defaultCode = IdGenerator.roomCode(currentCount + 1);
+    if (_fields['code']!.text != defaultCode) {
+      _fields['code']!.text = defaultCode;
+    }
     return Form(
       key: _roomForm,
       child: Column(
@@ -770,20 +786,25 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
               child: TextFormField(
                 key: const ValueKey('host_field_code'),
                 controller: _fields['code'],
+                // Chủ trọ - Khóa mã phòng - Luồng đi: Chỉ hiển thị mã tự sinh,
+                // khóa nhập và chỉnh sửa; biểu tượng ổ khóa giải thích trạng thái.
                 readOnly: true,
-                decoration: InputDecoration(
-                  labelText: 'Mã phòng',
-                  suffixIcon: const Icon(Icons.lock_outline),
+                enableInteractiveSelection: false,
+                decoration: const InputDecoration(
+                  labelText: 'Mã phòng (tự sinh)',
+                  suffixIcon: Icon(Icons.lock_outline),
+                  helperText: 'Mã phòng được tạo tự động bởi hệ thống.',
                 ),
-                validator: (value) => value == null || value.isEmpty
-                    ? 'Không có mã phòng. Vui lòng mở lại form.'
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Không thể tạo mã phòng tự động.'
                     : null,
               ),
             ),
             _field(
               'title',
-              'Tên phòng *',
-              hint: 'Ví dụ: Phòng ban công thoáng mát',
+              'Tên phòng (tùy chọn)',
+              hint: 'Ví dụ: Phòng ${_fields['code']!.text.isNotEmpty ? _fields['code']!.text : defaultCode}',
+              optional: true,
               maxLength: 100,
             ),
             DropdownButtonFormField<String>(
@@ -1184,7 +1205,11 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
       // các trường số lượng vẫn chỉ nhận chữ số và giữ cách kiểm tra cũ.
       inputFormatters: number
           ? [
-              if (name == 'price' || name == 'deposit')
+              if (name == 'price' ||
+                  name == 'deposit' ||
+                  name == 'electricityRate' ||
+                  name == 'waterRate' ||
+                  name == 'serviceFee')
                 VndInputFormatter()
               else
                 FilteringTextInputFormatter.digitsOnly,
@@ -1202,8 +1227,13 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
           return 'Vui lòng nhập thông tin';
         }
         if (number) {
+          final isMoney = name == 'price' ||
+              name == 'deposit' ||
+              name == 'electricityRate' ||
+              name == 'waterRate' ||
+              name == 'serviceFee';
           final value = int.tryParse(
-            name == 'price' || name == 'deposit' ? vndDigits(text) : text,
+            isMoney ? vndDigits(text) : text,
           );
           if (value == null || value < (allowZero ? 0 : 1) || value > max) {
             return 'Nhập từ ${allowZero ? 0 : 1} đến $max';

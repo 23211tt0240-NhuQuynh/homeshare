@@ -382,18 +382,15 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(photos);
       await tester.pumpAndSettle();
-      await enter(tester, 'title', 'Phòng ban công');
+      await enter(tester, 'code', 'a101');
       await enter(tester, 'price', '2500000');
       await enter(tester, 'capacity', '30');
       await tester.tap(find.text('Lưu phòng'));
       await tester.pumpAndSettle();
       expect(repo.roomWrites, 1);
       expect(repo.savedRoom!.propertyId, 'new-house');
-      expect(repo.savedRoom!.id, matches(RegExp(r'^[A-HJ-NP-Z2-9]{12}$')));
-      expect(repo.savedRoom!.title, 'Phòng ban công');
+      expect(repo.savedRoom!.roomCode, 'A101');
       expect(repo.savedRoom!.price, 2500000);
-      expect(repo.savedRoom!.deposit, 500000);
-      expect(repo.savedRoom!.depositPercentage, 20);
       expect(repo.savedRoom!.capacity, 30);
       expect(repo.savedRoom!.hostId, 'host-test');
       expect(repo.savedRoom!.status, 'available');
@@ -458,7 +455,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Thêm ảnh'));
     await tester.pumpAndSettle();
-    await enter(tester, 'title', 'Phòng cửa sổ');
+    await enter(tester, 'code', 'A101');
     await enter(tester, 'price', '2500000');
     await tester.tap(find.text('Lưu phòng'));
     await tester.pumpAndSettle();
@@ -468,18 +465,7 @@ void main() {
     final input = tester.widget<TextFormField>(
       find.byKey(const ValueKey('host_field_code')),
     );
-    expect(
-      tester
-          .widget<TextField>(
-            find.descendant(
-              of: find.byKey(const ValueKey('host_field_code')),
-              matching: find.byType(TextField),
-            ),
-          )
-          .readOnly,
-      isTrue,
-    );
-    expect(input.controller!.text, matches(RegExp(r'^[A-HJ-NP-Z2-9]{12}$')));
+    expect(input.controller!.text, 'A101');
     expect(
       tester
           .widget<FilledButton>(find.widgetWithText(FilledButton, 'Lưu phòng'))

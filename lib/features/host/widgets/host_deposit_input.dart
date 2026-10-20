@@ -24,9 +24,7 @@ class HostDepositInput extends StatelessWidget {
       ValueListenableBuilder<TextEditingValue>(
         valueListenable: priceController,
         builder: (context, value, _) {
-          final price = double.tryParse(
-            formattedPrice ? vndDigits(value.text) : value.text,
-          );
+          final price = double.tryParse(vndDigits(value.text));
           final validPrice = price != null && price.isFinite && price >= 0;
           final amount = percentage == null
               ? legacyDeposit

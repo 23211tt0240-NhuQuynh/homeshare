@@ -58,7 +58,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     try {
       final authService = ref.read(authServiceProvider);
       await authService.signUpWithEmail(
-        email: _emailController.text.trim(),
+        email: _emailController.text.trim().toLowerCase(),
         password: _passwordController.text.trim(),
         displayName: _nameController.text.trim(),
         phoneNumber: _phoneController.text.trim(),
@@ -80,7 +80,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         );
 
         // Quay trở lại màn hình Đăng nhập và truyền email vừa tạo để điền sẵn
-        Navigator.pop(context, _emailController.text.trim());
+        Navigator.pop(context, _emailController.text.trim().toLowerCase());
       }
     } catch (e) {
       if (mounted) {
@@ -172,18 +172,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       AuthTextField(
                         controller: _emailController,
                         label: 'Email *',
-                        hint: 'an.nguyen@example.com',
+                        hint: 'an.nguyen@gmail.com',
                         icon: Icons.email_outlined,
                         keyboardType: TextInputType.emailAddress,
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Vui lòng nhập email';
-                          }
-                          if (!val.contains('@') || !val.contains('.')) {
-                            return 'Email không hợp lệ';
-                          }
-                          return null;
-                        },
+                        validator: _validateGmailLocal,
                       ),
                       const SizedBox(height: 16),
 
@@ -340,6 +332,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         ),
       ),
     );
+  }
+
+  String? _validateGmailLocal(String? val) {
+    final email = (val ?? '').trim().toLowerCase();
+    if (email.isEmpty) return 'Vui lòng nhập đủ email';
+    if (!RegExp(r'^[A-Za-z0-9._+-]+@gmail\.com$').hasMatch(email)) {
+      return 'Nhập đủ địa chỉ, ví dụ ten@gmail.com';
+    }
+    return null;
   }
 
   // Thẻ lựa chọn Role trực quan (Người thuê / Chủ trọ)

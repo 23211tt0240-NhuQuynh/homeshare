@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/chat_model.dart';
@@ -18,10 +21,36 @@ class ChatParams {
   int get hashCode => Object.hash(userA, userB);
 }
 
+/// Helper chuyển đổi đệ quy `Map<Object?, Object?>` từ Realtime Database sang `Map<String, dynamic>`
+Map<String, dynamic> _deepCastMap(dynamic map) {
+  if (map is! Map) return {};
+  final result = <String, dynamic>{};
+  map.forEach((key, value) {
+    if (value is Map) {
+      result[key.toString()] = _deepCastMap(value);
+    } else if (value is List) {
+      result[key.toString()] = value.map((e) => e is Map ? _deepCastMap(e) : e).toList();
+    } else {
+      result[key.toString()] = value;
+    }
+  });
+  return result;
+}
+
 class ChatService {
+  static const String rtdbUrl = 'https://homeshare-fe18e-default-rtdb.firebaseio.com';
+
+  final FirebaseDatabase _rtdb;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Danh sach tu khoa bi cam loc tu dong theo Tc_CHAT_49
+  ChatService({FirebaseDatabase? rtdb})
+      : _rtdb = rtdb ??
+            FirebaseDatabase.instanceFor(
+              app: Firebase.app(),
+              databaseURL: rtdbUrl,
+            );
+
+  // Danh sách từ khóa bị cấm lọc tự động theo Tc_CHAT_49
   static const List<String> _prohibitedKeywords = [
     'lừa đảo',
     'lua dao',
@@ -54,7 +83,77 @@ class ChatService {
     return cleanA.compareTo(cleanB) < 0 ? '${cleanA}_$cleanB' : '${cleanB}_$cleanA';
   }
 
-  // Gửi tin nhắn mới lưu vào subcollection chats/{chatId}/messages
+  /// Thiết lập hiện diện (Presence: Online / Offline / LastSeen) qua Realtime Database
+  void setupPresence(String userId) {
+    final cleanId = userId.trim();
+    if (cleanId.isEmpty) return;
+
+    try {
+      final connectedRef = _rtdb.ref('.info/connected');
+      final userPresenceRef = _rtdb.ref('presence/$cleanId');
+
+      connectedRef.onValue.listen((event) {
+        final connected = event.snapshot.value as bool? ?? false;
+        if (connected) {
+          userPresenceRef.onDisconnect().update({
+            'isOnline': false,
+            'lastSeen': ServerValue.timestamp,
+          });
+          userPresenceRef.update({
+            'isOnline': true,
+            'lastSeen': ServerValue.timestamp,
+          });
+        }
+      });
+    } catch (e) {
+      debugPrint('Error setting up presence: $e');
+    }
+  }
+
+  /// Stream trạng thái Online của đối phương trong Realtime Database
+  Stream<bool> getPartnerPresenceStream(String partnerId) {
+    final cleanId = partnerId.trim();
+    if (cleanId.isEmpty) return Stream.value(false);
+
+    return _rtdb.ref('presence/$cleanId/isOnline').onValue.map((event) {
+      return event.snapshot.value as bool? ?? false;
+    });
+  }
+
+  /// Cập nhật trạng thái đang soạn tin (Typing indicator)
+  Future<void> setTypingStatus({
+    required String senderId,
+    required String receiverId,
+    required bool isTyping,
+  }) async {
+    final chatId = getChatId(senderId, receiverId);
+    final typingRef = _rtdb.ref('typing/$chatId/$senderId');
+
+    try {
+      if (isTyping) {
+        typingRef.onDisconnect().set(false);
+        await typingRef.set(true);
+      } else {
+        await typingRef.set(false);
+      }
+    } catch (e) {
+      debugPrint('Error setting typing status: $e');
+    }
+  }
+
+  /// Stream kiểm tra xem đối phương có đang soạn tin hay không
+  Stream<bool> isPartnerTypingStream({
+    required String currentUserId,
+    required String partnerId,
+  }) {
+    final chatId = getChatId(currentUserId, partnerId);
+    return _rtdb.ref('typing/$chatId/$partnerId').onValue.map((event) {
+      return event.snapshot.value as bool? ?? false;
+    });
+  }
+
+  /// Gửi tin nhắn mới lưu vào Realtime Database `messages/{chatId}/{messageId}`
+  /// Tốc độ mili-giây, không bị giới hạn 1 write/s của Firestore Document
   Future<void> sendMessage(
     ChatMessageModel message, {
     String? receiverName,
@@ -73,112 +172,105 @@ class ChatService {
     }
 
     final chatId = getChatId(message.senderId, message.receiverId);
-    final batch = _firestore.batch();
+    final messagesRef = _rtdb.ref('messages/$chatId');
+    final newMsgRef = message.id.isNotEmpty ? messagesRef.child(message.id) : messagesRef.push();
+    final msgId = newMsgRef.key ?? DateTime.now().millisecondsSinceEpoch.toString();
 
-    // 3. Lưu tin nhắn vào subcollection
-    final msgDoc = message.id.isNotEmpty
-        ? _firestore.collection('chats').doc(chatId).collection('messages').doc(message.id)
-        : _firestore.collection('chats').doc(chatId).collection('messages').doc();
+    // 3. Chuẩn bị payload tin nhắn Realtime Database
+    final msgData = message.copyWith(id: msgId, conversationId: chatId).toRealtimeMap();
+    msgData['timestamp'] = ServerValue.timestamp;
 
-    final messageToSave = message.copyWith(id: msgDoc.id, conversationId: chatId);
-    batch.set(msgDoc, messageToSave.toMap());
+    // 4. Atomic multi-path updates cập nhật đồng thời message + conversation + reset typing
+    final Map<String, dynamic> updates = {};
+    updates['messages/$chatId/$msgId'] = msgData;
 
-    // 4. Cập nhật hội thoại tổng quan (recent conversation)
-    final userNames = <String, String>{
-      message.senderId: message.senderName,
-    };
+    updates['conversations/$chatId/chatId'] = chatId;
+    updates['conversations/$chatId/cuocTroChuyenId'] = chatId;
+    updates['conversations/$chatId/users'] = [message.senderId, message.receiverId];
+    updates['conversations/$chatId/lastMessage'] = message.text;
+    updates['conversations/$chatId/lastSenderName'] = message.senderName;
+    updates['conversations/$chatId/lastSenderId'] = message.senderId;
+    updates['conversations/$chatId/lastTimestamp'] = ServerValue.timestamp;
+    updates['conversations/$chatId/isRead'] = false;
+    updates['conversations/$chatId/unreadCount'] = ServerValue.increment(1);
+    updates['conversations/$chatId/unreadFor_${message.receiverId}'] = ServerValue.increment(1);
+    updates['conversations/$chatId/unreadFor_${message.senderId}'] = 0;
+    updates['conversations/$chatId/readBy/${message.senderId}'] = true;
+    updates['conversations/$chatId/readBy/${message.receiverId}'] = false;
+    updates['conversations/$chatId/userNames/${message.senderId}'] = message.senderName;
+    updates['conversations/$chatId/partnerNames/${message.receiverId}'] = message.senderName;
+
     if (receiverName != null && receiverName.trim().isNotEmpty) {
-      userNames[message.receiverId] = receiverName.trim();
+      updates['conversations/$chatId/userNames/${message.receiverId}'] = receiverName.trim();
+      updates['conversations/$chatId/partnerNames/${message.senderId}'] = receiverName.trim();
     }
-
-    final partnerNames = <String, String>{
-      message.senderId: (receiverName != null && receiverName.trim().isNotEmpty)
-          ? receiverName.trim()
-          : 'Đối tác trao đổi',
-      message.receiverId: message.senderName,
-    };
-
-    final chatDoc = _firestore.collection('chats').doc(chatId);
-    final convData = <String, dynamic>{
-      'chatId': chatId,
-      'cuocTroChuyenId': chatId,
-      'users': [message.senderId, message.receiverId],
-      'nguoiThamGia': [message.senderId, message.receiverId],
-      'lastMessage': message.text,
-      'noiDungCuoi': message.text,
-      'lastSenderName': message.senderName,
-      'lastSenderId': message.senderId,
-      'lastTimestamp': FieldValue.serverTimestamp(),
-      'ngayGuiCuoi': FieldValue.serverTimestamp(),
-      'userNames': userNames,
-      'partnerNames': partnerNames,
-      'isRead': false,
-      'readBy': {
-        message.senderId: true,
-        message.receiverId: false,
-      },
-      'unreadCount': FieldValue.increment(1),
-      'unreadFor_${message.receiverId}': FieldValue.increment(1),
-      'unreadFor_${message.senderId}': 0,
-    };
-
     if (receiverAvatar != null && receiverAvatar.isNotEmpty) {
-      convData['userAvatars'] = {message.receiverId: receiverAvatar};
+      updates['conversations/$chatId/userAvatars/${message.receiverId}'] = receiverAvatar;
     }
     if (receiverPhone != null && receiverPhone.isNotEmpty) {
-      convData['userPhones'] = {message.receiverId: receiverPhone};
+      updates['conversations/$chatId/userPhones/${message.receiverId}'] = receiverPhone;
     }
 
     if (roomMetadata != null) {
-      convData.addAll(roomMetadata);
+      roomMetadata.forEach((k, v) {
+        updates['conversations/$chatId/$k'] = v;
+      });
     }
 
-    batch.set(chatDoc, convData, SetOptions(merge: true));
+    // Tắt trạng thái đang gõ phím của người gửi ngay sau khi tin nhắn được bắn đi
+    updates['typing/$chatId/${message.senderId}'] = false;
 
-    await batch.commit();
+    await _rtdb.ref().update(updates);
   }
 
-  // Đánh dấu đã đọc toàn bộ tin nhắn trong hội thoại
+  /// Đánh dấu đã đọc toàn bộ tin nhắn trong hội thoại
   Future<void> markAsRead(String currentUserId, String partnerId) async {
     final cleanA = currentUserId.trim();
     final cleanB = partnerId.trim();
     if (cleanA.isEmpty || cleanB.isEmpty) return;
 
     final chatId = getChatId(cleanA, cleanB);
-    final chatDoc = _firestore.collection('chats').doc(chatId);
+
+    final Map<String, dynamic> updates = {};
+    updates['conversations/$chatId/isRead'] = true;
+    updates['conversations/$chatId/unreadCount'] = 0;
+    updates['conversations/$chatId/unreadFor_$cleanA'] = 0;
+    updates['conversations/$chatId/readBy/$cleanA'] = true;
 
     try {
-      await chatDoc.set({
-        'isRead': true,
-        'unreadCount': 0,
-        'unreadFor_$cleanA': 0,
-        'readBy': {cleanA: true},
-      }, SetOptions(merge: true));
+      await _rtdb.ref().update(updates);
+    } catch (e) {
+      debugPrint('Error marking conversation as read in RTDB: $e');
+    }
 
-      final unreadMsgs = await chatDoc
-          .collection('messages')
-          .where('receiverId', isEqualTo: cleanA)
-          .where('isRead', isEqualTo: false)
-          .limit(30)
+    // Cập nhật các tin nhắn nhận được gần đây thành 'read'
+    try {
+      final snapshot = await _rtdb
+          .ref('messages/$chatId')
+          .orderByChild('receiverId')
+          .equalTo(cleanA)
+          .limitToLast(30)
           .get();
 
-      if (unreadMsgs.docs.isNotEmpty) {
-        final batch = _firestore.batch();
-        for (final doc in unreadMsgs.docs) {
-          batch.update(doc.reference, {
-            'isRead': true,
-            'status': 'read',
-            'trangThaiTinNhan_id': 'read',
-          });
+      if (snapshot.exists && snapshot.value is Map) {
+        final Map<String, dynamic> msgUpdates = {};
+        final data = snapshot.value as Map;
+        data.forEach((key, val) {
+          if (val is Map && (val['isRead'] == false || val['status'] != 'read')) {
+            msgUpdates['messages/$chatId/$key/isRead'] = true;
+            msgUpdates['messages/$chatId/$key/status'] = 'read';
+          }
+        });
+        if (msgUpdates.isNotEmpty) {
+          await _rtdb.ref().update(msgUpdates);
         }
-        await batch.commit();
       }
     } catch (e) {
-      debugPrint('Error marking as read: $e');
+      debugPrint('Error marking messages as read in RTDB: $e');
     }
   }
 
-  // Cập nhật trạng thái tin nhắn (đã đọc / phản hồi lời mời...)
+  /// Cập nhật dữ liệu phụ trợ của tin nhắn (lịch hẹn, phản hồi lời mời...)
   Future<void> updateMessageExtraData({
     required String senderId,
     required String receiverId,
@@ -186,12 +278,7 @@ class ChatService {
     required Map<String, dynamic> extraData,
   }) async {
     final chatId = getChatId(senderId, receiverId);
-    await _firestore
-        .collection('chats')
-        .doc(chatId)
-        .collection('messages')
-        .doc(messageId)
-        .set({'extraData': extraData}, SetOptions(merge: true));
+    await _rtdb.ref('messages/$chatId/$messageId/extraData').update(extraData);
   }
 
   /// Thu hồi tin nhắn ở cả 2 phía (Xóa nội dung tin nhắn và chuyển sang trạng thái đã thu hồi)
@@ -201,85 +288,69 @@ class ChatService {
     required String messageId,
   }) async {
     final chatId = getChatId(senderId, receiverId);
-    final msgDoc = _firestore
-        .collection('chats')
-        .doc(chatId)
-        .collection('messages')
-        .doc(messageId);
+    final Map<String, dynamic> updates = {};
 
-    await msgDoc.set({
-      'text': 'Tin nhắn đã được thu hồi',
-      'noiDung': 'Tin nhắn đã được thu hồi',
-      'attachmentUrl': '',
-      'duongDan': '',
-      'messageType': 'revoked',
-      'loaiTinNhan_id': 'revoked',
-      'status': 'revoked',
-      'trangThaiTinNhan_id': 'revoked',
-      'isRevoked': true,
-      'revokedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    updates['messages/$chatId/$messageId/text'] = 'Tin nhắn đã được thu hồi';
+    updates['messages/$chatId/$messageId/attachmentUrl'] = '';
+    updates['messages/$chatId/$messageId/messageType'] = 'revoked';
+    updates['messages/$chatId/$messageId/status'] = 'revoked';
+    updates['messages/$chatId/$messageId/isRevoked'] = true;
+    updates['messages/$chatId/$messageId/revokedAt'] = ServerValue.timestamp;
 
-    // Cập nhật tóm tắt cuộc trò chuyện
+    // Cập nhật tóm tắt cuộc trò chuyện nếu đây là tin nhắn cuối
     try {
-      final chatDoc = _firestore.collection('chats').doc(chatId);
-      final chatSnap = await chatDoc.get();
-      if (chatSnap.exists) {
-        final data = chatSnap.data();
-        if (data?['lastSenderId'] == senderId) {
-          await chatDoc.set({
-            'lastMessage': 'Tin nhắn đã được thu hồi',
-            'noiDungCuoi': 'Tin nhắn đã được thu hồi',
-          }, SetOptions(merge: true));
+      final convSnap = await _rtdb.ref('conversations/$chatId').get();
+      if (convSnap.exists && convSnap.value is Map) {
+        final convData = convSnap.value as Map;
+        if (convData['lastSenderId'] == senderId) {
+          updates['conversations/$chatId/lastMessage'] = 'Tin nhắn đã được thu hồi';
         }
       }
     } catch (e) {
-      debugPrint('Error updating lastMessage on revoke: $e');
+      debugPrint('Error checking lastSenderId on revoke: $e');
     }
+
+    await _rtdb.ref().update(updates);
   }
 
-  /// Xóa tin nhắn hoàn toàn khỏi database ở cả 2 phía
+  /// Xóa tin nhắn hoàn toàn khỏi Realtime Database ở cả 2 phía
   Future<void> deleteMessagePermanently({
     required String senderId,
     required String receiverId,
     required String messageId,
   }) async {
     final chatId = getChatId(senderId, receiverId);
-    final chatDoc = _firestore.collection('chats').doc(chatId);
 
-    // 1. Xóa vĩnh viễn tin nhắn khỏi subcollection messages
-    await chatDoc
-        .collection('messages')
-        .doc(messageId)
-        .delete();
+    // 1. Xóa vĩnh viễn tin nhắn khỏi node messages
+    await _rtdb.ref('messages/$chatId/$messageId').remove();
 
     // 2. Cập nhật lại thông tin lastMessage cho cuộc hội thoại
     try {
-      final latestMsgs = await chatDoc
-          .collection('messages')
-          .orderBy('timestamp', descending: true)
-          .limit(1)
+      final lastSnap = await _rtdb
+          .ref('messages/$chatId')
+          .orderByChild('timestamp')
+          .limitToLast(1)
           .get();
 
-      if (latestMsgs.docs.isNotEmpty) {
-        final lastData = latestMsgs.docs.first.data();
-        await chatDoc.set({
-          'lastMessage': lastData['text'] ?? lastData['noiDung'] ?? '',
-          'noiDungCuoi': lastData['text'] ?? lastData['noiDung'] ?? '',
-          'lastSenderId': lastData['senderId'] ?? lastData['nguoiGuiId'] ?? '',
-        }, SetOptions(merge: true));
+      final Map<String, dynamic> updates = {};
+      if (lastSnap.exists && lastSnap.value is Map) {
+        final map = lastSnap.value as Map;
+        final lastMsgKey = map.keys.first;
+        final lastData = map[lastMsgKey] as Map;
+        updates['conversations/$chatId/lastMessage'] = lastData['text'] ?? '';
+        updates['conversations/$chatId/lastSenderId'] = lastData['senderId'] ?? '';
+        updates['conversations/$chatId/lastTimestamp'] = lastData['timestamp'] ?? ServerValue.timestamp;
       } else {
-        await chatDoc.set({
-          'lastMessage': '',
-          'noiDungCuoi': '',
-        }, SetOptions(merge: true));
+        updates['conversations/$chatId/lastMessage'] = '';
+        updates['conversations/$chatId/lastSenderId'] = '';
       }
+      await _rtdb.ref().update(updates);
     } catch (e) {
-      debugPrint('Error updating lastMessage on permanent delete: $e');
+      debugPrint('Error updating conversation on permanent delete in RTDB: $e');
     }
   }
 
-  // Stream tin nhắn an toàn, chỉ truy vấn đúng cuộc hội thoại giữa 2 người
+  /// Stream tin nhắn Realtime tức thì qua Realtime Database WebSocket (không trễ)
   Stream<List<ChatMessageModel>> getMessagesStream(String userA, String userB) {
     final cleanA = userA.trim();
     final cleanB = userB.trim();
@@ -288,48 +359,159 @@ class ChatService {
     }
 
     final chatId = getChatId(cleanA, cleanB);
-    return _firestore
-        .collection('chats')
-        .doc(chatId)
-        .collection('messages')
-        .orderBy('timestamp', descending: true)
-        .limit(100)
-        .snapshots()
-        .map((snapshot) {
-      final list = snapshot.docs.map((doc) {
-        try {
-          return ChatMessageModel.fromFirestore(doc);
-        } catch (e) {
-          debugPrint('Error parsing message ${doc.id}: $e');
-          return null;
-        }
-      }).whereType<ChatMessageModel>().toList();
+    return _rtdb.ref('messages/$chatId').onValue.map((event) {
+      final snapshot = event.snapshot;
+      if (!snapshot.exists || snapshot.value == null) {
+        return <ChatMessageModel>[];
+      }
 
+      final List<ChatMessageModel> list = [];
+      if (snapshot.value is Map) {
+        final dataMap = snapshot.value as Map;
+        dataMap.forEach((key, value) {
+          if (value is Map) {
+            try {
+              final rawMap = _deepCastMap(value);
+              list.add(ChatMessageModel.fromMap(rawMap, key.toString()));
+            } catch (e) {
+              debugPrint('Error parsing RTDB message $key: $e');
+            }
+          }
+        });
+      }
+
+      // Sắp xếp tin nhắn giảm dần theo thời gian (tin nhắn mới nhất ở index 0 cho reverse ListView)
       list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
       return list;
     });
   }
 
-  // Stream danh sách cuộc trò chuyện gần đây của người dùng
+  /// Gửi thông báo đến chủ nhà khi người được mời chấp nhận lời mời ở ghép (Firestore Notifications)
+  Future<void> notifyHostRoommateAccepted({
+    required String hostId,
+    required String roomId,
+    String roomCode = '',
+    required String roomTitle,
+    required String primaryTenantName,
+    required String primaryTenantId,
+    required String newRoommateName,
+    required String newRoommateId,
+    String userNotificationId = '',
+  }) async {
+    if (hostId.isEmpty) return;
+
+    final resolvedCode = roomCode.isNotEmpty ? roomCode : 'P001';
+    final notifRef = _firestore.collection('notifications').doc();
+    await notifRef.set({
+      'notificationId': notifRef.id,
+      'id': notifRef.id,
+      'receiverId': hostId,
+      'nguoiNhanId': hostId,
+      'senderId': newRoommateId,
+      'nguoiGuiId': newRoommateId,
+      'notificationType': 'pendingAction',
+      'legacyNotificationType': 'pendingAction',
+      'type': 'pendingAction',
+      'actionType': 'roommate_approval',
+      'title': 'Yêu cầu duyệt người ở ghép mới',
+      'tieuDe': 'Yêu cầu duyệt người ở ghép mới',
+      'message': '$newRoommateName đã đồng ý ở ghép cùng $primaryTenantName tại phòng $roomTitle ($resolvedCode). Vui lòng xác nhận duyệt để khách chính thức vào phòng.',
+      'noiDung': '$newRoommateName đã đồng ý ở ghép cùng $primaryTenantName tại phòng $roomTitle ($resolvedCode). Vui lòng xác nhận duyệt để khách chính thức vào phòng.',
+      'roomId': roomId,
+      'phongId': roomId,
+      'roomTitle': roomTitle,
+      'renterName': '$primaryTenantName & $newRoommateName',
+      'primaryTenantName': primaryTenantName,
+      'primaryTenantId': primaryTenantId,
+      'newRoommateName': newRoommateName,
+      'newRoommateId': newRoommateId,
+      'userNotificationId': userNotificationId,
+      'statusId': 'pending',
+      'status': 'pending',
+      'isRead': false,
+      'daDoc': false,
+      'createdAt': FieldValue.serverTimestamp(),
+      'ngayTao': FieldValue.serverTimestamp(),
+      'bookingCode': resolvedCode,
+      'roomCode': resolvedCode,
+    });
+  }
+
+  /// Gửi thông báo đến người được mời ở ghép (chuông thông báo của User)
+  Future<void> notifyUserRoommateInvitation({
+    required String receiverId,
+    required String senderId,
+    required String senderName,
+    required String roomId,
+    String roomCode = '',
+    required String roomTitle,
+    required double pricePerPerson,
+    String hostId = '',
+    String note = '',
+  }) async {
+    if (receiverId.isEmpty) return;
+
+    final resolvedCode = roomCode.isNotEmpty ? roomCode : 'P001';
+    final notifRef = _firestore.collection('notifications').doc();
+    final customMessage = note.trim().isNotEmpty
+        ? note.trim()
+        : '$senderName đã gửi lời mời bạn cùng ở ghép tại phòng $roomTitle.';
+
+    await notifRef.set({
+      'notificationId': notifRef.id,
+      'id': notifRef.id,
+      'receiverId': receiverId,
+      'senderId': senderId,
+      'senderName': senderName,
+      'hostId': hostId,
+      'notificationType': 'roommate_invitation',
+      'type': 'roommate_invitation',
+      'title': 'Lời mời ở ghép mới',
+      'tieuDe': 'Lời mời ở ghép mới',
+      'message': customMessage,
+      'noiDung': customMessage,
+      'note': note.trim(),
+      'roomId': roomId,
+      'roomCode': resolvedCode,
+      'roomTitle': roomTitle,
+      'pricePerPerson': pricePerPerson,
+      'status': 'pending',
+      'isRead': false,
+      'createdAt': FieldValue.serverTimestamp(),
+      'ngayTao': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Stream danh sách cuộc trò chuyện gần đây của người dùng từ Realtime Database
   Stream<List<ConversationModel>> getConversationsStream(String currentUserId) {
     final cleanUid = currentUserId.trim();
     if (cleanUid.isEmpty) {
       return Stream.value([]);
     }
 
-    return _firestore
-        .collection('chats')
-        .where('users', arrayContains: cleanUid)
-        .snapshots()
-        .map((snapshot) {
-      final list = snapshot.docs.map((doc) {
-        try {
-          return ConversationModel.fromFirestore(doc, cleanUid);
-        } catch (e) {
-          debugPrint('Error parsing conversation ${doc.id}: $e');
-          return null;
-        }
-      }).whereType<ConversationModel>().toList();
+    return _rtdb.ref('conversations').onValue.map((event) {
+      final snapshot = event.snapshot;
+      if (!snapshot.exists || snapshot.value == null) {
+        return <ConversationModel>[];
+      }
+
+      final List<ConversationModel> list = [];
+      if (snapshot.value is Map) {
+        final dataMap = snapshot.value as Map;
+        dataMap.forEach((chatId, value) {
+          if (value is Map) {
+            final convMap = _deepCastMap(value);
+            final users = List<String>.from(convMap['users'] ?? []);
+            if (users.contains(cleanUid)) {
+              try {
+                list.add(ConversationModel.fromMap(convMap, chatId.toString(), cleanUid));
+              } catch (e) {
+                debugPrint('Error parsing RTDB conversation $chatId: $e');
+              }
+            }
+          }
+        });
+      }
 
       list.sort((a, b) => b.lastMessageTime.compareTo(a.lastMessageTime));
       return list;
@@ -339,12 +521,31 @@ class ChatService {
 
 final chatServiceProvider = Provider<ChatService>((ref) => ChatService());
 
-final messagesStreamProvider = StreamProvider.autoDispose.family<List<ChatMessageModel>, ChatParams>((ref, params) {
+final messagesStreamProvider =
+    StreamProvider.autoDispose.family<List<ChatMessageModel>, ChatParams>((ref, params) {
   final service = ref.watch(chatServiceProvider);
   return service.getMessagesStream(params.userA, params.userB);
 });
 
-final userConversationsStreamProvider = StreamProvider.autoDispose.family<List<ConversationModel>, String>((ref, userId) {
+final userConversationsStreamProvider =
+    StreamProvider.autoDispose.family<List<ConversationModel>, String>((ref, userId) {
   final service = ref.watch(chatServiceProvider);
   return service.getConversationsStream(userId);
+});
+
+/// Stream trạng thái Online của đối tác chat
+final partnerPresenceStreamProvider =
+    StreamProvider.autoDispose.family<bool, String>((ref, partnerId) {
+  final service = ref.watch(chatServiceProvider);
+  return service.getPartnerPresenceStream(partnerId);
+});
+
+/// Stream kiểm tra đối tác có đang gõ phím hay không
+final partnerTypingStreamProvider =
+    StreamProvider.autoDispose.family<bool, ChatParams>((ref, params) {
+  final service = ref.watch(chatServiceProvider);
+  return service.isPartnerTypingStream(
+    currentUserId: params.userA,
+    partnerId: params.userB,
+  );
 });

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'admin_dashboard_screen.dart';
@@ -31,7 +32,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screens = [
+    final List<Widget> screens = [
       AdminDashboardScreen(
         onNavigateToOrders: () => _onSelectTab(2),
         onNavigateToPosts: () => _onSelectTab(1),
@@ -43,15 +44,18 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
     ];
 
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: screens,
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: CustomErrorTabScope(
+        child: IndexedStack(
+          index: _currentIndex,
+          children: screens,
+        ),
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border(
-            top: BorderSide(color: const Color(0xFFEAECF0), width: 1.0),
+          border: const Border(
+            top: BorderSide(color: Color(0xFFEAECF0), width: 1.0),
           ),
           boxShadow: [
             BoxShadow(
@@ -65,6 +69,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavItem(
                   index: 0,
@@ -76,10 +81,27 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                   icon: Icons.apartment_rounded,
                   label: 'BÀI ĐĂNG',
                 ),
-                _buildNavItem(
-                  index: 2,
-                  icon: Icons.receipt_long_rounded,
-                  label: 'Quản lý đơn',
+                // Lồng StreamBuilder riêng cho duy nhất Badge Icon này
+                StreamBuilder<QuerySnapshot>(
+                  stream: () {
+                    try {
+                      return FirebaseFirestore.instance
+                          .collection('bookings')
+                          .where('status', isEqualTo: 'disburse')
+                          .snapshots();
+                    } catch (_) {
+                      return const Stream<QuerySnapshot>.empty();
+                    }
+                  }(),
+                  builder: (context, snapshot) {
+                    final count = snapshot.data?.docs.length ?? 0;
+                    return _buildNavItem(
+                      index: 2,
+                      icon: Icons.receipt_long_rounded,
+                      label: 'Quản lý đơn',
+                      badgeCount: count,
+                    );
+                  },
                 ),
                 _buildNavItem(
                   index: 3,
@@ -98,76 +120,128 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
     required int index,
     required IconData icon,
     required String label,
-    bool hasBadge = false,
+    int badgeCount = 0,
   }) {
     final isSelected = _currentIndex == index;
-    const activeColor = Color(0xFF1E60FF);
-    const inactiveColor = Color(0xFF64748B);
+    const activeColor = Color(0xFF155EEF);
+    const inactiveColor = Color(0xFF667085);
 
-    return Expanded(
-      child: InkWell(
-        onTap: () => _onSelectTab(index),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          decoration: isSelected
-              ? BoxDecoration(
-                  color: const Color(0xFFEFF4FF),
-                  borderRadius: BorderRadius.circular(12),
-                )
-              : null,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(
-                    icon,
-                    size: 24,
-                    color: isSelected ? activeColor : inactiveColor,
-                  ),
-                  if (hasBadge)
-                    Positioned(
-                      top: -2,
-                      right: -4,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF1E60FF),
-                          shape: BoxShape.circle,
-                        ),
+    return InkWell(
+      onTap: () => _onSelectTab(index),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  icon,
+                  size: 24,
+                  color: isSelected ? activeColor : inactiveColor,
+                ),
+                if (badgeCount > 0)
+                  Positioned(
+                    top: -2,
+                    right: -4,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFD92D20),
+                        shape: BoxShape.circle,
                       ),
                     ),
-                ],
-              ),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                  color: isSelected ? activeColor : inactiveColor,
-                  letterSpacing: 0.1,
-                ),
-              ),
-              const SizedBox(height: 2),
-              if (isSelected)
-                Container(
-                  width: 18,
-                  height: 2.5,
-                  decoration: BoxDecoration(
-                    color: activeColor,
-                    borderRadius: BorderRadius.circular(2),
                   ),
-                )
-              else
-                const SizedBox(height: 2.5),
-            ],
-          ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? activeColor : inactiveColor,
+              ),
+            ),
+            const SizedBox(height: 2),
+            if (isSelected)
+              Container(
+                width: 16,
+                height: 2.5,
+                decoration: BoxDecoration(
+                  color: activeColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              )
+            else
+              const SizedBox(height: 2.5),
+          ],
         ),
       ),
     );
+  }
+}
+
+class CustomErrorTabScope extends StatefulWidget {
+  final Widget child;
+
+  const CustomErrorTabScope({super.key, required this.child});
+
+  @override
+  State<CustomErrorTabScope> createState() => _CustomErrorTabScopeState();
+}
+
+class _CustomErrorTabScopeState extends State<CustomErrorTabScope> {
+  ErrorWidgetBuilder? _previousBuilder;
+
+  @override
+  void initState() {
+    super.initState();
+    _previousBuilder = ErrorWidget.builder;
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFFEF3F2),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline_rounded, size: 56, color: Color(0xFFD92D20)),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'LỖI DỰNG GIAO DIỆN (LAYOUT ERROR)',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFFB42318)),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    details.exceptionAsString(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF475467), fontFamily: 'monospace'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    };
+  }
+
+  @override
+  void dispose() {
+    if (_previousBuilder != null) {
+      ErrorWidget.builder = _previousBuilder!;
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
   }
 }

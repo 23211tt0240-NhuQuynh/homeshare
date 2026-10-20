@@ -2,8 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-
 import '../providers/host_management_provider.dart';
 
 /// Bộ Theme, Token màu và Styles dùng chung cho các màn hình Host
@@ -160,12 +158,16 @@ class HostImageUtils {
     return null;
   }
 
-  /// Định dạng tiền tệ VNĐ (dùng chung cho hiển thị giá / cọc)
+  /// Định dạng tiền tệ VNĐ có dấu chấm (.) ngăn cách hàng nghìn (vd: 1000000 -> 1.000.000)
   static String formatCurrency(String text) {
     if (text.isEmpty) return 'Chưa nhập';
-    final numVal = int.tryParse(text);
-    if (numVal == null) return text;
-    return NumberFormat.decimalPattern('vi').format(numVal);
+    final clean = text.replaceAll(RegExp(r'[^0-9]'), '');
+    final numVal = int.tryParse(clean);
+    if (numVal == null || numVal <= 0) return 'Chưa nhập';
+    return clean.replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
+    );
   }
 }
 

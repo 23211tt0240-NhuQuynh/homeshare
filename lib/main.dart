@@ -87,6 +87,7 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       CallPushService.bindUser(widget.uid);
+      ref.read(renterBottomNavIndexProvider.notifier).setIndex(0);
     });
   }
 

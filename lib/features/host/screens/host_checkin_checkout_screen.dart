@@ -1,10 +1,15 @@
+import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
+import '../../../core/constants/firestore_collections.dart';
 import '../providers/checkin_checkout_provider.dart';
+import '../providers/host_management_provider.dart';
 import '../repositories/checkin_checkout_repository.dart';
 import '../widgets/checkin_checkout_card.dart';
+import '../widgets/host_qr_scanner_modal.dart';
+import '../widgets/host_checkin_qr_result_sheet.dart';
 import 'host_checkin_handover_screen.dart';
 import 'host_management_menu.dart';
 import 'host_violation_management_screen.dart';
@@ -47,96 +52,225 @@ class _HostCheckinCheckoutScreenState
   }
 
   void _openQrScanner() {
+    final checkinItems = ref.read(hostCheckinItemsProvider).value ?? [];
+    final checkoutItems = ref.read(hostCheckoutItemsProvider).value ?? [];
+    final firstPending = _selectedTab == 0
+        ? checkinItems.where((i) => !i.isCompleted).firstOrNull
+        : checkoutItems.where((i) => !i.isCompleted).firstOrNull;
+
+    final sampleCode = firstPending != null
+        ? jsonEncode({
+            'type': _selectedTab == 0 ? 'checkin' : 'checkout',
+            'bookingId': firstPending.bookingId,
+            'roomId': firstPending.roomId,
+            'roomCode': firstPending.roomCode,
+            'roomTitle': firstPending.roomTitle.isNotEmpty ? firstPending.roomTitle : firstPending.propertyName,
+            'renterId': firstPending.renterId,
+            'renterName': firstPending.renterName,
+            'renterPhone': firstPending.renterPhone,
+            'roomPrice': firstPending.roomPrice,
+            'deposit': firstPending.deposit,
+            'totalAmount': firstPending.totalAmount,
+            'paymentOption': firstPending.paymentOption,
+          })
+        : (_selectedTab == 0 ? 'ROOM_204_CHECKIN' : 'ROOM_204_CHECKOUT');
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.black,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => HostQrScannerModal(
+        isCheckin: _selectedTab == 0,
+        sampleCode: sampleCode,
+        sampleRoomCode: firstPending?.roomCode ?? '204',
+        onCodeScanned: (code) {
+          _handleQrDetected(code);
+        },
       ),
-      builder: (ctx) {
-        return SizedBox(
-          height: MediaQuery.of(ctx).size.height * 0.8,
-          child: Column(
-            children: [
-              AppBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                title: Text(
-                  _selectedTab == 0
-                      ? 'Quét QR Check-in'
-                      : 'Quét QR Check-out',
-                  style: const TextStyle(color: Colors.white),
-                ),
-                leading: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.of(ctx).pop(),
-                ),
-              ),
-              Expanded(
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    MobileScanner(
-                      onDetect: (capture) {
-                        final barcodes = capture.barcodes;
-                        if (barcodes.isNotEmpty) {
-                          final code = barcodes.first.rawValue ?? '';
-                          Navigator.of(ctx).pop();
-                          _handleQrDetected(code);
-                        }
-                      },
-                    ),
-                    // Khung quét QR
-                    Container(
-                      width: 240,
-                      height: 240,
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: const Color(0xFF3B82F6),
-                          width: 3,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Nút giả lập QR trên môi trường test / giả lập
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: TextButton.icon(
-                  onPressed: () {
-                    Navigator.of(ctx).pop();
-                    _handleQrDetected('ROOM_204_CHECKIN');
-                  },
-                  icon: const Icon(Icons.qr_code, color: Colors.white70),
-                  label: const Text(
-                    'Kiểm tra thử nghiệm quét phòng P.204',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 
-  void _handleQrDetected(String code) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Đã nhận diện mã: $code')),
-    );
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const HostCheckinHandoverScreen(
-          bookingId: '',
-          roomId: '',
-          roomCode: '204',
-        ),
-      ),
-    );
+  Future<void> _handleQrDetected(String code) async {
+    final rawTrimmed = code.trim();
+    if (rawTrimmed.isEmpty) return;
+
+    String parsedBookingId = '';
+    String parsedRoomId = '';
+    String parsedRoomCode = '';
+    String parsedRenterName = '';
+    Map<String, dynamic> qrPayload = {};
+
+    try {
+      if (rawTrimmed.startsWith('{') && rawTrimmed.endsWith('}')) {
+        final map = jsonDecode(rawTrimmed) as Map<String, dynamic>;
+        qrPayload = Map<String, dynamic>.from(map);
+        parsedBookingId = map['bookingId']?.toString() ?? '';
+        parsedRoomId = map['roomId']?.toString() ?? '';
+        parsedRoomCode = map['roomCode']?.toString() ?? '';
+        parsedRenterName = map['renterName']?.toString() ?? '';
+      } else if (rawTrimmed.startsWith('HOMESHARE_CHECKIN:')) {
+        final parts = rawTrimmed.split(':');
+        if (parts.length >= 2) parsedBookingId = parts[1];
+        if (parts.length >= 3) parsedRoomId = parts[2];
+        if (parts.length >= 4) parsedRoomCode = parts[3];
+      } else if (rawTrimmed.contains('CHECKIN') || rawTrimmed.contains('CHECKOUT')) {
+        final digits = RegExp(r'\d+').firstMatch(rawTrimmed)?.group(0);
+        if (digits != null) parsedRoomCode = digits;
+      } else if (rawTrimmed.startsWith('bk_') || rawTrimmed.startsWith('DP_') || rawTrimmed.length >= 10) {
+        parsedBookingId = rawTrimmed;
+      } else {
+        parsedRoomCode = rawTrimmed;
+      }
+    } catch (_) {
+      parsedRoomCode = rawTrimmed;
+    }
+
+    if (!mounted) return;
+
+    if (_selectedTab == 0) {
+      // ── LUỒNG CHECK-IN: LẤY THÔNG TIN ĐẦY ĐỦ VÀ HIỂN THỊ SHEET KẾT QUẢ ──
+      // 1. Nếu có bookingId, tra cứu thêm từ Firestore để đảm bảo thông tin mới nhất
+      if (parsedBookingId.isNotEmpty) {
+        try {
+          final doc = await FirebaseFirestore.instance
+              .collection(FirestoreCollections.bookings)
+              .doc(parsedBookingId)
+              .get();
+          if (doc.exists && doc.data() != null) {
+            final data = doc.data()!;
+            qrPayload['bookingId'] = parsedBookingId;
+            qrPayload['roomId'] ??= data['roomId'] ?? data['phongId'];
+            qrPayload['roomCode'] ??= data['roomCode'] ?? data['maPhong'];
+            qrPayload['roomTitle'] ??= data['roomTitle'] ?? data['tieuDePhong'];
+            qrPayload['roomAddress'] ??= data['roomAddress'] ?? data['diaChiPhong'];
+            qrPayload['roomPrice'] ??= data['roomPrice'] ?? data['giaThue'] ?? data['giaPhong'] ?? data['price'] ?? data['rentalPrice'];
+            qrPayload['deposit'] ??= data['deposit'] ?? data['tienCoc'] ?? data['depositAmount'];
+            qrPayload['totalAmount'] ??= data['totalAmount'] ?? data['tongPhaiTra'] ?? data['paymentAmount'] ?? data['amount'];
+            qrPayload['paymentOption'] ??= data['paymentOption'] ?? data['hinhThucThanhToan'] ?? data['paymentType'];
+            qrPayload['rentalMonths'] ??= data['rentalMonths'] ?? data['soThangThue'];
+            qrPayload['renterId'] ??= data['renterId'] ?? data['nguoiDungId'];
+            qrPayload['renterName'] ??= data['renterName'] ?? data['tenNguoiO'];
+            qrPayload['renterPhone'] ??= data['renterPhone'] ?? data['sdtNguoiO'];
+            qrPayload['renterUserCode'] ??= data['renterUserCode'] ?? data['maNguoiDung'];
+            qrPayload['status'] ??= data['status'] ?? data['trangThai'];
+            if (data['moveInDate'] is Timestamp) {
+              qrPayload['moveInDate'] = (data['moveInDate'] as Timestamp).toDate().toIso8601String();
+            } else if (data['ngayVao'] is Timestamp) {
+              qrPayload['moveInDate'] = (data['ngayVao'] as Timestamp).toDate().toIso8601String();
+            }
+          }
+        } catch (e) {
+          debugPrint('Error fetching booking doc on scan: $e');
+        }
+      }
+
+      // 2. Nếu chưa có thông tin phòng, tìm trong checkinItems
+      final checkinItems = ref.read(hostCheckinItemsProvider).value ?? [];
+      CheckinCheckoutItem? matchedItem;
+      for (final item in checkinItems) {
+        if ((parsedBookingId.isNotEmpty && item.bookingId == parsedBookingId) ||
+            (parsedRoomId.isNotEmpty && item.roomId == parsedRoomId) ||
+            (parsedRoomCode.isNotEmpty && item.roomCode.toLowerCase() == parsedRoomCode.toLowerCase())) {
+          matchedItem = item;
+          break;
+        }
+      }
+
+      if (matchedItem != null) {
+        qrPayload['bookingId'] ??= matchedItem.bookingId;
+        qrPayload['roomId'] ??= matchedItem.roomId;
+        qrPayload['roomCode'] ??= matchedItem.roomCode;
+        qrPayload['roomTitle'] ??= matchedItem.roomTitle.isNotEmpty ? matchedItem.roomTitle : 'Phòng ${matchedItem.roomCode} - ${matchedItem.propertyName}';
+        qrPayload['renterId'] ??= matchedItem.renterId;
+        qrPayload['renterName'] ??= matchedItem.renterName;
+        qrPayload['renterPhone'] ??= matchedItem.renterPhone;
+        qrPayload['deposit'] ??= matchedItem.deposit;
+        qrPayload['roomPrice'] ??= matchedItem.roomPrice;
+        qrPayload['totalAmount'] ??= matchedItem.totalAmount;
+        qrPayload['paymentOption'] ??= matchedItem.paymentOption;
+        qrPayload['moveInDate'] ??= matchedItem.expectedDate.toIso8601String();
+      }
+
+      // 3. Fallback tra cứu Firestore collection rooms nếu roomPrice hoặc deposit vẫn bằng 0
+      final resolvedRoomId = (qrPayload['roomId'] ?? parsedRoomId).toString();
+      if (resolvedRoomId.isNotEmpty &&
+          (qrPayload['roomPrice'] == null || qrPayload['roomPrice'] == 0 ||
+           qrPayload['deposit'] == null || qrPayload['deposit'] == 0)) {
+        try {
+          final roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(resolvedRoomId).get();
+          if (roomDoc.exists && roomDoc.data() != null) {
+            final rData = roomDoc.data()!;
+            qrPayload['roomPrice'] ??= rData['price'] ?? rData['giaPhong'] ?? rData['giaThue'];
+            qrPayload['deposit'] ??= rData['deposit'] ?? rData['tienCoc'];
+            qrPayload['roomTitle'] ??= rData['title'] ?? rData['tieuDe'];
+            qrPayload['roomAddress'] ??= rData['address'] ?? rData['diaChi'];
+          }
+        } catch (_) {}
+      }
+
+      // Fallback nếu payload vẫn trống
+      qrPayload['bookingId'] ??= parsedBookingId.isNotEmpty ? parsedBookingId : 'DP_DEMO_${DateTime.now().millisecondsSinceEpoch % 10000}';
+      qrPayload['roomCode'] ??= parsedRoomCode.isNotEmpty ? parsedRoomCode : '204';
+      qrPayload['roomTitle'] ??= 'Phòng ${qrPayload['roomCode']}';
+      qrPayload['renterName'] ??= parsedRenterName.isNotEmpty ? parsedRenterName : 'Khách thuê';
+
+      final hostId = ref.read(hostSessionProvider).value ?? '';
+      if (!mounted) return;
+
+      // Hiển thị Sheet thông tin phòng & khách thuê cho chủ trọ
+      await HostCheckinQrResultSheet.show(
+        context: context,
+        qrData: qrPayload,
+        hostId: hostId,
+        onStatusChanged: () {
+          ref.invalidate(hostCheckinItemsProvider);
+        },
+      );
+      return;
+    } else {
+      // LUỒNG CHECK-OUT: Tìm phòng trong danh sách trả phòng
+      final checkoutItems = ref.read(hostCheckoutItemsProvider).value ?? [];
+      CheckinCheckoutItem? matchedItem;
+
+      for (final item in checkoutItems) {
+        if (parsedBookingId.isNotEmpty &&
+            (item.bookingId == parsedBookingId || item.periodId == parsedBookingId)) {
+          matchedItem = item;
+          break;
+        }
+        if (parsedRoomId.isNotEmpty && item.roomId == parsedRoomId) {
+          matchedItem = item;
+          break;
+        }
+        if (parsedRoomCode.isNotEmpty &&
+            (item.roomCode == parsedRoomCode ||
+                item.roomCode.toLowerCase() == parsedRoomCode.toLowerCase())) {
+          matchedItem = item;
+          break;
+        }
+      }
+
+      if (matchedItem != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Nhận diện trả phòng: P.${matchedItem.roomCode} - ${matchedItem.renterName}',
+            ),
+            backgroundColor: const Color(0xFF16A34A),
+          ),
+        );
+        _showCheckoutDialog(matchedItem);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Mã QR "$rawTrimmed" không nằm trong danh sách phòng chờ trả phòng.',
+            ),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
+    }
   }
 
   void _showCheckoutDialog(CheckinCheckoutItem item) {
@@ -639,15 +773,20 @@ class _HostCheckinCheckoutScreenState
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'DANH SÁCH CẦN XỬ LÝ',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF475569),
-                    letterSpacing: 0.5,
+                const Flexible(
+                  child: Text(
+                    'DANH SÁCH CẦN XỬ LÝ',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF475569),
+                      letterSpacing: 0.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   '${displayPending.length} phòng liên quan',
                   style: const TextStyle(
@@ -773,15 +912,20 @@ class _HostCheckinCheckoutScreenState
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'DANH SÁCH CẦN XỬ LÝ',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF475569),
-                    letterSpacing: 0.5,
+                const Flexible(
+                  child: Text(
+                    'DANH SÁCH CẦN XỬ LÝ',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF475569),
+                      letterSpacing: 0.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   '${displayPending.length} phòng liên quan',
                   style: const TextStyle(

@@ -96,11 +96,12 @@ void main() {
       final map = profile.toMap();
       expect(map['email'], equals('toan@gmail.com'));
       expect(map['displayName'], equals('Trần Thanh Anh Toàn'));
-      expect(map['hoTen'], equals('Trần Thanh Anh Toàn'));
       expect(map['phoneNumber'], equals('0901234567'));
-      expect(map['soDienThoai'], equals('0901234567'));
       expect(map['role'], equals('renter'));
-      expect(map['vaiTro'], equals('renter'));
+      expect(map.containsKey('hoTen'), isFalse);
+      expect(map.containsKey('soDienThoai'), isFalse);
+      expect(map.containsKey('vaiTro'), isFalse);
+      expect(map.containsKey('vaiTro_id'), isFalse);
     });
 
     test('Tc_INFO2_03 & 04: Xác thực định dạng CCCD chuẩn 12 chữ số', () {
@@ -116,12 +117,12 @@ void main() {
       expect(validateCccd('0792040012345'), isFalse); // Thừa số
     });
 
-    test('Tc_USER_CODE_01: Sinh mã người dùng chuẩn 5 ký tự (3 số đầu + 2 chữ sau) và nội dung chuyển tiền', () {
+    test('Tc_USER_CODE_01: Sinh mã người dùng chuẩn (NT001, CT001) và nội dung chuyển tiền', () {
       // 1. Kiểm tra định dạng mã sinh ngẫu nhiên
       final randomCode = UserProfile.generateUserCode();
       expect(randomCode.length, equals(5));
       expect(UserProfile.isValidUserCode(randomCode), isTrue);
-      expect(RegExp(r'^\d{3}[A-Z]{2}$').hasMatch(randomCode), isTrue);
+      expect(RegExp(r'^(NT\d{3}|CT\d{3}|\d{3}[A-Z]{2})$').hasMatch(randomCode), isTrue);
 
       // 2. Kiểm tra tính tất định (deterministic) khi có seed (UID)
       const uid = 'user_toan_999';
@@ -130,12 +131,13 @@ void main() {
       expect(code1, equals(code2));
       expect(code1.length, equals(5));
       expect(UserProfile.isValidUserCode(code1), isTrue);
-      // 3 ký tự đầu phải là số
-      final digits = code1.substring(0, 3);
-      expect(int.tryParse(digits) != null, isTrue);
-      // 2 ký tự sau phải là chữ cái in hoa
-      final letters = code1.substring(3);
-      expect(RegExp(r'^[A-Z]{2}$').hasMatch(letters), isTrue);
+      expect(code1.startsWith('NT'), isTrue);
+
+      // Kiểm tra mã cho Chủ trọ có tiền tố CT
+      final hostCode = UserProfile.generateUserCode(seed: 'host_999', role: 'host');
+      expect(hostCode.startsWith('CT'), isTrue);
+      expect(hostCode.length, equals(5));
+      expect(UserProfile.isValidUserCode(hostCode), isTrue);
 
       // 3. Kiểm tra UserProfile tích hợp mã người dùng
       final profile = UserProfile(
@@ -151,13 +153,14 @@ void main() {
 
       final profileMap = profile.toMap();
       expect(profileMap['userCode'], equals(profile.userCode));
-      expect(profileMap['maNguoiDung'], equals(profile.userCode));
+      expect(profileMap.containsKey('maNguoiDung'), isFalse);
+      expect(profileMap.containsKey('idNguoiDung'), isFalse);
 
       // 4. Kiểm tra nội dung chuyển tiền (nội dung chuyển là mã của người dùng để Admin dễ tìm kiếm)
       final transferContent = profile.userCode;
       expect(transferContent, equals(profile.userCode));
       expect(transferContent.length, equals(5));
-      expect(RegExp(r'^\d{3}[A-Z]{2}$').hasMatch(transferContent), isTrue);
+      expect(RegExp(r'^(NT\d{3}|CT\d{3}|\d{3}[A-Z]{2})$').hasMatch(transferContent), isTrue);
     });
   });
 
@@ -569,10 +572,11 @@ void main() {
       expect(booking.note, equals('Tôi muốn hẹn xem phòng vào chiều thứ Năm'));
 
       final map = booking.toMap();
-      expect(map['roomId'], equals('room_123'));
       expect(map['phongId'], equals('room_123'));
-      expect(map['renterName'], equals('Trần Thanh Anh Toàn'));
+      expect(map['tenNguoiO'], equals('Trần Thanh Anh Toàn'));
       expect(map['trangThai'], equals('pending'));
+      expect(map.containsKey('roomId'), isFalse);
+      expect(map.containsKey('renterName'), isFalse);
     });
 
     test('Tc_ACTIONS_02 - 10: Thứ tự nút hành động chi tiết phòng: 1. Báo cáo, 2. Nhắn tin, 3. Đặt phòng nhanh (Bỏ hẹn xem phòng)', () {
@@ -873,10 +877,10 @@ void main() {
       expect(parsed.anhMatSau, equals('/storage/emulated/0/dcim/cccd_back.jpg'));
 
       final serialized = parsed.toMap();
-      expect(serialized['cccdFrontImageUrl'], equals('/storage/emulated/0/dcim/cccd_front.jpg'));
       expect(serialized['anhMatTruoc'], equals('/storage/emulated/0/dcim/cccd_front.jpg'));
-      expect(serialized['cccdBackImageUrl'], equals('/storage/emulated/0/dcim/cccd_back.jpg'));
       expect(serialized['anhMatSau'], equals('/storage/emulated/0/dcim/cccd_back.jpg'));
+      expect(serialized.containsKey('cccdFrontImageUrl'), isFalse);
+      expect(serialized.containsKey('cccdBackImageUrl'), isFalse);
     });
   });
 

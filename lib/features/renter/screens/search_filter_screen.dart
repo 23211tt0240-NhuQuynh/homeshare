@@ -4,11 +4,13 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/vietnam_locations.dart';
 import '../../../core/services/room_service.dart';
+import '../../../core/services/favorites_service.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
 import 'room_detail_screen.dart';
+import 'user_notifications_screen.dart';
 
 /// Màn hình Tìm kiếm & Bộ lọc chuẩn 100% Figma HomeShare
 /// Hỗ trợ 3 trạng thái rõ ràng, không giật lag, không lỗi layout:
@@ -356,13 +358,25 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Badge(
-              smallSize: 8,
-              backgroundColor: AppColors.danger,
-              child: Icon(Icons.notifications_none, size: 22, color: AppColors.textDark),
-            ),
-            onPressed: () {},
+          Consumer(
+            builder: (context, ref, _) {
+              final unread = ref.watch(userUnreadNotificationCountProvider);
+              return IconButton(
+                icon: Badge(
+                  isLabelVisible: unread > 0,
+                  label: Text('$unread', style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
+                  backgroundColor: AppColors.danger,
+                  child: const Icon(Icons.notifications_none, size: 22, color: AppColors.textDark),
+                ),
+                tooltip: 'Thông báo',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const UserNotificationsScreen()),
+                  );
+                },
+              );
+            },
           ),
           Padding(
             padding: const EdgeInsets.only(right: 14),
@@ -1450,6 +1464,44 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                             child: Icon(Icons.chat_bubble, size: 16, color: _emerald),
                           ),
                         ),
+                      ),
+                      const SizedBox(width: 6),
+
+                      // Nút tròn Yêu thích ❤️
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final isFav = ref.watch(favoritesProvider).favoriteRoomIds.contains(room.id);
+                          return Material(
+                            color: isFav ? const Color(0xFFFEE2E2) : const Color(0xFFF1F5F9),
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: () async {
+                                final added = await ref.read(favoritesProvider.notifier).toggleFavoriteRoom(room);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(added
+                                          ? 'Đã lưu phòng vào danh sách yêu thích ❤️'
+                                          : 'Đã bỏ lưu phòng khỏi danh sách yêu thích'),
+                                      duration: const Duration(seconds: 1),
+                                      backgroundColor: added ? AppColors.primary : const Color(0xFF334155),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(7),
+                                child: Icon(
+                                  isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                  size: 16,
+                                  color: isFav ? const Color(0xFFEF4444) : const Color(0xFF64748B),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/services/booking_service.dart';
+import '../../../core/utils/id_generator.dart';
+import '../../../core/utils/room_identity.dart';
 import '../../../core/utils/vietqr_helper.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/room_model.dart';
@@ -46,14 +48,37 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
   @override
   void initState() {
     super.initState();
-    // Nội dung chuyển khoản là mã người dùng 5 ký tự (3 số đầu + 2 chữ sau) để Admin dễ dàng tìm kiếm & đối soát
     final profile = ref.read(userProfileProvider).value;
-    final userCode = (widget.booking.renterUserCode.isNotEmpty)
+    final rCode = (widget.booking.renterUserCode.isNotEmpty)
         ? widget.booking.renterUserCode
         : ((profile?.userCode.isNotEmpty == true)
             ? profile!.userCode
-            : UserProfile.generateUserCode(seed: widget.booking.renterId));
-    _transferContent = userCode;
+            : UserProfile.generateUserCode(seed: widget.booking.renterId, role: 'renter'));
+    var roomCode = widget.room.roomCode.isNotEmpty ? widget.room.roomCode : widget.room.maPhong;
+    if (roomCode.isEmpty || isShortRoomId(roomCode)) {
+      roomCode = 'P001';
+    }
+
+    final existingNote = widget.booking.transferNote;
+    String? cleanNote;
+    if (existingNote != null && existingNote.trim().isNotEmpty) {
+      final parts = existingNote.trim().split(RegExp(r'\s+'));
+      if (parts.length == 2 && !parts[1].startsWith('CT') && !isShortRoomId(parts[1])) {
+        cleanNote = existingNote.trim();
+      } else if (parts.length >= 3) {
+        final lastPart = parts.last.toUpperCase();
+        final firstPart = parts.first.toUpperCase();
+        if (!isShortRoomId(lastPart)) {
+          cleanNote = '$firstPart $lastPart';
+        }
+      }
+    }
+
+    _transferContent = cleanNote ??
+        IdGenerator.transferContent(
+          renterCode: rCode,
+          roomCode: roomCode,
+        );
 
     // Tạo link ảnh VietQR.io và chuỗi EMVCo Napas247 thật
     _qrImageUrl = VietQRHelper.buildVietQrImageUrl(
@@ -72,6 +97,58 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
 
     // Kích hoạt đồng hồ đếm ngược
     _startTimer();
+
+    // Query collection 'rooms' để tìm mã phòng nếu có (100% tiếng Anh)
+    _resolveRoomCodeFromFirestore(rCode, roomCode);
+  }
+
+  Future<void> _resolveRoomCodeFromFirestore(String renterCode, String currentRoomCode) async {
+    final existingNote = widget.booking.transferNote;
+    if (existingNote != null && existingNote.trim().isNotEmpty) {
+      final parts = existingNote.trim().split(RegExp(r'\s+'));
+      if (parts.length == 2 && !parts[1].startsWith('CT') && !isShortRoomId(parts[1]) && parts[1] != 'P001') {
+        return;
+      }
+    }
+
+    var roomCode = currentRoomCode;
+    if (roomCode.isEmpty || roomCode == 'P001' || isShortRoomId(roomCode)) {
+      try {
+        var roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(widget.room.id).get();
+        if (!roomDoc.exists) {
+          roomDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(widget.room.id).get();
+        }
+        if (roomDoc.exists) {
+          final data = roomDoc.data() ?? {};
+          // Firebase chuẩn 100% tiếng Anh: Chỉ đọc trường 'roomCode', không đọc tiếng Việt (maPhong, maphong, trangthai)
+          final fetched = (data['roomCode'] ?? '').toString().trim().toUpperCase();
+          if (fetched.isNotEmpty && !isShortRoomId(fetched)) {
+            roomCode = fetched.startsWith('P') ? fetched : 'P$fetched';
+            final newContent = IdGenerator.transferContent(
+              renterCode: renterCode,
+              roomCode: roomCode,
+            );
+            if (mounted && _transferContent != newContent) {
+              setState(() {
+                _transferContent = newContent;
+                _qrImageUrl = VietQRHelper.buildVietQrImageUrl(
+                  amount: widget.paymentAmount,
+                  addInfo: _transferContent,
+                  accountNo: VietQRHelper.defaultAccountNo,
+                  accountName: VietQRHelper.defaultAccountName,
+                );
+                _emvcoPayload = VietQRHelper.generateNapasEmvcoPayload(
+                  amount: widget.paymentAmount,
+                  addInfo: _transferContent,
+                  accountNo: VietQRHelper.defaultAccountNo,
+                  bankBin: VietQRHelper.defaultBankBin,
+                );
+              });
+            }
+          }
+        }
+      } catch (_) {}
+    }
   }
 
   void _startTimer() {
@@ -125,10 +202,101 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
     setState(() => _isConfirming = true);
 
     try {
-      // Cập nhật trạng thái booking thành đã thanh toán trong Firestore
+      final isFullPayment = widget.paymentType == 'full';
+      final typeTitle = isFullPayment ? 'toàn bộ tiền thuê' : 'tiền cọc';
+      final durationText = _secondsRemaining > 0 ? 'Còn ${_formatDuration(_secondsRemaining)}' : 'Hết hạn';
+      final amountFormatted = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(widget.paymentAmount);
+
+      // 1. Cập nhật trạng thái booking thành chờ Admin xác nhận trong Firestore (100% tiếng Anh)
       if (widget.booking.id.isNotEmpty) {
-        await ref.read(bookingServiceProvider).updateBookingStatus(widget.booking.id, 'paid');
+        await FirebaseFirestore.instance.collection('bookings').doc(widget.booking.id).set({
+          'status': 'pending_confirmation',
+          'description': 'Chờ xác nhận',
+          'isPaid': false,
+          'paymentType': widget.paymentType,
+          'paymentAmount': widget.paymentAmount,
+          'transferNote': _transferContent,
+          'userCode': _transferContent,
+          'durationText': durationText,
+          'note': isFullPayment ? 'Thanh toán toàn bộ tiền phòng (không tính cọc)' : 'Đặt cọc giữ phòng',
+          'confirmedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          // Xóa triệt để các trường tiếng Việt trên Firebase
+          'trangThai': FieldValue.delete(),
+          'moTa': FieldValue.delete(),
+          'daThanhToan': FieldValue.delete(),
+          'hinhThucThanhToan': FieldValue.delete(),
+          'soTienThanhToan': FieldValue.delete(),
+          'ghiChuChuyenKhoan': FieldValue.delete(),
+          'maNguoiDung': FieldValue.delete(),
+          'hanChuyen': FieldValue.delete(),
+          'ghiChu': FieldValue.delete(),
+          'ngayXacNhan': FieldValue.delete(),
+          'ngayCapNhat': FieldValue.delete(),
+        }, SetOptions(merge: true));
       }
+
+      // 2. Gửi thông báo đến Admin (vaiTroNguoiNhan: 'admin')
+      final notifId = IdGenerator.notification();
+      await FirebaseFirestore.instance.collection('notifications').doc(notifId).set({
+        'id': notifId,
+        'recipientRole': 'admin',
+        'title': 'Khách thuê đã chuyển khoản ngoài app',
+        'message': 'Khách ${widget.booking.renterName} (Mã: $_transferContent) đã bấm xác nhận chuyển khoản $typeTitle $amountFormatted cho phòng "${widget.room.title}". Ghi chú CK: "$_transferContent".',
+        'notificationType': 'booking',
+        'bookingId': widget.booking.id,
+        'userCode': _transferContent,
+        'paymentType': widget.paymentType,
+        'paymentAmount': widget.paymentAmount,
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // 2b. Gửi thông báo đến Chủ trọ (Role Host: pendingAction - Đang xử lý)
+      final hostId = widget.booking.hostId.isNotEmpty
+          ? widget.booking.hostId
+          : widget.room.hostId;
+      if (hostId.isNotEmpty && hostId != 'guest') {
+        final hostNotifId = IdGenerator.notification();
+        await FirebaseFirestore.instance.collection('notifications').doc(hostNotifId).set({
+          'id': hostNotifId,
+          'notificationId': hostNotifId,
+          'receiverId': hostId,
+          'senderId': widget.booking.renterId,
+          'recipientRole': 'host',
+          'notificationType': 'pendingAction',
+          'title': 'Yêu cầu đặt phòng đang chờ xử lý',
+          'message': 'Khách ${widget.booking.renterName} đã chuyển khoản $typeTitle $amountFormatted cho phòng "${widget.room.title}". Đang chờ Admin xác nhận.',
+          'bookingId': widget.booking.id,
+          'bookingCode': widget.booking.id,
+          'roomId': widget.room.id,
+          'roomCode': widget.room.roomCode.isNotEmpty ? widget.room.roomCode : widget.room.maPhong,
+          'roomTitle': widget.room.title,
+          'roomFloorInfo': 'Tầng ${widget.room.floor > 0 ? widget.room.floor : 1} • ${widget.room.roomType}',
+          'propertyId': widget.room.propertyId,
+          'amount': widget.paymentAmount,
+          'statusId': 'pending',
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+          'renterName': widget.booking.renterName,
+          'renterAvatarUrl': '',
+          'checkInDate': Timestamp.fromDate(widget.booking.moveInDate),
+          'paymentMethod': 'Chuyển khoản QR',
+          'paymentType': widget.paymentType,
+        });
+      }
+
+      // 3. Ghi vết kiểm toán hệ thống vào audit_logs
+      final logId = IdGenerator.auditLog();
+      await FirebaseFirestore.instance.collection('audit_logs').doc(logId).set({
+        'id': logId,
+        'action': 'Khách xác nhận chuyển khoản',
+        'actor': widget.booking.renterName,
+        'category': 'taiChinh',
+        'details': 'Khách ${widget.booking.renterName} (Mã: $_transferContent) báo đã chuyển khoản ngoài app số tiền $amountFormatted ($typeTitle). Ghi chú CK: "$_transferContent". Đang chờ Admin đối soát.',
+        'target': 'Đơn ${widget.booking.id}',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
 
       if (mounted) {
         showDialog(
@@ -148,14 +316,15 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'ĐÃ GỬI XÁC NHẬN THANH TOÁN!',
+                    'ĐÃ GỬI XÁC NHẬN CHUYỂN KHOẢN!',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Hệ thống đã ghi nhận giao dịch đặt cọc ${NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(widget.paymentAmount)} '
-                    'cho phòng "${widget.room.title}".\nChủ trọ sẽ liên hệ bàn giao phòng cho bạn trong thời gian sớm nhất!',
+                    'Yêu cầu thanh toán $typeTitle $amountFormatted cho phòng "${widget.room.title}" đã được gửi đến Ban Quản Trị.\n\n'
+                    'Mã đối soát ghi chú chuyển khoản của bạn: "$_transferContent".\n'
+                    'Admin sẽ đối soát sao kê và duyệt phòng cho bạn trong ít phút!',
                     style: const TextStyle(fontSize: 13, height: 1.4, color: AppColors.textDark),
                     textAlign: TextAlign.center,
                   ),
@@ -487,13 +656,13 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
 
           // Nội dung chuyển khoản
           _buildCopyableTile(
-            label: 'Nội dung chuyển khoản (Mã ID người dùng)',
+            label: 'Nội dung chuyển khoản (Mã người dùng & Mã phòng)',
             value: _transferContent,
             copyText: _transferContent,
             isBold: true,
             isHighlight: true,
             highlightColor: AppColors.primary,
-            subtitle: 'Mã 5 ký tự giúp Admin dễ dàng tìm kiếm & kích hoạt đơn',
+            subtitle: 'Chỉ gồm mã người dùng và mã phòng (Ví dụ: $_transferContent)',
           ),
         ],
       ),

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/constants/firestore_collections.dart';
+import '../../repositories/tenant_repository.dart';
 import '../models/host_notification_model.dart';
 import '../notification_types.dart';
 
@@ -346,6 +347,179 @@ class HostNotificationRepository {
         SetOptions(merge: true),
       );
     }
+    await batch.commit();
+  }
+
+  /// Xác nhận duyệt người ở ghép vào phòng (Từ Role Chủ Trọ)
+  Future<void> approveRoommateRequest({
+    required String notificationId,
+    required String roomId,
+    required String primaryTenantId,
+    required String primaryTenantName,
+    required String newRoommateId,
+    required String newRoommateName,
+    String roomTitle = 'Phòng trọ',
+    String roomCode = '',
+    String userNotificationId = '',
+  }) async {
+    if (_firestore == null || _notificationsCol == null) return;
+
+    // 1. Thực hiện thêm người ở ghép vào phòng chính thức
+    final tenantRepo = TenantRepository(firestore: _firestore);
+    if (roomId.isNotEmpty) {
+      await tenantRepo.addRoommateToRoom(
+        roomId: roomId,
+        primaryTenantId: primaryTenantId,
+        primaryTenantName: primaryTenantName,
+        newRoommateId: newRoommateId,
+        newRoommateName: newRoommateName,
+      );
+    }
+
+    final batch = _firestore!.batch();
+
+    // 2. Cập nhật thông báo của Chủ trọ thành approved
+    if (notificationId.isNotEmpty) {
+      batch.set(
+        _notificationsCol!.doc(notificationId),
+        {
+          NotificationFields.statusId: 'approved',
+          'status': 'approved',
+          NotificationFields.isRead: true,
+          NotificationFields.updatedAt: FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    }
+
+    // 3. Cập nhật thông báo lời mời của người được mời thành accepted
+    if (userNotificationId.isNotEmpty) {
+      batch.set(
+        _notificationsCol!.doc(userNotificationId),
+        {
+          'status': 'accepted',
+          'isRead': true,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    }
+
+    // 4. Gửi thông báo đến chuông của người ở ghép mới
+    if (newRoommateId.isNotEmpty) {
+      final notifNew = _notificationsCol!.doc();
+      batch.set(notifNew, {
+        'id': notifNew.id,
+        'receiverId': newRoommateId,
+        'recipientRole': 'renter',
+        'title': 'Chủ trọ đã duyệt vào phòng! 🎉',
+        'message': 'Chủ trọ đã xác nhận duyệt bạn vào ở ghép cùng $primaryTenantName tại phòng $roomTitle ($roomCode). Chúc bạn có thời gian sinh sống vui vẻ!',
+        'notificationType': 'roommate_approved',
+        'roomId': roomId,
+        'roomCode': roomCode,
+        'status': 'approved',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    // 5. Gửi thông báo đến chuông của người thuê chính
+    if (primaryTenantId.isNotEmpty) {
+      final notifPrimary = _notificationsCol!.doc();
+      batch.set(notifPrimary, {
+        'id': notifPrimary.id,
+        'receiverId': primaryTenantId,
+        'recipientRole': 'renter',
+        'title': 'Chủ trọ đã duyệt bạn cùng phòng! 🎉',
+        'message': 'Chủ trọ đã xác nhận cho phép $newRoommateName vào ở ghép cùng bạn tại phòng $roomTitle ($roomCode).',
+        'notificationType': 'roommate_approved',
+        'roomId': roomId,
+        'roomCode': roomCode,
+        'status': 'approved',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+  }
+
+  /// Từ chối cho vào ở ghép (Từ Role Chủ Trọ)
+  Future<void> rejectRoommateRequest({
+    required String notificationId,
+    required String primaryTenantId,
+    required String primaryTenantName,
+    required String newRoommateId,
+    required String newRoommateName,
+    String roomTitle = 'Phòng trọ',
+    String roomCode = '',
+    String userNotificationId = '',
+    String reason = 'Chủ trọ chưa đồng ý tiếp nhận thêm người ở ghép tại thời điểm này.',
+  }) async {
+    if (_firestore == null || _notificationsCol == null) return;
+    final batch = _firestore!.batch();
+
+    // 1. Cập nhật thông báo của Chủ trọ thành rejected
+    if (notificationId.isNotEmpty) {
+      batch.set(
+        _notificationsCol!.doc(notificationId),
+        {
+          NotificationFields.statusId: 'rejected',
+          'status': 'rejected',
+          NotificationFields.isRead: true,
+          NotificationFields.updatedAt: FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    }
+
+    // 2. Cập nhật thông báo lời mời của người được mời thành host_rejected
+    if (userNotificationId.isNotEmpty) {
+      batch.set(
+        _notificationsCol!.doc(userNotificationId),
+        {
+          'status': 'host_rejected',
+          'isRead': true,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    }
+
+    // 3. Gửi thông báo đến chuông người ở ghép
+    if (newRoommateId.isNotEmpty) {
+      final notifNew = _notificationsCol!.doc();
+      batch.set(notifNew, {
+        'id': notifNew.id,
+        'receiverId': newRoommateId,
+        'recipientRole': 'renter',
+        'title': 'Chủ trọ đã từ chối yêu cầu vào ở ghép',
+        'message': 'Chủ trọ phòng $roomTitle ($roomCode) đã từ chối yêu cầu ở ghép: $reason',
+        'notificationType': 'roommate_rejected',
+        'roomId': '',
+        'status': 'rejected',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    // 4. Gửi thông báo đến chuông người thuê chính
+    if (primaryTenantId.isNotEmpty) {
+      final notifPrimary = _notificationsCol!.doc();
+      batch.set(notifPrimary, {
+        'id': notifPrimary.id,
+        'receiverId': primaryTenantId,
+        'recipientRole': 'renter',
+        'title': 'Yêu cầu ở ghép đã bị từ chối',
+        'message': 'Chủ trọ phòng $roomTitle ($roomCode) không đồng ý duyệt cho $newRoommateName vào ở ghép: $reason',
+        'notificationType': 'roommate_rejected',
+        'roomId': '',
+        'status': 'rejected',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+
     await batch.commit();
   }
 

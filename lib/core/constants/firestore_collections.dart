@@ -8,6 +8,7 @@ library;
 /// Tên các collection hợp lệ duy nhất trong Firestore theo Database.docx
 abstract final class FirestoreCollections {
   static const users = 'users';
+  static const bankAccounts = 'bank_accounts';
   static const properties = 'properties';
   static const rooms = 'rooms';
   static const amenities = 'amenities';

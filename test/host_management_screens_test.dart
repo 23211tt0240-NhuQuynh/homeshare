@@ -51,9 +51,9 @@ void main() {
       expect(period.trangThai, 'dangO');
 
       final map = period.toMap();
-      expect(map['kyOId'], 'p_101');
-      expect(map['donId'], 'bk_1');
-      expect(map['chiSoDienBanDau'], 1428.0);
+      expect(map['id'], 'p_101');
+      expect(map['bookingId'], 'bk_1');
+      expect(map['initialElectricityMeter'], 1428.0);
     });
 
     test('CheckinModel dual getter and toMap verification', () {
@@ -410,6 +410,34 @@ void main() {
       expect(find.text('Quét mã'), findsOneWidget);
       expect(find.text('Check-in'), findsOneWidget);
       expect(find.text('Check-out'), findsOneWidget);
+    });
+
+    testWidgets('Tapping Quét mã opens HostQrScannerModal with controls',
+        (tester) async {
+      tester.view.physicalSize = const Size(414 * 2, 896 * 2);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: HostCheckinCheckoutScreen(),
+          ),
+        ),
+      );
+
+      final scanBtn = find.text('Quét mã');
+      expect(scanBtn, findsOneWidget);
+      await tester.tap(scanBtn);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Quét QR Check-out Trả Phòng'), findsOneWidget);
+      expect(find.byIcon(Icons.flash_off), findsOneWidget);
+      expect(find.byIcon(Icons.flip_camera_ios), findsOneWidget);
     });
   });
 }

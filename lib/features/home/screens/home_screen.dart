@@ -3,13 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../profile/screens/account_settings_screen.dart';
+import '../../profile/screens/personal_profile_screen.dart';
 import '../../profile/screens/cccd_verification_screen.dart';
+import '../../renter/screens/favorite_rooms_screen.dart';
 import '../../renter/screens/renter_bookings_screen.dart';
 import '../../host/screens/host_main_screen.dart';
-import '../../host/screens/host_property_management_screen.dart';
-import '../../host/screens/host_tenant_management_screen.dart';
-import '../../host/screens/host_checkin_checkout_screen.dart';
-import '../../host/screens/host_violation_management_screen.dart';
+import '../../admin/screens/admin_main_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -23,7 +22,9 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Trang cá nhân'),
         actions: [
-          IconButton(
+          // Chủ trọ - Gỡ nút cài đặt trên thanh tiêu đề - Luồng đi: Mở
+          // trang cá nhân chủ trọ thì không hiển thị biểu tượng bánh răng.
+          if (profile?.isHost != true) IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Cài đặt tài khoản',
             onPressed: () {
@@ -43,7 +44,8 @@ class HomeScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
 
-            // 1. Profile Header Card: Nhấn vào Avatar, Tên hoặc toàn bộ phần có Avatar để chuyển qua màn hình chi tiết
+            // Chủ trọ - Mở thông tin cá nhân - Luồng đi: Nhấn thẻ avatar
+            // hoặc tên để vào thẳng thông tin cá nhân của chủ trọ.
             Card(
               margin: EdgeInsets.zero,
               clipBehavior: Clip.antiAlias,
@@ -56,7 +58,9 @@ class HomeScreen extends ConsumerWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const AccountSettingsScreen(),
+                      builder: (_) => profile?.isHost == true
+                          ? const PersonalProfileScreen()
+                          : const AccountSettingsScreen(),
                     ),
                   );
                 },
@@ -67,10 +71,10 @@ class HomeScreen extends ConsumerWidget {
                       CircleAvatar(
                         radius: 32,
                         backgroundColor: AppColors.primaryContainer,
-                        backgroundImage: (profile?.avatarUrl.isNotEmpty == true)
+                        backgroundImage: (profile?.avatarUrl.startsWith('http') == true)
                             ? NetworkImage(profile!.avatarUrl)
                             : null,
-                        child: (profile?.avatarUrl.isNotEmpty == true)
+                        child: profile?.avatarUrl.startsWith('http') == true
                             ? null
                             : Text(
                                 (profile?.displayName.isNotEmpty ?? false)
@@ -229,22 +233,14 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
 
-            // 2. Thống kê nhanh
-            Card(
+            // Chủ trọ - Gỡ thống kê nhanh - Luồng đi: Mở trang cá nhân
+            // chủ trọ thì bỏ khối số cơ sở, phòng quản lý và đang cho thuê.
+            if (profile?.isHost != true) ...[
+              Card(
               margin: EdgeInsets.zero,
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
-                child: (profile?.isHost == true)
-                    ? Row(
-                        children: [
-                          _buildStatItem('03', 'Cơ sở / Nhà'),
-                          _buildVerticalDivider(),
-                          _buildStatItem('12', 'Phòng quản lý'),
-                          _buildVerticalDivider(),
-                          _buildStatItem('09', 'Đang cho thuê'),
-                        ],
-                      )
-                    : Row(
+                child: Row(
                         children: [
                           _buildStatItem('08', 'Phòng đã lưu'),
                           _buildVerticalDivider(),
@@ -256,164 +252,116 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
+            ],
 
-            // 3. Quản lý & Tiện ích
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 8),
-              child: Text(
-                'QUẢN LÝ & TIỆN ÍCH',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.grey.shade600,
-                  letterSpacing: 0.8,
+            // Chủ trọ - Thu gọn trang cá nhân - Luồng đi: Khi tài khoản là
+            // chủ trọ, bỏ toàn bộ nhóm Quản lý & Tiện ích gồm năm mục đã gỡ;
+            // tài khoản khác tiếp tục hiển thị nhóm menu tương ứng.
+            if (profile?.isHost != true) ...[
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 8),
+                child: Text(
+                  'QUẢN LÝ & TIỆN ÍCH',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade600,
+                    letterSpacing: 0.8,
+                  ),
                 ),
               ),
-            ),
-            Card(
-              margin: EdgeInsets.zero,
-              child: Column(
-                children: (profile?.isHost == true)
-                    ? [
-                        _buildMenuRow(
-                          icon: Icons.holiday_village_outlined,
-                          title: 'Quản lý cơ sở & Tòa nhà',
-                          subtitle: 'Danh sách các dãy trọ, căn hộ quản lý',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const HostPropertyManagementScreen()),
-                            );
-                          },
-                        ),
-                        _buildMenuDivider(),
-                        _buildMenuRow(
-                          icon: Icons.people_outline,
-                          title: 'Quản lý khách thuê & Hợp đồng',
-                          subtitle: 'Danh sách khách thuê và trạng thái hợp đồng',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => HostTenantManagementScreen(
-                                  onSectionChanged: (_) {},
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildMenuDivider(),
-                        _buildMenuRow(
-                          icon: Icons.assignment_turned_in_outlined,
-                          title: 'Bàn giao phòng (Check-in / Check-out)',
-                          subtitle: 'Biên bản bàn giao tài sản và trang thiết bị',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => HostCheckinCheckoutScreen(
-                                  onSectionChanged: (_) {},
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildMenuDivider(),
-                        _buildMenuRow(
-                          icon: Icons.warning_amber_rounded,
-                          title: 'Biên bản sự cố & Vi phạm',
-                          subtitle: 'Ghi nhận và xử lý vi phạm nội quy',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => HostViolationManagementScreen(
-                                  onSectionChanged: (_) {},
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildMenuDivider(),
-                        _buildMenuRow(
-                          icon: Icons.settings_outlined,
-                          title: 'Cài đặt tài khoản & Đăng xuất',
-                          subtitle: 'Bảo mật, thông báo và tùy chọn',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const AccountSettingsScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                      ]
-                    : [
-                        _buildMenuRow(
-                          icon: Icons.calendar_month_outlined,
-                          title: 'Lịch xem phòng & Đơn thuê',
-                          subtitle: 'Theo dõi yêu cầu xem phòng của bạn',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const RenterBookingsScreen()),
-                            );
-                          },
-                        ),
-                        _buildMenuDivider(),
-                        _buildMenuRow(
-                          icon: Icons.favorite_border,
-                          title: 'Phòng trọ yêu thích',
-                          subtitle: 'Danh sách phòng bạn quan tâm',
-                          onTap: () {},
-                        ),
-                        _buildMenuDivider(),
-                        _buildMenuRow(
-                          icon: Icons.storefront_outlined,
-                          title: 'Giao diện Chủ trọ (Quản lý)',
-                          subtitle: 'Quản lý cơ sở, phòng, khách thuê & hợp đồng',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const HostMainScreen()),
-                            );
-                          },
-                        ),
-                        _buildMenuDivider(),
-                        _buildMenuRow(
-                          icon: Icons.meeting_room_outlined,
-                          title: 'Phòng đang thuê (Nhà của tôi)',
-                          subtitle: '1 phòng đang hoạt động',
-                          onTap: () {},
-                        ),
-                        _buildMenuDivider(),
-                        _buildMenuRow(
-                          icon: Icons.build_outlined,
-                          title: 'Báo cáo sự cố phòng trọ',
-                          subtitle: 'Máy lạnh, điện nước, wifi',
-                          onTap: () {},
-                        ),
-                        _buildMenuDivider(),
-                        _buildMenuRow(
-                          icon: Icons.settings_outlined,
-                          title: 'Cài đặt tài khoản & Đăng xuất',
-                          subtitle: 'Bảo mật, thông báo và tùy chọn',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const AccountSettingsScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
+              Card(
+                margin: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    _buildMenuRow(
+                      icon: Icons.calendar_month_outlined,
+                      title: 'Lịch xem phòng & Đơn thuê',
+                      subtitle: 'Theo dõi yêu cầu xem phòng của bạn',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const RenterBookingsScreen()),
+                        );
+                      },
+                    ),
+                    _buildMenuDivider(),
+                    _buildMenuRow(
+                      icon: Icons.favorite_rounded,
+                      title: 'Phòng trọ yêu thích',
+                      subtitle: 'Danh sách phòng & bài đăng bạn quan tâm',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const FavoriteRoomsScreen()),
+                        );
+                      },
+                    ),
+                    _buildMenuDivider(),
+                    _buildMenuRow(
+                      icon: Icons.storefront_outlined,
+                      title: 'Giao diện Chủ trọ (Quản lý)',
+                      subtitle: 'Quản lý cơ sở, phòng, khách thuê & hợp đồng',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const HostMainScreen()),
+                        );
+                      },
+                    ),
+                    _buildMenuDivider(),
+                    _buildMenuRow(
+                      icon: Icons.admin_panel_settings_outlined,
+                      title: 'Quản trị hệ thống (Admin Portal)',
+                      subtitle: 'Báo cáo doanh thu, giải ngân, duyệt tin',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const AdminMainScreen()),
+                        );
+                      },
+                    ),
+                    _buildMenuDivider(),
+                    _buildMenuRow(
+                      icon: Icons.meeting_room_outlined,
+                      title: 'Phòng đang thuê (Nhà của tôi)',
+                      subtitle: '1 phòng đang hoạt động',
+                      onTap: () {},
+                    ),
+                    _buildMenuDivider(),
+                    _buildMenuRow(
+                      icon: Icons.build_outlined,
+                      title: 'Báo cáo sự cố phòng trọ',
+                      subtitle: 'Máy lạnh, điện nước, wifi',
+                      onTap: () {},
+                    ),
+                    _buildMenuDivider(),
+                    _buildMenuRow(
+                      icon: Icons.settings_outlined,
+                      title: 'Cài đặt tài khoản & Đăng xuất',
+                      subtitle: 'Bảo mật, thông báo và tùy chọn',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AccountSettingsScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            // 4. Lối tắt Cài đặt & Đăng xuất
+            ],
+
+            // Chủ trọ - Đưa cài đặt ra trang cá nhân - Luồng đi: Thay nhóm
+            // Quản lý & Tiện ích bằng tài khoản, định danh, hỗ trợ và đăng xuất;
+            // dùng trực tiếp các thao tác của màn cài đặt, bỏ nút mở trung gian.
+            if (profile?.isHost == true)
+              const AccountSettingsScreen(embedded: true)
+            else
             OutlinedButton.icon(
               onPressed: () {
                 Navigator.push(

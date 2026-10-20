@@ -469,12 +469,12 @@ class AdminService {
 
     try {
       if (!bookingId.startsWith('mock_')) {
-        // Cập nhật trạng thái đơn đặt phòng
+        // Cập nhật trạng thái đơn đặt phòng (100% tiếng Anh)
         await firestore.collection('bookings').doc(bookingId).update({
           'status': 'completed',
-          'trangThai': 'daGiaiNgan',
           'disbursedAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
+          'trangThai': FieldValue.delete(),
         });
       }
 
@@ -494,7 +494,7 @@ class AdminService {
     }
   }
 
-  // Phê duyệt bài đăng phòng trọ
+  // Phê duyệt bài đăng phòng trọ (100% tiếng Anh)
   Future<void> approveRoomPost(String roomId) async {
     final firestore = _firestore;
     if (firestore == null || roomId.startsWith('mock_') || roomId.startsWith('p')) return;
@@ -502,17 +502,17 @@ class AdminService {
     try {
       await firestore.collection('rooms').doc(roomId).update({
         'status': 'active',
-        'trangThai': 'daDuyet',
         'isAvailable': true,
         'approvedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
+        'trangThai': FieldValue.delete(),
       });
     } catch (e) {
       debugPrint('Error approving room post: $e');
     }
   }
 
-  // Từ chối bài đăng phòng trọ
+  // Từ chối bài đăng phòng trọ (100% tiếng Anh)
   Future<void> rejectRoomPost(String roomId, {String reason = 'Vi phạm quy định'}) async {
     final firestore = _firestore;
     if (firestore == null || roomId.startsWith('mock_') || roomId.startsWith('p')) return;
@@ -520,16 +520,16 @@ class AdminService {
     try {
       await firestore.collection('rooms').doc(roomId).update({
         'status': 'rejected',
-        'trangThai': 'tuChoi',
         'rejectReason': reason,
         'updatedAt': FieldValue.serverTimestamp(),
+        'trangThai': FieldValue.delete(),
       });
     } catch (e) {
       debugPrint('Error rejecting room post: $e');
     }
   }
 
-  // Khóa bài đăng phòng trọ
+  // Khóa bài đăng phòng trọ (100% tiếng Anh)
   Future<void> lockRoomPost(String roomId) async {
     final firestore = _firestore;
     if (firestore == null || roomId.startsWith('mock_') || roomId.startsWith('p')) return;
@@ -537,9 +537,9 @@ class AdminService {
     try {
       await firestore.collection('rooms').doc(roomId).update({
         'status': 'locked',
-        'trangThai': 'daKhoa',
         'isAvailable': false,
         'updatedAt': FieldValue.serverTimestamp(),
+        'trangThai': FieldValue.delete(),
       });
     } catch (e) {
       debugPrint('Error locking room post: $e');

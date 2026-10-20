@@ -4,9 +4,14 @@ import '../../../core/constants/app_colors.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import 'cccd_verification_screen.dart';
+import 'personal_profile_screen.dart';
 
 class AccountSettingsScreen extends ConsumerWidget {
-  const AccountSettingsScreen({super.key});
+  const AccountSettingsScreen({super.key, this.embedded = false});
+
+  // Chủ trọ - Dùng chung nội dung tài khoản - Luồng đi: Trang cá nhân
+  // nhúng các nhóm cài đặt trực tiếp; màn cài đặt riêng vẫn dùng cùng nội dung.
+  final bool embedded;
 
   Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
     final shouldLogout = await showModalBottomSheet<bool>(
@@ -107,74 +112,40 @@ class AccountSettingsScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _handleSwitchRole(BuildContext context, WidgetRef ref, UserProfile? profile) async {
-    if (profile == null) return;
-    final isHost = profile.isHost;
-    final targetRole = isHost ? 'renter' : 'host';
-    final targetRoleName = isHost ? 'Người thuê' : 'Chủ trọ';
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Đổi vai trò sang $targetRoleName?'),
-        content: Text(
-          isHost
-              ? 'Tài khoản của bạn sẽ được chuyển sang vai trò Người thuê (tìm phòng, ở ghép).'
-              : 'Tài khoản của bạn sẽ được chuyển sang vai trò Chủ trọ (quản lý cơ sở, phòng, khách thuê).',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Hủy'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Xác nhận'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      await updateUserRole(uid: profile.uid, newRole: targetRole);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đã cập nhật vai trò tài khoản thành $targetRoleName!'),
-            backgroundColor: AppColors.primary,
-          ),
-        );
-        Navigator.popUntil(context, (route) => route.isFirst);
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(userProfileProvider).value;
     final isVerified = profile?.isCccdVerified == true;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cài đặt tài khoản'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    // Chủ trọ - Hiển thị cài đặt tại trang cá nhân - Luồng đi: Khi nhúng,
+    // dùng cuộn của trang ngoài và giữ nguyên điều hướng, xác thực, đăng xuất.
+    final content = ListView(
+        shrinkWrap: embedded,
+        physics: embedded ? const NeverScrollableScrollPhysics() : null,
+        padding: embedded
+            ? EdgeInsets.zero
+            : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
           // Mục 1: TÀI KHOẢN & ĐỊNH DANH
           _buildSectionHeader('TÀI KHOẢN & ĐỊNH DANH'),
           _buildCardGroup([
-            _buildSettingsItem(
-              icon: Icons.person_outline,
-              title: 'Thông tin cá nhân',
-              subtitle: '${profile?.displayName ?? "Người dùng"} • Mã ID: ${profile?.userCode ?? "---"}',
-              onTap: () => _showProfileDetailsBottomSheet(context, profile),
-            ),
-            _buildDivider(),
+            // Chủ trọ - Gỡ lối tắt thông tin cá nhân - Luồng đi: Chủ trọ
+            // mở thông tin qua thẻ avatar nên bỏ mục trùng trong nhóm tài khoản.
+            if (profile?.isHost != true) ...[
+              _buildSettingsItem(
+                icon: Icons.person_outline,
+                title: 'Thông tin cá nhân',
+                subtitle: '${profile?.displayName ?? "Người dùng"} • Mã ID: ${profile?.userCode ?? "---"}',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PersonalProfileScreen()),
+                  );
+                },
+              ),
+              _buildDivider(),
+            ],
             _buildSettingsItem(
               icon: Icons.badge_outlined,
               title: 'Xác thực CCCD (eKYC)',
@@ -208,36 +179,50 @@ class AccountSettingsScreen extends ConsumerWidget {
             ),
             _buildDivider(),
             _buildSettingsItem(
-              icon: Icons.swap_horiz_rounded,
-              title: profile?.isHost == true
-                  ? 'Chuyển sang vai trò Người thuê'
-                  : 'Chuyển sang vai trò Chủ trọ',
-              subtitle: profile?.isHost == true
-                  ? 'Hiện đang là Chủ trọ (Chạm để đổi sang Người thuê)'
-                  : 'Hiện đang là Người thuê (Chạm để đổi sang Chủ trọ)',
-              onTap: () => _handleSwitchRole(context, ref, profile),
+              icon: Icons.shield_outlined,
+              title: 'Vai trò tài khoản',
+              subtitle: profile?.isAdmin == true
+                  ? 'Quản trị viên (Cố định)'
+                  : (profile?.isHost == true
+                      ? 'Chủ trọ (Cố định)'
+                      : 'Người thuê (Cố định)'),
+              trailingText: profile?.isAdmin == true
+                  ? 'Admin'
+                  : (profile?.isHost == true ? 'Chủ trọ' : 'Người thuê'),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Mỗi tài khoản được gắn cố định với một vai trò duy nhất theo đăng ký.'),
+                  ),
+                );
+              },
             ),
           ]),
 
           const SizedBox(height: 20),
 
-          // Mục 2: BẢO MẬT
-          _buildSectionHeader('BẢO MẬT'),
-          _buildCardGroup([
-            _buildSettingsItem(
-              icon: Icons.lock_outline,
-              title: 'Đổi mật khẩu',
-              onTap: () {},
-            ),
-            _buildDivider(),
-            _buildSettingsItem(
-              icon: Icons.security_outlined,
-              title: 'Xác thực 2 bước (2FA)',
-              onTap: () {},
-            ),
-          ]),
+          // Chủ trọ - Ẩn mục bảo mật - Luồng đi: Mở cài đặt bằng tài khoản
+          // chủ trọ thì bỏ nhóm Đổi mật khẩu và Xác thực 2 bước;
+          // tài khoản khác vẫn hiển thị nhóm này.
+          if (profile?.isHost != true) ...[
+            // Mục 2: BẢO MẬT
+            _buildSectionHeader('BẢO MẬT'),
+            _buildCardGroup([
+              _buildSettingsItem(
+                icon: Icons.lock_outline,
+                title: 'Đổi mật khẩu',
+                onTap: () {},
+              ),
+              _buildDivider(),
+              _buildSettingsItem(
+                icon: Icons.security_outlined,
+                title: 'Xác thực 2 bước (2FA)',
+                onTap: () {},
+              ),
+            ]),
 
-          const SizedBox(height: 20),
+            const SizedBox(height: 20),
+          ],
 
           // Mục 3: CÀI ĐẶT CHUNG & HỖ TRỢ
           _buildSectionHeader('CÀI ĐẶT CHUNG & HỖ TRỢ'),
@@ -325,7 +310,11 @@ class AccountSettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
         ],
-      ),
+    );
+    if (embedded) return content;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Cài đặt tài khoản')),
+      body: content,
     );
   }
 
@@ -444,10 +433,10 @@ class AccountSettingsScreen extends ConsumerWidget {
               CircleAvatar(
                 radius: 40,
                 backgroundColor: AppColors.primaryContainer,
-                backgroundImage: (profile?.avatarUrl.isNotEmpty == true)
+                backgroundImage: (profile?.avatarUrl.startsWith('http') == true)
                     ? NetworkImage(profile!.avatarUrl)
                     : null,
-                child: (profile?.avatarUrl.isNotEmpty == true)
+                child: profile?.avatarUrl.startsWith('http') == true
                     ? null
                     : Text(
                         (profile?.displayName.isNotEmpty == true)

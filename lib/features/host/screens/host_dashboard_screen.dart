@@ -476,22 +476,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         CircleAvatar(
           radius: 18,
           backgroundColor: _softBlueBg,
-          child: avatarUrl.isNotEmpty && avatarUrl.startsWith('http')
-              ? ClipOval(
-                  child: Image.network(
-                    avatarUrl,
-                    width: 36,
-                    height: 36,
-                    fit: BoxFit.cover,
-                    errorBuilder: (ctx, err, stack) => Text(
-                      initials,
-                      style: const TextStyle(
-                        color: _primaryBlue,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                )
+          backgroundImage: avatarUrl.startsWith('http') ? NetworkImage(avatarUrl) : null,
+          child: avatarUrl.startsWith('http')
+              ? null
               : Text(
                   initials,
                   style: const TextStyle(
@@ -1730,7 +1717,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               child: Row(
                 children: [
                   const Text(
-                    'Bài đăng từ đối tác',
+                    'Bảng tin bài đăng',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -1764,6 +1751,19 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               HostPostCard(
                 key: ValueKey(post.id),
                 post: post,
+                isOwnPost: ref.watch(userProfileProvider).value?.uid.isNotEmpty == true &&
+                    ref.watch(userProfileProvider).value!.uid == post.chuNhaId,
+                onInterestPressed: () async {
+                  final profile = ref.read(userProfileProvider).value;
+                  final uid = profile?.uid ?? '';
+                  if (uid.isEmpty) {
+                    _showNotice('Vui lòng đăng nhập để lưu quan tâm');
+                    return;
+                  }
+                  await ref
+                       .read(hostPostRepositoryProvider)
+                      .toggleInterest(postId: post.id, userId: uid);
+                },
                 onChatPressed: () {
                   final profile = ref.read(userProfileProvider).value;
                   final myUid = profile?.uid ?? '';

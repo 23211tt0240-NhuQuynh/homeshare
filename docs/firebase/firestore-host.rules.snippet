@@ -62,7 +62,7 @@ match /host_rooms/{roomId} {
   allow list: if hostRole() && resource.data.hostId == request.auth.uid;
   allow create: if hostRole() && request.resource.data.hostId == request.auth.uid
     && request.resource.data.propertyId is string
-    && request.resource.data.id == roomId && request.resource.data.title is string && request.resource.data.title.size() > 0
+    && request.resource.data.roomCode is string && request.resource.data.roomCode.size() > 0
     && request.resource.data.status == 'available' && request.resource.data.isAvailable == true
     && request.resource.data.price is number && request.resource.data.price > 0
     && request.resource.data.deposit is number && request.resource.data.deposit >= 0
@@ -81,7 +81,7 @@ match /host_rooms/{roomId} {
     && request.resource.data.hostId == resource.data.hostId
     && request.resource.data.chuNhaId == resource.data.chuNhaId
     && request.resource.data.propertyId == resource.data.propertyId
-    && request.resource.data.get('operationId', '') == resource.data.get('operationId', '')
+    && request.resource.data.operationId == resource.data.operationId
     && request.resource.data.images is list
     && request.resource.data.images.size() >= 1
     && request.resource.data.images.size() <= 8

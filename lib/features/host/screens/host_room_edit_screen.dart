@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/room_amenities.dart';
 import '../../../core/utils/room_deposit.dart';
+import '../../../core/utils/vnd_input.dart';
 import '../widgets/host_deposit_input.dart';
 import '../../../data/models/room_model.dart';
 import '../data/host_property.dart';
@@ -61,14 +62,20 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
     );
     _area = RangeValues(r.minArea ?? r.area, r.maxArea ?? r.area);
     final values = <String, String>{
-      'roomCode': r.id,
+      'roomCode': r.roomCode.isNotEmpty ? r.roomCode : r.maPhong,
       'title': r.title,
       'capacity': r.capacity.toString(),
       'area': '${r.area}',
-      'price': r.price.toStringAsFixed(0),
-      'electricityRate': r.electricityRate?.toStringAsFixed(0) ?? '',
-      'waterRate': r.waterRate?.toStringAsFixed(0) ?? '',
-      'serviceFee': r.serviceFee?.toStringAsFixed(0) ?? '',
+      'price': r.price > 0 ? formatVnd(r.price.toInt()) : '',
+      'electricityRate': (r.electricityRate != null && r.electricityRate! > 0)
+          ? formatVnd(r.electricityRate!.toInt())
+          : '',
+      'waterRate': (r.waterRate != null && r.waterRate! > 0)
+          ? formatVnd(r.waterRate!.toInt())
+          : '',
+      'serviceFee': (r.serviceFee != null && r.serviceFee! > 0)
+          ? formatVnd(r.serviceFee!.toInt())
+          : '',
       'description': r.description,
     };
     for (final entry in values.entries) {
@@ -162,19 +169,22 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
   // trạng thái, khách thuê, hợp đồng và ID phòng được giữ nguyên.
   Map<String, dynamic> _patch() => {
     'title': _fields['title']!.text.trim(),
+    if (_fields['roomCode']?.text.trim().isNotEmpty == true) ...{
+      'roomCode': _fields['roomCode']!.text.trim().toUpperCase(),
+    },
     'floor': _floor,
     'capacity': int.parse(_fields['capacity']!.text.trim()),
     'area': _area.start,
     'minArea': _area.start,
     'maxArea': _area.end,
-    'price': double.parse(_fields['price']!.text.trim()),
+    'price': double.parse(vndDigits(_fields['price']!.text.trim())),
     'depositPercentage': _depositPercentage,
     'deposit': roomDeposit(
-      double.parse(_fields['price']!.text.trim()),
+      double.parse(vndDigits(_fields['price']!.text.trim())),
       _depositPercentage!,
     ),
     for (final key in ['electricityRate', 'waterRate', 'serviceFee'])
-      key: double.tryParse(_fields[key]!.text.trim()),
+      key: double.tryParse(vndDigits(_fields[key]!.text.trim())),
     'amenities': _amenities.toList(),
     'description': _fields['description']!.text.trim(),
   };
@@ -387,7 +397,7 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                     HostDepositInput(
                       priceController: _fields['price']!,
                       percentage: _depositPercentage,
-                      formattedPrice: false,
+                      formattedPrice: true,
                       legacyDeposit: widget.room.deposit,
                       onChanged: (value) =>
                           setState(() => _depositPercentage = value),
@@ -579,49 +589,58 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
     bool optional = false,
     String? suffix,
     int maxLines = 1,
-  }) => TextFormField(
-    key: ValueKey('edit_$key'),
-    controller: _fields[key],
-    readOnly: key == 'roomCode',
-    maxLines: maxLines,
-    keyboardType: numeric
-        ? const TextInputType.numberWithOptions(decimal: true)
-        : TextInputType.text,
-    decoration: InputDecoration(
-      labelText: label,
-      suffixText: suffix,
-      suffixIcon: key == 'roomCode' ? const Icon(Icons.lock_outline) : null,
-      helperText: key == 'roomCode'
-          ? 'ID phòng được giữ nguyên khi sửa.'
-          : null,
-      filled: true,
-      fillColor: const Color(0xFFF0F4FF),
-    ),
-    validator: (raw) {
-      final value = raw?.trim() ?? '';
-      if (optional && value.isEmpty) return null;
-      if (value.isEmpty) return 'Vui lòng nhập';
-      if (!numeric) {
-        if (key == 'title' && value.length > 100) return 'Tối đa 100 ký tự';
+  }) {
+    final isMoney = key == 'price' ||
+        key == 'deposit' ||
+        key == 'electricityRate' ||
+        key == 'waterRate' ||
+        key == 'serviceFee';
+    return TextFormField(
+      key: ValueKey('edit_$key'),
+      controller: _fields[key],
+      readOnly: key == 'roomCode',
+      maxLines: maxLines,
+      keyboardType: numeric || isMoney
+          ? (isMoney ? TextInputType.number : const TextInputType.numberWithOptions(decimal: true))
+          : TextInputType.text,
+      inputFormatters: isMoney ? [VndInputFormatter()] : null,
+      decoration: InputDecoration(
+        labelText: label,
+        suffixText: suffix,
+        suffixIcon: key == 'roomCode' ? const Icon(Icons.lock_outline) : null,
+        helperText: key == 'roomCode'
+            ? 'ID phòng được giữ nguyên khi sửa.'
+            : null,
+        filled: true,
+        fillColor: const Color(0xFFF0F4FF),
+      ),
+      validator: (raw) {
+        final value = raw?.trim() ?? '';
+        if (optional && value.isEmpty) return null;
+        if (value.isEmpty) return 'Vui lòng nhập';
+        if (!numeric && !isMoney) {
+          if (key == 'title' && value.length > 100) return 'Tối đa 100 ký tự';
+          return null;
+        }
+        if (key == 'capacity') {
+          final capacity = int.tryParse(value);
+          return capacity == null || capacity < 1 || capacity > 1000000000
+              ? 'Nhập số nguyên từ 1 trở lên'
+              : null;
+        }
+        final cleaned = isMoney ? vndDigits(value) : value;
+        final number = double.tryParse(cleaned);
+        if (number == null ||
+            !number.isFinite ||
+            number < 0 ||
+            number > 1000000000 ||
+            ((key == 'area' || key == 'price') && number == 0)) {
+          return 'Giá trị không hợp lệ';
+        }
         return null;
-      }
-      if (key == 'capacity') {
-        final capacity = int.tryParse(value);
-        return capacity == null || capacity < 1 || capacity > 1000000000
-            ? 'Nhập số nguyên từ 1 trở lên'
-            : null;
-      }
-      final number = double.tryParse(value);
-      if (number == null ||
-          !number.isFinite ||
-          number < 0 ||
-          number > 1000000000 ||
-          ((key == 'area' || key == 'price') && number == 0)) {
-        return 'Giá trị không hợp lệ';
-      }
-      return null;
-    },
-  );
+      },
+    );
+  }
   Widget _photo(Widget image, VoidCallback remove) => Container(
     width: 100,
     margin: const EdgeInsets.only(right: 8),

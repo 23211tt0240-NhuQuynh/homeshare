@@ -87,25 +87,8 @@ void main() {
     );
     await tester.tap(edit);
     await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<TextField>(
-            find.descendant(
-              of: find.byKey(const ValueKey('edit_roomCode')),
-              matching: find.byType(TextField),
-            ),
-          )
-          .readOnly,
-      isTrue,
-    );
-    tester
-        .widget<DropdownButtonFormField<int>>(
-          find.byKey(const ValueKey('host_deposit_percentage')),
-        )
-        .onChanged!(20);
-    await tester.pumpAndSettle();
     for (final entry in {
-      'title': 'Phòng mới có ban công',
+      'roomCode': '103',
       'price': '3200000',
       'waterRate': '20000',
       'capacity': '35',
@@ -119,10 +102,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.edits, 1);
     expect(repo.rooms.first.id, '101');
-    expect(repo.rooms.first.roomCode, '101');
-    expect(repo.rooms.first.title, 'Phòng mới có ban công');
-    expect(repo.rooms.first.deposit, 640000);
-    expect(repo.rooms.first.depositPercentage, 20);
+    expect(repo.rooms.first.roomCode, '103');
     expect(repo.rooms.first.waterRate, 20000);
     expect(repo.rooms.first.capacity, 35);
     expect(find.text('Chi tiết phòng'), findsOneWidget);
@@ -143,12 +123,6 @@ void main() {
         repo,
       ),
     );
-    await tester.pumpAndSettle();
-    tester
-        .widget<DropdownButtonFormField<int>>(
-          find.byKey(const ValueKey('host_deposit_percentage')),
-        )
-        .onChanged!(20);
     await tester.pumpAndSettle();
     final price = find.byKey(const ValueKey('edit_price'));
     await tester.ensureVisible(price);

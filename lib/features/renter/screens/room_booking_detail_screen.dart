@@ -1,8 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/booking_service.dart';
+import '../../../core/utils/id_generator.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -186,10 +188,27 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
     try {
       final user = ref.read(currentUserProvider);
       final profile = ref.read(userProfileProvider).value;
+      final renterCode = profile?.userCode ?? (user != null ? UserProfile.generateUserCode(seed: user.uid, role: 'renter') : 'NT001');
+      var roomCode = widget.room.roomCode.isNotEmpty ? widget.room.roomCode : widget.room.maPhong;
+      if (roomCode.isEmpty || roomCode == 'P001') {
+        try {
+          final roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(widget.room.id).get();
+          if (roomDoc.exists) {
+            final data = roomDoc.data() ?? {};
+            final fetched = (data['maPhong'] ?? data['roomCode'] ?? data['soPhong'] ?? '').toString().trim();
+            if (fetched.isNotEmpty) roomCode = fetched;
+          }
+        } catch (_) {}
+      }
+      final transferContent = IdGenerator.transferContent(
+        renterCode: renterCode,
+        roomCode: roomCode,
+      );
+
       final booking = BookingRequestModel(
         id: '',
         renterId: user?.uid ?? 'guest',
-        renterUserCode: profile?.userCode ?? (user != null ? UserProfile.generateUserCode(seed: user.uid) : ''),
+        renterUserCode: renterCode,
         renterName: name,
         renterPhone: phone,
         renterGender: _renterGender,
@@ -203,6 +222,8 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
         hostId: widget.room.hostId,
         hostName: widget.room.hostName,
         status: 'pending_payment',
+        paymentOption: _paymentOption,
+        transferNote: transferContent,
         moveInDate: _moveInDate,
         note: _noteController.text.trim(),
         createdAt: DateTime.now(),
@@ -340,8 +361,8 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
               CircleAvatar(
                 radius: 17,
                 backgroundColor: const Color(0xFFE2E8F0),
-                backgroundImage: profile?.avatarUrl.isNotEmpty == true ? NetworkImage(profile!.avatarUrl) : null,
-                child: profile?.avatarUrl.isEmpty != false
+                backgroundImage: (profile?.avatarUrl.startsWith('http') == true) ? NetworkImage(profile!.avatarUrl) : null,
+                child: profile?.avatarUrl.startsWith('http') != true
                     ? const Icon(Icons.person, size: 20, color: Color(0xFF64748B))
                     : null,
               ),

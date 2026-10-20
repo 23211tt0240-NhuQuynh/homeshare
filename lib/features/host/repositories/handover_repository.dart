@@ -272,12 +272,14 @@ class HandoverRepository {
       batch.set(itemRef, itemData);
     }
 
-    // 5. Cập nhật booking sang trạng thái dangO nếu có
+    // 5. Cập nhật booking sang trạng thái dangO/active nếu có
     if (bookingId.isNotEmpty) {
       final bookingRef =
           _firestore.collection(FirestoreCollections.bookings).doc(bookingId);
       batch.update(bookingRef, {
-        'status': 'dangO',
+        'status': 'active',
+        'trangThai': 'dangO',
+        'checkinAt': FieldValue.serverTimestamp(),
         'acceptedDate': Timestamp.fromDate(now),
         'updatedAt': FieldValue.serverTimestamp(),
       });

@@ -40,13 +40,13 @@ void main() {
       expect(room.isAvailable, isTrue);
 
       final map = room.toMap();
-      expect(map['title'], equals('Phòng trọ cao cấp trung tâm Thủ Đức'));
       expect(map['tieuDe'], equals('Phòng trọ cao cấp trung tâm Thủ Đức'));
-      expect(map['price'], equals(3500000));
-      expect(map['giaThueThang'], equals(3500000));
-      expect(map['district'], equals('TP. Thủ Đức'));
+      expect(map['giaThue'], equals(3500000));
       expect(map['quanHuyen'], equals('TP. Thủ Đức'));
-      expect(map['isAvailable'], isTrue);
+      expect(map['trangThai'], equals('conPhong'));
+      expect(map.containsKey('tieuDe'), isTrue);
+      expect(map.containsKey('giaThue'), isTrue);
+      expect(map.containsKey('quanHuyen'), isTrue);
     });
 
     test('RoomModel fromMap parses DrawIO Vietnamese schema keys correctly', () {
@@ -189,12 +189,14 @@ void main() {
       expect(booking.rentalMonths, equals(6));
 
       final map = booking.toMap();
-      expect(map['renterName'], equals('Nguyễn Văn Thuê'));
       expect(map['tenNguoiO'], equals('Nguyễn Văn Thuê'));
       expect(map['tongPhaiTra'], equals(7000000));
       expect(map['soThangThue'], equals(6));
-      expect(map['status'], equals('pending'));
-      expect(map['hostName'], equals('Nguyễn Văn Chủ'));
+      expect(map['trangThai'], equals('pending'));
+      expect(map['tenChuNha'], equals('Nguyễn Văn Chủ'));
+      expect(map.containsKey('renterName'), isFalse);
+      expect(map.containsKey('status'), isFalse);
+      expect(map.containsKey('hostName'), isFalse);
     });
 
     test('BookingRequestModel fromMap parses DrawIO keys correctly', () {

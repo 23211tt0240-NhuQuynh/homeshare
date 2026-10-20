@@ -4,6 +4,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../features/auth/providers/user_provider.dart';
 
 class AuthService {
+  static const lockedAccountMessage =
+      'Tài khoản của bạn đã bị khóa. Hãy liên hệ admin để được mở lại.';
+
+  /// Giữ cảnh báo khi màn đăng nhập được dựng lại sau khi đăng xuất tài khoản khóa.
+  static String? pendingLockNotice;
+
+  static const int statusLockedId = 2;
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -23,12 +31,29 @@ class AuthService {
         email: email.trim(),
         password: password.trim(),
       );
+      final user = credential.user;
+      if (user != null) {
+        final snap = await _firestore.collection('users').doc(user.uid).get();
+        if (_isAccountLocked(snap.data())) {
+          pendingLockNotice = lockedAccountMessage;
+          await signOut();
+          throw lockedAccountMessage;
+        }
+      }
       return credential;
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
     } catch (e) {
+      if (e == lockedAccountMessage) rethrow;
       throw 'Đã có lỗi xảy ra: $e';
     }
+  }
+
+  bool _isAccountLocked(Map<String, dynamic>? data) {
+    if (data == null) return false;
+    final raw = data['statusId'];
+    final statusId = raw is num ? raw.toInt() : int.tryParse('$raw');
+    return statusId == statusLockedId;
   }
 
   // Đăng ký tài khoản mới bằng Email & Mật khẩu
@@ -56,21 +81,12 @@ class AuthService {
         await _firestore.collection('users').doc(user.uid).set({
           'uid': user.uid,
           'userCode': userCode,
-          'maNguoiDung': userCode,
-          'idNguoiDung': userCode,
           'email': email.trim(),
           'displayName': displayName.trim(),
-          'hoTen': displayName.trim(),
           'phoneNumber': phoneNumber ?? '',
-          'soDienThoai': phoneNumber ?? '',
           'role': role,
-          'vaiTro': role,
-          'vaiTro_id': role == 'host' ? 2 : 1,
-          'diemUyTin': 100,
-          'avatarUrl': '',
-          'anhDaiDien': '',
+          'reputationScore': 100,
           'createdAt': FieldValue.serverTimestamp(),
-          'ngayTao': FieldValue.serverTimestamp(),
         });
       }
 

@@ -525,10 +525,12 @@ class HostRepository {
       if (count >= (data['plannedRooms'] as num).toInt()) {
         throw StateError('Đã đạt tổng số phòng của cơ sở.');
       }
+      final resolvedCode = room.roomCode.isNotEmpty ? room.roomCode : 'P001';
       final roomData = {
         'id': roomRef.id,
         'propertyId': room.propertyId,
-        'title': room.title.trim(),
+        'roomCode': resolvedCode,
+        'title': room.title.trim().isNotEmpty ? room.title.trim() : 'Phòng $resolvedCode',
         'description': room.description,
         'price': room.price,
         'deposit': room.deposit,
@@ -558,6 +560,16 @@ class HostRepository {
         'createdAt': FieldValue.serverTimestamp(),
       };
       transaction.set(roomRef, roomData);
+
+      // Lưu phòng vào quản lý cơ sở; KHÔNG đăng bài công khai lên rooms/posts khi chỉ tạo phòng nội bộ
+
+      // Đồng bộ sang subcollection properties/{propertyId}/rooms theo ERD 1-N
+      final subRoomRef = _db
+          .collection(FirestoreCollections.properties)
+          .doc(room.propertyId)
+          .collection(FirestoreCollections.rooms)
+          .doc(roomRef.id);
+      transaction.set(subRoomRef, roomData);
 
       transaction.update(propertyRef, {'roomCount': count + 1});
     });
@@ -609,6 +621,7 @@ class HostRepository {
     await _requireHost(base.hostId);
     const allowed = {
       'title',
+      'roomCode',
       'floor',
       'area',
       'minArea',
@@ -722,6 +735,10 @@ class HostRepository {
         'description': patch['description'],
         'images': images,
         // Xóa hoàn toàn các trường tiếng Việt thừa/trùng lặp
+        'maPhong': FieldValue.delete(),
+        'maphong': FieldValue.delete(),
+        'trangThai': FieldValue.delete(),
+        'trangthai': FieldValue.delete(),
         'tieuDe': FieldValue.delete(),
         'gia': FieldValue.delete(),
         'giaThue': FieldValue.delete(),
@@ -738,6 +755,53 @@ class HostRepository {
         'lastEditOperation': operationId,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // Đồng bộ thông tin phòng và mã phòng sang collection rooms & subcollection properties/{id}/rooms
+      final publicRef = _db.collection(FirestoreCollections.rooms).doc(base.id);
+      transaction.set(publicRef, {
+        'id': base.id,
+        'propertyId': base.propertyId,
+        if (patch['roomCode'] != null) 'roomCode': patch['roomCode'],
+        'title': title,
+        'price': patch['price'],
+        'deposit': patch['deposit'],
+        'area': patch['area'],
+        'capacity': patch['capacity'],
+        'floor': patch['floor'],
+        'amenities': patch['amenities'],
+        'description': patch['description'],
+        'images': images,
+        'maPhong': FieldValue.delete(),
+        'maphong': FieldValue.delete(),
+        'trangThai': FieldValue.delete(),
+        'trangthai': FieldValue.delete(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      final subRef = _db
+          .collection(FirestoreCollections.properties)
+          .doc(base.propertyId)
+          .collection(FirestoreCollections.rooms)
+          .doc(base.id);
+      transaction.set(subRef, {
+        'id': base.id,
+        'propertyId': base.propertyId,
+        if (patch['roomCode'] != null) 'roomCode': patch['roomCode'],
+        'title': title,
+        'price': patch['price'],
+        'deposit': patch['deposit'],
+        'area': patch['area'],
+        'capacity': patch['capacity'],
+        'floor': patch['floor'],
+        'amenities': patch['amenities'],
+        'description': patch['description'],
+        'images': images,
+        'maPhong': FieldValue.delete(),
+        'maphong': FieldValue.delete(),
+        'trangThai': FieldValue.delete(),
+        'trangthai': FieldValue.delete(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     });
 
     // Cập nhật bảng ảnh phòng riêng biệt (room_images - tiếng Anh chuẩn)
@@ -1118,6 +1182,7 @@ class HostRepository {
     final postPayload = {
       'id': postRef.id,
       'roomId': targetRoomId,
+      'roomCode': room.roomCode.isNotEmpty ? room.roomCode : 'P001',
       'hostId': chuNhaId,
       'title': tieuDe,
       'description': moTa,
@@ -1136,6 +1201,7 @@ class HostRepository {
     final roomPayload = {
       'id': targetRoomId,
       'propertyId': nhaTroId ?? room.propertyId,
+      'roomCode': room.roomCode.isNotEmpty ? room.roomCode : 'P001',
       'area': room.area > 0 ? room.area : 25.0,
       'price': giaThue,
       'deposit': calculatedDeposit,
@@ -1154,7 +1220,11 @@ class HostRepository {
       'images': finalUrls,
       'amenities': selectedAmenities.toList(),
       'updatedAt': FieldValue.serverTimestamp(),
-      // Xoá triệt để các trường tiếng Việt và trường thừa trùng lặp trên host_rooms
+      // Xoá triệt để các trường tiếng Việt và trường thừa trùng lặp trên host_rooms & rooms
+      'maPhong': FieldValue.delete(),
+      'maphong': FieldValue.delete(),
+      'trangThai': FieldValue.delete(),
+      'trangthai': FieldValue.delete(),
       'anhPhong': FieldValue.delete(),
       'tienIch': FieldValue.delete(),
       'tieuDe': FieldValue.delete(),
@@ -1177,6 +1247,11 @@ class HostRepository {
     };
     batch.set(
       _db.collection(FirestoreCollections.hostRooms).doc(targetRoomId),
+      roomPayload,
+      SetOptions(merge: true),
+    );
+    batch.set(
+      _db.collection(FirestoreCollections.rooms).doc(targetRoomId),
       roomPayload,
       SetOptions(merge: true),
     );

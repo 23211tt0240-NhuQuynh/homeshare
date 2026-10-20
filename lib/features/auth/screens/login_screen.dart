@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/auth_service.dart';
 import '../../../core/theme/phong_sang_theme.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_form_card.dart';
@@ -21,11 +22,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
+  String? _lockNotice;
 
   @override
   void initState() {
     super.initState();
-    _emailController = TextEditingController(text: widget.initialEmail ?? '');
+    _emailController = TextEditingController(text: (widget.initialEmail ?? '').trim());
+    final pending = AuthService.pendingLockNotice;
+    if (pending != null) {
+      _lockNotice = pending;
+      AuthService.pendingLockNotice = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showLockDialog());
+    }
   }
 
   @override
@@ -43,7 +51,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final authService = ref.read(authServiceProvider);
       await authService.signInWithEmail(
-        email: _emailController.text,
+        email: _emailController.text.trim().toLowerCase(),
         password: _passwordController.text,
       );
 
@@ -56,19 +64,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+      if (!mounted) return;
+      final message = e.toString();
+      if (message == AuthService.lockedAccountMessage) {
+        AuthService.pendingLockNotice = null;
+        setState(() => _lockNotice = message);
+        await _showLockDialog();
+        return;
       }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: AppColors.danger,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _showLockDialog() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.lock_outline, color: AppColors.danger, size: 32),
+        title: const Text('Tài khoản đã bị khóa'),
+        content: const Text(AuthService.lockedAccountMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đã hiểu'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -120,18 +152,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         AuthTextField(
                           controller: _emailController,
                           label: 'Email',
-                          hint: 'vidu@email.com',
+                          hint: 'an.nguyen@gmail.com',
                           icon: Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) {
-                              return 'Vui lòng nhập email';
-                            }
-                            if (!val.contains('@') || !val.contains('.')) {
-                              return 'Email không hợp lệ';
-                            }
-                            return null;
-                          },
+                          validator: _validateGmailLocal,
                         ),
                         const SizedBox(height: 16),
                         AuthTextField(
@@ -179,6 +203,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                         ),
+                        if (_lockNotice != null) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.dangerContainer,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.danger),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.lock_outline, color: AppColors.danger),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    _lockNotice!,
+                                    style: const TextStyle(
+                                      color: AppColors.danger,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 4),
                         SizedBox(
                           height: 56,
@@ -217,7 +269,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           );
                           if (registeredEmail != null && registeredEmail.isNotEmpty && mounted) {
                             setState(() {
-                              _emailController.text = registeredEmail;
+                              _emailController.text = registeredEmail.trim();
                               _passwordController.clear();
                             });
                           }
@@ -236,5 +288,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
       ),
     );
+  }
+
+  String? _validateGmailLocal(String? val) {
+    final email = (val ?? '').trim().toLowerCase();
+    if (email.isEmpty) return 'Vui lòng nhập đủ email';
+    if (!RegExp(r'^[A-Za-z0-9._+-]+@gmail\.com$').hasMatch(email)) {
+      return 'Nhập đủ địa chỉ, ví dụ ten@gmail.com';
+    }
+    return null;
   }
 }

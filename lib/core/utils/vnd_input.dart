@@ -1,11 +1,17 @@
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 
-// Chủ trọ - Nhập tiền đồng - Luồng đi: Hiển thị dấu phân cách hàng
-// nghìn, bỏ dấu định dạng trước khi kiểm tra và lưu số tiền nguyên.
-String vndDigits(String value) => value.replaceAll('.', '');
-String formatVnd(num value) =>
-    NumberFormat.decimalPattern('vi_VN').format(value);
+// Chủ trọ - Nhập tiền đồng - Luồng đi: Hiển thị dấu chấm (.) phân cách hàng
+// nghìn (vd: 1000000 -> 1.000.000), bỏ dấu định dạng trước khi kiểm tra và lưu số tiền nguyên.
+String vndDigits(String value) => value.replaceAll(RegExp(r'[^0-9]'), '');
+
+String formatVnd(num value) {
+  final intVal = value.round();
+  if (intVal <= 0) return '0';
+  return intVal.toString().replaceAllMapped(
+    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+    (Match m) => '${m[1]}.',
+  );
+}
 
 class VndInputFormatter extends TextInputFormatter {
   @override
@@ -13,7 +19,7 @@ class VndInputFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    if (!RegExp(r'^[0-9.]*$').hasMatch(newValue.text)) return oldValue;
+    if (!RegExp(r'^[0-9.,]*$').hasMatch(newValue.text)) return oldValue;
     final digits = vndDigits(newValue.text);
     if (digits.isEmpty) return const TextEditingValue();
     final amount = int.tryParse(digits);

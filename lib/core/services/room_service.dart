@@ -296,6 +296,7 @@ class RoomService {
     return [
       RoomModel(
         id: 'sample_room_1',
+        roomCode: 'P001',
         title: 'Phòng trọ máy lạnh gần ĐH Nông Lâm',
         description: 'Phòng mới xây gác đúc, máy lạnh Inverter, chỗ để xe miễn phí, an ninh 24/7, giờ giấc tự do.',
         price: 3200000,
@@ -318,6 +319,7 @@ class RoomService {
       ),
       RoomModel(
         id: 'sample_room_2',
+        roomCode: 'P002',
         title: 'Studio ban công thoáng mát Nguyễn Văn Lượng',
         description: 'Căn hộ Studio full nội thất cao cấp phong cách Bắc Âu, có ban công view đẹp, thang máy, máy giặt riêng.',
         price: 4500000,
@@ -340,6 +342,7 @@ class RoomService {
       ),
       RoomModel(
         id: 'sample_room_3',
+        roomCode: 'P003',
         title: 'Phòng trọ duplex cao cấp D2 Hutech',
         description: 'Phòng gác đúc cao 2m2, khóa vân tay thẻ từ ra vào, kệ bếp rộng rãi, vệ sinh riêng khép kín, gần trạm xe buýt và chợ.',
         price: 3800000,
@@ -362,6 +365,7 @@ class RoomService {
       ),
       RoomModel(
         id: 'sample_room_4',
+        roomCode: 'P004',
         title: 'Căn hộ dịch vụ 1PN Mai Chí Thọ có hồ bơi',
         description: 'Căn hộ dịch vụ hạng sang có ban công rộng, đầy đủ tiện ích hồ bơi tràn bờ, phòng gym, bảo vệ 24/7.',
         price: 6500000,

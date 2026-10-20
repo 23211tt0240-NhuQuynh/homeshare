@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../data/models/room_model.dart';
-import '../services/admin_service.dart';
 import 'admin_post_review_detail_screen.dart';
 
 class AdminPostsScreen extends ConsumerStatefulWidget {
@@ -15,138 +14,176 @@ class AdminPostsScreen extends ConsumerStatefulWidget {
 
 class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
   String _filter = 'all'; // 'all', 'pending', 'active', 'rejected'
-  final currencyFormatter = NumberFormat('#,###', 'vi_VN');
 
-  Stream<QuerySnapshot>? get _roomsStream {
+  // Định dạng tiền tệ an toàn trên Flutter Web
+  String _formatMoney(num amount) {
+    return "${amount.toStringAsFixed(0).replaceAll(RegExp(r'\B(?=(\d{3})+(?!\d))'), '.')} đ";
+  }
+
+  // Chuyển DocumentSnapshot Firestore thành RoomModel
+  RoomModel _docToRoomModel(DocumentSnapshot doc) {
     try {
-      return FirebaseFirestore.instance.collection('rooms').snapshots();
+      return RoomModel.fromFirestore(doc);
     } catch (_) {
-      return null;
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final rawImages = data['images'] ?? data['image'];
+      List<String> images = [];
+      if (rawImages is List) {
+        images = List<String>.from(rawImages);
+      } else if (rawImages is String && rawImages.isNotEmpty) {
+        images = [rawImages];
+      }
+
+      return RoomModel(
+        id: doc.id,
+        roomCode: (data['roomCode'] ?? data['maPhong'] ?? '').toString(),
+        title: data['title'] ?? 'Bài đăng phòng trọ',
+        description: data['description'] ?? 'Chưa có mô tả.',
+        price: (data['price'] as num?)?.toDouble() ?? 0.0,
+        deposit: (data['deposit'] as num?)?.toDouble() ?? (data['price'] as num?)?.toDouble() ?? 0.0,
+        address: data['address'] ?? 'Đang cập nhật địa chỉ',
+        district: data['district'] ?? '',
+        city: data['city'] ?? '',
+        area: (data['area'] as num?)?.toDouble() ?? 0.0,
+        roomType: data['roomType'] ?? 'Phòng trọ',
+        amenities: List<String>.from(data['amenities'] ?? []),
+        images: images,
+        hostId: data['hostId'] ?? '',
+        hostName: data['hostName'] ?? data['landlordName'] ?? 'Chủ trọ',
+        hostPhone: data['hostPhone'] ?? data['phone'] ?? 'Đang cập nhật',
+        createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      );
     }
   }
 
-  // Lưu trạng thái ghi đè cục bộ cho Mock Data để không bị reset khi chuyển tab
-  final Map<String, String> _localStatusOverrides = {};
-
-  final List<Map<String, dynamic>> _initialMockList = [
-    {
-      'id': 'p1',
-      'title': 'Căn hộ 2PN – Phú Mỹ Hưng – Q.7',
-      'address': 'Đường Nguyễn Văn Linh, Tân Phong, Quận 7',
-      'price': 10000000.0,
-      'status': 'pending',
-      'hostName': 'Lê Hoài Nam',
-      'phone': '0908...321',
-      'roomType': 'Căn hộ 2PN',
-      'area': 70.0,
-      'image': 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80',
-    },
-    {
-      'id': 'p2',
-      'title': 'Nhà nguyên căn – Q.7',
-      'address': 'Đường Huỳnh Tấn Phát, Quận 7',
-      'price': 14000000.0,
-      'status': 'pending',
-      'hostName': 'Lê Hoài Nam',
-      'phone': '0908...321',
-      'roomType': 'Nhà nguyên căn',
-      'area': 90.0,
-      'image': 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=600&q=80',
-    },
-    {
-      'id': 'p3',
-      'title': 'Căn hộ Studio Full NT ban công – Q....',
-      'address': 'Đường Nguyễn Hữu Thọ, Quận 7',
-      'price': 6500000.0,
-      'status': 'pending',
-      'hostName': 'Nguyễn Văn Hùng',
-      'phone': '0912...456',
-      'roomType': 'Studio',
-      'area': 35.0,
-      'image': 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=600&q=80',
-    },
-    {
-      'id': 'p4',
-      'title': 'Studio Full NT – Cầu Giấy',
-      'address': 'Ngõ 155 Cầu Giấy, P. Quan Hoa, Hà Nội',
-      'price': 5500000.0,
-      'status': 'active',
-      'hostName': 'Lê Hoài Nam',
-      'phone': '0988...789',
-      'roomType': 'Studio',
-      'area': 35.0,
-      'views': '1.240 xem',
-      'image': 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=600&q=80',
-    },
-    {
-      'id': 'p5',
-      'title': 'Nhà nguyên căn Q.8',
-      'address': 'Dương Bá Trạc, Phường 1, Quận 8',
-      'price': 8000000.0,
-      'status': 'rejected',
-      'hostName': 'Nguyễn Văn Hùng',
-      'phone': '0912...456',
-      'roomType': 'Nhà nguyên căn',
-      'area': 65.0,
-      'rejectReason': 'Lý do: Ản phòng không rõ, giá sai thực tế',
-      'image': 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=600&q=80',
-    },
-  ];
-
-  void _updateLocalStatus(String id, String newStatus) {
-    setState(() {
-      _localStatusOverrides[id] = newStatus;
-    });
-  }
-
-  void _openDetailPreview(Map<String, dynamic> data) {
-    final room = RoomModel(
-      id: data['id'] ?? 'p1',
-      title: data['title'] ?? '',
-      description: 'Căn hộ thiết kế hiện đại, đầy đủ nội thất tiện nghi cao cấp, gần trung tâm thương mại và trường đại học.',
-      price: (data['price'] as num?)?.toDouble() ?? 5500000.0,
-      deposit: ((data['price'] as num?)?.toDouble() ?? 5500000.0),
-      address: data['address'] ?? '',
-      district: 'Quận 7',
-      city: 'TP. Hồ Chí Minh',
-      area: (data['area'] as num?)?.toDouble() ?? 35.0,
-      roomType: data['roomType'] ?? 'Studio',
-      amenities: const ['Máy lạnh', 'Tủ lạnh', 'Máy giặt', 'Ban công', 'Bảo vệ 24/7'],
-      images: [data['image'] ?? ''],
-      hostId: 'h1',
-      hostName: data['hostName'] ?? 'Chủ trọ',
-      hostPhone: data['phone'] ?? '0908 123 456',
-      createdAt: DateTime.now(),
-    );
+  void _openDetailPreview(DocumentSnapshot doc) {
+    final room = _docToRoomModel(doc);
 
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AdminPostReviewDetailScreen(
+        builder: (_) => AdminPostReviewDetailScreen(
           room: room,
-          onApproved: () {
-            _updateLocalStatus(room.id, 'active');
-            ref.read(adminServiceProvider).approveRoomPost(room.id);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                backgroundColor: Color(0xFF12B76A),
-                content: Text('Đã phê duyệt bài đăng thành công!'),
-              ),
-            );
+          docId: doc.id,
+          onApproved: () async {
+            await FirebaseFirestore.instance
+                .collection('rooms')
+                .doc(doc.id)
+                .update({
+              'status': 'active',
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  backgroundColor: Color(0xFF12B76A),
+                  content: Text('Đã phê duyệt bài đăng thành công!'),
+                ),
+              );
+            }
           },
-          onRejected: () {
-            _updateLocalStatus(room.id, 'rejected');
-            ref.read(adminServiceProvider).rejectRoomPost(room.id);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                backgroundColor: Color(0xFFD92D20),
-                content: Text('Đã từ chối và gửi báo lỗi bài đăng cho chủ trọ!'),
-              ),
-            );
+          onRejected: () async {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  backgroundColor: Color(0xFFD92D20),
+                  content: Text('Đã từ chối bài đăng thành công!'),
+                ),
+              );
+            }
           },
         ),
       ),
     );
+  }
+
+  // Duyệt bài đăng trực tiếp
+  Future<void> _approvePost(String docId) async {
+    try {
+      final now = DateTime.now();
+      final timeStr = DateFormat('HH:mm:ss').format(now);
+      final roomRef = FirebaseFirestore.instance.collection('rooms').doc(docId);
+      final roomSnap = await roomRef.get();
+      final roomTitle = (roomSnap.data()?['title'] ?? 'Bài đăng').toString();
+      final code = '#TD-${docId.substring(0, docId.length > 5 ? 5 : docId.length).toUpperCase()}';
+
+      await roomRef.update({
+        'status': 'active',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Ghi nhật ký kiểm toán vào Firestore
+      await FirebaseFirestore.instance.collection('audit_logs').add({
+        'title': 'Duyệt Tin Đăng $code',
+        'subtitle': 'Phê duyệt hiển thị phòng: $roomTitle',
+        'category': 'post',
+        'performer': 'Admin',
+        'code': code,
+        'timeStr': timeStr,
+        'dateGroup': 'HÔM NAY - ${DateFormat('dd/MM/yyyy').format(now)}',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Color(0xFF12B76A),
+            content: Text('Đã duyệt bài đăng!'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi duyệt bài: $e')),
+        );
+      }
+    }
+  }
+
+  // Hạ bài / Gỡ bài
+  Future<void> _rejectPost(String docId) async {
+    try {
+      final now = DateTime.now();
+      final timeStr = DateFormat('HH:mm:ss').format(now);
+      final roomRef = FirebaseFirestore.instance.collection('rooms').doc(docId);
+      final roomSnap = await roomRef.get();
+      final roomTitle = (roomSnap.data()?['title'] ?? 'Bài đăng').toString();
+      final code = '#TD-${docId.substring(0, docId.length > 5 ? 5 : docId.length).toUpperCase()}';
+
+      await roomRef.update({
+        'status': 'rejected',
+        'rejectReason': 'Admin đã gỡ bài đăng khỏi hệ thống',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Ghi nhật ký kiểm toán vào Firestore
+      await FirebaseFirestore.instance.collection('audit_logs').add({
+        'title': 'Gỡ Bài Đăng $code',
+        'subtitle': 'Hạ bài đăng khỏi hệ thống: $roomTitle',
+        'category': 'post',
+        'performer': 'Admin',
+        'code': code,
+        'timeStr': timeStr,
+        'dateGroup': 'HÔM NAY - ${DateFormat('dd/MM/yyyy').format(now)}',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Color(0xFFD92D20),
+            content: Text('Đã hạ bài đăng khỏi hệ thống!'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi gỡ bài: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -157,30 +194,21 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0.5,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFF101828)),
-          onPressed: () {},
-        ),
         title: const Text(
-          'Quản lý bài đăng',
+          'QUẢN LÝ BÀI ĐĂNG',
           style: TextStyle(
-            fontSize: 17,
+            fontSize: 18,
             fontWeight: FontWeight.w900,
             color: Color(0xFF101828),
+            letterSpacing: 0.2,
           ),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search_rounded, color: Color(0xFF344054)),
-            onPressed: () {},
-          ),
-        ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. Status Filter Pills (Tất cả, Chờ duyệt, Đã duyệt, Từ chối)
+          // 1. Thanh Lọc Trạng Thái (Tất cả, Chờ duyệt, Đã duyệt, Từ chối)
           Container(
             color: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -197,53 +225,92 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
             ),
           ),
 
-          // 2. Count info bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: const Text(
-              'Tìm thấy 5 kết quả',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF667085)),
-            ),
-          ),
-
-          // 3. Post List View with Firestore real-time integration
+          // 2. Danh Sách Bài Đăng Realtime từ Firebase
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: _roomsStream,
+              stream: () {
+                try {
+                  return FirebaseFirestore.instance.collection('rooms').snapshots();
+                } catch (_) {
+                  return const Stream<QuerySnapshot>.empty();
+                }
+              }(),
               builder: (context, snapshot) {
-                // Merge Mock list with Firestore rooms
-                final processedList = _initialMockList.map((item) {
-                  final id = item['id'] as String;
-                  final effectiveStatus = _localStatusOverrides[id] ?? (item['status'] as String);
-                  return {
-                    ...item,
-                    'status': effectiveStatus,
-                  };
-                }).toList();
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-                final filtered = processedList.where((item) {
-                  final status = item['status'] as String;
+                final docs = snapshot.data?.docs ?? [];
+
+                // Lọc danh sách theo Tab đang chọn (Đã chuẩn hóa status)
+                final filteredDocs = docs.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>? ?? {};
+                  
+                  // Lấy status và ép chữ thường
+                  String status = data['status']?.toString().toLowerCase() ?? 'pending';
+
+                  // Nếu status không thuộc nhóm Đã duyệt hoặc Từ chối -> Bắt buộc ép về Chờ duyệt
+                  if (status != 'active' && status != 'approved' && status != 'danghien' &&
+                      status != 'rejected' && status != 'tuchoi') {
+                    status = 'pending';
+                  }
+
                   if (_filter == 'all') return true;
-                  if (_filter == 'pending') return status == 'pending' || status == 'choDuyet';
-                  if (_filter == 'active') return status == 'active' || status == 'dangHien';
-                  if (_filter == 'rejected') return status == 'rejected' || status == 'tuChoi';
+                  if (_filter == 'pending') {
+                    return status == 'pending' || status == 'choduyet';
+                  }
+                  if (_filter == 'active') {
+                    return status == 'active' || status == 'approved' || status == 'danghien';
+                  }
+                  if (_filter == 'rejected') {
+                    return status == 'rejected' || status == 'tuchoi';
+                  }
                   return true;
                 }).toList();
 
-                if (filtered.isEmpty) {
-                  return const Center(
-                    child: Text('Không có bài đăng nào trong danh mục này', style: TextStyle(color: Color(0xFF667085))),
-                  );
-                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Thanh đếm số lượng kết quả
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Text(
+                        'Tìm thấy ${filteredDocs.length} kết quả',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF667085),
+                        ),
+                      ),
+                    ),
 
-                return ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: filtered.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final item = filtered[index];
-                    return _buildPostCard(item);
-                  },
+                    // Danh sách card
+                    Expanded(
+                      child: filteredDocs.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.apartment_rounded, size: 48, color: Color(0xFFD0D5DD)),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Không có bài đăng nào trong danh mục này',
+                                    style: TextStyle(color: Color(0xFF667085)),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              itemCount: filteredDocs.length,
+                              separatorBuilder: (context, index) => const SizedBox(height: 12),
+                              itemBuilder: (context, index) {
+                                final doc = filteredDocs[index];
+                                return _buildPostCard(doc);
+                              },
+                            ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -279,23 +346,39 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
     );
   }
 
-  Widget _buildPostCard(Map<String, dynamic> item) {
-    final id = item['id'] as String;
-    final title = item['title'] as String;
-    final price = (item['price'] as num).toDouble();
-    final status = item['status'] as String;
-    final hostName = item['hostName'] as String;
-    final phone = item['phone'] ?? '';
-    final imageUrl = item['image'] as String?;
-    final views = item['views'] as String?;
-    final rejectReason = item['rejectReason'] as String?;
+  Widget _buildPostCard(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final id = doc.id;
+    final title = data['title'] ?? 'Bài đăng chưa có tên';
+    final price = (data['price'] as num?)?.toDouble() ?? 0.0;
+    final hostName = data['hostName'] ?? data['landlordName'] ?? 'Chủ trọ';
+    final phone = data['hostPhone'] ?? data['phone'] ?? '';
+    final rejectReason = data['rejectReason'] as String?;
 
-    final isPending = status == 'pending';
-    final isActive = status == 'active';
-    final isRejected = status == 'rejected';
+    // Lấy ảnh hiển thị
+    String? imageUrl;
+    final rawImages = data['images'] ?? data['image'];
+    if (rawImages is List && rawImages.isNotEmpty) {
+      imageUrl = rawImages.first;
+    } else if (rawImages is String) {
+      imageUrl = rawImages;
+    }
+
+    // Chuẩn hóa status cho từng thẻ bài
+    String status = data['status']?.toString().toLowerCase() ?? 'pending';
+    
+    // Nếu status không thuộc nhóm Đã duyệt hoặc Từ chối -> Bắt buộc ép về Chờ duyệt
+    if (status != 'active' && status != 'approved' && status != 'danghien' &&
+        status != 'rejected' && status != 'tuchoi') {
+      status = 'pending'; 
+    }
+
+    final isPending = status == 'pending' || status == 'choduyet';
+    final isActive = status == 'active' || status == 'approved' || status == 'danghien';
+    final isRejected = status == 'rejected' || status == 'tuchoi';
 
     return InkWell(
-      onTap: () => _openDetailPreview(item),
+      onTap: () => _openDetailPreview(doc),
       borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -320,7 +403,6 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Thumbnail
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
@@ -338,7 +420,6 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                 ),
                 const SizedBox(width: 12),
 
-                // Info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -409,15 +490,11 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                             const SizedBox(width: 6),
                             Text('• $phone', style: const TextStyle(fontSize: 11, color: Color(0xFF98A2B3))),
                           ],
-                          if (views != null) ...[
-                            const SizedBox(width: 6),
-                            Text('• $views', style: const TextStyle(fontSize: 11, color: Color(0xFF155EEF), fontWeight: FontWeight.w600)),
-                          ],
                         ],
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${currencyFormatter.format(price / 1000000)} tr/tháng',
+                        _formatMoney(price),
                         style: const TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w900,
@@ -438,16 +515,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                 children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
-                        _updateLocalStatus(id, 'active');
-                        ref.read(adminServiceProvider).approveRoomPost(id);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            backgroundColor: Color(0xFF12B76A),
-                            content: Text('Đã duyệt bài đăng!'),
-                          ),
-                        );
-                      },
+                      onPressed: () => _approvePost(id),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF12B76A),
                         foregroundColor: Colors.white,
@@ -461,7 +529,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => _openDetailPreview(item),
+                      onPressed: () => _openDetailPreview(doc),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFFFDA29B)),
                         foregroundColor: const Color(0xFFD92D20),
@@ -479,7 +547,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => _openDetailPreview(item),
+                      onPressed: () => _openDetailPreview(doc),
                       icon: const Icon(Icons.visibility_outlined, size: 14),
                       label: const Text('Xem Trực Tiếp', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                       style: OutlinedButton.styleFrom(
@@ -491,10 +559,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () {
-                        _updateLocalStatus(id, 'rejected');
-                        ref.read(adminServiceProvider).lockRoomPost(id);
-                      },
+                      onPressed: () => _rejectPost(id),
                       icon: const Icon(Icons.remove_circle_outline, size: 14, color: Color(0xFFD92D20)),
                       label: const Text('Hạ Tin / Gỡ Bài', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFFD92D20))),
                       style: OutlinedButton.styleFrom(

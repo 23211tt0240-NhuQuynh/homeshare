@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/firestore_collections.dart';
+import '../../core/utils/room_identity.dart';
 
 /// Model Phòng trọ & Bài đăng chuẩn hóa theo Database homeShare
 /// Bảng: Nhà trọ, Phòng, ẢnhPhong, Tiện ích, Bài đăng
@@ -70,6 +71,31 @@ class RoomModel {
   int get sucChua => capacity;
   int get tang => floor;
   DateTime get ngayTao => createdAt;
+  String get maPhong {
+    final clean = roomCode.trim().toUpperCase();
+    if (clean.isNotEmpty && !isShortRoomId(clean)) {
+      if (RegExp(r'^P\d+$').hasMatch(clean)) return clean;
+      if (RegExp(r'^[A-Z]?\d{2,4}$').hasMatch(clean)) {
+        return clean.startsWith('P') ? clean : 'P$clean';
+      }
+      if (clean.length <= 8) return clean;
+    }
+    final match = RegExp(r'P\d{3,}', caseSensitive: false).firstMatch(id);
+    if (match != null) return match.group(0)!.toUpperCase();
+    if (id.startsWith('sample_room_')) {
+      final num = id.replaceAll('sample_room_', '');
+      return 'P${num.padLeft(3, '0')}';
+    }
+    final titleMatch =
+        RegExp(r'P\d{3,}|\b\d{3}\b', caseSensitive: false).firstMatch(title);
+    if (titleMatch != null) {
+      final val = titleMatch.group(0)!.toUpperCase();
+      return val.startsWith('P') ? val : 'P$val';
+    }
+    return 'P001';
+  }
+  String get soPhong => maPhong;
+  String get maNhaTro => propertyId;
 
   RoomModel({
     required this.id,
@@ -138,15 +164,28 @@ class RoomModel {
           data[PhongTroSqlFields.batDongSanId] ??
           data['bat_dong_san_id'] ??
           data['nhaTroId'] ??
+          data['maNhaTro'] ??
           '',
       // Chủ trọ - Tương thích phòng cũ - Luồng đi: Đọc mã cũ nếu có;
-      // phòng mới chỉ có id nên các màn cũ vẫn dùng được nhãn phòng.
-      roomCode:
-          data['roomCode'] ??
-          data[PhongTroSqlFields.maPhong] ??
-          data['ma_phong'] ??
-          data['soPhong'] ??
-          id,
+      // không nhận ID ngẫu nhiên làm mã phòng để tránh hiển thị nhầm hash code.
+      roomCode: () {
+        final explicit = data['roomCode'] ??
+            data['maPhong'] ??
+            data[PhongTroSqlFields.maPhong] ??
+            data['ma_phong'] ??
+            data['soPhong'];
+        if (explicit != null && explicit.toString().trim().isNotEmpty) {
+          final s = explicit.toString().trim().toUpperCase();
+          if (!isShortRoomId(s)) return s;
+        }
+        final match = RegExp(r'P\d{3,}', caseSensitive: false).firstMatch(id);
+        if (match != null) return match.group(0)!.toUpperCase();
+        if (id.startsWith('sample_room_')) {
+          final num = id.replaceAll('sample_room_', '');
+          return 'P${num.padLeft(3, '0')}';
+        }
+        return '';
+      }(),
       status:
           data['status'] ??
           ((data['isAvailable'] ??
@@ -364,6 +403,7 @@ class RoomModel {
     return {
       'id': id,
       'propertyId': propertyId,
+      'roomCode': roomCode.isNotEmpty ? roomCode : maPhong,
       'hostId': hostId,
       'hostName': hostName,
       'hostPhone': hostPhone,

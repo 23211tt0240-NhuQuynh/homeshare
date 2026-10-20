@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/firestore_collections.dart';
 import '../../../core/utils/vietnamese_utils.dart';
+import '../../../core/utils/vnd_input.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/user_provider.dart';
 import '../data/host_property.dart';
@@ -136,15 +137,15 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       _areaController.text = room.area > 0
           ? room.area.round().toString()
           : '25';
-      _price.text = room.price > 0 ? room.price.round().toString() : '';
+      _price.text = room.price > 0 ? formatVnd(room.price.round()) : '';
 
       // Tự động điền tiền cọc từ phòng đã chọn:
       if (room.deposit > 0) {
-        _depositController.text = room.deposit.round().toString();
+        _depositController.text = formatVnd(room.deposit.round());
       } else if (room.price > 0) {
-        _depositController.text = room.price.round().toString();
+        _depositController.text = formatVnd(room.price.round());
       } else {
-        _depositController.text = room.deposit.round().toString();
+        _depositController.text = '';
       }
 
       _address.text = room.address.isNotEmpty
@@ -436,7 +437,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       return;
     }
 
-    final parsedPrice = double.tryParse(_price.text.trim()) ?? 0;
+    final parsedPrice = double.tryParse(vndDigits(_price.text.trim())) ?? 0;
     if (parsedPrice <= 0) {
       _message('Giá thuê phải lớn hơn 0.');
       return;
@@ -448,7 +449,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           double.tryParse(_areaController.text.trim().replaceAll(',', '.')) ??
           25.0;
       final parsedDeposit =
-          double.tryParse(_depositController.text.trim()) ??
+          double.tryParse(vndDigits(_depositController.text.trim())) ??
               (_selectedRoom?.deposit ?? 0.0);
       int depositPercent = 20;
       if (parsedPrice > 0 && parsedDeposit > 0) {
@@ -463,7 +464,9 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       final roomToSave = RoomModel(
         id: _selectedRoom?.id ?? '',
         propertyId: _property!.id,
-        roomCode: _selectedRoom?.roomCode ?? 'P101',
+        roomCode: (_selectedRoom?.roomCode.isNotEmpty == true)
+            ? _selectedRoom!.roomCode
+            : (_selectedRoom?.maPhong ?? 'P001'),
         title: _title.text.trim(),
         description: _description.text.trim(),
         price: parsedPrice,
@@ -922,7 +925,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     key: const ValueKey('deposit_input'),
     controller: _depositController,
     keyboardType: TextInputType.number,
-    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+    inputFormatters: [VndInputFormatter()],
     style: const TextStyle(
       fontSize: 17,
       fontWeight: FontWeight.w700,
@@ -939,7 +942,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     ),
     validator: (value) {
       if (value == null || value.trim().isEmpty) return 'Nhập tiền cọc';
-      final parsed = double.tryParse(value.trim());
+      final parsed = double.tryParse(vndDigits(value.trim()));
       if (parsed == null || parsed < 0) return 'Tiền cọc không hợp lệ';
       return null;
     },
@@ -949,7 +952,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     key: const ValueKey('price_input'),
     controller: _price,
     keyboardType: TextInputType.number,
-    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+    inputFormatters: [VndInputFormatter()],
     style: const TextStyle(
       fontSize: 17,
       fontWeight: FontWeight.w700,
@@ -966,7 +969,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     ),
     validator: (value) {
       if (value == null || value.trim().isEmpty) return 'Nhập giá thuê';
-      final parsed = double.tryParse(value.trim());
+      final parsed = double.tryParse(vndDigits(value.trim()));
       if (parsed == null || parsed <= 0) return 'Giá thuê phải lớn hơn 0';
       return null;
     },

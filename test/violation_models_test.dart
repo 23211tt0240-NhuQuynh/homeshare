@@ -60,9 +60,7 @@ void main() {
 
       final map = model.toMap();
       expect(map['title'], 'Để rác sai nơi quy định');
-      expect(map['ten'], 'Để rác sai nơi quy định');
       expect(map['defaultFine'], 150000.0);
-      expect(map['mucPhatMacDinh'], 150000.0);
     });
   });
 

@@ -445,11 +445,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                               ref.read(chatServiceProvider).markAsRead(currentUserId, item.partnerId);
                             }
 
-                            // Khởi tạo RoomModel nếu cuộc trò chuyện liên kết với phòng
+                            // Phòng cho thuê và bài ở ghép là hai liên kết khác nhau.
                           RoomModel? pinnedRoom;
-                          if (item.roomTitle != null && item.roomPrice != null) {
+                          final hasRoommatePost = item.roommatePostId != null && item.roommatePostId!.isNotEmpty;
+                          if (!hasRoommatePost && item.roomTitle != null && item.roomPrice != null) {
                             pinnedRoom = RoomModel(
                               id: item.roomCode ?? 'room_sample',
+                              roomCode: item.roomCode ?? '',
                               title: item.roomTitle!,
                               description: 'Phòng trọ tiện nghi, an ninh 24/7.',
                               price: item.roomPrice!,
@@ -483,6 +485,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                 currentUserId: currentUserId,
                                 currentUserName: currentUserName,
                                 pinnedRoom: pinnedRoom,
+                                roommatePostId: item.roommatePostId,
                               ),
                             ),
                           );
