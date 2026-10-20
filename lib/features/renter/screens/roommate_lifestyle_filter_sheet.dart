@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+<<<<<<< HEAD
 import '../../../core/constants/app_colors.dart';
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 import '../../../core/services/roommate_service.dart';
 
 /// Modal Bottom Sheet "Bộ lọc Lifestyle & Ở ghép AI Match" chuẩn Figma 100%
@@ -8,22 +11,34 @@ class RoommateLifestyleFilterSheet extends StatefulWidget {
   final RoommateFilterParams initialFilters;
   final int matchingCount;
   final ValueChanged<RoommateFilterParams> onApply;
+<<<<<<< HEAD
   final bool embedded;
   final ValueChanged<RoommateFilterParams>? onChanged;
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
   const RoommateLifestyleFilterSheet({
     super.key,
     required this.initialFilters,
+<<<<<<< HEAD
     this.matchingCount = 0,
     required this.onApply,
     this.embedded = false,
     this.onChanged,
+=======
+    this.matchingCount = 18,
+    required this.onApply,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   });
 
   static Future<RoommateFilterParams?> show(
     BuildContext context, {
     required RoommateFilterParams initialFilters,
+<<<<<<< HEAD
     int matchingCount = 0,
+=======
+    int matchingCount = 18,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     required ValueChanged<RoommateFilterParams> onApply,
   }) {
     return showModalBottomSheet<RoommateFilterParams>(
@@ -47,6 +62,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
   bool? _hasRoom;
 
   // 2. Đối tượng phù hợp
+<<<<<<< HEAD
   String _selectedGender = 'Tất cả';
   static const List<String> _defaultOccupations = ['Sinh viên', 'Người đi làm', 'Freelancer'];
   static const List<String> _defaultHabits = [
@@ -68,16 +84,28 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
   // 3. Ngân sách mỗi người
   late RangeValues _budgetRange;
   late bool _budgetTouched;
+=======
+  String _selectedGender = 'Nữ';
+  String _selectedOccupation = 'Sinh viên';
+
+  // 3. Ngân sách mỗi người
+  late RangeValues _budgetRange;
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
   // 4. Lối sống & Thói quen
   final Set<String> _selectedHabits = {};
 
   // 5. Match Rate
+<<<<<<< HEAD
   int _matchRate = 0;
+=======
+  int _matchRate = 80;
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
   @override
   void initState() {
     super.initState();
+<<<<<<< HEAD
     _hasRoom = widget.initialFilters.hasRoom;
     _selectedGender = widget.initialFilters.targetGender;
     _occupationOptions = List<String>.from(_defaultOccupations);
@@ -166,12 +194,36 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
       _selectedHabits.add(text);
       _habitController.clear();
     });
+=======
+    _hasRoom = widget.initialFilters.hasRoom ?? true; // Mặc định như hình Figma: "Đã có phòng sẵn"
+    _selectedGender = widget.initialFilters.targetGender == 'Tất cả' ? 'Nữ' : widget.initialFilters.targetGender;
+    _selectedOccupation = widget.initialFilters.occupation == 'Tất cả' ? 'Sinh viên' : widget.initialFilters.occupation;
+    
+    final minVal = (widget.initialFilters.budgetMin ?? 1200000).clamp(500000.0, 6000000.0);
+    final maxVal = (widget.initialFilters.budgetMax ?? 2500000).clamp(minVal, 6000000.0);
+    _budgetRange = RangeValues(minVal, maxVal);
+
+    if (widget.initialFilters.habits.isNotEmpty) {
+      _selectedHabits.addAll(widget.initialFilters.habits);
+    } else {
+      // Mặc định các thói quen được chọn như trên hình Figma 2:
+      _selectedHabits.addAll([
+        'Yên tĩnh sau 23h',
+        'Sạch sẽ, ngăn nắp cao',
+        'Tuyệt đối không thuốc lá',
+        'Quy định dẫn bạn về phòng',
+      ]);
+    }
+
+    _matchRate = widget.initialFilters.minMatchRate > 0 ? widget.initialFilters.minMatchRate : 80;
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   }
 
   void _resetFilters() {
     setState(() {
       _hasRoom = null;
       _selectedGender = 'Tất cả';
+<<<<<<< HEAD
       _occupationOptions = List<String>.from(_defaultOccupations);
       _selectedOccupations.clear();
       _occupationController.clear();
@@ -179,17 +231,35 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
       _habitController.clear();
       _budgetRange = const RangeValues(1000000, 3000000);
       _budgetTouched = false;
+=======
+      _selectedOccupation = 'Tất cả';
+      _budgetRange = const RangeValues(1000000, 3000000);
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       _selectedHabits.clear();
       _matchRate = 0;
     });
   }
 
   void _applyFilters() {
+<<<<<<< HEAD
     final updated = _snapshot();
+=======
+    final updated = widget.initialFilters.copyWith(
+      hasRoom: _hasRoom,
+      clearHasRoom: _hasRoom == null,
+      targetGender: _selectedGender,
+      occupation: _selectedOccupation,
+      budgetMin: _budgetRange.start,
+      budgetMax: _budgetRange.end,
+      habits: _selectedHabits.toList(),
+      minMatchRate: _matchRate,
+    );
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     widget.onApply(updated);
     Navigator.pop(context, updated);
   }
 
+<<<<<<< HEAD
   List<Widget> _formSections() {
     return [
       if (!widget.embedded) ...[
@@ -207,6 +277,8 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
     ];
   }
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   String _formatBudget(double value) {
     if (value >= 1000000) {
       final millions = value / 1000000;
@@ -217,6 +289,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
 
   @override
   Widget build(BuildContext context) {
+<<<<<<< HEAD
     if (widget.embedded) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,6 +297,8 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
       );
     }
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     final mediaQuery = MediaQuery.of(context);
     final sheetHeight = mediaQuery.size.height * 0.90;
 
@@ -269,16 +344,26 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
                             decoration: BoxDecoration(
+<<<<<<< HEAD
                               color: AppColors.primarySurface,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+=======
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFBFDBFE)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                             ),
                             child: const Text(
                               'AI Match',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
+<<<<<<< HEAD
                                 color: AppColors.primary,
+=======
+                                color: Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                               ),
                             ),
                           ),
@@ -308,6 +393,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
               ],
             ),
           ),
+<<<<<<< HEAD
           const Divider(height: 1, color: Color(0xFFE2E8F0)),
 
           // Body Form cuộn mượt mà
@@ -315,6 +401,44 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
               children: _formSections(),
+=======
+
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+          // Scrollable Content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. TÌNH TRẠNG PHÒNG
+                  _buildSection1RoomStatus(),
+
+                  const SizedBox(height: 22),
+
+                  // 2. ĐỐI TƯỢNG PHÙ HỢP
+                  _buildSection2TargetCriteria(),
+
+                  const SizedBox(height: 22),
+
+                  // 3. NGÂN SÁCH MỖI NGƯỜI
+                  _buildSection3Budget(),
+
+                  const SizedBox(height: 22),
+
+                  // 4. LỐI SỐNG & THÓI QUEN
+                  _buildSection4LifestyleHabits(),
+
+                  const SizedBox(height: 22),
+
+                  // 5. MỨC ĐỘ TƯƠNG THÍCH (MATCH RATE)
+                  _buildSection5MatchRate(),
+
+                  const SizedBox(height: 16),
+                ],
+              ),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             ),
           ),
 
@@ -335,7 +459,11 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
           children: [
             const Row(
               children: [
+<<<<<<< HEAD
                 Icon(Icons.apartment_rounded, size: 18, color: AppColors.primary),
+=======
+                Icon(Icons.apartment_rounded, size: 18, color: Color(0xFF2563EB)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 SizedBox(width: 8),
                 Text(
                   '1. TÌNH TRẠNG PHÒNG',
@@ -355,7 +483,11 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                 padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 child: Text(
                   'Tất cả',
+<<<<<<< HEAD
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+=======
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
               ),
             ),
@@ -405,10 +537,17 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
         height: 120,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
+<<<<<<< HEAD
           color: isSelected ? AppColors.primarySurface : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+=======
+          color: isSelected ? const Color(0xFFF0F7FF) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             width: isSelected ? 1.8 : 1,
           ),
         ),
@@ -423,7 +562,11 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
+<<<<<<< HEAD
                     color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+=======
+                    color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -435,7 +578,11 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                 Icon(
                   isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
                   size: 20,
+<<<<<<< HEAD
                   color: isSelected ? AppColors.primary : const Color(0xFF94A3B8),
+=======
+                  color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF94A3B8),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
               ],
             ),
@@ -472,7 +619,11 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
       children: [
         const Row(
           children: [
+<<<<<<< HEAD
             Icon(Icons.people_outline_rounded, size: 18, color: AppColors.primary),
+=======
+            Icon(Icons.people_outline_rounded, size: 18, color: Color(0xFF2563EB)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             SizedBox(width: 8),
             Text(
               '2. ĐỐI TƯỢNG PHÙ HỢP',
@@ -503,13 +654,20 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
             ),
             _buildChoiceChip(
               label: 'Nữ',
+<<<<<<< HEAD
               isSelected: _selectedGender == 'Nữ',
               isPrimarySolid: true,
               hasCheckmark: true,
+=======
+              icon: Icons.location_on, // Figma icon pin trước 'Nữ'
+              isSelected: _selectedGender == 'Nữ',
+              isPrimarySolid: true,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               onSelected: () => setState(() => _selectedGender = 'Nữ'),
             ),
             _buildChoiceChip(
               label: 'Nam',
+<<<<<<< HEAD
               isSelected: _selectedGender == 'Nam',
               onSelected: () => setState(() => _selectedGender = 'Nam'),
             ),
@@ -517,11 +675,29 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
         ),
         const SizedBox(height: 14),
 
+=======
+              icon: Icons.male,
+              isSelected: _selectedGender == 'Nam',
+              onSelected: () => setState(() => _selectedGender = 'Nam'),
+            ),
+            _buildChoiceChip(
+              label: 'LGBT+',
+              isSelected: _selectedGender == 'LGBT+',
+              onSelected: () => setState(() => _selectedGender = 'LGBT+'),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        // Nghề nghiệp / Tình trạng
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         const Text(
           'Nghề nghiệp / Tình trạng',
           style: TextStyle(fontSize: 11.5, color: Color(0xFF475569), fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 6),
+<<<<<<< HEAD
         _buildChecklist(
           controller: _occupationController,
           hint: 'Nhập nghề nghiệp muốn thêm',
@@ -537,6 +713,32 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
               }
             });
           },
+=======
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _buildChoiceChip(
+              label: 'Sinh viên',
+              icon: Icons.school_outlined,
+              hasCheckmark: true,
+              isSelected: _selectedOccupation == 'Sinh viên',
+              onSelected: () => setState(() => _selectedOccupation = 'Sinh viên'),
+            ),
+            _buildChoiceChip(
+              label: 'Đã đi làm (Văn phòng)',
+              icon: Icons.work_outline,
+              isSelected: _selectedOccupation == 'Đã đi làm',
+              onSelected: () => setState(() => _selectedOccupation = 'Đã đi làm'),
+            ),
+            _buildChoiceChip(
+              label: 'Freelancer / WFH',
+              icon: Icons.computer_outlined,
+              isSelected: _selectedOccupation == 'Freelancer',
+              onSelected: () => setState(() => _selectedOccupation = 'Freelancer'),
+            ),
+          ],
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         ),
       ],
     );
@@ -555,6 +757,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
     Border? border;
 
     if (isSelected && isPrimarySolid) {
+<<<<<<< HEAD
       bg = AppColors.primary;
       textColor = Colors.white;
       border = null;
@@ -562,6 +765,15 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
       bg = AppColors.primarySurface;
       textColor = AppColors.primary;
       border = Border.all(color: AppColors.primary, width: 1.2);
+=======
+      bg = const Color(0xFF2563EB);
+      textColor = Colors.white;
+      border = null;
+    } else if (isSelected) {
+      bg = const Color(0xFFEFF6FF);
+      textColor = const Color(0xFF2563EB);
+      border = Border.all(color: const Color(0xFF2563EB), width: 1.2);
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     } else {
       bg = Colors.white;
       textColor = const Color(0xFF334155);
@@ -623,7 +835,11 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
             children: [
               const Row(
                 children: [
+<<<<<<< HEAD
                   Icon(Icons.account_balance_wallet_outlined, size: 18, color: AppColors.primary),
+=======
+                  Icon(Icons.account_balance_wallet_outlined, size: 18, color: Color(0xFF2563EB)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                   SizedBox(width: 8),
                   Text(
                     '3. NGÂN SÁCH MỖI\nNGƯỜI',
@@ -641,14 +857,22 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(8),
+<<<<<<< HEAD
                   border: Border.all(color: AppColors.primary.withValues(alpha: 0.25), width: 1.2),
+=======
+                  border: Border.all(color: const Color(0xFFBFDBFE), width: 1.2),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
                 child: Text(
                   '$startStr - $endStr/tháng',
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
+<<<<<<< HEAD
                     color: AppColors.primary,
+=======
+                    color: Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                   ),
                 ),
               ),
@@ -657,7 +881,11 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
           const SizedBox(height: 6),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
+<<<<<<< HEAD
               activeTrackColor: AppColors.primary,
+=======
+              activeTrackColor: const Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               inactiveTrackColor: const Color(0xFFCBD5E1),
               thumbColor: Colors.white,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10, elevation: 3),
@@ -670,14 +898,19 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
               max: 6000000,
               divisions: 55,
               onChanged: (values) {
+<<<<<<< HEAD
                 setState(() {
                   _budgetTouched = true;
                   _budgetRange = values;
                 });
+=======
+                setState(() => _budgetRange = values);
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               },
             ),
           ),
           const Padding(
+<<<<<<< HEAD
             padding: EdgeInsets.symmetric(horizontal: 6),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -685,6 +918,15 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                 Text('500k', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
                 Text('2.5 triệu', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
                 Text('6 triệu+', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+=======
+            padding: EdgeInsets.symmetric(horizontal: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Dưới 1 triệu', style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                Text('2.5 triệu', style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                Text('5+ triệu', style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               ],
             ),
           ),
@@ -693,11 +935,16 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
     );
   }
 
+<<<<<<< HEAD
   /// 4. TIÊU CHÍ LỐI SỐNG & THÓI QUEN
+=======
+  /// 4. LỐI SỐNG & THÓI QUEN
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   Widget _buildSection4LifestyleHabits() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+<<<<<<< HEAD
         const Row(
           children: [
             Icon(Icons.psychology_outlined, size: 19, color: AppColors.primary),
@@ -829,6 +1076,243 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
     );
   }
 
+=======
+        Row(
+          children: [
+            const Icon(Icons.favorite_rounded, size: 18, color: Color(0xFFEF4444)),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                '4. LỐI SỐNG & THÓI QUEN',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.3,
+                  color: Color(0xFF0F172A),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '(Bắt buộc)',
+              style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        // 4.1 Nhịp sinh học & Giờ giấc
+        const Text(
+          'Nhịp sinh học & Giờ giấc',
+          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+        ),
+        const SizedBox(height: 8),
+        _buildGridHabits([
+          _HabitItem('Yên tĩnh sau 23h', Icons.nightlight_round, iconColor: const Color(0xFF3B82F6)),
+          _HabitItem('Giờ giấc tự do 24/7', Icons.access_time_rounded, iconColor: const Color(0xFFF59E0B)),
+          _HabitItem('Dậy sớm (Trước 7h)', Icons.wb_sunny_rounded, iconColor: const Color(0xFFEAB308)),
+          _HabitItem('Hay thức khuya (Cú đêm)', Icons.bed_rounded, iconColor: const Color(0xFF6366F1)),
+        ]),
+
+        const SizedBox(height: 14),
+
+        // 4.2 Vệ sinh & Sinh hoạt chung
+        const Text(
+          'Vệ sinh & Sinh hoạt chung',
+          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+        ),
+        const SizedBox(height: 8),
+        _buildGridHabits([
+          _HabitItem('Sạch sẽ, ngăn nắp cao', Icons.cleaning_services_rounded, iconColor: const Color(0xFF10B981)),
+          _HabitItem('Tuyệt đối không thuốc lá', Icons.smoke_free_rounded, iconColor: const Color(0xFFEF4444)),
+          _HabitItem('Nấu ăn tại phòng', Icons.restaurant_rounded, iconColor: const Color(0xFFF97316)),
+          _HabitItem('Không mở loa to', Icons.volume_off_rounded, iconColor: const Color(0xFF8B5CF6)),
+        ]),
+
+        const SizedBox(height: 14),
+
+        // 4.3 Thú cưng & Bạn bè ghé chơi
+        const Text(
+          'Thú cưng & Bạn bè ghé chơi',
+          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+        ),
+        const SizedBox(height: 8),
+        _buildFullWidthHabitTile(
+          habitKey: 'Thú cưng (Chó/Mèo)',
+          title: 'Thú cưng (Chó/Mèo)',
+          subtitle: 'Không dị ứng, chấp nhận người có nuôi pet',
+          icon: Icons.pets_rounded,
+          iconColor: const Color(0xFFF59E0B),
+        ),
+        const SizedBox(height: 8),
+        _buildFullWidthHabitTile(
+          habitKey: 'Quy định dẫn bạn về phòng',
+          title: 'Quy định dẫn bạn về phòng',
+          subtitle: 'Hạn chế bạn khác giới ở lại qua đêm',
+          icon: Icons.people_alt_rounded,
+          iconColor: const Color(0xFF2563EB),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGridHabits(List<_HabitItem> items) {
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 2.7,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        final isSelected = _selectedHabits.contains(item.title);
+
+        return InkWell(
+          onTap: () {
+            setState(() {
+              if (isSelected) {
+                _selectedHabits.remove(item.title);
+              } else {
+                _selectedHabits.add(item.title);
+              }
+            });
+          },
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFFF0F7FF) : Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+                width: isSelected ? 1.4 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                // Custom check container
+                Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFF2563EB) : Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFCBD5E1),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: isSelected
+                      ? const Icon(Icons.check, size: 13, color: Colors.white)
+                      : null,
+                ),
+                const SizedBox(width: 6),
+                Icon(item.icon, size: 15, color: item.iconColor ?? const Color(0xFF475569)),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    item.title,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      color: const Color(0xFF0F172A),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFullWidthHabitTile({
+    required String habitKey,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    Color? iconColor,
+  }) {
+    final isSelected = _selectedHabits.contains(habitKey);
+
+    return InkWell(
+      onTap: () {
+        setState(() {
+          if (isSelected) {
+            _selectedHabits.remove(habitKey);
+          } else {
+            _selectedHabits.add(habitKey);
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFF0F7FF) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+            width: isSelected ? 1.4 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: (iconColor ?? const Color(0xFF2563EB)).withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 16, color: iconColor ?? const Color(0xFF2563EB)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF2563EB) : Colors.white,
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(
+                  color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFCBD5E1),
+                  width: 1.5,
+                ),
+              ),
+              child: isSelected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
   /// 5. MỨC ĐỘ TƯƠNG THÍCH (MATCH RATE)
   Widget _buildSection5MatchRate() {
@@ -842,9 +1326,15 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
+<<<<<<< HEAD
           color: AppColors.primarySurface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+=======
+          color: const Color(0xFFEFF6FF),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFBFDBFE)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         ),
         child: Row(
           children: [
@@ -852,7 +1342,11 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
               width: 36,
               height: 36,
               decoration: const BoxDecoration(
+<<<<<<< HEAD
                 color: AppColors.primary,
+=======
+                color: Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.auto_awesome, size: 18, color: Colors.white),
@@ -883,14 +1377,22 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
+<<<<<<< HEAD
                 border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+=======
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               ),
               child: Text(
                 _matchRate > 0 ? '≥ $_matchRate%' : 'Tất cả',
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
+<<<<<<< HEAD
                   color: AppColors.primary,
+=======
+                  color: Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
               ),
             ),
@@ -936,16 +1438,24 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
               child: ElevatedButton(
                 onPressed: _applyFilters,
                 style: ElevatedButton.styleFrom(
+<<<<<<< HEAD
                   backgroundColor: AppColors.primary,
+=======
+                  backgroundColor: const Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   padding: const EdgeInsets.symmetric(vertical: 13),
                 ),
                 child: Text(
+<<<<<<< HEAD
                   matchingCount > 0
                       ? 'Áp dụng bộ lọc ($matchingCount bạn phù hợp)'
                       : 'Áp dụng bộ lọc',
+=======
+                  'Áp dụng bộ lọc ($matchingCount bạn phù hợp)',
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                 ),
               ),
@@ -956,3 +1466,14 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
     );
   }
 }
+<<<<<<< HEAD
+=======
+
+class _HabitItem {
+  final String title;
+  final IconData icon;
+  final Color? iconColor;
+
+  const _HabitItem(this.title, this.icon, {this.iconColor});
+}
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62

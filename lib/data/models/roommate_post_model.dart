@@ -18,8 +18,11 @@ class RoommatePostModel {
   final double budgetMin; // nganSachTu
   final double budgetMax; // nganSachDen
   final String address; // diaChi
+<<<<<<< HEAD
   final double? latitude; // viDo, dùng để ghim bản đồ
   final double? longitude; // kinhDo, dùng để ghim bản đồ
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   final String district; // khuVuc / quanHuyen (diaDiemId)
   final String targetGender; // gioiTinhMongMuon: nu | nam | tatCa
   final List<String> habits; // thoiQuen / soThich
@@ -70,8 +73,11 @@ class RoommatePostModel {
     required this.budgetMin,
     required this.budgetMax,
     this.address = '',
+<<<<<<< HEAD
     this.latitude,
     this.longitude,
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     required this.district,
     required this.targetGender,
     required this.habits,
@@ -102,8 +108,11 @@ class RoommatePostModel {
     double? budgetMin,
     double? budgetMax,
     String? address,
+<<<<<<< HEAD
     double? latitude,
     double? longitude,
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     String? district,
     String? targetGender,
     List<String>? habits,
@@ -133,8 +142,11 @@ class RoommatePostModel {
       budgetMin: budgetMin ?? this.budgetMin,
       budgetMax: budgetMax ?? this.budgetMax,
       address: address ?? this.address,
+<<<<<<< HEAD
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       district: district ?? this.district,
       targetGender: targetGender ?? this.targetGender,
       habits: habits ?? this.habits,
@@ -197,8 +209,11 @@ class RoommatePostModel {
       budgetMin: ((data['budgetMin'] ?? data['nganSachTu']) as num?)?.toDouble() ?? 1000000,
       budgetMax: ((data['budgetMax'] ?? data['nganSachDen']) as num?)?.toDouble() ?? 2500000,
       address: data['address'] ?? data['diaChi'] ?? '',
+<<<<<<< HEAD
       latitude: data['latitude'] is num ? (data['latitude'] as num).toDouble() : double.tryParse('${data['latitude'] ?? ''}'),
       longitude: data['longitude'] is num ? (data['longitude'] as num).toDouble() : double.tryParse('${data['longitude'] ?? ''}'),
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       district: data['district'] ?? data['quanHuyen'] ?? data['khuVuc'] ?? 'TP. Thủ Đức',
       targetGender: data['targetGender'] ?? data['gioiTinhMongMuon'] ?? 'Tất cả',
       habits: parsedHabits,
@@ -225,12 +240,17 @@ class RoommatePostModel {
   Map<String, dynamic> toMap() {
     return {
       'authorId': authorId,
+<<<<<<< HEAD
+=======
+      'nguoiDangId': authorId,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       'authorName': authorName,
       'authorAge': authorAge,
       'authorGender': authorGender,
       'authorOccupation': authorOccupation,
       'authorAvatar': authorAvatar,
       'title': title,
+<<<<<<< HEAD
       'description': description,
       'postType': postType,
       'propertyType': displayPropertyType,
@@ -244,14 +264,48 @@ class RoommatePostModel {
       'targetGender': targetGender,
       'habits': habits,
       'images': images,
+=======
+      'tieuDe': title,
+      'description': description,
+      'noiDung': description,
+      'postType': postType,
+      'loaiTin': postType,
+      'propertyType': displayPropertyType,
+      'loaiNhaO': displayPropertyType,
+      'pricePerPerson': pricePerPerson,
+      'giaMoiNguoi': pricePerPerson,
+      'budgetMin': budgetMin,
+      'nganSachTu': budgetMin,
+      'budgetMax': budgetMax,
+      'nganSachDen': budgetMax,
+      'address': address,
+      'diaChi': address,
+      'district': district,
+      'targetGender': targetGender,
+      'gioiTinhMongMuon': targetGender,
+      'habits': habits,
+      'thoiQuen': habits,
+      'images': images,
+      'anhTinOGhep': images,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       'imageCaptions': imageCaptions,
       'isVerified': isVerified,
       'matchRate': matchRate,
       'hasRoom': hasRoom,
       'status': status,
+<<<<<<< HEAD
       'contactPhone': contactPhone,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
+=======
+      'trangThai': status,
+      'contactPhone': contactPhone,
+      'soDienThoai': contactPhone,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'ngayTao': Timestamp.fromDate(createdAt),
+      'updatedAt': Timestamp.fromDate(updatedAt),
+      'ngayCapNhat': Timestamp.fromDate(updatedAt),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     };
   }
 }

@@ -21,6 +21,7 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 
 ## 2. Current Status
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core) & Phase 2 (Toàn bộ Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma)
+<<<<<<< HEAD
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 98%
 * **Chất lượng mã nguồn & Tiến độ mới nhất:**
@@ -57,6 +58,15 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
     - **Tương thích ngược 100% (Backward Compatibility):** Giữ nguyên các fallback tiếng Việt trong `fromMap()` và cập nhật các query repository (`tenant_repository.dart`, `violation_repository.dart`, `checkin_checkout_repository.dart`) hỗ trợ đọc cả trường tiếng Anh `periodId` và dữ liệu cũ `kyThue_id`.
     - **Cập nhật màn hình thanh toán:** `booking_payment_screen.dart` lưu đầy đủ các trường chuẩn tiếng Anh cho `bookings`, `notifications` và `audit_logs`.
     - **Kiểm định chất lượng:** `flutter analyze` 0 issues (0 errors, 0 warnings); 113/113 unit/widget tests liên quan (`host_management_screens_test.dart`, `violation_models_test.dart`, `id_generator_test.dart`, `role_routing_test.dart`, `renter_suite_test.dart`, `ltdd_suite_test.dart`) đều passed.
+=======
+* **Status:** IN PROGRESS / LIVE RUNNING ON PHYSICAL DEVICE
+* **Progress:** 90%
+* **Chất lượng mã nguồn:**
+  * `flutter analyze`: **0 issues found** (Không có lỗi, cảnh báo hay deprecated linter)
+  * `flutter test`: **12/12 test cases PASSED** (Bao gồm Data Models chuẩn DrawIO, Serialization 2 chiều, Riverpod Equality, Theme Smoke Tests)
+  * **Hot Reload / Hot Restart:** Hoạt động ổn định trên điện thoại thật thông qua DTD `ws://127.0.0.1:4667/zzmSBkyMkIg=`.
+  * **Runtime Errors:** `0 runtime errors` (Đã kiểm tra qua MCP `get_runtime_errors`).
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
 ---
 
@@ -1007,6 +1017,7 @@ Thực hiện yêu cầu của người dùng: *"làm phần chi tiết ở ghé
 
 
 
+<<<<<<< HEAD
 
 
 ---
@@ -1046,6 +1057,47 @@ Thực hiện yêu cầu của người dùng: *"làm phần chi tiết ở ghé
        + `Tc_THEME_05 & 06`: Các thành phần UI (Buttons, AppBar, Chips) sử dụng đúng tông màu chủ đạo.
      - Toàn bộ **51/51 test cases PASSED 100%**.
      - `flutter analyze`: 0 errors.
+=======
+
+
+---
+
+### Phase 2.19: Đồng Bộ Nhận Diện Theme Chuẩn Database HomeShare & Chuyển Nhánh Phát Triển `homeshare`
+* **Ngày hoàn thành:** 02/10/2026
+* **Yêu cầu người dùng:** "Database homeShare làm theme của app và chỉ cập nhật brain homeshare k cập nhật main"
+* **Phân tích yêu cầu & Định hướng triển khai:**
+  1. **Chỉ thị nhánh Git (Branching Policy):** "chỉ cập nhật brain homeshare k cập nhật main" -> Người dùng yêu cầu **chỉ đẩy commit lên branch `homeshare`**, **tuyệt đối không cập nhật nhánh `main`**.
+  2. **Bản sắc giao diện & Theme chuẩn Database homeShare:** Trích xuất tự động và phân tích cấu trúc styling từ sơ đồ `D:\Database homeShare.drawio`.
+     - Màu thực thể cốt lõi, primary stroke: `#038048` (Forest Emerald / Deep Pine Green - 434 lần xuất hiện).
+     - Màu viền kỹ thuật, chữ đậm sắc sảo: `#181818` (Dark Charcoal / Jet Black - 352 lần xuất hiện).
+     - Màu nền container/bảng: `#F1F1F1` (Soft Light Gray Surface - 203 lần xuất hiện).
+     - Màu thẻ ghi chú nổi bật: `#FEFFDD` (Soft Note Highlight Yellow - 12 lần xuất hiện).
+
+* **Công việc kỹ thuật đã thực hiện:**
+  1. **Chuyển nhánh Git an toàn:**
+     - Đã chuyển nhánh làm việc sang `homeshare` theo dõi `origin/homeshare`:
+       `git checkout homeshare`
+     - Mọi commit và push từ phiên này được cam kết **CHỈ ĐẨY VÀO BRANCH `homeshare`**, không can thiệp hoặc đẩy lên `main`.
+  2. **Cập nhật hệ thống màu [`AppColors`](file:///D:/app/HomeShare/lib/core/constants/app_colors.dart):**
+     - `primary`: Chuyển sang mã màu chuẩn của Database homeShare: `Color(0xFF038048)`.
+     - `primaryLight`: `Color(0xFF0EA363)`.
+     - `primaryDark`: `Color(0xFF025831)`.
+     - `textDark` & `textPrimary`: `Color(0xFF181818)`.
+     - `borderDark`: `Color(0xFF181818)`.
+     - `surfaceVariant`: `Color(0xFFF1F1F1)`.
+     - `noteHighlight`: `Color(0xFFFEFFDD)`.
+  3. **Đồng bộ chủ đề toàn diện [`AppTheme`](file:///D:/app/HomeShare/lib/core/theme/app_theme.dart):**
+     - Cấu hình Material 3 `ColorScheme` (`primary`, `primaryContainer`, `onPrimaryContainer`, `secondary`, `surfaceContainerHighest`).
+     - Chuẩn hóa `AppBarTheme`, `ElevatedButtonThemeData`, `OutlinedButtonThemeData`, `FloatingActionButtonThemeData`, `ChipThemeData`, `InputDecorationTheme`, `CardThemeData`.
+     - Đồng bộ dải màu gradient trên `HostDashboardScreen`, `RenterDashboardScreen` và thay thế toàn bộ mã màu hardcode trong `SearchFilterScreen`.
+  4. **Bổ sung Module kiểm thử 15 ([`test/ltdd_suite_test.dart`](file:///D:/app/HomeShare/test/ltdd_suite_test.dart)):**
+     - Đã thêm kiểm thử tự động kiểm tra tính toàn vẹn của bảng màu và Theme:
+       + `Tc_THEME_01 & 02`: Kiểm tra bảng màu cốt lõi chuẩn sơ đồ Database homeShare (`#038048`, `#181818`, `#F1F1F1`, `#FEFFDD`).
+       + `Tc_THEME_03 & 04`: Cấu hình `AppTheme.lightTheme` đồng bộ `ColorScheme`.
+       + `Tc_THEME_05 & 06`: Các thành phần UI (Buttons, AppBar, Chips) sử dụng đúng tông màu chủ đạo.
+     - Toàn bộ **51/51 test cases PASSED 100%**.
+     - `flutter analyze`: 0 errors.
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
 ---
 
@@ -1078,7 +1130,11 @@ Thực hiện yêu cầu của người dùng: *"làm phần chi tiết ở ghé
   5. **Cập nhật lên thiết bị điện thoại:**
      - Biên dịch APK Debug và cài đặt trực tiếp lên điện thoại thật Android 16 25100RA69G.
   6. **Quy tắc phân nhánh Git:**
+<<<<<<< HEAD
      - Toàn bộ commit và push được thực hiện **CHỈ TRÊN BRANCH homeshare**, tuyệt đối **KHÔNG CẬP NHẬT NHÁNH main**.
+=======
+     - Toàn bộ commit và push được thực hiện **CHỈ TRÊN BRANCH homeshare**, tuyệt đối **KHÔNG CẬP NHẬT NHÁNH main**.
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
 ---
 
@@ -1088,8 +1144,12 @@ Thực hiện yêu cầu của người dùng: *"làm phần chi tiết ở ghé
 * **Phân tích yêu cầu & Định hướng triển khai:**
   1. **Tái thiết kế Màn hình Đăng Ký ([RegisterScreen](file:///D:/app/HomeShare/lib/features/auth/screens/register_screen.dart)):**
      - Hỗ trợ chọn 2 vai trò trực quan bằng thẻ Card tương tác:
+<<<<<<< HEAD
        + **Người thuê (
 enter)**: Icon person_search_rounded, mô tả "Tìm phòng, căn hộ & bạn ở ghép".
+=======
+       + **Người thuê (enter)**: Icon person_search_rounded, mô tả "Tìm phòng, căn hộ & bạn ở ghép".
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
        + **Chủ trọ (host)**: Icon domain_rounded, mô tả "Đăng tin phòng & tìm khách thuê".
        + Có viền highlight màu xanh #155EEF (AppColors.primary), nền mềm #E8F0FE (AppColors.primaryContainer) và radio indicator khi được kích hoạt.
      - Form thông tin chuẩn phong cách Phòng Sáng:
@@ -1100,8 +1160,12 @@ enter)**: Icon person_search_rounded, mô tả "Tìm phòng, căn hộ & bạn �
        + Checkbox đồng ý Điều khoản dịch vụ & Chính sách của HomeShare
      - Nút "Đăng Ký Tài Khoản" hiển thị rõ tên vai trò đang chọn: Đăng Ký Tài Khoản (Người Thuê / Chủ Trọ).
   2. **Luồng sau khi đăng ký quay về đăng nhập:**
+<<<<<<< HEAD
      - Lưu đầy đủ thông tin tài khoản vào Firestore users với: 
 ole, aiTro, aiTro_id (1 cho renter, 2 cho host), userCode (5 ký tự 3 số 2 chữ), hoTen, soDienThoai, v.v.
+=======
+     - Lưu đầy đủ thông tin tài khoản vào Firestore users với: ole, aiTro, aiTro_id (1 cho renter, 2 cho host), userCode (5 ký tự 3 số 2 chữ), hoTen, soDienThoai, v.v.
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
      - Sau khi lưu thành công, tự động gọi uthService.signOut() để không bị chuyển thẳng vào dashboard mà giữ trạng thái đăng xuất.
      - Hiển thị SnackBar thông báo: "Đăng ký tài khoản thành công! Vui lòng đăng nhập."
      - Điều hướng quay về LoginScreen (Navigator.pop(context, email)), tự động điền sẵn email vừa tạo vào ô đăng nhập để người dùng không cần gõ lại.
@@ -1112,11 +1176,16 @@ ole, aiTro, aiTro_id (1 cho renter, 2 cho host), userCode (5 ký tự 3 số 2
   4. **Đồng bộ hóa Git & Lưu vào Repository:**
      - Đã thêm remote 
 huquynh: https://github.com/23211tt0240-NhuQuynh/homeshare.git.
+<<<<<<< HEAD
      - Đẩy mã nguồn đăng ký/đăng nhập hoàn thiện lên repository theo yêu cầu.
+=======
+     - Đẩy mã nguồn đăng ký/đăng nhập hoàn thiện lên repository theo yêu cầu.
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
 
 ---
 
+<<<<<<< HEAD
 ### Phase 2.22: Sửa Triệt Để Lỗi Trắng Màn Hình (Đăng Tin & Đặt Phòng), Sửa Lỗi Tràn 2px, Bộ Lọc 3 Cấp & Tối Ưu Mượt Mà Khi Mở Bàn Phím
 * **Ngày hoàn thành:** 02/10/2026
 * **Yêu cầu người dùng:** "lỗi phân đăng bài ,phần tin nhắn mới ở danh sách tin nhắn nếu chưa đọc thì phải đậm chử và có số lượng tin nhắn chưa đọc, cá nhân có thể nhấn vào avt tên nói chung là nguyên phần có avt thì sẻ chuyển qua màn hình chi tiết" & "fix những lỗi này và tối ưu lại phần mở phím khi nhắn tin hay tìm kiếm nó bị lag và cập nhạt những lỗi vào tiendo"
@@ -1578,3 +1647,34 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
 * **Kết quả kiểm thử toàn diện:**
   - `flutter analyze`: **0 errors, 0 warnings (No issues found!)**.
   - `flutter test`: **99/99 test cases PASSED 100%** (`role_routing_test.dart`, `renter_suite_test.dart`, `ltdd_suite_test.dart`, `admin_dashboard_test.dart`, `id_generator_test.dart`).
+=======
+### Phase 2.22: Phát Triển Hệ Thống Quản Trị Admin & Dashboard Báo Cáo Tài Chính Chuẩn Mockup
+* **Ngày hoàn thành:** 08/10/2026
+* **Yêu cầu người dùng:** "làm chức năng admin, bắt đầu từ dashboard, đẹp như giao diện lib dashboard mình đã gửi"
+* **Phân tích yêu cầu & Kết quả triển khai:**
+  1. **Tạo Cụm Module Admin Hoàn Chỉnh (`lib/features/admin/`):**
+     - [`AdminMainScreen`](file:///d:/homeshare/lib/features/admin/screens/admin_main_screen.dart): Khung điều hướng Bottom Navigation Bar với 4 tab chuẩn hình ảnh thiết kế:
+       + **Tổng quan**: Dashboard KPI, biểu đồ doanh thu và thẻ giải ngân cọc khẩn.
+       + **BÀI ĐĂNG**: Quản lý duyệt/khóa/ẩn bài đăng phòng trọ và lọc theo trạng thái.
+       + **Quản lý đơn**: Quản lý đơn đặt phòng, tiền cọc và tìm kiếm đối soát theo mã 5 ký tự (`userCode`, vd `382AN`).
+       + **Lịch sử**: Lịch sử thu phí hoa hồng sàn, giải ngân cọc và nhật ký tài chính.
+  2. **Tái Thiết Kế Màn Hình Admin Dashboard ([`AdminDashboardScreen`](file:///d:/homeshare/lib/features/admin/screens/admin_dashboard_screen.dart)):**
+     - **Header Quản trị**: Tiêu đề in đậm `QUẢN TRỊ ADMIN`, phụ đề `Dữ liệu tổng quan & Báo cáo tài chính`, huy hiệu Admin và chuông thông báo có chấm đỏ.
+     - **Bộ 4 Thẻ KPI Grid (2x2)**:
+       + `TỔNG DÒNG TIỀN`: Hiển thị số tiền kèm huy hiệu tăng trưởng xanh `▲ +18.4% YOY` / `+14.3%`.
+       + `DOANH THU SÀN (THỰC NHẬN)`: Số tiền xanh nổi bật `#155EEF` trên nền xanh mềm `#F5F8FF`, chú thích `Hoa hồng cọc & Phí tin`.
+       + `GIAO DỊCH THÀNH CÔNG`: Thống kê số lượt giao dịch màu cam hổ phách `#D97706`, phụ chú `99.2% khớp tự động`.
+       + `TỔNG USER TOÀN SÀN`: Số lượng người dùng, huy hiệu xanh `▲ +320 chủ trọ mới`.
+     - **Biểu Đồ Doanh Thu Tương Tác ([`RevenueLineChart`](file:///d:/homeshare/lib/features/admin/widgets/revenue_line_chart.dart) & [`RevenueBarChart`](file:///d:/homeshare/lib/features/admin/widgets/revenue_bar_chart.dart)):**
+       + Thanh chuyển chế độ Pill Switcher: `Tuần` | `Tháng` | `Năm`.
+       + **Chế độ Tuần/Tháng**: Đường cong Bézier mềm mại (`CustomPainter`) có dải màu gradient mờ dưới chân biểu đồ, điểm nút dữ liệu (T2 -> CN) có hiệu ứng phát sáng tại điểm đỉnh T7.
+       + **Chế độ Năm**: 12 cột tháng (T1 -> T12) chuẩn sắc độ xanh tăng dần, nhãn tooltip nổi `● T9: 18.5M đ (Cao nhất)`, các tháng tương lai (T10-T12) hiển thị khung nét đứt, dòng tổng kết `⚡ TB mỗi tháng: 14.020.000 đ`.
+     - **Thẻ Hành Động Khẩn Cấp ([`AdminAlertCard`](file:///d:/homeshare/lib/features/admin/widgets/admin_alert_card.dart)):**
+       + Cảnh báo `!` giải ngân cọc `#DH8821 ➔ CT0089` (Chủ trọ Đặng Thu Hà • 4.250.000 đ).
+       + Nút xanh **"Xử lý ngay"** mở Bottom Sheet xác nhận chuyển tiền đối soát tức thì.
+  3. **Tích Hợp Điểm Truy Cập Admin:**
+     - Đã gắn lối vào "Cổng Quản Trị Hệ Thống (Admin)" trong [`AccountSettingsScreen`](file:///d:/homeshare/lib/features/profile/screens/account_settings_screen.dart) và [`HomeScreen`](file:///d:/homeshare/lib/features/home/screens/home_screen.dart).
+  4. **Kiểm Thử & Đảm Bảo Chất Lượng:**
+     - Bổ sung bộ kiểm thử tự động [`test/admin_dashboard_test.dart`](file:///d:/homeshare/test/admin_dashboard_test.dart): **4/4 test cases PASSED 100%**.
+     - Toàn bộ test suite dự án: **71/71 test cases PASSED 100%**.
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62

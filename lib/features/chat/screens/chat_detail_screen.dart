@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -15,6 +16,17 @@ import '../../../core/services/chat_service.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../renter/screens/room_detail_screen.dart';
 import 'call_screen.dart';
+=======
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../data/models/chat_model.dart';
+import '../../../data/models/room_model.dart';
+import '../../../core/services/chat_service.dart';
+import '../../renter/screens/room_detail_screen.dart';
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
 /// Màn hình Chi tiết Tin nhắn & Trao đổi (Feature #10 theo chuẩn SRS CDLTDD & Tc_CHAT_01 -> 50)
 class ChatDetailScreen extends ConsumerStatefulWidget {
@@ -52,6 +64,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   bool _showPinnedRoom = true;
   bool _showScrollToBottom = false;
   bool _isRecordingAudio = false;
+<<<<<<< HEAD
   bool _receiverIsHost = false;
   RoomModel? _activeRentedRoom;
   final Set<String> _deletedForMeIds = {};
@@ -65,21 +78,32 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     final isReceiverRenter = !widget.isLandlord && !_receiverIsHost;
     return isCurrentRenter && isReceiverRenter;
   }
+=======
+  final Set<String> _deletedForMeIds = {};
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+<<<<<<< HEAD
     // Tự động đánh dấu đã đọc khi mở chi tiết cuộc trò chuyện và kiểm tra vai trò đối phương
     Future.microtask(() {
       if (mounted) {
         ref.read(chatServiceProvider).markAsRead(widget.currentUserId, widget.receiverId);
         _fetchReceiverRole();
         _fetchActiveRentedRoom();
+=======
+    // Tự động đánh dấu đã đọc khi mở chi tiết cuộc trò chuyện
+    Future.microtask(() {
+      if (mounted) {
+        ref.read(chatServiceProvider).markAsRead(widget.currentUserId, widget.receiverId);
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       }
     });
   }
 
+<<<<<<< HEAD
   Future<void> _fetchReceiverRole() async {
     try {
       final doc = await FirebaseFirestore.instance.collection('users').doc(widget.receiverId).get();
@@ -115,6 +139,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     } catch (_) {}
   }
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final show = _scrollController.offset > 150;
@@ -127,11 +153,15 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _messageController.dispose();
+<<<<<<< HEAD
     _focusNode.dispose();
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     _scrollController.dispose();
     super.dispose();
   }
 
+<<<<<<< HEAD
   void _setReplyMessage(ChatMessageModel msg) {
     setState(() {
       _replyingToMessage = msg;
@@ -162,6 +192,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     setState(() => _replyingToMessage = null);
   }
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
@@ -213,7 +245,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       text: text,
       timestamp: DateTime.now(),
       status: 'sent',
+<<<<<<< HEAD
       extraData: _replyingToMessage == null ? const {} : {'replyTo': _replyPayload()},
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     );
 
     try {
@@ -233,7 +268,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         receiverPhone: widget.receiverPhone,
         roomMetadata: roomMeta,
       );
+<<<<<<< HEAD
       _clearReply();
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       _scrollToBottom();
     } catch (e) {
       if (overrideText == null) {
@@ -254,11 +292,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     String attachmentUrl = '',
     Map<String, dynamic> extraData = const {},
   }) async {
+<<<<<<< HEAD
     final combinedExtraData = Map<String, dynamic>.from(extraData);
     if (_replyingToMessage != null) {
       combinedExtraData['replyTo'] = _replyPayload();
     }
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     final message = ChatMessageModel(
       id: '',
       senderId: widget.currentUserId,
@@ -267,7 +308,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       text: text,
       messageType: messageType,
       attachmentUrl: attachmentUrl,
+<<<<<<< HEAD
       extraData: combinedExtraData,
+=======
+      extraData: extraData,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       timestamp: DateTime.now(),
       status: 'sent',
     );
@@ -279,7 +324,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         receiverAvatar: widget.receiverAvatar,
         receiverPhone: widget.receiverPhone,
       );
+<<<<<<< HEAD
       _clearReply();
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       _scrollToBottom();
     } catch (e) {
       if (mounted) {
@@ -290,6 +338,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     }
   }
 
+<<<<<<< HEAD
   Future<void> _startOnlineCall({required bool video}) async {
     final granted = await CallPermissions.ensure(video: video);
     if (!mounted) return;
@@ -326,6 +375,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   // Hiện số điện thoại khi bấm vào số trong nội dung tin nhắn
   void _showPhoneContactDialog() {
+=======
+  // Gọi điện thoại trực tiếp (Tc_CHAT_04 & SRS 2.10)
+  void _makeAudioCall() {
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -410,6 +463,86 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
+<<<<<<< HEAD
+=======
+  // Gọi video trực tuyến (Tc_CHAT_05 & SRS 2.10)
+  void _makeVideoCall() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const CircleAvatar(
+              backgroundColor: AppColors.primaryContainer,
+              child: Icon(Icons.videocam, color: AppColors.primary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text('Cuộc gọi Video HomeShare', style: const TextStyle(fontSize: 16)),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              height: 140,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.black87,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundColor: Colors.grey.shade700,
+                    child: Text(
+                      widget.receiverName.isNotEmpty ? widget.receiverName[0] : 'U',
+                      style: const TextStyle(fontSize: 24, color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Đang kết nối tới ${widget.receiverName}...',
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Tính năng xem phòng và trò chuyện mặt đối mặt trực tuyến.',
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+            icon: const Icon(Icons.videocam, size: 18),
+            label: const Text('Kết Nối'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Đang khởi tạo kênh video bảo mật...')),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   // Menu tùy chọn ba chấm (Tc_CHAT_06 -> 08)
   void _showOptionsMenu() {
     showModalBottomSheet(
@@ -604,6 +737,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               ),
               const Text('Đính kèm phương tiện & hành động', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               const SizedBox(height: 16),
+<<<<<<< HEAD
               Wrap(
                 spacing: 12,
                 runSpacing: 10,
@@ -625,6 +759,18 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                     onTap: () {
                       Navigator.pop(ctx);
                       _pickAndSendImage(ImageSource.camera);
+=======
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildAttachOption(
+                    icon: Icons.photo_library_outlined,
+                    label: 'Gửi ảnh (1-5)',
+                    color: Colors.blue,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _sendSampleImage();
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                     },
                   ),
                   _buildAttachOption(
@@ -636,6 +782,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                       _sendLocationMessage();
                     },
                   ),
+<<<<<<< HEAD
                   // CHỈ hiển thị 'Mời ở ghép' khi cả 2 bên đều là Người dùng / Người thuê (_isUserToUser)
                   if (_isUserToUser)
                     _buildAttachOption(
@@ -647,6 +794,26 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                         _showRoommateInviteDialog();
                       },
                     ),
+=======
+                  _buildAttachOption(
+                    icon: Icons.calendar_today_outlined,
+                    label: 'Hẹn xem phòng',
+                    color: Colors.green,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _showAppointmentDialog();
+                    },
+                  ),
+                  _buildAttachOption(
+                    icon: Icons.group_add_outlined,
+                    label: 'Mời ở ghép',
+                    color: Colors.orange,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _showRoommateInviteDialog();
+                    },
+                  ),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ],
               ),
               const SizedBox(height: 12),
@@ -683,6 +850,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
+<<<<<<< HEAD
   // Chọn và gửi ảnh thật (Album hoặc Camera), đồng bộ lên Firebase để cả 2 bên đều xem được
   Future<void> _pickAndSendImage(ImageSource source) async {
     try {
@@ -758,6 +926,16 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   Future<void> _pickAndSendImageFromAlbum() => _pickAndSendImage(ImageSource.gallery);
 
+=======
+  void _sendSampleImage() {
+    _sendRichMessage(
+      text: '[Hình ảnh đính kèm]',
+      messageType: 'image',
+      attachmentUrl: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600',
+    );
+  }
+
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   void _sendLocationMessage() {
     _sendRichMessage(
       text: 'Vị trí phòng: Số 8, Đường Linh Trung, Phường Linh Trung, TP. Thủ Đức',
@@ -770,6 +948,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
+<<<<<<< HEAD
 
   void _showRoommateInviteDialog() {
     if (!_isUserToUser) {
@@ -789,6 +968,99 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     final rawPrice = targetRoom?.price ?? 3600000;
     final sharePrice = (rawPrice > 0 ? (rawPrice / 2).round() : 1800000);
 
+=======
+  void _showAppointmentDialog() {
+    DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
+    TimeOfDay selectedTime = const TimeOfDay(hour: 16, minute: 0);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.calendar_month, color: AppColors.primary),
+              SizedBox(width: 8),
+              Text('Hẹn lịch xem phòng', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Phòng: ${widget.pinnedRoom?.title ?? 'Phòng trọ cao cấp Linh Trung'}',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.date_range, color: AppColors.primary),
+                title: Text('Ngày: ${DateFormat('dd/MM/yyyy').format(selectedDate)}'),
+                trailing: const Text('Đổi', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: selectedDate,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 30)),
+                  );
+                  if (picked != null) {
+                    setDState(() => selectedDate = picked);
+                  }
+                },
+              ),
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.access_time, color: AppColors.primary),
+                title: Text('Giờ hẹn: ${selectedTime.format(context)}'),
+                trailing: const Text('Đổi', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                onTap: () async {
+                  final picked = await showTimePicker(
+                    context: context,
+                    initialTime: selectedTime,
+                  );
+                  if (picked != null) {
+                    setDState(() => selectedTime = picked);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+              onPressed: () {
+                Navigator.pop(ctx);
+                final formattedDate = DateFormat('dd/MM/yyyy').format(selectedDate);
+                final formattedTime = selectedTime.format(context);
+
+                _sendRichMessage(
+                  text: 'Lịch hẹn xem phòng vào lúc $formattedTime ngày $formattedDate',
+                  messageType: 'appointment',
+                  extraData: {
+                    'date': formattedDate,
+                    'time': formattedTime,
+                    'status': 'pending',
+                    'roomTitle': widget.pinnedRoom?.title ?? 'Phòng trọ cao cấp',
+                    'address': widget.pinnedRoom?.address ?? 'Linh Trung, TP. Thủ Đức',
+                  },
+                );
+              },
+              child: const Text('Gửi Thẻ Hẹn Lịch'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRoommateInviteDialog() {
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -807,6 +1079,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             Text('Gửi lời mời ghép phòng tới: ${widget.receiverName}'),
             const SizedBox(height: 8),
             Text(
+<<<<<<< HEAD
               'Phòng: $roomTitle',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
@@ -819,6 +1092,15 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             const Text(
               'Sau khi đối phương chấp nhận, thông báo sẽ tự động được gửi tới Chủ trọ.',
               style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontStyle: FontStyle.italic),
+=======
+              'Phòng: ${widget.pinnedRoom?.title ?? 'Căn hộ mini 2 phòng ngủ'}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Chi phí dự kiến chia sẻ: 1.800.000 đ/tháng/người',
+              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 12),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             ),
           ],
         ),
@@ -833,6 +1115,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 messageType: 'roommate_invitation',
                 extraData: {
                   'status': 'pending',
+<<<<<<< HEAD
                   'roomId': roomId,
                   'roomTitle': roomTitle,
                   'hostId': hostId,
@@ -841,6 +1124,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   'senderId': widget.currentUserId,
                   'receiverName': widget.receiverName,
                   'receiverId': widget.receiverId,
+=======
+                  'roomTitle': widget.pinnedRoom?.title ?? 'Căn hộ mini 2 phòng ngủ',
+                  'pricePerPerson': 1800000,
+                  'senderName': widget.currentUserName,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 },
               );
             },
@@ -851,6 +1139,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
+<<<<<<< HEAD
   Future<void> _acceptRoommateInvite(ChatMessageModel msg) async {
     try {
       final updatedExtraData = Map<String, dynamic>.from(msg.extraData);
@@ -1012,6 +1301,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     }
   }
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   // Ghi âm tin nhắn thoại (Tc_CHAT_34 -> 37)
   void _toggleAudioRecording() {
     setState(() => _isRecordingAudio = !_isRecordingAudio);
@@ -1050,8 +1341,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   // Menu thao tác khi nhấn giữ tin nhắn (Long Press Context Menu - TC 40, 41)
   void _showMessageContextMenu(ChatMessageModel msg, bool isMe) {
+<<<<<<< HEAD
     final isRevoked = msg.messageType == 'revoked' || msg.status == 'revoked' || _revokedIds.contains(msg.id);
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
@@ -1059,6 +1353,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+<<<<<<< HEAD
             if (!isRevoked)
               ListTile(
                 leading: const Icon(Icons.reply_rounded, color: AppColors.primary),
@@ -1115,6 +1410,19 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               leading: const Icon(Icons.delete_outline, color: Color(0xFF64748B)),
               title: const Text('Xóa ở phía tôi (Chỉ mình tôi)'),
               subtitle: const Text('Chỉ ẩn tin nhắn này trên thiết bị của bạn', style: TextStyle(fontSize: 11)),
+=======
+            ListTile(
+              leading: const Icon(Icons.copy_outlined, color: AppColors.primary),
+              title: const Text('Sao chép nội dung tin nhắn'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _copyMessage(msg.text);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: AppColors.danger),
+              title: const Text('Xóa ở phía tôi (Delete for Me)'),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               onTap: () {
                 Navigator.pop(ctx);
                 _deleteForMe(msg.id);
@@ -1126,6 +1434,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
+<<<<<<< HEAD
   // Xác nhận thu hồi tin nhắn ở cả 2 bên
   void _confirmRevokeMessage(ChatMessageModel msg) {
     showDialog(
@@ -1251,6 +1560,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final maxBubbleWidth = MediaQuery.sizeOf(context).width * 0.78;
+=======
+  @override
+  Widget build(BuildContext context) {
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     final messagesAsync = ref.watch(messagesStreamProvider(ChatParams(
       userA: widget.currentUserId,
       userB: widget.receiverId,
@@ -1419,6 +1732,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                       );
                     }
 
+<<<<<<< HEAD
                     return RepaintBoundary(
                       child: ListView.builder(
                         controller: _scrollController,
@@ -1438,6 +1752,24 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                           );
                         },
                       ),
+=======
+                    return ListView.builder(
+                      controller: _scrollController,
+                      reverse: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      addAutomaticKeepAlives: true,
+                      addRepaintBoundaries: true,
+                      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                      itemCount: messages.length,
+                      itemBuilder: (context, index) {
+                        final msg = messages[index];
+                        final isMe = msg.senderId == widget.currentUserId;
+                        return RepaintBoundary(
+                          key: ValueKey(msg.id),
+                          child: _buildMessageItem(msg, isMe),
+                        );
+                      },
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                     );
                   },
                   loading: () => const Center(child: CircularProgressIndicator()),
@@ -1446,6 +1778,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               ),
 
               // 4. Thanh câu hỏi gợi ý nhanh (Quick Action Chips - Tc_CHAT_12 -> 14 & SRS 2.10)
+<<<<<<< HEAD
               RepaintBoundary(
                 child: _buildQuickChipsBar(),
               ),
@@ -1454,6 +1787,12 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               RepaintBoundary(
                 child: _buildInputArea(),
               ),
+=======
+              _buildQuickChipsBar(),
+
+              // 5. Thanh nhập tin nhắn và đính kèm
+              _buildInputArea(),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             ],
           ),
 
@@ -1582,6 +1921,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   // Widget Thanh câu hỏi gợi ý nhanh (Tc_CHAT_12 -> 14)
   Widget _buildQuickChipsBar() {
+<<<<<<< HEAD
     final chips = _isUserToUser
         ? [
             'Chào bạn, bạn đã tìm được phòng chưa?',
@@ -1599,6 +1939,15 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 'Chào bạn, bạn cần hỗ trợ thông tin gì?',
                 'Phòng còn trống không?',
               ];
+=======
+    final chips = [
+      'Phòng này còn trống không?',
+      'Có chỗ để xe không?',
+      'Giờ giấc như thế nào?',
+      'Hẹn lịch xem phòng',
+      '+ Mời vào ở ghép',
+    ];
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
     return Container(
       height: 40,
@@ -1627,6 +1976,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             onPressed: () {
               if (isInviteChip) {
                 _showRoommateInviteDialog();
+<<<<<<< HEAD
+=======
+              } else if (chip == 'Hẹn lịch xem phòng') {
+                _showAppointmentDialog();
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               } else {
                 _sendMessage(chip);
               }
@@ -1652,11 +2006,15 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             ),
           ],
         ),
+<<<<<<< HEAD
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_replyingToMessage != null) _buildReplyBanner(),
             Row(
+=======
+        child: Row(
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           children: [
             // Nút Thêm đính kèm (+) (Tc_CHAT_29)
             IconButton(
@@ -1665,6 +2023,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               onPressed: _showAttachmentMenu,
             ),
 
+<<<<<<< HEAD
             // Nút Chọn ảnh từ Album nhanh (Tc_CHAT_30)
             IconButton(
               tooltip: 'Chọn ảnh từ Album',
@@ -1672,6 +2031,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               onPressed: _pickAndSendImageFromAlbum,
             ),
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             // Ô nhập liệu văn bản (Tc_CHAT_21, 22)
             Expanded(
               child: Semantics(
@@ -1679,7 +2040,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 textField: true,
                 child: TextField(
                   controller: _messageController,
+<<<<<<< HEAD
                   focusNode: _focusNode,
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                   maxLines: 4,
                   minLines: 1,
                   textCapitalization: TextCapitalization.sentences,
@@ -1731,6 +2095,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             ),
           ],
         ),
+<<<<<<< HEAD
           ],
         ),
       ),
@@ -1849,11 +2214,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             ),
           ),
         ],
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       ),
     );
   }
 
   // Builder cho từng loại bong bóng tin nhắn (Văn bản, Lịch hẹn, Lời mời ở ghép, Vị trí, Ảnh, Audio)
+<<<<<<< HEAD
   Widget _buildMessageItem(ChatMessageModel msg, bool isMe, [double? maxBubbleWidth]) {
     final isRevoked = msg.messageType == 'revoked' || msg.status == 'revoked' || _revokedIds.contains(msg.id);
     return Dismissible(
@@ -1869,13 +2237,21 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         child: const Icon(Icons.reply_rounded, color: AppColors.primary, size: 24),
       ),
       child: GestureDetector(
+=======
+  Widget _buildMessageItem(ChatMessageModel msg, bool isMe) {
+    return GestureDetector(
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       onLongPress: () => _showMessageContextMenu(msg, isMe),
       child: Align(
         alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
         child: Container(
           margin: const EdgeInsets.only(bottom: 8),
           constraints: BoxConstraints(
+<<<<<<< HEAD
             maxWidth: maxBubbleWidth ?? (MediaQuery.of(context).size.width * 0.78),
+=======
+            maxWidth: MediaQuery.of(context).size.width * 0.78,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           ),
           child: Column(
             crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -1922,11 +2298,15 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           ),
         ),
       ),
+<<<<<<< HEAD
     ),
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     );
   }
 
   Widget _buildMessageBubbleBody(ChatMessageModel msg, bool isMe) {
+<<<<<<< HEAD
     final isRevoked = msg.messageType == 'revoked' || msg.status == 'revoked' || _revokedIds.contains(msg.id);
 
     // 0. Tin nhắn đã được thu hồi (Xóa ở cả 2 phía)
@@ -1956,6 +2336,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       );
     }
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     // 1. Thẻ Lịch hẹn xem phòng (Appointment Card - SRS 2.10 line 1090)
     if (msg.messageType == 'appointment') {
       return Container(
@@ -2016,6 +2398,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
     // 2. Thẻ Lời mời vào ở ghép (Tc_CHAT_14 -> 20 & Figma Node: 3346:3226)
     if (msg.messageType == 'roommate_invitation') {
+<<<<<<< HEAD
       final inviteStatus = msg.extraData['status']?.toString() ?? 'pending';
       final roomTitle = msg.extraData['roomTitle']?.toString() ?? 'Căn hộ mini / Phòng trọ';
       final priceVal = msg.extraData['pricePerPerson'];
@@ -2023,11 +2406,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           ? '${NumberFormat('#,###', 'vi_VN').format(priceVal)} đ/tháng/người'
           : '1.800.000 đ/tháng/người';
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
+<<<<<<< HEAD
           border: Border.all(
             color: inviteStatus == 'accepted'
                 ? AppColors.primary
@@ -2036,6 +2422,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                     : Colors.orange.shade300,
             width: 1.5,
           ),
+=======
+          border: Border.all(color: Colors.orange.shade300, width: 1.5),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2)),
           ],
@@ -2043,6 +2432,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+<<<<<<< HEAD
             Row(
               children: [
                 Icon(
@@ -2071,10 +2461,18 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                             : Colors.orange,
                   ),
                 ),
+=======
+            const Row(
+              children: [
+                Icon(Icons.handshake, color: Colors.orange, size: 20),
+                SizedBox(width: 6),
+                Text('LỜI MỜI VÀO Ở GHÉP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.orange)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               ],
             ),
             const Divider(height: 16),
             Text(
+<<<<<<< HEAD
               roomTitle,
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
             ),
@@ -2145,6 +2543,15 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 ),
               )
             else if (!isMe)
+=======
+              msg.extraData['roomTitle'] ?? 'Căn hộ mini 2 phòng ngủ',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            const Text('Chi phí: 1.800.000 đ/tháng/người', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 10),
+            if (!isMe)
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               Row(
                 children: [
                   Expanded(
@@ -2154,7 +2561,15 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                         side: const BorderSide(color: AppColors.danger),
                         minimumSize: const Size.fromHeight(32),
                       ),
+<<<<<<< HEAD
                       onPressed: () => _rejectRoommateInvite(msg),
+=======
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Đã từ chối lời mời ở ghép')),
+                        );
+                      },
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                       child: const Text('Từ chối', style: TextStyle(fontSize: 11)),
                     ),
                   ),
@@ -2166,7 +2581,15 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                         foregroundColor: Colors.white,
                         minimumSize: const Size.fromHeight(32),
                       ),
+<<<<<<< HEAD
                       onPressed: () => _acceptRoommateInvite(msg),
+=======
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Đã chấp nhận lời mời ở ghép thành công!')),
+                        );
+                      },
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                       child: const Text('Chấp nhận', style: TextStyle(fontSize: 11)),
                     ),
                   ),
@@ -2178,7 +2601,15 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   foregroundColor: AppColors.textMuted,
                   minimumSize: const Size.fromHeight(32),
                 ),
+<<<<<<< HEAD
                 onPressed: () => _revokeRoommateInvite(msg),
+=======
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Đã thu hồi lời mời ở ghép')),
+                  );
+                },
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 child: const Text('Thu hồi lời mời', style: TextStyle(fontSize: 11)),
               ),
           ],
@@ -2288,6 +2719,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
     // 5. Thẻ Hình ảnh đính kèm (Tc_CHAT_30 -> 33)
     if (msg.messageType == 'image') {
+<<<<<<< HEAD
       Widget buildImageWidget({BoxFit fit = BoxFit.cover}) {
         final url = msg.attachmentUrl.trim();
 
@@ -2363,6 +2795,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       }
 
       final imageBox = ClipRRect(
+=======
+      return ClipRRect(
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: () {
@@ -2370,6 +2805,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             showDialog(
               context: context,
               builder: (ctx) => Dialog(
+<<<<<<< HEAD
                 backgroundColor: Colors.black87,
                 insetPadding: const EdgeInsets.all(12),
                 child: Stack(
@@ -2399,11 +2835,25 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                       ),
                     ),
                   ],
+=======
+                backgroundColor: Colors.transparent,
+                child: InteractiveViewer(
+                  child: Image.network(
+                    msg.attachmentUrl,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: Colors.black54,
+                      height: 200,
+                      child: const Center(child: Icon(Icons.broken_image, color: Colors.white, size: 48)),
+                    ),
+                  ),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
               ),
             );
           },
           child: Container(
+<<<<<<< HEAD
             constraints: const BoxConstraints(maxHeight: 220, maxWidth: 240),
             color: Colors.grey.shade100,
             child: buildImageWidget(fit: BoxFit.cover),
@@ -2438,6 +2888,20 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       }
 
       return imageBox;
+=======
+            constraints: const BoxConstraints(maxHeight: 180, maxWidth: 220),
+            color: Colors.grey.shade200,
+            child: Image.network(
+              msg.attachmentUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => const Center(
+                child: Icon(Icons.broken_image, color: Colors.grey, size: 40),
+              ),
+            ),
+          ),
+        ),
+      );
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     }
 
     // 6. Bong bóng tin nhắn văn bản thông thường (Tc_CHAT_25 & SRS 2.10 link detect)
@@ -2468,10 +2932,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       child: Column(
         crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
+<<<<<<< HEAD
           if (msg.isReply) ...[
             _buildReplyQuote(msg.replyTo!, isMe),
             const SizedBox(height: 6),
           ],
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           if (isUnread) ...[
             Container(
               margin: const EdgeInsets.only(bottom: 5),
@@ -2503,7 +2970,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           if (containsPhone) ...[
             const SizedBox(height: 6),
             InkWell(
+<<<<<<< HEAD
               onTap: _showPhoneContactDialog,
+=======
+              onTap: _makeAudioCall,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(

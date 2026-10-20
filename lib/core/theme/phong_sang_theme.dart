@@ -464,8 +464,13 @@ class PhongSangTheme {
           disabledBackgroundColor: PhongSangColors.line,
           disabledForegroundColor: PhongSangColors.muted,
           elevation: 0,
+<<<<<<< HEAD
           minimumSize: const Size(64, 44),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+=======
+          minimumSize: const Size.fromHeight(44),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           shape: shape,
           textStyle: PhongSangText.button,
         ),
@@ -475,8 +480,13 @@ class PhongSangTheme {
           backgroundColor: PhongSangColors.accent,
           foregroundColor: PhongSangColors.onAccent,
           elevation: 0,
+<<<<<<< HEAD
           minimumSize: const Size(64, 44),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+=======
+          minimumSize: const Size.fromHeight(44),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           shape: shape,
           textStyle: PhongSangText.button,
         ),
@@ -486,8 +496,13 @@ class PhongSangTheme {
           foregroundColor: PhongSangColors.ink,
           backgroundColor: PhongSangColors.card,
           side: const BorderSide(color: PhongSangColors.line),
+<<<<<<< HEAD
           minimumSize: const Size(64, 44),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+=======
+          minimumSize: const Size.fromHeight(44),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           shape: shape,
           textStyle: PhongSangText.button.copyWith(color: PhongSangColors.ink),
         ),

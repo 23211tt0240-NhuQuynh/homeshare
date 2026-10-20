@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 import 'dart:async';
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -22,6 +25,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
   String _selectedFilter = 'all'; // 'all', 'landlord', 'roommate', 'unread'
+<<<<<<< HEAD
   Timer? _searchDebounce;
 
   // Quản lý trạng thái tương tác cuộc trò chuyện: Ghim, Tắt thông báo, Xóa
@@ -32,10 +36,26 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   @override
   void dispose() {
     _searchDebounce?.cancel();
+=======
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.trim().toLowerCase();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     _searchController.dispose();
     super.dispose();
   }
 
+<<<<<<< HEAD
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 150), () {
@@ -50,6 +70,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     });
   }
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
@@ -132,6 +154,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
       }
     }
 
+<<<<<<< HEAD
     final allConversations = mergedMap.values
         .where((c) => !_deletedIds.contains(c.id))
         .toList()
@@ -142,6 +165,10 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         if (!aPinned && bPinned) return 1;
         return b.lastMessageTime.compareTo(a.lastMessageTime);
       });
+=======
+    final allConversations = mergedMap.values.toList()
+      ..sort((a, b) => b.lastMessageTime.compareTo(a.lastMessageTime));
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
     // Lọc theo tìm kiếm và tab phân loại
     final filteredConversations = allConversations.where((conv) {
@@ -159,7 +186,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
       // 2. Lọc theo danh mục tab
       if (_selectedFilter == 'landlord' && !conv.isLandlord) return false;
       if (_selectedFilter == 'roommate' && conv.isLandlord) return false;
+<<<<<<< HEAD
       if (_selectedFilter == 'unread' && conv.unreadCount <= 0 && conv.isRead) return false;
+=======
+      if (_selectedFilter == 'unread' && conv.unreadCount <= 0) return false;
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
       return true;
     }).toList();
@@ -170,6 +201,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         title: const Text('Tin nhắn & Trao đổi'),
         actions: [
           IconButton(
+<<<<<<< HEAD
             icon: const Badge(
               smallSize: 8,
               backgroundColor: AppColors.danger,
@@ -177,12 +209,22 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
             ),
             tooltip: 'Thông báo',
             onPressed: () => _showNotificationSheet(context),
+=======
+            icon: const Icon(Icons.done_all),
+            tooltip: 'Đánh dấu tất cả đã đọc',
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Đã đánh dấu tất cả tin nhắn là đã đọc')),
+              );
+            },
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           ),
         ],
       ),
       body: Column(
         children: [
           // 1. Thanh tìm kiếm hội thoại Real-time (Tc_CHAT)
+<<<<<<< HEAD
           RepaintBoundary(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -212,11 +254,36 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
+=======
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Colors.white,
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Tìm kiếm cuộc trò chuyện, phòng trọ...',
+                hintStyle: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.textMuted),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () => _searchController.clear(),
+                      )
+                    : null,
+                filled: true,
+                fillColor: const Color(0xFFF3F4F6),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               ),
             ),
           ),
 
           // 2. Thanh Filter Chips (Tất cả, Chủ trọ, Ở ghép, Chưa đọc)
+<<<<<<< HEAD
           RepaintBoundary(
             child: Container(
               color: Colors.white,
@@ -232,6 +299,21 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                   _buildFilterChip('unread', 'Chưa đọc'),
                 ],
               ),
+=======
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Row(
+              children: [
+                _buildFilterChip('all', 'Tất cả'),
+                const SizedBox(width: 8),
+                _buildFilterChip('landlord', 'Chủ trọ'),
+                const SizedBox(width: 8),
+                _buildFilterChip('roommate', 'Ở ghép'),
+                const SizedBox(width: 8),
+                _buildFilterChip('unread', 'Chưa đọc'),
+              ],
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             ),
           ),
           const Divider(height: 1),
@@ -258,9 +340,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                         OutlinedButton(
                           onPressed: () {
                             setState(() {
+<<<<<<< HEAD
                               _searchDebounce?.cancel();
                               _searchController.clear();
                               _searchQuery = '';
+=======
+                              _searchController.clear();
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                               _selectedFilter = 'all';
                             });
                           },
@@ -269,6 +355,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                       ],
                     ),
                   )
+<<<<<<< HEAD
                 : RepaintBoundary(
                     child: ListView.separated(
                       physics: const ClampingScrollPhysics(),
@@ -372,6 +459,83 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                 ),
                               ],
                             ),
+=======
+                : ListView.separated(
+                    itemCount: filteredConversations.length,
+                    separatorBuilder: (context, index) => const Divider(height: 1, indent: 76),
+                    itemBuilder: (context, index) {
+                      final item = filteredConversations[index];
+                      final isUnread = item.unreadCount > 0;
+
+                      return Material(
+                        color: isUnread ? AppColors.primaryContainer.withValues(alpha: 0.15) : Colors.transparent,
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          leading: Stack(
+                            children: [
+                              CircleAvatar(
+                                radius: 26,
+                                backgroundColor: isUnread ? AppColors.primary : AppColors.primaryContainer,
+                                child: Text(
+                                  item.partnerName.isNotEmpty ? item.partnerName[0] : 'U',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: isUnread ? Colors.white : AppColors.primary,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: Colors.green,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          title: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        item.partnerName,
+                                        style: TextStyle(
+                                          fontWeight: isUnread ? FontWeight.w800 : FontWeight.w600,
+                                          fontSize: isUnread ? 15 : 14,
+                                          color: AppColors.textDark,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (item.isLandlord) ...[
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.verified, color: AppColors.primary, size: 14),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                _formatTime(item.lastMessageTime),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isUnread ? AppColors.primary : AppColors.textMuted,
+                                  fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -398,9 +562,15 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                     child: Text(
                                       item.lastMessage,
                                       style: TextStyle(
+<<<<<<< HEAD
                                         fontSize: isUnread ? 14 : 13,
                                         color: isUnread ? const Color(0xFF0F172A) : AppColors.textMuted,
                                         fontWeight: isUnread ? FontWeight.w900 : FontWeight.normal,
+=======
+                                        fontSize: isUnread ? 13.5 : 13,
+                                        color: isUnread ? AppColors.textDark : AppColors.textMuted,
+                                        fontWeight: isUnread ? FontWeight.w800 : FontWeight.normal,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -410,6 +580,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                     Container(
                                       margin: const EdgeInsets.only(left: 8),
                                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+<<<<<<< HEAD
                                       constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
                                       alignment: Alignment.center,
                                       decoration: BoxDecoration(
@@ -418,17 +589,33 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                         boxShadow: [
                                           BoxShadow(
                                             color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+=======
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary,
+                                        borderRadius: BorderRadius.circular(10),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: AppColors.primary.withValues(alpha: 0.3),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                                             blurRadius: 4,
                                             offset: const Offset(0, 1),
                                           ),
                                         ],
                                       ),
                                       child: Text(
+<<<<<<< HEAD
                                         displayUnreadCount > 99 ? '99+' : '$displayUnreadCount',
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 11,
                                           fontWeight: FontWeight.w900,
+=======
+                                        item.unreadCount > 9 ? '9+' : '${item.unreadCount}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                                         ),
                                       ),
                                     ),
@@ -450,7 +637,10 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                           if (item.roomTitle != null && item.roomPrice != null) {
                             pinnedRoom = RoomModel(
                               id: item.roomCode ?? 'room_sample',
+<<<<<<< HEAD
                               roomCode: item.roomCode ?? '',
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                               title: item.roomTitle!,
                               description: 'Phòng trọ tiện nghi, an ninh 24/7.',
                               price: item.roomPrice!,
@@ -489,12 +679,19 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                           );
                         },
                       ),
+<<<<<<< HEAD
                     ),
                   );
                 },
                 ),
               ),
             ),
+=======
+                    );
+                  },
+                ),
+          ),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         ],
       ),
     );
@@ -537,6 +734,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
       return DateFormat('dd/MM').format(time);
     }
   }
+<<<<<<< HEAD
 
   // --- CÁC HÀM THAO TÁC HỘI THOẠI: GHIM, TẮT THÔNG BÁO, XÓA ---
   void _togglePin(String id, String name) {
@@ -1038,4 +1236,6 @@ class _SwipeableConversationItemState extends State<_SwipeableConversationItem>
       ),
     );
   }
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 }

@@ -3,8 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
+<<<<<<< HEAD
 import 'cccd_verification_screen.dart';
 import 'personal_profile_screen.dart';
+=======
+import '../../admin/screens/admin_main_screen.dart';
+import 'cccd_verification_screen.dart';
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
 class AccountSettingsScreen extends ConsumerWidget {
   const AccountSettingsScreen({super.key});
@@ -108,7 +113,10 @@ class AccountSettingsScreen extends ConsumerWidget {
     }
   }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(userProfileProvider).value;
@@ -128,12 +136,16 @@ class AccountSettingsScreen extends ConsumerWidget {
               icon: Icons.person_outline,
               title: 'Thông tin cá nhân',
               subtitle: '${profile?.displayName ?? "Người dùng"} • Mã ID: ${profile?.userCode ?? "---"}',
+<<<<<<< HEAD
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const PersonalProfileScreen()),
                 );
               },
+=======
+              onTap: () {},
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             ),
             _buildDivider(),
             _buildSettingsItem(
@@ -167,6 +179,7 @@ class AccountSettingsScreen extends ConsumerWidget {
                 );
               },
             ),
+<<<<<<< HEAD
             _buildDivider(),
             _buildSettingsItem(
               icon: Icons.shield_outlined,
@@ -187,6 +200,8 @@ class AccountSettingsScreen extends ConsumerWidget {
                 );
               },
             ),
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           ]),
 
           const SizedBox(height: 20),
@@ -231,6 +246,7 @@ class AccountSettingsScreen extends ConsumerWidget {
               title: 'Trung tâm trợ giúp & FAQ',
               onTap: () {},
             ),
+<<<<<<< HEAD
             _buildDivider(),
             _buildSettingsItem(
               icon: Icons.support_agent_outlined,
@@ -238,6 +254,8 @@ class AccountSettingsScreen extends ConsumerWidget {
               onTap: () {},
             ),
             _buildDivider(),
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             _buildSettingsItem(
               icon: Icons.description_outlined,
               title: 'Điều khoản & Chính sách bảo mật',
@@ -245,6 +263,44 @@ class AccountSettingsScreen extends ConsumerWidget {
             ),
           ]),
 
+<<<<<<< HEAD
+=======
+          const SizedBox(height: 20),
+
+          // Mục 4: QUẢN TRỊ HỆ THỐNG
+          _buildSectionHeader('QUẢN TRỊ HỆ THỐNG'),
+          _buildCardGroup([
+            _buildSettingsItem(
+              icon: Icons.admin_panel_settings_outlined,
+              title: 'Cổng Quản Trị Hệ Thống (Admin)',
+              subtitle: 'Tổng quan doanh thu, duyệt bài, giải ngân cọc',
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF155EEF),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'Admin',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AdminMainScreen(),
+                  ),
+                );
+              },
+            ),
+          ]),
+
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           const SizedBox(height: 24),
 
           // Nút Đăng xuất theo Figma
@@ -386,6 +442,7 @@ class AccountSettingsScreen extends ConsumerWidget {
           ),
     );
   }
+<<<<<<< HEAD
 
   void _showProfileDetailsBottomSheet(BuildContext context, UserProfile? profile) {
     showModalBottomSheet(
@@ -508,4 +565,6 @@ class AccountSettingsScreen extends ConsumerWidget {
       ),
     );
   }
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 }

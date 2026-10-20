@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../features/auth/providers/user_provider.dart';
 
 class AuthService {
+<<<<<<< HEAD
   static const lockedAccountMessage =
       'Tài khoản của bạn đã bị khóa. Hãy liên hệ admin để được mở lại.';
 
@@ -12,6 +13,8 @@ class AuthService {
 
   static const int statusLockedId = 2;
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -31,6 +34,7 @@ class AuthService {
         email: email.trim(),
         password: password.trim(),
       );
+<<<<<<< HEAD
       final user = credential.user;
       if (user != null) {
         final snap = await _firestore.collection('users').doc(user.uid).get();
@@ -40,15 +44,21 @@ class AuthService {
           throw lockedAccountMessage;
         }
       }
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       return credential;
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
     } catch (e) {
+<<<<<<< HEAD
       if (e == lockedAccountMessage) rethrow;
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       throw 'Đã có lỗi xảy ra: $e';
     }
   }
 
+<<<<<<< HEAD
   bool _isAccountLocked(Map<String, dynamic>? data) {
     if (data == null) return false;
     final raw = data['statusId'];
@@ -56,6 +66,8 @@ class AuthService {
     return statusId == statusLockedId;
   }
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   // Đăng ký tài khoản mới bằng Email & Mật khẩu
   Future<UserCredential> signUpWithEmail({
     required String email,
@@ -107,6 +119,7 @@ class AuthService {
     }
   }
 
+<<<<<<< HEAD
   /// Gửi link đổi mật khẩu vào email. Người dùng đặt mật khẩu mới trên trang Firebase,
   /// mật khẩu đó có hiệu lực ngay khi đăng nhập lại trên app.
   Future<void> sendPasswordResetEmail(String email) async {
@@ -129,6 +142,10 @@ class AuthService {
         'fcmToken': FieldValue.delete(),
       }, SetOptions(merge: true));
     }
+=======
+  // Đăng xuất
+  Future<void> signOut() async {
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     await _auth.signOut();
   }
 
@@ -148,10 +165,13 @@ class AuthService {
         return 'Mật khẩu quá yếu (tối thiểu 6 ký tự).';
       case 'user-disabled':
         return 'Tài khoản này đã bị khóa.';
+<<<<<<< HEAD
       case 'too-many-requests':
         return 'Bạn gửi yêu cầu quá nhiều lần. Hãy thử lại sau ít phút.';
       case 'network-request-failed':
         return 'Không có mạng. Hãy kiểm tra kết nối rồi thử lại.';
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       default:
         return e.message ?? 'Lỗi xác thực: ${e.code}';
     }

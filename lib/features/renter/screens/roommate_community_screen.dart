@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+<<<<<<< HEAD
 import '../../../core/services/favorites_service.dart';
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 import '../../../core/services/roommate_service.dart';
 import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -12,8 +15,12 @@ import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
 import 'create_roommate_post_screen.dart';
 import 'roommate_lifestyle_filter_sheet.dart';
+<<<<<<< HEAD
 import 'roommate_room_detail_screen.dart';
 import 'roommate_search_screen.dart';
+=======
+import 'roommate_post_detail_screen.dart';
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
 /// Màn hình Tìm Ở Ghép chuẩn Figma 100% (Hình 1)
 /// Tích hợp Bộ lọc Lifestyle & Ở ghép AI Match (Hình 2)
@@ -25,15 +32,24 @@ class RoommateCommunityScreen extends ConsumerStatefulWidget {
 }
 
 class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScreen> {
+<<<<<<< HEAD
   // Bộ lọc hiện tại (Mặc định: Toàn quốc, Tất cả bài đăng ở ghép)
   RoommateFilterParams _currentFilters = const RoommateFilterParams(
     district: 'Tất cả',
     targetGender: 'Tất cả',
     hasRoom: null, // Mặc định: Hiển thị tất cả bài đăng tìm ở ghép
+=======
+  // Bộ lọc hiện tại (Mặc định: Toàn quốc, Tất cả giới tính, Đã có phòng)
+  RoommateFilterParams _currentFilters = const RoommateFilterParams(
+    district: 'Tất cả',
+    targetGender: 'Tất cả',
+    hasRoom: true, // Mặc định: Đang tìm người ghép (Có phòng)
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     occupation: 'Tất cả',
     minMatchRate: 0,
   );
 
+<<<<<<< HEAD
   void _openRoommateSearch() {
     Navigator.push(
       context,
@@ -44,6 +60,15 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
         ),
       ),
     );
+=======
+  final TextEditingController _searchController = TextEditingController();
+  final Set<String> _bookmarkedPostIds = {};
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   }
 
   /// Mở Bottom Sheet "Bộ lọc Lifestyle & Ở ghép AI Match" (Hình 2)
@@ -101,11 +126,16 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
     } else if (lower.contains('thú cưng') || lower.contains('pet')) {
       return {'icon': Icons.pets_rounded, 'color': const Color(0xFFF59E0B), 'bg': const Color(0xFFFEF3C7)};
     } else if (lower.contains('dẫn bạn')) {
+<<<<<<< HEAD
       return {'icon': Icons.people_alt_rounded, 'color': AppColors.primary, 'bg': const Color(0xFFEFF6FF)};
+=======
+      return {'icon': Icons.people_alt_rounded, 'color': const Color(0xFF2563EB), 'bg': const Color(0xFFEFF6FF)};
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     }
     return {'icon': Icons.check_circle_outline, 'color': const Color(0xFF475569), 'bg': const Color(0xFFF1F5F9)};
   }
 
+<<<<<<< HEAD
   Future<void> _onToggleBookmark(RoommatePostModel post) async {
     final added = await ref.read(favoritesProvider.notifier).toggleFavoritePost(post);
     if (!mounted) return;
@@ -114,6 +144,21 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
       SnackBar(
         content: Text(added ? 'Đã lưu bài đăng vào mục yêu thích ❤️' : 'Đã bỏ lưu bài đăng khỏi yêu thích'),
         backgroundColor: added ? AppColors.primary : const Color(0xFF334155),
+=======
+  void _onToggleBookmark(String postId) {
+    setState(() {
+      if (_bookmarkedPostIds.contains(postId)) {
+        _bookmarkedPostIds.remove(postId);
+      } else {
+        _bookmarkedPostIds.add(postId);
+      }
+    });
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_bookmarkedPostIds.contains(postId) ? 'Đã lưu bài đăng vào mục yêu thích ✓' : 'Đã bỏ lưu bài đăng'),
+        backgroundColor: const Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         duration: const Duration(seconds: 1),
       ),
     );
@@ -153,11 +198,20 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
     );
   }
 
+<<<<<<< HEAD
   void _openSharedRoomDetail(RoommatePostModel post) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => RoommateRoomDetailScreen(post: post),
+=======
+  /// Mở Màn Hình Chi Tiết Bài Đăng Ở Ghép
+  void _openPostDetailModal(RoommatePostModel post) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RoommatePostDetailScreen(post: post),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       ),
     );
   }
@@ -191,27 +245,52 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
             MaterialPageRoute(builder: (_) => const CreateRoommatePostScreen()),
           );
         },
+<<<<<<< HEAD
         backgroundColor: AppColors.primary,
+=======
+        backgroundColor: const Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
         label: const Text(
           'Đăng tin ở ghép',
+<<<<<<< HEAD
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+=======
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         ),
       ),
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
+<<<<<<< HEAD
             _buildFigmaAppBar(profile),
 
+=======
+            // 1. App Bar chuẩn Figma
+            _buildFigmaAppBar(profile),
+
+            // 2. Search & Filter Bar
+            _buildSearchAndFilterBar(count),
+
+            // 3. Quick Filter Chips
+            _buildQuickFilterChips(count),
+
+            // 4. Segment Tab Switcher: "Đang tìm người ghép (Có phòng)" vs "Người cần tìm phòng ghép"
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             _buildSegmentTabSwitcher(),
 
             // 5. Danh sách bài đăng & Banner AI Matching
             Expanded(
               child: postsAsync.when(
                 data: (posts) => _buildPostsList(posts, count),
+<<<<<<< HEAD
                 loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+=======
+                loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB))),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 error: (err, _) => Center(
                   child: Padding(
                     padding: const EdgeInsets.all(20.0),
@@ -238,7 +317,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
               Container(
                 padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
+<<<<<<< HEAD
                   color: AppColors.primary,
+=======
+                  color: const Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.home_rounded, color: Colors.white, size: 20),
@@ -247,7 +330,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
               const Text(
                 'Tìm Ở Ghép',
                 style: TextStyle(
+<<<<<<< HEAD
                   fontSize: 22,
+=======
+                  fontSize: 19,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                   fontWeight: FontWeight.w800,
                   color: Color(0xFF0F172A),
                 ),
@@ -256,10 +343,14 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
           ),
           Row(
             children: [
+<<<<<<< HEAD
               IconButton(
                 icon: const Icon(Icons.search_rounded, color: Color(0xFF334155), size: 26),
                 onPressed: _openRoommateSearch,
               ),
+=======
+              // Notification Bell with Badge Dot
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               Stack(
                 alignment: Alignment.topRight,
                 children: [
@@ -297,6 +388,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
     );
   }
 
+<<<<<<< HEAD
 
   /// Segment Tab Switcher: "Tất cả" vs "Đã có phòng" vs "Cần tìm phòng"
   Widget _buildSegmentTabSwitcher() {
@@ -339,6 +431,110 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                   _currentFilters = _currentFilters.copyWith(hasRoom: false);
                 });
               },
+=======
+  /// Search & Filter Row
+  Widget _buildSearchAndFilterBar(int matchingCount) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.search_rounded, size: 20, color: Color(0xFF2563EB)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: const InputDecoration(
+                        hintText: 'Tìm người ghép theo trường học, quận...',
+                        hintStyle: TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A)),
+                      onChanged: (val) {
+                        setState(() {
+                          _currentFilters = _currentFilters.copyWith(searchQuery: val);
+                        });
+                      },
+                    ),
+                  ),
+                  if (_searchController.text.isNotEmpty)
+                    InkWell(
+                      onTap: () {
+                        _searchController.clear();
+                        setState(() {
+                          _currentFilters = _currentFilters.copyWith(searchQuery: '');
+                        });
+                      },
+                      child: const Icon(Icons.clear, size: 16, color: Color(0xFF94A3B8)),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Nút Bộ Lọc (Icon Filter Tune tròn) -> Mở Hình 2
+          InkWell(
+            onTap: () => _openLifestyleFilterSheet(matchingCount),
+            borderRadius: BorderRadius.circular(22),
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFCBD5E1)),
+              ),
+              child: const Icon(Icons.tune_rounded, size: 20, color: Color(0xFF334155)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Quick Filter Chips
+  Widget _buildQuickFilterChips(int matchingCount) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            // Chip Khu vực
+            _buildFilterPill(
+              label: _currentFilters.district == 'Tất cả' ? 'Khu vực: Toàn quốc' : 'Khu vực: ${_currentFilters.district}',
+              hasDropdown: true,
+              isSelected: _currentFilters.district != 'Tất cả',
+              onTap: () => _openLifestyleFilterSheet(matchingCount),
+            ),
+            const SizedBox(width: 8),
+            // Chip Giới tính
+            _buildFilterPill(
+              label: 'Giới tính: ${_currentFilters.targetGender}',
+              hasDropdown: true,
+              isSelected: _currentFilters.targetGender != 'Tất cả',
+              onTap: () => _openLifestyleFilterSheet(matchingCount),
+            ),
+            const SizedBox(width: 8),
+            // Chip Ngân sách
+            _buildFilterPill(
+              label: 'Ngân sách...',
+              hasDropdown: false,
+              isSelected: _currentFilters.budgetMin != null,
+              onTap: () => _openLifestyleFilterSheet(matchingCount),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             ),
           ],
         ),
@@ -346,6 +542,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
     );
   }
 
+<<<<<<< HEAD
   Widget _buildTabItem({
     required String title,
     required bool isSelected,
@@ -381,6 +578,127 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
             ),
             maxLines: 1,
           ),
+=======
+  Widget _buildFilterPill({
+    required String label,
+    required bool hasDropdown,
+    bool isSelected = false,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF2563EB) : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? Colors.white : const Color(0xFF334155),
+              ),
+            ),
+            if (hasDropdown) ...[
+              const SizedBox(width: 4),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 16,
+                color: isSelected ? Colors.white : const Color(0xFF64748B),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Segment Tab Switcher: "Đang tìm người ghép (Có phòng)" vs "Người cần tìm phòng ghép"
+  Widget _buildSegmentTabSwitcher() {
+    final isHasRoom = _currentFilters.hasRoom == true;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    _currentFilters = _currentFilters.copyWith(hasRoom: true);
+                  });
+                },
+                borderRadius: BorderRadius.circular(9),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isHasRoom ? Colors.white : Colors.transparent,
+                    borderRadius: BorderRadius.circular(9),
+                    boxShadow: isHasRoom
+                        ? [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 1))]
+                        : null,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'Đang tìm người ghép (Có phòng)',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: isHasRoom ? FontWeight.bold : FontWeight.w500,
+                      color: isHasRoom ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    _currentFilters = _currentFilters.copyWith(hasRoom: false);
+                  });
+                },
+                borderRadius: BorderRadius.circular(9),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: !isHasRoom ? Colors.white : Colors.transparent,
+                    borderRadius: BorderRadius.circular(9),
+                    boxShadow: !isHasRoom
+                        ? [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 1))]
+                        : null,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'Người cần tìm phòng ghép',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: !isHasRoom ? FontWeight.bold : FontWeight.w500,
+                      color: !isHasRoom ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ),
+          ],
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         ),
       ),
     );
@@ -392,7 +710,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       children: [
         // Banner AI Matching
+<<<<<<< HEAD
         _buildAiMatchBanner(matchingCount, posts.any((post) => post.matchRate >= 0)),
+=======
+        _buildAiMatchBanner(matchingCount),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
         const SizedBox(height: 12),
 
@@ -409,7 +731,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                   const Text(
                     'Chưa có bài đăng nào',
                     style: TextStyle(
+<<<<<<< HEAD
                       fontSize: 17,
+=======
+                      fontSize: 15,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF334155),
                     ),
@@ -417,7 +743,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                   const SizedBox(height: 4),
                   Text(
                     'Hãy là người đầu tiên đăng tin tìm bạn ở ghép!',
+<<<<<<< HEAD
                     style: TextStyle(fontSize: 14.5, color: Colors.grey.shade500),
+=======
+                    style: TextStyle(fontSize: 12.5, color: Colors.grey.shade500),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                   ),
                 ],
               ),
@@ -435,7 +765,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
   }
 
   /// Banner Gợi ý AI Lifestyle Matching
+<<<<<<< HEAD
   Widget _buildAiMatchBanner(int matchingCount, bool hasPersonalMatch) {
+=======
+  Widget _buildAiMatchBanner(int matchingCount) {
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     return InkWell(
       onTap: () => _openLifestyleFilterSheet(matchingCount),
       borderRadius: BorderRadius.circular(14),
@@ -452,12 +786,17 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
               width: 38,
               height: 38,
               decoration: const BoxDecoration(
+<<<<<<< HEAD
                 color: AppColors.primary,
+=======
+                color: Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 12),
+<<<<<<< HEAD
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -466,10 +805,21 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                     'Độ tương thích lối sống',
                     style: TextStyle(
                       fontSize: 15.5,
+=======
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Độ tương thích lối sống',
+                    style: TextStyle(
+                      fontSize: 13.5,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF1E3A8A),
                     ),
                   ),
+<<<<<<< HEAD
                   const SizedBox(height: 2),
                   Text(
                     hasPersonalMatch
@@ -478,13 +828,25 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                     style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.primary,
+=======
+                  SizedBox(height: 2),
+                  Text(
+                    'Hệ thống gợi ý bạn cùng phòng hợp gu 94%',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: Color(0xFF3B82F6),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
             ),
+<<<<<<< HEAD
             const Icon(Icons.chevron_right_rounded, color: AppColors.primary, size: 22),
+=======
+            const Icon(Icons.chevron_right_rounded, color: Color(0xFF2563EB), size: 22),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           ],
         ),
       ),
@@ -494,7 +856,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
   /// Thẻ Bài Đăng Chuẩn Figma 100% (Khớp thiết kế ảnh người dùng)
   Widget _buildPostCard(RoommatePostModel post) {
     final currencyFmt = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
+<<<<<<< HEAD
     final isBookmarked = ref.watch(favoritesProvider).favoritePostIds.contains(post.id);
+=======
+    final isBookmarked = _bookmarkedPostIds.contains(post.id);
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
     // Format giá hiển thị
     String priceText;
@@ -507,7 +873,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
     }
 
     return InkWell(
+<<<<<<< HEAD
       onTap: () => _openSharedRoomDetail(post),
+=======
+      onTap: () => _openPostDetailModal(post),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       borderRadius: BorderRadius.circular(18),
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
@@ -553,7 +923,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                     Text(
                       post.hasRoom ? 'Đã có phòng sẵn' : 'Chưa có phòng',
                       style: TextStyle(
+<<<<<<< HEAD
                         fontSize: 13,
+=======
+                        fontSize: 11.5,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                         fontWeight: FontWeight.w700,
                         color: post.hasRoom ? const Color(0xFF0369A1) : const Color(0xFFC2410C),
                       ),
@@ -561,11 +935,14 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                   ],
                 ),
               ),
+<<<<<<< HEAD
               if (post.matchRate >= 0)
                 Text(
                   '${post.matchRate}% hợp',
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
                 ),
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
               // Thời gian
               Row(
@@ -575,7 +952,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                   Text(
                     _formatTimeAgo(post.createdAt),
                     style: const TextStyle(
+<<<<<<< HEAD
                       fontSize: 13.5,
+=======
+                      fontSize: 12,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                       fontWeight: FontWeight.w500,
                       color: Color(0xFF64748B),
                     ),
@@ -591,9 +972,13 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+<<<<<<< HEAD
               GestureDetector(
                 onTap: () => _openSharedRoomDetail(post),
                 child: Stack(
+=======
+              Stack(
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 clipBehavior: Clip.none,
                 children: [
                   CircleAvatar(
@@ -610,7 +995,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
+<<<<<<< HEAD
                               color: AppColors.primary,
+=======
+                              color: Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                             ),
                           )
                         : null,
@@ -629,7 +1018,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                           width: 17,
                           height: 17,
                           decoration: const BoxDecoration(
+<<<<<<< HEAD
                             color: AppColors.primary,
+=======
+                            color: Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.check, size: 11, color: Colors.white),
@@ -638,6 +1031,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                     ),
                 ],
               ),
+<<<<<<< HEAD
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -648,12 +1042,24 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                     onTap: () => _openSharedRoomDetail(post),
                     behavior: HitTestBehavior.opaque,
                     child: RichText(
+=======
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                       text: TextSpan(
                         children: [
                           TextSpan(
                             text: post.authorName,
                             style: const TextStyle(
+<<<<<<< HEAD
                               fontSize: 18,
+=======
+                              fontSize: 16,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                               fontWeight: FontWeight.w800,
                               color: Color(0xFF0F172A),
                             ),
@@ -661,7 +1067,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                           TextSpan(
                             text: ' • ${post.authorAge} tuổi',
                             style: const TextStyle(
+<<<<<<< HEAD
                               fontSize: 15,
+=======
+                              fontSize: 13,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                               fontWeight: FontWeight.w500,
                               color: Color(0xFF64748B),
                             ),
@@ -669,25 +1079,40 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                         ],
                       ),
                     ),
+<<<<<<< HEAD
                   ),
                   const SizedBox(height: 3),
                   Row(
+=======
+                    const SizedBox(height: 3),
+                    Row(
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                       children: [
                         Icon(
                           post.authorOccupation.contains('SV') || post.authorOccupation.contains('Sinh viên')
                               ? Icons.school_outlined
                               : Icons.work_outline_rounded,
                           size: 15,
+<<<<<<< HEAD
                           color: AppColors.primary,
+=======
+                          color: const Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                         ),
                         const SizedBox(width: 5),
                         Expanded(
                           child: Text(
                             post.authorOccupation,
                             style: const TextStyle(
+<<<<<<< HEAD
                               fontSize: 14.5,
                               fontWeight: FontWeight.w600,
                               color: AppColors.primary,
+=======
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -697,14 +1122,22 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                     ),
                   ],
                 ),
+<<<<<<< HEAD
             ),
               // Nút Yêu thích / Bookmark tròn bên phải
               InkWell(
                 onTap: () => _onToggleBookmark(post),
+=======
+              ),
+              // Nút Bookmark tròn bên phải
+              InkWell(
+                onTap: () => _onToggleBookmark(post.id),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
                   width: 38,
                   height: 38,
+<<<<<<< HEAD
                   decoration: BoxDecoration(
                     color: isBookmarked ? const Color(0xFFFEE2E2) : const Color(0xFFF1F5F9),
                     shape: BoxShape.circle,
@@ -712,6 +1145,15 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                   child: Icon(
                     isBookmarked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                     color: isBookmarked ? const Color(0xFFEF4444) : const Color(0xFF64748B),
+=======
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF1F5F9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                    color: isBookmarked ? const Color(0xFF2563EB) : const Color(0xFF475569),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                     size: 20,
                   ),
                 ),
@@ -735,7 +1177,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                 Text(
                   post.title,
                   style: const TextStyle(
+<<<<<<< HEAD
                     fontSize: 17,
+=======
+                    fontSize: 15,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF0F172A),
                     height: 1.35,
@@ -748,15 +1194,25 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                       TextSpan(
                         text: priceText,
                         style: const TextStyle(
+<<<<<<< HEAD
                           fontSize: 19,
                           fontWeight: FontWeight.w800,
                           color: AppColors.primary,
+=======
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                         ),
                       ),
                       TextSpan(
                         text: post.hasRoom ? ' /người/tháng' : ' /tháng',
                         style: const TextStyle(
+<<<<<<< HEAD
                           fontSize: 14,
+=======
+                          fontSize: 12.5,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF64748B),
                         ),
@@ -777,7 +1233,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                       child: Text(
                         post.address,
                         style: const TextStyle(
+<<<<<<< HEAD
                           fontSize: 14,
+=======
+                          fontSize: 12.5,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF475569),
                           height: 1.25,
@@ -793,6 +1253,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
           // 4. Hàng 2 ảnh căn phòng có nhãn chú thích
           _buildPhotosRow(post),
 
+<<<<<<< HEAD
           // 5. Tiêu chí sinh hoạt (Lifestyle tags chuẩn Figma)
           if (post.habits.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -836,6 +1297,54 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
               }).toList(),
             ),
           ],
+=======
+          const SizedBox(height: 12),
+
+          // 5. Tiêu chí sinh hoạt (Lifestyle tags chuẩn Figma)
+          Text(
+            post.hasRoom ? 'TIÊU CHÍ SINH HOẠT:' : 'LỐI SỐNG & THÓI QUEN:',
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.3,
+              color: Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: (post.habits.isNotEmpty
+                    ? post.habits
+                    : ['Không hút thuốc', 'Yên tĩnh sau 23h', 'Sạch sẽ ngăn nắp', 'Thân thiện vui vẻ'])
+                .take(4)
+                .map((h) {
+              final visual = _getHabitVisual(h);
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(visual['icon'] as IconData, size: 14, color: visual['color'] as Color),
+                    const SizedBox(width: 5),
+                    Text(
+                      h,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
           const SizedBox(height: 14),
 
@@ -851,10 +1360,17 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                     icon: const Icon(Icons.chat_bubble_outline, size: 17),
                     label: const Text(
                       'Nhắn tin trao đổi',
+<<<<<<< HEAD
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
+=======
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -868,7 +1384,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                 child: SizedBox(
                   height: 44,
                   child: ElevatedButton(
+<<<<<<< HEAD
                     onPressed: () => _openSharedRoomDetail(post),
+=======
+                    onPressed: () => _openPostDetailModal(post),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFEFF6FF),
                       foregroundColor: const Color(0xFF0F172A),
@@ -877,7 +1397,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                     ),
                     child: Text(
                       post.hasRoom ? 'Xem hồ sơ' : 'Xem chi tiết',
+<<<<<<< HEAD
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+=======
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                     ),
                   ),
                 ),
@@ -892,7 +1416,17 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
 
   /// Hiển thị 2 ảnh song song có chú thích chuẩn Figma
   Widget _buildPhotosRow(RoommatePostModel post) {
+<<<<<<< HEAD
     final images = post.images;
+=======
+    List<String> images = post.images;
+    if (images.isEmpty && post.hasRoom) {
+      images = [
+        'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600',
+        'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=600',
+      ];
+    }
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     if (images.isEmpty) return const SizedBox.shrink();
 
     final captions = post.imageCaptions;
@@ -945,7 +1479,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                   caption,
                   style: const TextStyle(
                     color: Colors.white,
+<<<<<<< HEAD
                     fontSize: 12,
+=======
+                    fontSize: 10.5,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -957,7 +1495,10 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
   }
 
   Widget _buildRoomImage(String imgUrl) {
+<<<<<<< HEAD
     imgUrl = imgUrl.trim();
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     if (imgUrl.isEmpty) {
       return Container(
         color: const Color(0xFFF1F5F9),
@@ -1034,12 +1575,20 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
               children: [
                 Text(
                   'Chưa tìm được bạn ghép ưng ý?',
+<<<<<<< HEAD
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5, color: Color(0xFF0F172A)),
+=======
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
                 SizedBox(height: 3),
                 Text(
                   'Tạo bài tìm người ghép miễn phí trong 1 phút',
+<<<<<<< HEAD
                   style: TextStyle(fontSize: 13.5, color: Color(0xFF64748B)),
+=======
+                  style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
               ],
             ),
@@ -1058,7 +1607,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
+<<<<<<< HEAD
             child: const Text('Đăng ngay', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+=======
+            child: const Text('Đăng ngay', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           ),
         ],
       ),

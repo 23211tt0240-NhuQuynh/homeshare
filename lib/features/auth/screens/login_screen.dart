@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+<<<<<<< HEAD
 import '../../../core/services/auth_service.dart';
 import '../../../core/theme/phong_sang_theme.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_form_card.dart';
 import 'forgot_password_screen.dart';
+=======
+import '../providers/auth_provider.dart';
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 import 'register_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -17,18 +21,25 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
+<<<<<<< HEAD
   static const _gmailSuffix = '@gmail.com';
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _emailController;
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
+<<<<<<< HEAD
   String? _lockNotice;
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
   @override
   void initState() {
     super.initState();
+<<<<<<< HEAD
     _emailController = TextEditingController(text: _gmailLocalPart(widget.initialEmail ?? ''));
     final pending = AuthService.pendingLockNotice;
     if (pending != null) {
@@ -36,6 +47,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       AuthService.pendingLockNotice = null;
       WidgetsBinding.instance.addPostFrameCallback((_) => _showLockDialog());
     }
+=======
+    _emailController = TextEditingController(text: widget.initialEmail ?? '');
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   }
 
   @override
@@ -53,7 +67,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final authService = ref.read(authServiceProvider);
       await authService.signInWithEmail(
+<<<<<<< HEAD
         email: _fullGmail(_emailController.text),
+=======
+        email: _emailController.text,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         password: _passwordController.text,
       );
 
@@ -66,6 +84,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
     } catch (e) {
+<<<<<<< HEAD
       if (!mounted) return;
       final message = e.toString();
       if (message == AuthService.lockedAccountMessage) {
@@ -80,6 +99,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           backgroundColor: AppColors.danger,
         ),
       );
+=======
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -87,6 +116,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+<<<<<<< HEAD
   Future<void> _showLockDialog() async {
     if (!mounted) return;
     await showDialog<void>(
@@ -105,6 +135,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -119,6 +151,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+<<<<<<< HEAD
                   Center(
                     child: Container(
                       width: 76,
@@ -272,6 +305,155 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text('Chưa có tài khoản? ', style: PhongSangText.body.copyWith(fontSize: 16)),
+=======
+                  // App Brand Logo with Emerald Accent
+                  Center(
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryContainer,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(
+                        Icons.home_work_rounded,
+                        size: 44,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'HomeShare',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Đăng nhập để tìm phòng & kết nối ở ghép',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 36),
+
+                  // Email Input
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      hintText: 'vidu@email.com',
+                      prefixIcon: Icon(Icons.email_outlined, color: AppColors.textMuted),
+                    ),
+                    validator: (val) {
+                      if (val == null || val.trim().isEmpty) {
+                        return 'Vui lòng nhập email';
+                      }
+                      if (!val.contains('@') || !val.contains('.')) {
+                        return 'Email không hợp lệ';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Password Input
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    decoration: InputDecoration(
+                      labelText: 'Mật khẩu',
+                      prefixIcon: const Icon(Icons.lock_outline, color: AppColors.textMuted),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          color: AppColors.textMuted,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
+                    ),
+                    validator: (val) {
+                      if (val == null || val.trim().isEmpty) {
+                        return 'Vui lòng nhập mật khẩu';
+                      }
+                      if (val.length < 6) {
+                        return 'Mật khẩu tối thiểu 6 ký tự';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Quên mật khẩu
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {},
+                      child: const Text(
+                        'Quên mật khẩu?',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Login Button
+                  SizedBox(
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _handleLogin,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Đăng Nhập',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Điều hướng sang Đăng ký
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Chưa có tài khoản? ',
+                        style: TextStyle(color: AppColors.textMuted),
+                      ),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                       GestureDetector(
                         onTap: () async {
                           final registeredEmail = await Navigator.push<String>(
@@ -282,14 +464,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           );
                           if (registeredEmail != null && registeredEmail.isNotEmpty && mounted) {
                             setState(() {
+<<<<<<< HEAD
                               _emailController.text = _gmailLocalPart(registeredEmail);
+=======
+                              _emailController.text = registeredEmail;
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                               _passwordController.clear();
                             });
                           }
                         },
+<<<<<<< HEAD
                         child: Text(
                           'Đăng ký ngay',
                           style: PhongSangText.label(color: PhongSangColors.accent, fontSize: 16),
+=======
+                        child: const Text(
+                          'Đăng ký ngay',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                         ),
                       ),
                     ],
@@ -302,6 +497,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
     );
   }
+<<<<<<< HEAD
 
   String _gmailLocalPart(String raw) {
     var value = raw.trim();
@@ -321,4 +517,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
     return null;
   }
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 }

@@ -32,7 +32,10 @@ class VietQRHelper {
     required String addInfo,
     String accountNo = defaultAccountNo,
     String bankBin = defaultBankBin,
+<<<<<<< HEAD
     String accountName = defaultAccountName,
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   }) {
     // 00: Payload Format Indicator (01)
     final f00 = _formatTlv('00', '01');
@@ -61,7 +64,11 @@ class VietQRHelper {
     final f58 = _formatTlv('58', 'VN');
 
     // 59: Merchant Name (Tên chủ tài khoản - Bắt buộc theo EMVCo/Napas, tối đa 25 ký tự)
+<<<<<<< HEAD
     final cleanMerchantName = _removeDiacritics(accountName).toUpperCase();
+=======
+    final cleanMerchantName = _removeDiacritics(defaultAccountName).toUpperCase();
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     final f59 = _formatTlv('59', cleanMerchantName.length > 25 ? cleanMerchantName.substring(0, 25) : cleanMerchantName);
 
     // 60: Merchant City (Thành phố - Bắt buộc theo EMVCo/Napas, tối đa 15 ký tự)

@@ -43,6 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+<<<<<<< HEAD
 /android/build/
 
 # IDE & temporary extraction files
@@ -51,3 +52,5 @@ db_docx_extracted/
 srs_docx_extracted/
 temp_docx/
 temp_docx_text.txt
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62

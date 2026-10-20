@@ -6,12 +6,16 @@
 
 #include "generated_plugin_registrant.h"
 
+<<<<<<< HEAD
 #include <agora_rtc_engine/agora_rtc_engine_plugin.h>
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 #include <cloud_firestore/cloud_firestore_plugin_c_api.h>
 #include <file_selector_windows/file_selector_windows.h>
 #include <firebase_auth/firebase_auth_plugin_c_api.h>
 #include <firebase_core/firebase_core_plugin_c_api.h>
 #include <firebase_storage/firebase_storage_plugin_c_api.h>
+<<<<<<< HEAD
 #include <iris_method_channel/iris_method_channel_plugin_c_api.h>
 #include <permission_handler_windows/permission_handler_windows_plugin.h>
 #include <printing/printing_plugin.h>
@@ -20,6 +24,10 @@
 void RegisterPlugins(flutter::PluginRegistry* registry) {
   AgoraRtcEnginePluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("AgoraRtcEnginePlugin"));
+=======
+
+void RegisterPlugins(flutter::PluginRegistry* registry) {
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   CloudFirestorePluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("CloudFirestorePluginCApi"));
   FileSelectorWindowsRegisterWithRegistrar(
@@ -30,6 +38,7 @@ void RegisterPlugins(flutter::PluginRegistry* registry) {
       registry->GetRegistrarForPlugin("FirebaseCorePluginCApi"));
   FirebaseStoragePluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("FirebaseStoragePluginCApi"));
+<<<<<<< HEAD
   IrisMethodChannelPluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("IrisMethodChannelPluginCApi"));
   PermissionHandlerWindowsPluginRegisterWithRegistrar(
@@ -38,4 +47,6 @@ void RegisterPlugins(flutter::PluginRegistry* registry) {
       registry->GetRegistrarForPlugin("PrintingPlugin"));
   UrlLauncherWindowsRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("UrlLauncherWindows"));
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 }

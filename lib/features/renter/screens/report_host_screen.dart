@@ -206,6 +206,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: Colors.grey.shade200),
               ),
+<<<<<<< HEAD
               child: RadioGroup<String>(
                 groupValue: _selectedReason,
                 onChanged: (val) {
@@ -229,6 +230,29 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                     );
                   }).toList(),
                 ),
+=======
+              child: Column(
+                children: _reportReasons.map((reason) {
+                  return RadioListTile<String>(
+                    value: reason,
+                    groupValue: _selectedReason,
+                    onChanged: (val) {
+                      if (val != null) setState(() => _selectedReason = val);
+                    },
+                    title: Text(
+                      reason,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: _selectedReason == reason ? FontWeight.bold : FontWeight.normal,
+                        color: _selectedReason == reason ? AppColors.textDark : AppColors.textSecondary,
+                      ),
+                    ),
+                    activeColor: AppColors.primary,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    visualDensity: VisualDensity.compact,
+                  );
+                }).toList(),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               ),
             ),
 

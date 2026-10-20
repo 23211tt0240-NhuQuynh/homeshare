@@ -2,7 +2,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+<<<<<<< HEAD
 import 'package:image_picker/image_picker.dart';
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -312,6 +315,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
     }
   }
 
+<<<<<<< HEAD
   Future<void> _scanFromGalleryImage() async {
     if (_isProcessing) return;
     try {
@@ -390,6 +394,8 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
     }
   }
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   // Hộp thoại dán hoặc nhập chuỗi QR thật (phòng khi phòng tối hoặc đèn trần phản chiếu)
   void _pasteRawQrDialog() {
     final textController = TextEditingController();
@@ -989,18 +995,25 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
                           onPressed: () => _scannerController.switchCamera(),
                         ),
 
+<<<<<<< HEAD
                         IconButton(
                           icon: const Icon(Icons.photo_library_outlined, color: Colors.white, size: 24),
                           tooltip: 'Quét từ ảnh thư viện',
                           onPressed: _scanFromGalleryImage,
                         ),
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                         // Nút Nhập / Dán Chuỗi QR Thật
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.white,
                             side: const BorderSide(color: Colors.white38),
+<<<<<<< HEAD
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+=======
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                           ),
                           icon: const Icon(Icons.paste_rounded, size: 18, color: Colors.amber),
@@ -1013,7 +1026,11 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white24,
                             foregroundColor: Colors.white,
+<<<<<<< HEAD
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+=======
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                           ),
                           icon: const Icon(Icons.qr_code_scanner, size: 18),

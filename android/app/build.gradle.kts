@@ -12,8 +12,11 @@ android {
 
 
     compileOptions {
+<<<<<<< HEAD
         // flutter_local_notifications dùng API Java mới trên máy Android cũ.
         isCoreLibraryDesugaringEnabled = true
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -47,7 +50,10 @@ kotlin {
 flutter {
     source = "../.."
 }
+<<<<<<< HEAD
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62

@@ -3,12 +3,16 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+<<<<<<< HEAD
   agora_rtc_engine
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   cloud_firestore
   file_selector_windows
   firebase_auth
   firebase_core
   firebase_storage
+<<<<<<< HEAD
   iris_method_channel
   permission_handler_windows
   printing
@@ -17,6 +21,11 @@ list(APPEND FLUTTER_PLUGIN_LIST
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
   flutter_local_notifications_windows
+=======
+)
+
+list(APPEND FLUTTER_FFI_PLUGIN_LIST
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   jni
 )
 

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+<<<<<<< HEAD
 import '../../../core/theme/phong_sang_theme.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_form_card.dart';
+=======
+import '../providers/auth_provider.dart';
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
 /// Màn hình Đăng Ký Tài Khoản HomeShare (Hỗ trợ 2 Role: Người thuê & Chủ trọ)
 /// Theo chuẩn Moodboard Phòng Sáng (phong_sang_theme.dart)
@@ -15,8 +19,11 @@ class RegisterScreen extends ConsumerStatefulWidget {
 }
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+<<<<<<< HEAD
   static const _gmailSuffix = '@gmail.com';
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -60,7 +67,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     try {
       final authService = ref.read(authServiceProvider);
       await authService.signUpWithEmail(
+<<<<<<< HEAD
         email: _fullGmail(_emailController.text),
+=======
+        email: _emailController.text.trim(),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         password: _passwordController.text.trim(),
         displayName: _nameController.text.trim(),
         phoneNumber: _phoneController.text.trim(),
@@ -82,7 +93,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         );
 
         // Quay trở lại màn hình Đăng nhập và truyền email vừa tạo để điền sẵn
+<<<<<<< HEAD
         Navigator.pop(context, _fullGmail(_emailController.text));
+=======
+        Navigator.pop(context, _emailController.text.trim());
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       }
     } catch (e) {
       if (mounted) {
@@ -106,7 +121,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+<<<<<<< HEAD
         title: Text('Đăng ký tài khoản', style: PhongSangText.roomName.copyWith(fontSize: 20)),
+=======
+        title: const Text(
+          'Đăng Ký Tài Khoản',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
@@ -123,9 +149,40 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+<<<<<<< HEAD
                 Text(
                   'BẠN THAM GIA VỚI VAI TRÒ NÀO?',
                   style: PhongSangText.label(color: AppColors.textMuted, fontSize: 14),
+=======
+                // Header giới thiệu
+                const Text(
+                  'Chào mừng bạn đến với HomeShare',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Chọn vai trò của bạn và hoàn tất thông tin để bắt đầu.',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // 1. CHỌN ROLE (2 Role: Người thuê & Chủ trọ)
+                const Text(
+                  'BẠN THAM GIA VỚI VAI TRÒ NÀO?',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                    color: AppColors.textMuted,
+                  ),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
                 const SizedBox(height: 10),
                 Row(
@@ -152,11 +209,33 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 24),
 
                 // 2. KHUNG ĐIỀN THÔNG TIN TÀI KHOẢN
+<<<<<<< HEAD
                 AuthFormCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       AuthTextField(
+=======
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Họ và tên
+                      _buildInputField(
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                         controller: _nameController,
                         label: 'Họ và tên *',
                         hint: 'Ví dụ: Nguyễn Văn An',
@@ -171,6 +250,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       const SizedBox(height: 16),
 
                       // Email
+<<<<<<< HEAD
                       AuthTextField(
                         controller: _emailController,
                         label: 'Email *',
@@ -189,11 +269,32 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ),
                         ),
                         validator: _validateGmailLocal,
+=======
+                      _buildInputField(
+                        controller: _emailController,
+                        label: 'Email *',
+                        hint: 'an.nguyen@example.com',
+                        icon: Icons.email_outlined,
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return 'Vui lòng nhập email';
+                          }
+                          if (!val.contains('@') || !val.contains('.')) {
+                            return 'Email không hợp lệ';
+                          }
+                          return null;
+                        },
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                       ),
                       const SizedBox(height: 16),
 
                       // Số điện thoại
+<<<<<<< HEAD
                       AuthTextField(
+=======
+                      _buildInputField(
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                         controller: _phoneController,
                         label: 'Số điện thoại *',
                         hint: '0901234567',
@@ -213,7 +314,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       const SizedBox(height: 16),
 
                       // Mật khẩu
+<<<<<<< HEAD
                       AuthTextField(
+=======
+                      _buildInputField(
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                         controller: _passwordController,
                         label: 'Mật khẩu *',
                         hint: 'Tối thiểu 6 ký tự',
@@ -240,7 +345,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       const SizedBox(height: 16),
 
                       // Xác nhận mật khẩu
+<<<<<<< HEAD
                       AuthTextField(
+=======
+                      _buildInputField(
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                         controller: _confirmPasswordController,
                         label: 'Xác nhận mật khẩu *',
                         hint: 'Nhập lại mật khẩu vừa tạo',
@@ -261,6 +370,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           return null;
                         },
                       ),
+<<<<<<< HEAD
                       const SizedBox(height: 18),
                       InkWell(
                         onTap: () => setState(() => _agreeToTerms = !_agreeToTerms),
@@ -288,6 +398,39 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             ),
                           ],
                         ),
+=======
+                      const SizedBox(height: 16),
+
+                      // Điều khoản & Chính sách
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Checkbox(
+                              value: _agreeToTerms,
+                              activeColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              onChanged: (val) => setState(() => _agreeToTerms = val ?? false),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => setState(() => _agreeToTerms = !_agreeToTerms),
+                              child: const Text(
+                                'Tôi đồng ý với Điều khoản dịch vụ và Chính sách quyền riêng tư của HomeShare.',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: AppColors.textMuted,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                       ),
                     ],
                   ),
@@ -296,7 +439,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
                 // 3. NÚT ĐĂNG KÝ
                 SizedBox(
+<<<<<<< HEAD
                   height: 56,
+=======
+                  height: 50,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleRegister,
                     style: ElevatedButton.styleFrom(
@@ -317,8 +464,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             ),
                           )
                         : Text(
+<<<<<<< HEAD
                             'Đăng ký tài khoản (${_selectedRole == 'host' ? 'Chủ trọ' : 'Người thuê'})',
                             style: PhongSangText.button.copyWith(fontSize: 17),
+=======
+                            'Đăng Ký Tài Khoản (${_selectedRole == 'host' ? 'Chủ Trọ' : 'Người Thuê'})',
+                            style: const TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                           ),
                   ),
                 ),
@@ -328,12 +483,31 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+<<<<<<< HEAD
                     Text('Đã có tài khoản? ', style: PhongSangText.body.copyWith(fontSize: 16)),
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
                       child: Text(
                         'Đăng nhập ngay',
                         style: PhongSangText.label(color: PhongSangColors.accent, fontSize: 16),
+=======
+                    const Text(
+                      'Đã có tài khoản? ',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: const Text(
+                        'Đăng nhập ngay',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                       ),
                     ),
                   ],
@@ -347,6 +521,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     );
   }
 
+<<<<<<< HEAD
   String _gmailLocalPart(String raw) {
     var value = raw.trim();
     if (value.toLowerCase().endsWith(_gmailSuffix)) {
@@ -366,6 +541,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     return null;
   }
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   // Thẻ lựa chọn Role trực quan (Người thuê / Chủ trọ)
   Widget _buildRoleCard({
     required String role,
@@ -380,7 +557,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       borderRadius: BorderRadius.circular(14),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
+<<<<<<< HEAD
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+=======
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primaryContainer.withValues(alpha: 0.3) : Colors.white,
           borderRadius: BorderRadius.circular(14),
@@ -427,7 +608,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             Text(
               title,
               style: TextStyle(
+<<<<<<< HEAD
                 fontSize: 17,
+=======
+                fontSize: 15,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 fontWeight: FontWeight.bold,
                 color: isSelected ? AppColors.primary : AppColors.textDark,
               ),
@@ -436,7 +621,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             Text(
               subtitle,
               style: TextStyle(
+<<<<<<< HEAD
                 fontSize: 13.5,
+=======
+                fontSize: 11.5,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 color: isSelected ? AppColors.textDark : AppColors.textMuted,
                 height: 1.3,
               ),
@@ -449,4 +638,65 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     );
   }
 
+<<<<<<< HEAD
+=======
+  // Trường nhập liệu chung có nhãn và icon
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    bool obscureText = false,
+    Widget? suffixIcon,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: controller,
+          obscureText: obscureText,
+          keyboardType: keyboardType,
+          style: const TextStyle(fontSize: 14, color: AppColors.textDark),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+            prefixIcon: Icon(icon, size: 20, color: AppColors.textMuted),
+            suffixIcon: suffixIcon,
+            filled: true,
+            fillColor: AppColors.priceSoft.withValues(alpha: 0.5),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.danger),
+            ),
+          ),
+          validator: validator,
+        ),
+      ],
+    );
+  }
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 }

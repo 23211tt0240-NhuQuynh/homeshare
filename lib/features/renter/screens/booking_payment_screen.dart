@@ -1,13 +1,20 @@
 import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
+<<<<<<< HEAD
 import 'package:cloud_firestore/cloud_firestore.dart';
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/constants/app_colors.dart';
+<<<<<<< HEAD
 import '../../../core/utils/id_generator.dart';
+=======
+import '../../../core/services/booking_service.dart';
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 import '../../../core/utils/vietqr_helper.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/room_model.dart';
@@ -47,6 +54,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
   @override
   void initState() {
     super.initState();
+<<<<<<< HEAD
     final profile = ref.read(userProfileProvider).value;
     final rCode = (widget.booking.renterUserCode.isNotEmpty)
         ? widget.booking.renterUserCode
@@ -72,6 +80,16 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           renterCode: rCode,
           roomCode: pCode,
         );
+=======
+    // Nội dung chuyển khoản là mã người dùng 5 ký tự (3 số đầu + 2 chữ sau) để Admin dễ dàng tìm kiếm & đối soát
+    final profile = ref.read(userProfileProvider).value;
+    final userCode = (widget.booking.renterUserCode.isNotEmpty)
+        ? widget.booking.renterUserCode
+        : ((profile?.userCode.isNotEmpty == true)
+            ? profile!.userCode
+            : UserProfile.generateUserCode(seed: widget.booking.renterId));
+    _transferContent = userCode;
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
     // Tạo link ảnh VietQR.io và chuỗi EMVCo Napas247 thật
     _qrImageUrl = VietQRHelper.buildVietQrImageUrl(
@@ -143,6 +161,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
     setState(() => _isConfirming = true);
 
     try {
+<<<<<<< HEAD
       final isFullPayment = widget.paymentType == 'full';
       final typeTitle = isFullPayment ? 'toàn bộ tiền thuê' : 'tiền cọc';
       final durationText = _secondsRemaining > 0 ? 'Còn ${_formatDuration(_secondsRemaining)}' : 'Hết hạn';
@@ -204,6 +223,13 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
+=======
+      // Cập nhật trạng thái booking thành đã thanh toán trong Firestore
+      if (widget.booking.id.isNotEmpty) {
+        await ref.read(bookingServiceProvider).updateBookingStatus(widget.booking.id, 'paid');
+      }
+
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       if (mounted) {
         showDialog(
           context: context,
@@ -222,15 +248,24 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
+<<<<<<< HEAD
                     'ĐÃ GỬI XÁC NHẬN CHUYỂN KHOẢN!',
+=======
+                    'ĐÃ GỬI XÁC NHẬN THANH TOÁN!',
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 10),
                   Text(
+<<<<<<< HEAD
                     'Yêu cầu thanh toán $typeTitle $amountFormatted cho phòng "${widget.room.title}" đã được gửi đến Ban Quản Trị.\n\n'
                     'Mã đối soát ghi chú chuyển khoản của bạn: "$_transferContent".\n'
                     'Admin sẽ đối soát sao kê và duyệt phòng cho bạn trong ít phút!',
+=======
+                    'Hệ thống đã ghi nhận giao dịch đặt cọc ${NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(widget.paymentAmount)} '
+                    'cho phòng "${widget.room.title}".\nChủ trọ sẽ liên hệ bàn giao phòng cho bạn trong thời gian sớm nhất!',
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                     style: const TextStyle(fontSize: 13, height: 1.4, color: AppColors.textDark),
                     textAlign: TextAlign.center,
                   ),
@@ -562,13 +597,21 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
 
           // Nội dung chuyển khoản
           _buildCopyableTile(
+<<<<<<< HEAD
             label: 'Nội dung chuyển khoản (Mã người dùng & Mã phòng)',
+=======
+            label: 'Nội dung chuyển khoản (Mã ID người dùng)',
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             value: _transferContent,
             copyText: _transferContent,
             isBold: true,
             isHighlight: true,
             highlightColor: AppColors.primary,
+<<<<<<< HEAD
             subtitle: 'Chỉ gồm mã người dùng và mã phòng (Ví dụ: $_transferContent)',
+=======
+            subtitle: 'Mã 5 ký tự giúp Admin dễ dàng tìm kiếm & kích hoạt đơn',
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           ),
         ],
       ),

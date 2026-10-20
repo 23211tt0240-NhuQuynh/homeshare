@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 import 'dart:async';
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,7 +21,11 @@ class RoomFilterParams {
   final String sortBy; // 'newest', 'price_asc', 'price_desc', 'rating'
 
   const RoomFilterParams({
+<<<<<<< HEAD
     this.city = 'Tất cả',
+=======
+    this.city = 'TP. Hồ Chí Minh',
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     this.district = 'Tất cả',
     this.rentalType = 'all',
     this.minPrice,
@@ -66,7 +73,11 @@ class RoomFilterParams {
 class RoomService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+<<<<<<< HEAD
   // Stream danh sách phòng realtime, kết hợp cả collection 'rooms' và 'posts' của Chủ trọ
+=======
+  // Stream danh sách phòng theo bộ lọc chi tiết
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   Stream<List<RoomModel>> getRoomsStream({
     String? city,
     String? district,
@@ -80,6 +91,7 @@ class RoomService {
     String? searchQuery,
     String? sortBy,
   }) {
+<<<<<<< HEAD
     late StreamController<List<RoomModel>> controller;
     StreamSubscription? roomsSub;
     StreamSubscription? postsSub;
@@ -120,6 +132,30 @@ class RoomService {
           district.isNotEmpty &&
           district != 'Tất cả' &&
           district != 'Chọn Phường / Xã') {
+=======
+    return _firestore.collection('rooms').snapshots().map((snapshot) {
+      var list = snapshot.docs.map((doc) {
+        try {
+          return RoomModel.fromFirestore(doc);
+        } catch (e) {
+          debugPrint('Error parsing room doc ${doc.id}: $e');
+          return null;
+        }
+      }).whereType<RoomModel>().toList();
+
+      // 1. Lọc theo Thành phố
+      if (city != null && city.isNotEmpty && city != 'Tất cả' && city != 'Chọn Tỉnh/Thành phố') {
+        final cleanCity = city.toLowerCase().replaceFirst('tp. ', '').replaceFirst('thành phố ', '').replaceFirst('tỉnh ', '').trim();
+        list = list.where((r) =>
+            r.city.toLowerCase().contains(city.toLowerCase()) ||
+            r.city.toLowerCase().contains(cleanCity) ||
+            r.address.toLowerCase().contains(city.toLowerCase()) ||
+            r.address.toLowerCase().contains(cleanCity)).toList();
+      }
+
+      // 2. Lọc theo Phường/Xã hoặc Quận/Huyện
+      if (district != null && district.isNotEmpty && district != 'Tất cả' && district != 'Chọn Phường / Xã') {
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         final cleanDistrict = district.toLowerCase();
         final rawBaseName = district.split('(').first.trim().toLowerCase();
         final shortWardName = rawBaseName.replaceFirst('phường ', 'p. ').trim();
@@ -128,19 +164,31 @@ class RoomService {
           final rAddr = r.address.toLowerCase();
 
           return rDist.contains(cleanDistrict) ||
+<<<<<<< HEAD
               rAddr.contains(cleanDistrict) ||
               rDist.contains(rawBaseName) ||
               rAddr.contains(rawBaseName) ||
               rAddr.contains(shortWardName);
+=======
+                 rAddr.contains(cleanDistrict) ||
+                 rDist.contains(rawBaseName) ||
+                 rAddr.contains(rawBaseName) ||
+                 rAddr.contains(shortWardName);
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         }).toList();
       }
 
       // 3. Lọc theo loại phòng / hình thức thuê
       if (roomType != null && roomType.isNotEmpty && roomType != 'Tất cả') {
+<<<<<<< HEAD
         list = list
             .where((r) =>
                 r.roomType.toLowerCase().contains(roomType.toLowerCase()))
             .toList();
+=======
+        list = list.where((r) =>
+            r.roomType.toLowerCase().contains(roomType.toLowerCase())).toList();
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       }
 
       // 4. Lọc theo khoảng giá
@@ -159,24 +207,41 @@ class RoomService {
         list = list.where((r) => r.area <= maxArea).toList();
       }
 
+<<<<<<< HEAD
       // 6. Lọc theo tiện ích được chọn (khớp ít nhất 1 tiện ích)
       if (amenities != null && amenities.isNotEmpty) {
         list = list.where((r) {
           return amenities.any((a) {
             final key = a.toLowerCase().trim();
+=======
+      // 6. Lọc theo tiện ích được chọn
+      if (amenities != null && amenities.isNotEmpty) {
+        list = list.where((r) {
+          for (final a in amenities) {
+            final key = a.toLowerCase();
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             final hasMatch = r.amenities.any((item) =>
                 item.toLowerCase().contains(key) ||
                 key.contains(item.toLowerCase()));
             final hasMatchDesc = r.description.toLowerCase().contains(key) ||
                 r.title.toLowerCase().contains(key);
+<<<<<<< HEAD
             return hasMatch || hasMatchDesc;
           });
+=======
+            if (!hasMatch && !hasMatchDesc) {
+              return false;
+            }
+          }
+          return true;
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         }).toList();
       }
 
       // 7. Lọc theo từ khóa tìm kiếm
       if (searchQuery != null && searchQuery.trim().isNotEmpty) {
         final q = searchQuery.toLowerCase().trim();
+<<<<<<< HEAD
         list = list
             .where((r) =>
                 r.title.toLowerCase().contains(q) ||
@@ -184,6 +249,13 @@ class RoomService {
                 r.district.toLowerCase().contains(q) ||
                 r.description.toLowerCase().contains(q))
             .toList();
+=======
+        list = list.where((r) =>
+            r.title.toLowerCase().contains(q) ||
+            r.address.toLowerCase().contains(q) ||
+            r.district.toLowerCase().contains(q) ||
+            r.description.toLowerCase().contains(q)).toList();
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       }
 
       // 8. Sắp xếp kết quả
@@ -204,6 +276,7 @@ class RoomService {
       }
 
       return list;
+<<<<<<< HEAD
     }
 
     void emitMerged() {
@@ -273,10 +346,14 @@ class RoomService {
     );
 
     return controller.stream;
+=======
+    });
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   }
 
   // Lấy chi tiết 1 phòng
   Future<RoomModel?> getRoomById(String id) async {
+<<<<<<< HEAD
     try {
       final doc = await _firestore.collection('rooms').doc(id).get();
       if (doc.exists) {
@@ -297,16 +374,37 @@ class RoomService {
       RoomModel(
         id: 'sample_room_1',
         roomCode: 'P001',
+=======
+    final doc = await _firestore.collection('rooms').doc(id).get();
+    if (!doc.exists) return null;
+    return RoomModel.fromFirestore(doc);
+  }
+
+  // Tự động nạp dữ liệu mẫu chất lượng cao vào Firestore nếu database trống
+  Future<void> seedInitialRoomsIfEmpty() async {
+    final snapshot = await _firestore.collection('rooms').limit(1).get();
+    if (snapshot.docs.isNotEmpty) return; // Đã có dữ liệu
+
+    final sampleRooms = [
+      RoomModel(
+        id: '',
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         title: 'Phòng trọ máy lạnh gần ĐH Nông Lâm',
         description: 'Phòng mới xây gác đúc, máy lạnh Inverter, chỗ để xe miễn phí, an ninh 24/7, giờ giấc tự do.',
         price: 3200000,
         deposit: 3200000,
         address: 'Đ. Số 8, P. Linh Trung',
         district: 'TP. Thủ Đức',
+<<<<<<< HEAD
         city: 'TP. Hồ Chí Minh',
         area: 25.0,
         roomType: 'Phòng trọ',
         amenities: ['Máy lạnh', 'Có gác lửng', 'Chỗ để xe miễn phí', 'Giờ giấc tự do', 'Wifi tốc độ cao', 'Gần trường ĐH / Bến xe'],
+=======
+        area: 25.0,
+        roomType: 'Phòng trọ',
+        amenities: ['Máy lạnh', 'Có gác lửng', 'Chỗ để xe miễn phí', 'Giờ giấc tự do', 'Wifi tốc độ cao'],
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         images: [
           'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80',
         ],
@@ -318,18 +416,28 @@ class RoomService {
         createdAt: DateTime.now().subtract(const Duration(hours: 2)),
       ),
       RoomModel(
+<<<<<<< HEAD
         id: 'sample_room_2',
         roomCode: 'P002',
+=======
+        id: '',
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         title: 'Studio ban công thoáng mát Nguyễn Văn Lượng',
         description: 'Căn hộ Studio full nội thất cao cấp phong cách Bắc Âu, có ban công view đẹp, thang máy, máy giặt riêng.',
         price: 4500000,
         deposit: 4500000,
         address: 'Nguyễn Văn Lượng, P.3',
         district: 'Gò Vấp',
+<<<<<<< HEAD
         city: 'TP. Hồ Chí Minh',
         area: 30.0,
         roomType: 'Căn hộ mini',
         amenities: ['Máy lạnh', 'Ban công / Cửa sổ lớn', 'Tủ lạnh & Máy giặt', 'Wifi tốc độ cao', 'Không chung chủ', 'Chỗ để xe miễn phí', 'Giờ giấc tự do'],
+=======
+        area: 30.0,
+        roomType: 'Căn hộ mini',
+        amenities: ['Máy lạnh', 'Ban công / Cửa sổ lớn', 'Tủ lạnh & Máy giặt', 'Wifi tốc độ cao', 'Không chung chủ'],
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         images: [
           'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80',
         ],
@@ -341,18 +449,28 @@ class RoomService {
         createdAt: DateTime.now().subtract(const Duration(days: 1)),
       ),
       RoomModel(
+<<<<<<< HEAD
         id: 'sample_room_3',
         roomCode: 'P003',
+=======
+        id: '',
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         title: 'Phòng trọ duplex cao cấp D2 Hutech',
         description: 'Phòng gác đúc cao 2m2, khóa vân tay thẻ từ ra vào, kệ bếp rộng rãi, vệ sinh riêng khép kín, gần trạm xe buýt và chợ.',
         price: 3800000,
         deposit: 3800000,
         address: 'Đường D2 (Nguyễn Gia Trí), P. 25',
         district: 'Bình Thạnh',
+<<<<<<< HEAD
         city: 'TP. Hồ Chí Minh',
         area: 22.0,
         roomType: 'Phòng trọ',
         amenities: ['Máy lạnh', 'Có gác lửng', 'Chỗ để xe miễn phí', 'Không chung chủ', 'Gần trường ĐH / Bến xe', 'Giờ giấc tự do'],
+=======
+        area: 22.0,
+        roomType: 'Phòng trọ',
+        amenities: ['Máy lạnh', 'Có gác lửng', 'Chỗ để xe miễn phí', 'Không chung chủ', 'Gần trường ĐH / Bến xe'],
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         images: [
           'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80',
         ],
@@ -364,18 +482,28 @@ class RoomService {
         createdAt: DateTime.now().subtract(const Duration(days: 2)),
       ),
       RoomModel(
+<<<<<<< HEAD
         id: 'sample_room_4',
         roomCode: 'P004',
+=======
+        id: '',
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         title: 'Căn hộ dịch vụ 1PN Mai Chí Thọ có hồ bơi',
         description: 'Căn hộ dịch vụ hạng sang có ban công rộng, đầy đủ tiện ích hồ bơi tràn bờ, phòng gym, bảo vệ 24/7.',
         price: 6500000,
         deposit: 6500000,
         address: 'Số 10 Mai Chí Thọ, P. An Phú',
         district: 'TP. Thủ Đức',
+<<<<<<< HEAD
         city: 'TP. Hồ Chí Minh',
         area: 45.0,
         roomType: 'Chung cư',
         amenities: ['Máy lạnh', 'Tủ lạnh & Máy giặt', 'Ban công / Cửa sổ lớn', 'Chỗ để xe miễn phí', 'Giờ giấc tự do', 'Gần trường ĐH / Bến xe'],
+=======
+        area: 45.0,
+        roomType: 'Chung cư',
+        amenities: ['Máy lạnh', 'Tủ lạnh & Máy giặt', 'Ban công / Cửa sổ lớn', 'Chỗ để xe miễn phí', 'Giờ giấc tự do'],
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         images: [
           'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80',
         ],
@@ -387,6 +515,7 @@ class RoomService {
         createdAt: DateTime.now().subtract(const Duration(days: 4)),
       ),
     ];
+<<<<<<< HEAD
   }
 
   // Tự động nạp dữ liệu mẫu chất lượng cao vào Firestore nếu database trống
@@ -405,6 +534,15 @@ class RoomService {
     } catch (e) {
       debugPrint('Error seeding rooms to firestore: $e');
     }
+=======
+
+    final batch = _firestore.batch();
+    for (var r in sampleRooms) {
+      final docRef = _firestore.collection('rooms').doc();
+      batch.set(docRef, r.toMap());
+    }
+    await batch.commit();
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   }
 }
 

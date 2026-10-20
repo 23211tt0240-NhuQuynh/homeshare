@@ -20,11 +20,16 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
     switch (status) {
       case 'pending':
       case 'pending_payment':
+<<<<<<< HEAD
       case 'pending_confirmation':
         return AppColors.warning; // Contrast 5.2:1 (Passes WCAG AA)
       case 'paid':
       case 'deposit_paid':
       case 'completed':
+=======
+        return AppColors.warning; // Contrast 5.2:1 (Passes WCAG AA)
+      case 'paid':
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         return AppColors.success; // Contrast 4.5+:1
       case 'approved':
         return AppColors.primary; // Contrast 5.5:1 (Passes WCAG AA)
@@ -42,11 +47,16 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
     switch (status) {
       case 'pending':
       case 'pending_payment':
+<<<<<<< HEAD
       case 'pending_confirmation':
         return AppColors.warningContainer;
       case 'paid':
       case 'deposit_paid':
       case 'completed':
+=======
+        return AppColors.warningContainer;
+      case 'paid':
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         return AppColors.successContainer;
       case 'approved':
         return AppColors.primaryContainer;
@@ -64,6 +74,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
     switch (status) {
       case 'pending_payment':
         return 'Chờ thanh toán cọc';
+<<<<<<< HEAD
       case 'pending_confirmation':
         return 'Chờ Admin duyệt tiền';
       case 'paid':
@@ -71,6 +82,10 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
         return 'Đã thanh toán cọc • Chờ nhận phòng';
       case 'completed':
         return 'Đã hoàn tất thanh toán';
+=======
+      case 'paid':
+        return 'Đã thanh toán cọc';
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       case 'pending':
         return 'Chờ chủ nhà duyệt';
       case 'approved':

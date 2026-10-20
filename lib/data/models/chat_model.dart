@@ -29,11 +29,14 @@ class ChatMessageModel {
   bool get daDoc => isRead || status == 'read';
   String get trangThaiTinNhan => status;
 
+<<<<<<< HEAD
   Map<String, dynamic>? get replyTo => (extraData['replyTo'] is Map)
       ? Map<String, dynamic>.from(extraData['replyTo'] as Map)
       : null;
   bool get isReply => replyTo != null && replyTo!.isNotEmpty;
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   ChatMessageModel({
     required this.id,
     this.conversationId = '',
@@ -112,6 +115,7 @@ class ChatMessageModel {
   Map<String, dynamic> toMap() {
     return {
       'conversationId': conversationId,
+<<<<<<< HEAD
       'senderId': senderId,
       'senderName': senderName,
       'receiverId': receiverId,
@@ -121,6 +125,25 @@ class ChatMessageModel {
       'timestamp': Timestamp.fromDate(timestamp),
       'isRead': isRead,
       'status': status,
+=======
+      'cuocTroChuyenId': conversationId,
+      'senderId': senderId,
+      'nguoiGuiId': senderId,
+      'senderName': senderName,
+      'receiverId': receiverId,
+      'nguoiNhanId': receiverId,
+      'text': text,
+      'noiDung': text,
+      'attachmentUrl': attachmentUrl,
+      'duongDan': attachmentUrl,
+      'messageType': messageType,
+      'loaiTinNhan_id': messageType,
+      'timestamp': Timestamp.fromDate(timestamp),
+      'ngayGui': Timestamp.fromDate(timestamp),
+      'isRead': isRead,
+      'status': status,
+      'trangThaiTinNhan_id': status,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       'extraData': extraData,
     };
   }
@@ -204,6 +227,7 @@ class ConversationModel {
     }
 
     final lastSenderId = data['lastSenderId']?.toString() ?? '';
+<<<<<<< HEAD
     bool isReadVal = false;
     if (lastSenderId == currentUserId) {
       isReadVal = true;
@@ -220,6 +244,15 @@ class ConversationModel {
     } else if (lastSenderId == currentUserId) {
       computedUnread = 0;
       isReadVal = true;
+=======
+    final isReadVal = data['isRead'] == true ||
+        (data['readBy'] is Map && data['readBy'][currentUserId] == true);
+
+    if (lastSenderId.isNotEmpty && lastSenderId != currentUserId && !isReadVal) {
+      if (computedUnread <= 0) computedUnread = 1;
+    } else if (lastSenderId == currentUserId) {
+      computedUnread = 0;
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     }
 
     return ConversationModel(

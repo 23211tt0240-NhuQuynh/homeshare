@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+<<<<<<< HEAD
 import '../../../core/services/call_push_service.dart';
 import '../../chat/screens/call_screen.dart';
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 import '../../home/screens/home_screen.dart';
 import '../../chat/screens/chat_list_screen.dart';
 import 'renter_dashboard_screen.dart';
@@ -36,6 +39,7 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
 
   @override
   Widget build(BuildContext context) {
+<<<<<<< HEAD
     // App đang mở: Firestore báo cuộc gọi đến thì hiện màn hình nhận.
     // IncomingCallRouter dùng chung với lúc bấm thông báo, nên không mở hai lần.
     ref.listen(incomingCallProvider, (prev, next) {
@@ -44,6 +48,8 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
       IncomingCallRouter.show(call);
     });
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     final currentIndex = ref.watch(renterBottomNavIndexProvider);
 
     return Scaffold(
@@ -63,6 +69,7 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
         },
         items: const [
           BottomNavigationBarItem(
+<<<<<<< HEAD
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
             label: 'Trang chủ',
@@ -84,11 +91,30 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
             icon: Icon(Icons.add_circle, color: Color(0xFF155EEF), size: 28),
             activeIcon: Icon(Icons.add_circle, color: Color(0xFF155EEF), size: 28),
             label: 'Đăng bài',
+=======
+            icon: Icon(Icons.explore_outlined),
+            activeIcon: Icon(Icons.explore),
+            label: 'Khám phá',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble_outline),
+            activeIcon: Icon(Icons.chat_bubble),
+            label: 'Tin nhắn',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add_circle_outline),
+            activeIcon: Icon(Icons.add_circle),
+            label: 'Đăng tin',
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.group_outlined),
             activeIcon: Icon(Icons.group),
+<<<<<<< HEAD
             label: 'Tìm ở ghép',
+=======
+            label: 'Ở ghép',
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../profile/screens/account_settings_screen.dart';
 import '../../profile/screens/cccd_verification_screen.dart';
+<<<<<<< HEAD
 import '../../renter/screens/favorite_rooms_screen.dart';
 import '../../renter/screens/renter_bookings_screen.dart';
 import '../../host/screens/host_main_screen.dart';
@@ -11,6 +12,9 @@ import '../../host/screens/host_property_management_screen.dart';
 import '../../host/screens/host_tenant_management_screen.dart';
 import '../../host/screens/host_checkin_checkout_screen.dart';
 import '../../host/screens/host_violation_management_screen.dart';
+=======
+import '../../renter/screens/renter_bookings_screen.dart';
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 import '../../admin/screens/admin_main_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -45,6 +49,7 @@ class HomeScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
 
+<<<<<<< HEAD
             // 1. Profile Header Card: Nhấn vào Avatar, Tên hoặc toàn bộ phần có Avatar để chuyển qua màn hình chi tiết
             Card(
               margin: EdgeInsets.zero,
@@ -119,12 +124,117 @@ class HomeScreen extends ConsumerWidget {
                                         : 'Người tìm phòng',
                                     style: const TextStyle(
                                       fontSize: 11,
+=======
+            // 1. Profile Header Card
+            Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 32,
+                      backgroundColor: AppColors.primaryContainer,
+                      child: Text(
+                        (profile?.displayName.isNotEmpty ?? false)
+                            ? profile!.displayName[0].toUpperCase()
+                            : 'HS',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  profile?.displayName ?? 'Người dùng HomeShare',
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textDark,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryContainer,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'Người tìm phòng',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(5),
+                                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                                ),
+                                child: Text(
+                                  'ID: ${profile?.userCode ?? "---"}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textDark,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  profile?.email ?? 'user@homeshare.vn',
+                                  style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          if (profile?.isCccdVerified == true)
+                            Row(
+                              children: [
+                                const Icon(Icons.verified, size: 14, color: AppColors.primary),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    profile?.cccdNumber.isNotEmpty == true
+                                        ? 'Đã xác thực CCCD (${profile!.cccdNumber.substring(0, 4)}****${profile.cccdNumber.substring(profile.cccdNumber.length - 2)}) ✓'
+                                        : 'Đã xác thực CCCD (eKYC) ✓',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                                       fontWeight: FontWeight.bold,
                                       color: AppColors.primary,
                                     ),
                                   ),
                                 ),
                               ],
+<<<<<<< HEAD
                             ),
                             const SizedBox(height: 4),
                             Row(
@@ -226,6 +336,54 @@ class HomeScreen extends ConsumerWidget {
                       const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF94A3B8)),
                     ],
                   ),
+=======
+                            )
+                          else
+                            InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const CccdVerificationScreen(),
+                                  ),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: const Color(0xFFF59E0B)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.warning_amber_rounded, size: 13, color: Color(0xFFD97706)),
+                                    SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        'Chưa xác thực CCCD (Quét ngay)',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFB45309),
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(width: 2),
+                                    Icon(Icons.chevron_right, size: 13, color: Color(0xFFB45309)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
               ),
             ),
@@ -236,6 +394,7 @@ class HomeScreen extends ConsumerWidget {
               margin: EdgeInsets.zero,
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
+<<<<<<< HEAD
                 child: (profile?.isHost == true)
                     ? Row(
                         children: [
@@ -255,6 +414,17 @@ class HomeScreen extends ConsumerWidget {
                           _buildStatItem('01', 'Đang thuê'),
                         ],
                       ),
+=======
+                child: Row(
+                  children: [
+                    _buildStatItem('08', 'Phòng đã lưu'),
+                    _buildVerticalDivider(),
+                    _buildStatItem('02', 'Lịch hẹn'),
+                    _buildVerticalDivider(),
+                    _buildStatItem('01', 'Đang thuê'),
+                  ],
+                ),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               ),
             ),
             const SizedBox(height: 16),
@@ -275,6 +445,7 @@ class HomeScreen extends ConsumerWidget {
             Card(
               margin: EdgeInsets.zero,
               child: Column(
+<<<<<<< HEAD
                 children: (profile?.isHost == true)
                     ? [
                         _buildMenuRow(
@@ -428,6 +599,70 @@ class HomeScreen extends ConsumerWidget {
                           },
                         ),
                       ],
+=======
+                children: [
+                  _buildMenuRow(
+                    icon: Icons.calendar_month_outlined,
+                    title: 'Lịch xem phòng & Đơn thuê',
+                    subtitle: 'Theo dõi yêu cầu xem phòng của bạn',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const RenterBookingsScreen()),
+                      );
+                    },
+                  ),
+                  _buildMenuDivider(),
+                  _buildMenuRow(
+                    icon: Icons.favorite_border,
+                    title: 'Phòng trọ yêu thích',
+                    subtitle: 'Danh sách phòng bạn quan tâm',
+                    onTap: () {},
+                  ),
+                  _buildMenuDivider(),
+                  _buildMenuRow(
+                    icon: Icons.meeting_room_outlined,
+                    title: 'Phòng đang thuê (Nhà của tôi)',
+                    subtitle: '1 phòng đang hoạt động',
+                    onTap: () {},
+                  ),
+                  _buildMenuDivider(),
+                  _buildMenuRow(
+                    icon: Icons.build_outlined,
+                    title: 'Báo cáo sự cố phòng trọ',
+                    subtitle: 'Máy lạnh, điện nước, wifi',
+                    onTap: () {},
+                  ),
+                  _buildMenuDivider(),
+                  _buildMenuRow(
+                    icon: Icons.admin_panel_settings_outlined,
+                    title: 'Quản trị hệ thống (Admin Portal)',
+                    subtitle: 'Báo cáo doanh thu, giải ngân, duyệt tin',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AdminMainScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildMenuDivider(),
+                  _buildMenuRow(
+                    icon: Icons.settings_outlined,
+                    title: 'Cài đặt tài khoản & Đăng xuất',
+                    subtitle: 'Bảo mật, thông báo và tùy chọn',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AccountSettingsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               ),
             ),
             const SizedBox(height: 20),

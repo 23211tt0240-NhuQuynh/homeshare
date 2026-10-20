@@ -1,7 +1,12 @@
+<<<<<<< HEAD
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/user_provider.dart';
+=======
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 import 'admin_dashboard_screen.dart';
 import 'admin_posts_screen.dart';
 import 'admin_orders_screen.dart';
@@ -23,6 +28,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+<<<<<<< HEAD
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _showWelcomeDialog();
@@ -130,6 +136,8 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
         ),
       ),
     );
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   }
 
   void _onSelectTab(int index) {
@@ -140,9 +148,13 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
 
   @override
   Widget build(BuildContext context) {
+<<<<<<< HEAD
     final size = MediaQuery.sizeOf(context);
     final useNavigationRail = size.width >= 700 || size.width > size.height;
     final List<Widget> screens = [
+=======
+    final screens = [
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       AdminDashboardScreen(
         onNavigateToOrders: () => _onSelectTab(2),
         onNavigateToPosts: () => _onSelectTab(1),
@@ -153,6 +165,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
       const AdminHistoryScreen(),
     ];
 
+<<<<<<< HEAD
     final pages = CustomErrorTabScope(
       child: IndexedStack(index: _currentIndex, children: screens),
     );
@@ -342,6 +355,58 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                   ),
                 ),
               ),
+=======
+    return Scaffold(
+      body: IndexedStack(
+        index: _currentIndex,
+        children: screens,
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            top: BorderSide(color: const Color(0xFFEAECF0), width: 1.0),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(
+                  index: 0,
+                  icon: Icons.bar_chart_rounded,
+                  label: 'Tổng quan',
+                ),
+                _buildNavItem(
+                  index: 1,
+                  icon: Icons.apartment_rounded,
+                  label: 'BÀI ĐĂNG',
+                ),
+                _buildNavItem(
+                  index: 2,
+                  icon: Icons.receipt_long_rounded,
+                  label: 'Quản lý đơn',
+                  hasBadge: true,
+                ),
+                _buildNavItem(
+                  index: 3,
+                  icon: Icons.history_rounded,
+                  label: 'Lịch sử',
+                ),
+              ],
+            ),
+          ),
+        ),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       ),
     );
   }
@@ -350,17 +415,29 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
     required int index,
     required IconData icon,
     required String label,
+<<<<<<< HEAD
     int badgeCount = 0,
   }) {
     final isSelected = _currentIndex == index;
     const activeColor = Color(0xFF398FC0);
     const inactiveColor = Color(0xFF667085);
+=======
+    bool hasBadge = false,
+  }) {
+    final isSelected = _currentIndex == index;
+    const activeColor = Color(0xFF1E60FF);
+    const inactiveColor = Color(0xFF64748B);
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
     return InkWell(
       onTap: () => _onSelectTab(index),
       borderRadius: BorderRadius.circular(12),
       child: Container(
+<<<<<<< HEAD
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+=======
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -372,7 +449,11 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                   size: 24,
                   color: isSelected ? activeColor : inactiveColor,
                 ),
+<<<<<<< HEAD
                 if (badgeCount > 0)
+=======
+                if (hasBadge)
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                   Positioned(
                     top: -2,
                     right: -4,
@@ -380,7 +461,11 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                       width: 8,
                       height: 8,
                       decoration: const BoxDecoration(
+<<<<<<< HEAD
                         color: Color(0xFFD92D20),
+=======
+                        color: Color(0xFF1E60FF),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -391,15 +476,26 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
             Text(
               label,
               style: TextStyle(
+<<<<<<< HEAD
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 color: isSelected ? activeColor : inactiveColor,
+=======
+                fontSize: 11.5,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? activeColor : inactiveColor,
+                letterSpacing: 0.1,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               ),
             ),
             const SizedBox(height: 2),
             if (isSelected)
               Container(
+<<<<<<< HEAD
                 width: 16,
+=======
+                width: 18,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 height: 2.5,
                 decoration: BoxDecoration(
                   color: activeColor,
@@ -414,6 +510,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
     );
   }
 }
+<<<<<<< HEAD
 
 class CustomErrorTabScope extends StatefulWidget {
   final Widget child;
@@ -487,3 +584,5 @@ class _CustomErrorTabScopeState extends State<CustomErrorTabScope> {
     return widget.child;
   }
 }
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62

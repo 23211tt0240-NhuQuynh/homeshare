@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
+<<<<<<< HEAD
 import 'core/services/call_push_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/admin/screens/admin_main_screen.dart';
@@ -10,14 +11,26 @@ import 'features/auth/providers/user_provider.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/host/screens/host_main_screen.dart';
 import 'features/renter/screens/renter_main_screen.dart';
+=======
+import 'core/theme/app_theme.dart';
+import 'features/auth/providers/auth_provider.dart';
+import 'features/auth/providers/user_provider.dart';
+import 'features/auth/screens/login_screen.dart';
+import 'features/renter/screens/renter_main_screen.dart';
+import 'features/host/screens/host_main_screen.dart';
+import 'features/admin/screens/admin_main_screen.dart';
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+<<<<<<< HEAD
   // Tạo kênh chuông "Cuộc gọi" và đăng ký handler khi app ở nền hoặc đã tắt.
   await CallPushService.prepare();
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   runApp(
     const ProviderScope(
       child: MyApp(),
@@ -33,8 +46,11 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'HomeShare',
       debugShowCheckedModeBanner: false,
+<<<<<<< HEAD
       // Để thông báo cuộc gọi mở IncomingCallScreen dù người dùng đang ở trang nào.
       navigatorKey: navigatorKey,
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       theme: AppTheme.lightTheme,
       home: const AuthGate(),
     );
@@ -51,8 +67,19 @@ class AuthGate extends ConsumerWidget {
     return authState.when(
       data: (user) {
         if (user != null) {
+<<<<<<< HEAD
           // Bọc màn hình chính để lưu fcmToken ngay sau khi đăng nhập.
           return _SignedInShell(uid: user.uid);
+=======
+          final profile = ref.watch(userProfileProvider).value;
+          if (profile?.isAdmin == true) {
+            return const AdminMainScreen();
+          }
+          if (profile?.isHost == true) {
+            return const HostMainScreen();
+          }
+          return const RenterMainScreen();
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         }
         return const LoginScreen();
       },
@@ -69,6 +96,7 @@ class AuthGate extends ConsumerWidget {
     );
   }
 }
+<<<<<<< HEAD
 
 /// Giữ RenterMainScreen hoặc HostMainScreen tùy theo vai trò của người dùng
 /// và gắn mã thông báo của máy vào user đang đăng nhập.
@@ -124,3 +152,5 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
     );
   }
 }
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62

@@ -1,10 +1,16 @@
+<<<<<<< HEAD
 import 'package:cloud_firestore/cloud_firestore.dart';
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/booking_service.dart';
+<<<<<<< HEAD
 import '../../../core/utils/id_generator.dart';
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -29,6 +35,7 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
   // Trạng thái: true = Bản thân tôi thuê, false = Đặt hộ người thân
   bool _isBookingForSelf = true;
 
+<<<<<<< HEAD
   // Form controllers cho người ở trực tiếp (khởi tạo mặc định tránh LateInitializationError)
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
@@ -38,6 +45,17 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
 
   // Kế hoạch dọn vào & ở
   DateTime _moveInDate = DateTime.now().add(const Duration(days: 1));
+=======
+  // Form controllers cho người ở trực tiếp
+  late final TextEditingController _nameController;
+  late final TextEditingController _ageController;
+  late final TextEditingController _jobController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _noteController;
+
+  // Kế hoạch dọn vào & ở
+  late DateTime _moveInDate;
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   int _rentalMonths = 6;
   int _occupantCount = 1;
   String _renterGender = 'nam'; // 'nam' | 'nu' | 'khac'
@@ -57,15 +75,26 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
     final realName = profile?.displayName.isNotEmpty == true
         ? profile!.displayName
         : (profile?.cccdFullName.isNotEmpty == true ? profile!.cccdFullName : (user?.displayName ?? ''));
+<<<<<<< HEAD
     _nameController.text = realName;
+=======
+    _nameController = TextEditingController(text: realName);
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
     String realAge = '';
     if (profile?.birthDate != null) {
       realAge = '${DateTime.now().year - profile!.birthDate!.year} tuổi';
     }
+<<<<<<< HEAD
     _ageController.text = realAge;
     _jobController.text = profile?.occupation ?? '';
     _phoneController.text = profile?.phoneNumber ?? '';
+=======
+    _ageController = TextEditingController(text: realAge);
+    _jobController = TextEditingController(text: profile?.occupation ?? '');
+    _phoneController = TextEditingController(text: profile?.phoneNumber ?? '');
+    _noteController = TextEditingController(); // Để trống, không có mock data fix cứng
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
     _renterGender = profile?.gender == 'nu' ? 'nu' : (profile?.gender == 'khac' ? 'khac' : 'nam');
 
@@ -188,6 +217,7 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
     try {
       final user = ref.read(currentUserProvider);
       final profile = ref.read(userProfileProvider).value;
+<<<<<<< HEAD
       final renterCode = profile?.userCode ?? (user != null ? UserProfile.generateUserCode(seed: user.uid, role: 'renter') : 'NT001');
       var roomCode = widget.room.roomCode.isNotEmpty ? widget.room.roomCode : widget.room.maPhong;
       if (roomCode.isEmpty || roomCode == 'P001') {
@@ -209,6 +239,12 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
         id: '',
         renterId: user?.uid ?? 'guest',
         renterUserCode: renterCode,
+=======
+      final booking = BookingRequestModel(
+        id: '',
+        renterId: user?.uid ?? 'guest',
+        renterUserCode: profile?.userCode ?? (user != null ? UserProfile.generateUserCode(seed: user.uid) : ''),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         renterName: name,
         renterPhone: phone,
         renterGender: _renterGender,
@@ -222,8 +258,11 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
         hostId: widget.room.hostId,
         hostName: widget.room.hostName,
         status: 'pending_payment',
+<<<<<<< HEAD
         paymentOption: _paymentOption,
         transferNote: transferContent,
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         moveInDate: _moveInDate,
         note: _noteController.text.trim(),
         createdAt: DateTime.now(),
@@ -336,7 +375,11 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
+<<<<<<< HEAD
               color: AppColors.primary,
+=======
+              color: const Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(Icons.home_rounded, color: Colors.white, size: 18),
@@ -409,6 +452,7 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                   width: 80,
                   height: 80,
                   color: const Color(0xFFF1F5F9),
+<<<<<<< HEAD
                   child: widget.room.images.isNotEmpty && widget.room.images.first.isNotEmpty
                       ? Image.network(
                           widget.room.images.first,
@@ -416,6 +460,15 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                           errorBuilder: (context, error, stackTrace) => const Icon(Icons.home, color: AppColors.primary),
                         )
                       : const Icon(Icons.home, color: AppColors.primary),
+=======
+                  child: widget.room.images.isNotEmpty
+                      ? Image.network(
+                          widget.room.images.first,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.home, color: Color(0xFF2563EB)),
+                        )
+                      : const Icon(Icons.home, color: Color(0xFF2563EB)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
               ),
               const SizedBox(width: 12),
@@ -447,7 +500,11 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                     const SizedBox(height: 6),
                     Text(
                       '${currencyFmt.format(widget.room.price)}/tháng',
+<<<<<<< HEAD
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppColors.primary),
+=======
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: Color(0xFF2563EB)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                     ),
                   ],
                 ),
@@ -460,6 +517,7 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             decoration: BoxDecoration(
+<<<<<<< HEAD
               color: AppColors.primarySurface,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
@@ -471,11 +529,28 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                 const Text(
                   'Cọc giữ phòng tạm tính',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
+=======
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFDBEAFE)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF2563EB)),
+                const SizedBox(width: 8),
+                const Text(
+                  'Cọc giữ phòng tạm tính',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E40AF)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
                 const Spacer(),
                 Text(
                   currencyFmt.format(_depositAmount),
+<<<<<<< HEAD
                   style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+=======
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
               ],
             ),
@@ -544,10 +619,17 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
               Container(
                 padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(
+<<<<<<< HEAD
                   color: AppColors.primarySurface,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(Icons.calendar_month_outlined, size: 18, color: AppColors.primary),
+=======
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.calendar_month_outlined, size: 18, color: Color(0xFF2563EB)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               ),
               const SizedBox(width: 8),
               const Column(
@@ -590,7 +672,11 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                         ),
                         child: Row(
                           children: [
+<<<<<<< HEAD
                             const Icon(Icons.calendar_today_outlined, size: 15, color: AppColors.primary),
+=======
+                            const Icon(Icons.calendar_today_outlined, size: 15, color: Color(0xFF2563EB)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                             const SizedBox(width: 6),
                             Text(
                               DateFormat('dd/MM/yyyy').format(_moveInDate),
@@ -619,7 +705,11 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                       ),
                       child: Row(
                         children: [
+<<<<<<< HEAD
                           const Icon(Icons.calendar_today_outlined, size: 15, color: AppColors.primary),
+=======
+                          const Icon(Icons.calendar_today_outlined, size: 15, color: Color(0xFF2563EB)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                           const SizedBox(width: 6),
                           Text(
                             DateFormat('dd/MM/yyyy').format(_calculatedMoveOutDate),
@@ -637,7 +727,11 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
 
           // Thời hạn thuê stepper
           Container(
+<<<<<<< HEAD
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+=======
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(10),
@@ -646,6 +740,7 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
             child: Row(
               children: [
                 const Icon(Icons.access_time_rounded, size: 16, color: Color(0xFF64748B)),
+<<<<<<< HEAD
                 const SizedBox(width: 6),
                 const Expanded(
                   child: Text(
@@ -671,6 +766,18 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+=======
+                const SizedBox(width: 8),
+                const Text('Thời hạn thuê:', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Giảm số tháng thuê',
+                  icon: const Icon(Icons.remove, size: 16, color: Color(0xFF64748B)),
+                  onPressed: _rentalMonths > 1 ? () => setState(() => _rentalMonths--) : null,
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                   decoration: BoxDecoration(
                     color: const Color(0xFFDBEAFE),
                     borderRadius: BorderRadius.circular(6),
@@ -680,6 +787,7 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                     style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1D4ED8)),
                   ),
                 ),
+<<<<<<< HEAD
                 const SizedBox(width: 8),
                 InkWell(
                   onTap: _rentalMonths < 24 ? () => setState(() => _rentalMonths++) : null,
@@ -695,6 +803,12 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                     alignment: Alignment.center,
                     child: Icon(Icons.add, size: 16, color: _rentalMonths < 24 ? const Color(0xFF334155) : const Color(0xFF94A3B8)),
                   ),
+=======
+                IconButton(
+                  tooltip: 'Tăng số tháng thuê',
+                  icon: const Icon(Icons.add, size: 16, color: Color(0xFF64748B)),
+                  onPressed: _rentalMonths < 24 ? () => setState(() => _rentalMonths++) : null,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
               ],
             ),
@@ -703,7 +817,11 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
 
           // Số lượng người ở (Thanh ngang gọn gàng)
           Container(
+<<<<<<< HEAD
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+=======
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(10),
@@ -712,6 +830,7 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
             child: Row(
               children: [
                 const Icon(Icons.group_outlined, size: 16, color: Color(0xFF64748B)),
+<<<<<<< HEAD
                 const SizedBox(width: 6),
                 const Expanded(
                   child: Text(
@@ -737,6 +856,18 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+=======
+                const SizedBox(width: 8),
+                const Text('Số lượng người ở:', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Giảm số người ở',
+                  icon: const Icon(Icons.remove, size: 16, color: Color(0xFF64748B)),
+                  onPressed: _occupantCount > 1 ? () => setState(() => _occupantCount--) : null,
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                   decoration: BoxDecoration(
                     color: const Color(0xFFDBEAFE),
                     borderRadius: BorderRadius.circular(6),
@@ -746,6 +877,7 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                     style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1D4ED8)),
                   ),
                 ),
+<<<<<<< HEAD
                 const SizedBox(width: 8),
                 InkWell(
                   onTap: _occupantCount < 5 ? () => setState(() => _occupantCount++) : null,
@@ -761,6 +893,12 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                     alignment: Alignment.center,
                     child: Icon(Icons.add, size: 16, color: _occupantCount < 5 ? const Color(0xFF334155) : const Color(0xFF94A3B8)),
                   ),
+=======
+                IconButton(
+                  tooltip: 'Tăng số người ở',
+                  icon: const Icon(Icons.add, size: 16, color: Color(0xFF64748B)),
+                  onPressed: _occupantCount < 5 ? () => setState(() => _occupantCount++) : null,
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
               ],
             ),
@@ -787,6 +925,7 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
               Container(
                 padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(
+<<<<<<< HEAD
                   color: AppColors.primarySurface,
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -811,6 +950,25 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   side: BorderSide(color: AppColors.primary.withValues(alpha: 0.3)),
                   backgroundColor: AppColors.primarySurface,
+=======
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.person_outline_rounded, size: 18, color: Color(0xFF2563EB)),
+              ),
+              const SizedBox(width: 8),
+              const Text('Thông tin người thuê', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A))),
+              const Spacer(),
+              // Nút lấy nhanh thông tin từ tài khoản
+              OutlinedButton.icon(
+                onPressed: _fillFromAccount,
+                icon: const Icon(Icons.account_circle_outlined, size: 14, color: Color(0xFF2563EB)),
+                label: const Text('Lấy từ tài khoản', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  side: const BorderSide(color: Color(0xFFBFDBFE)),
+                  backgroundColor: const Color(0xFFEFF6FF),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
@@ -843,14 +1001,22 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+<<<<<<< HEAD
                           Icon(Icons.person, size: 16, color: _isBookingForSelf ? AppColors.primary : const Color(0xFF64748B)),
+=======
+                          Icon(Icons.person, size: 16, color: _isBookingForSelf ? const Color(0xFF2563EB) : const Color(0xFF64748B)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                           const SizedBox(width: 6),
                           Text(
                             'Bản thân tôi thuê',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: _isBookingForSelf ? FontWeight.bold : FontWeight.w500,
+<<<<<<< HEAD
                               color: _isBookingForSelf ? AppColors.primary : const Color(0xFF64748B),
+=======
+                              color: _isBookingForSelf ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                             ),
                           ),
                         ],
@@ -875,14 +1041,22 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+<<<<<<< HEAD
                           Icon(Icons.family_restroom_rounded, size: 16, color: !_isBookingForSelf ? AppColors.primary : const Color(0xFF64748B)),
+=======
+                          Icon(Icons.family_restroom_rounded, size: 16, color: !_isBookingForSelf ? const Color(0xFF2563EB) : const Color(0xFF64748B)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                           const SizedBox(width: 6),
                           Text(
                             'Đặt hộ người thân',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: !_isBookingForSelf ? FontWeight.bold : FontWeight.w500,
+<<<<<<< HEAD
                               color: !_isBookingForSelf ? AppColors.primary : const Color(0xFF64748B),
+=======
+                              color: !_isBookingForSelf ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                             ),
                           ),
                         ],
@@ -899,16 +1073,26 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
+<<<<<<< HEAD
               color: _isBookingForSelf ? AppColors.primarySurface : const Color(0xFFFFFBEB),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: _isBookingForSelf ? AppColors.primary.withValues(alpha: 0.2) : const Color(0xFFFDE68A)),
+=======
+              color: _isBookingForSelf ? const Color(0xFFEFF6FF) : const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _isBookingForSelf ? const Color(0xFFDBEAFE) : const Color(0xFFFDE68A)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             ),
             child: Row(
               children: [
                 Icon(
                   _isBookingForSelf ? Icons.auto_awesome : Icons.edit_note,
                   size: 14,
+<<<<<<< HEAD
                   color: _isBookingForSelf ? AppColors.primary : const Color(0xFFD97706),
+=======
+                  color: _isBookingForSelf ? const Color(0xFF2563EB) : const Color(0xFFD97706),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -995,6 +1179,7 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
               border: Border.all(color: const Color(0xFFCBD5E1)),
               borderRadius: BorderRadius.circular(8),
             ),
+<<<<<<< HEAD
             child: RadioGroup<String>(
               groupValue: _renterGender,
               onChanged: (val) {
@@ -1007,6 +1192,14 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                   _buildGenderRadio('khac', 'Khác'),
                 ],
               ),
+=======
+            child: Row(
+              children: [
+                _buildGenderRadio('nam', 'Nam'),
+                _buildGenderRadio('nu', 'Nữ'),
+                _buildGenderRadio('khac', 'Khác'),
+              ],
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             ),
           ),
           const SizedBox(height: 12),
@@ -1074,7 +1267,15 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
           children: [
             Radio<String>(
               value: value,
+<<<<<<< HEAD
               activeColor: AppColors.primary,
+=======
+              groupValue: _renterGender,
+              onChanged: (val) {
+                if (val != null) setState(() => _renterGender = val);
+              },
+              activeColor: const Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               visualDensity: VisualDensity.compact,
             ),
             Text(
@@ -1117,7 +1318,11 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                   color: const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(8),
                 ),
+<<<<<<< HEAD
                 child: const Icon(Icons.badge_outlined, size: 18, color: AppColors.primary),
+=======
+                child: const Icon(Icons.badge_outlined, size: 18, color: Color(0xFF2563EB)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               ),
               const SizedBox(width: 8),
               const Text('Thông tin người liên hệ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A))),
@@ -1151,13 +1356,21 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
+<<<<<<< HEAD
                     color: _isBookingForSelf ? AppColors.primarySurface : const Color(0xFFF1F5F9),
+=======
+                    color: _isBookingForSelf ? const Color(0xFFEFF6FF) : const Color(0xFFF1F5F9),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     _isBookingForSelf ? 'Bản thân' : 'Người đặt hộ',
                     style: TextStyle(
+<<<<<<< HEAD
                       color: _isBookingForSelf ? AppColors.primary : const Color(0xFF475569),
+=======
+                      color: _isBookingForSelf ? const Color(0xFF2563EB) : const Color(0xFF475569),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),
@@ -1248,6 +1461,7 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+<<<<<<< HEAD
             children: [
               Expanded(
                 child: Text(
@@ -1258,6 +1472,14 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                 ),
               ),
               const SizedBox(width: 8),
+=======
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Lời nhắn cho ${widget.room.hostName.isNotEmpty ? widget.room.hostName : 'Chủ nhà'}',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A)),
+              ),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               const Text('Tùy chọn', style: TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8))),
             ],
           ),
@@ -1305,6 +1527,7 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
               Container(
                 padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(
+<<<<<<< HEAD
                   color: AppColors.primarySurface,
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -1322,16 +1545,33 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+=======
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.payment_outlined, size: 18, color: Color(0xFF2563EB)),
+              ),
+              const SizedBox(width: 8),
+              const Text('Phương thức thanh toán', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A))),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 decoration: BoxDecoration(
                   color: const Color(0xFFDCFCE7),
                   borderRadius: BorderRadius.circular(6),
                 ),
+<<<<<<< HEAD
                 child: const Text('An toàn qua ứng dụng', style: TextStyle(color: Color(0xFF16A34A), fontSize: 10, fontWeight: FontWeight.bold)),
+=======
+                child: const Text('An toàn qua ứng dụng', style: TextStyle(color: Color(0xFF16A34A), fontSize: 10.5, fontWeight: FontWeight.bold)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               ),
             ],
           ),
           const SizedBox(height: 12),
 
+<<<<<<< HEAD
           // Lựa chọn phương thức thanh toán bọc trong RadioGroup
           RadioGroup<String>(
             groupValue: _paymentOption,
@@ -1355,6 +1595,23 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                 ),
               ],
             ),
+=======
+          // Lựa chọn 1: Thanh toán cọc giữ phòng
+          _buildPaymentOptionTile(
+            value: 'deposit',
+            title: 'Thanh toán cọc giữ phòng',
+            amount: currencyFmt.format(_depositAmount),
+            subtitle: 'Giữ chỗ ưu tiên ngay lập tức, tiền thuê tháng đầu sẽ thanh toán khi nhận bàn giao phòng.',
+          ),
+          const SizedBox(height: 10),
+
+          // Lựa chọn 2: Thanh toán toàn bộ
+          _buildPaymentOptionTile(
+            value: 'full',
+            title: 'Thanh toán toàn bộ',
+            amount: currencyFmt.format(_depositAmount + widget.room.price),
+            subtitle: 'Bao gồm cọc (${currencyFmt.format(_depositAmount)}) + Tháng đầu tiên (${currencyFmt.format(widget.room.price)}). Ký nhận chìa khóa nhanh.',
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           ),
         ],
       ),
@@ -1375,10 +1632,17 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
+<<<<<<< HEAD
           color: isSelected ? AppColors.primaryContainer.withValues(alpha: 0.15) : const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+=======
+          color: isSelected ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -1387,7 +1651,15 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
           children: [
             Radio<String>(
               value: value,
+<<<<<<< HEAD
               activeColor: AppColors.primary,
+=======
+              groupValue: _paymentOption,
+              onChanged: (val) {
+                if (val != null) setState(() => _paymentOption = val);
+              },
+              activeColor: const Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               visualDensity: VisualDensity.compact,
             ),
             const SizedBox(width: 4),
@@ -1406,7 +1678,11 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                         ),
                       ),
                       const SizedBox(width: 8),
+<<<<<<< HEAD
                       Text(amount, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppColors.primary)),
+=======
+                      Text(amount, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF2563EB))),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -1443,7 +1719,11 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
               height: 48,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
+<<<<<<< HEAD
                   backgroundColor: AppColors.primary,
+=======
+                  backgroundColor: const Color(0xFF2563EB),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1459,6 +1739,7 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
               ),
             ),
             const SizedBox(height: 8),
+<<<<<<< HEAD
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -1471,6 +1752,16 @@ class _RoomBookingDetailScreenState extends ConsumerState<RoomBookingDetailScree
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+=======
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_outline, size: 13, color: Color(0xFF64748B)),
+                SizedBox(width: 4),
+                Text(
+                  'Không trừ phí ngay • Chỉ cọc khi chủ nhà chấp thuận lịch hẹn.',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
               ],
             ),

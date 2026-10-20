@@ -75,13 +75,38 @@ class ChatService {
     final chatId = getChatId(message.senderId, message.receiverId);
     final batch = _firestore.batch();
 
+<<<<<<< HEAD
     // 3. Luôn tạo document tin nhắn mới độc lập (append-only), KHÔNG ghi đè bất kỳ tin nhắn cũ nào
     final msgDoc = _firestore.collection('chats').doc(chatId).collection('messages').doc();
+=======
+    // 3. Lưu tin nhắn vào subcollection
+    final msgDoc = message.id.isNotEmpty
+        ? _firestore.collection('chats').doc(chatId).collection('messages').doc(message.id)
+        : _firestore.collection('chats').doc(chatId).collection('messages').doc();
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
     final messageToSave = message.copyWith(id: msgDoc.id, conversationId: chatId);
     batch.set(msgDoc, messageToSave.toMap());
 
+<<<<<<< HEAD
     // 4. Cập nhật hội thoại tổng quan (recent conversation) bằng dot-notation để bảo toàn dữ liệu
+=======
+    // 4. Cập nhật hội thoại tổng quan (recent conversation)
+    final userNames = <String, String>{
+      message.senderId: message.senderName,
+    };
+    if (receiverName != null && receiverName.trim().isNotEmpty) {
+      userNames[message.receiverId] = receiverName.trim();
+    }
+
+    final partnerNames = <String, String>{
+      message.senderId: (receiverName != null && receiverName.trim().isNotEmpty)
+          ? receiverName.trim()
+          : 'Đối tác trao đổi',
+      message.receiverId: message.senderName,
+    };
+
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     final chatDoc = _firestore.collection('chats').doc(chatId);
     final convData = <String, dynamic>{
       'chatId': chatId,
@@ -94,6 +119,7 @@ class ChatService {
       'lastSenderId': message.senderId,
       'lastTimestamp': FieldValue.serverTimestamp(),
       'ngayGuiCuoi': FieldValue.serverTimestamp(),
+<<<<<<< HEAD
       'isRead': false,
       'unreadCount': FieldValue.increment(1),
       'unreadFor_${message.receiverId}': FieldValue.increment(1),
@@ -113,6 +139,20 @@ class ChatService {
     }
     if (receiverPhone != null && receiverPhone.isNotEmpty) {
       convData['userPhones.${message.receiverId}'] = receiverPhone;
+=======
+      'userNames': userNames,
+      'partnerNames': partnerNames,
+      'isRead': false,
+      'unreadCount': FieldValue.increment(1),
+      'unreadFor_${message.receiverId}': FieldValue.increment(1),
+    };
+
+    if (receiverAvatar != null && receiverAvatar.isNotEmpty) {
+      convData['userAvatars'] = {message.receiverId: receiverAvatar};
+    }
+    if (receiverPhone != null && receiverPhone.isNotEmpty) {
+      convData['userPhones'] = {message.receiverId: receiverPhone};
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     }
 
     if (roomMetadata != null) {
@@ -180,6 +220,7 @@ class ChatService {
         .set({'extraData': extraData}, SetOptions(merge: true));
   }
 
+<<<<<<< HEAD
   /// Thu hồi tin nhắn ở cả 2 phía (Xóa nội dung tin nhắn và chuyển sang trạng thái đã thu hồi)
   Future<void> revokeMessageForEveryone({
     required String senderId,
@@ -266,6 +307,9 @@ class ChatService {
   }
 
   // Stream tin nhắn an toàn, realtime tức thì và không bị trễ
+=======
+  // Stream tin nhắn an toàn, chỉ truy vấn đúng cuộc hội thoại giữa 2 người
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   Stream<List<ChatMessageModel>> getMessagesStream(String userA, String userB) {
     final cleanA = userA.trim();
     final cleanB = userB.trim();
@@ -278,7 +322,13 @@ class ChatService {
         .collection('chats')
         .doc(chatId)
         .collection('messages')
+<<<<<<< HEAD
         .snapshots(includeMetadataChanges: true)
+=======
+        .orderBy('timestamp', descending: true)
+        .limit(100)
+        .snapshots()
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         .map((snapshot) {
       final list = snapshot.docs.map((doc) {
         try {
@@ -294,6 +344,7 @@ class ChatService {
     });
   }
 
+<<<<<<< HEAD
   /// Gửi thông báo đến chủ nhà khi người được mời chấp nhận lời mời ở ghép
   Future<void> notifyHostRoommateAccepted({
     required String hostId,
@@ -336,6 +387,8 @@ class ChatService {
     });
   }
 
+=======
+>>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   // Stream danh sách cuộc trò chuyện gần đây của người dùng
   Stream<List<ConversationModel>> getConversationsStream(String currentUserId) {
     final cleanUid = currentUserId.trim();
