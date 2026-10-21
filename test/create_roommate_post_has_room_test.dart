@@ -48,14 +48,18 @@ void main() {
           ProviderScope(
             overrides: [
               authStateProvider.overrideWith((ref) => Stream.value(null)),
-              currentUserProvider.overrideWith((ref) => MockUser(uid: 'user_no_room', displayName: 'Nguyễn Văn A')),
-              userProfileProvider.overrideWith((ref) => Stream.value(mockProfile)),
-              renterBookingsStreamProvider('user_no_room')
-                  .overrideWith((ref) => Stream.value(<BookingRequestModel>[])),
+              currentUserProvider.overrideWith(
+                (ref) =>
+                    MockUser(uid: 'user_no_room', displayName: 'Nguyễn Văn A'),
+              ),
+              userProfileProvider.overrideWith(
+                (ref) => Stream.value(mockProfile),
+              ),
+              renterBookingsStreamProvider(
+                'user_no_room',
+              ).overrideWith((ref) => Stream.value(<BookingRequestModel>[])),
             ],
-            child: const MaterialApp(
-              home: CreateRoommatePostScreen(),
-            ),
+            child: const MaterialApp(home: CreateRoommatePostScreen()),
           ),
         );
 
@@ -63,11 +67,11 @@ void main() {
 
         // 1. Nhập đủ thông tin Bước 1
         final textFields = find.byType(TextFormField);
-        expect(textFields, findsNWidgets(4));
+        expect(find.text('Nghề nghiệp / Trường học *'), findsNothing);
+        expect(textFields, findsNWidgets(3));
         await tester.enterText(textFields.at(0), 'Nguyễn Văn A');
         await tester.enterText(textFields.at(1), '22');
-        await tester.enterText(textFields.at(2), 'Sinh viên');
-        await tester.enterText(textFields.at(3), '0912345678');
+        await tester.enterText(textFields.at(2), '0912345678');
         await tester.pumpAndSettle();
 
         // Nhấn nút "Tiếp tục" từ Bước 1 sang Bước 2
@@ -81,14 +85,21 @@ void main() {
         expect(find.text('Chưa có phòng'), findsOneWidget);
 
         // 3. Hiển thị thông điệp cảnh báo người dùng chưa có hợp đồng thuê phòng
-        expect(find.textContaining('Tài khoản của bạn chưa có hợp đồng thuê phòng nào đang hoạt động'), findsOneWidget);
+        expect(
+          find.textContaining(
+            'Tài khoản của bạn chưa có hợp đồng thuê phòng nào đang hoạt động',
+          ),
+          findsOneWidget,
+        );
 
         // 4. Nhấn vào thẻ "Đã có phòng" -> Không cho phép chọn và hiện SnackBar thông báo
         await tester.tap(find.text('Đã có phòng'));
         await tester.pump();
 
         expect(
-          find.text('Bạn hiện chưa có phòng đang thuê trên hệ thống nên không thể chọn "Đã có phòng". Vui lòng chọn "Chưa có phòng" để tìm bạn cùng thuê.'),
+          find.text(
+            'Bạn hiện chưa có phòng đang thuê trên hệ thống nên không thể chọn "Đã có phòng". Vui lòng chọn "Chưa có phòng" để tìm bạn cùng thuê.',
+          ),
           findsOneWidget,
         );
       },
@@ -115,7 +126,8 @@ void main() {
           renterGender: 'Nữ',
           roomId: 'room_thu_duc',
           roomTitle: 'Phòng trọ ban công Linh Trung',
-          roomAddress: '12 Đường Số 8, Linh Trung, Thủ Đức',
+          roomAddress:
+              '66 Lê Văn Tăng, Phường Phước Long A, TP. Thủ Đức, TP. Hồ Chí Minh',
           roomPrice: 3200000,
           deposit: 3200000,
           totalAmount: 3200000,
@@ -133,14 +145,18 @@ void main() {
           ProviderScope(
             overrides: [
               authStateProvider.overrideWith((ref) => Stream.value(null)),
-              currentUserProvider.overrideWith((ref) => MockUser(uid: 'user_has_room', displayName: 'Trần Thị B')),
-              userProfileProvider.overrideWith((ref) => Stream.value(mockProfile)),
-              renterBookingsStreamProvider('user_has_room')
-                  .overrideWith((ref) => Stream.value(<BookingRequestModel>[activeBooking])),
+              currentUserProvider.overrideWith(
+                (ref) =>
+                    MockUser(uid: 'user_has_room', displayName: 'Trần Thị B'),
+              ),
+              userProfileProvider.overrideWith(
+                (ref) => Stream.value(mockProfile),
+              ),
+              renterBookingsStreamProvider('user_has_room').overrideWith(
+                (ref) => Stream.value(<BookingRequestModel>[activeBooking]),
+              ),
             ],
-            child: const MaterialApp(
-              home: CreateRoommatePostScreen(),
-            ),
+            child: const MaterialApp(home: CreateRoommatePostScreen()),
           ),
         );
 
@@ -148,11 +164,11 @@ void main() {
 
         // Điền Bước 1 và chuyển sang Bước 2
         final textFields = find.byType(TextFormField);
-        expect(textFields, findsNWidgets(4));
+        expect(find.text('Nghề nghiệp / Trường học *'), findsNothing);
+        expect(textFields, findsNWidgets(3));
         await tester.enterText(textFields.at(0), 'Trần Thị B');
         await tester.enterText(textFields.at(1), '21');
-        await tester.enterText(textFields.at(2), 'Nhân viên văn phòng');
-        await tester.enterText(textFields.at(3), '0987654321');
+        await tester.enterText(textFields.at(2), '0987654321');
         await tester.pumpAndSettle();
 
         final nextButton = find.text('Tiếp tục');
@@ -163,7 +179,10 @@ void main() {
         expect(find.text('Chưa thuê phòng'), findsNothing);
 
         // Thẻ "Đã có phòng" được chọn và hiển thị box "Phòng đang thuê: ..." kèm nút "Điền nhanh"
-        expect(find.textContaining('Phòng đang thuê: Phòng trọ ban công Linh Trung'), findsOneWidget);
+        expect(
+          find.textContaining('Phòng đang thuê: Phòng trọ ban công Linh Trung'),
+          findsOneWidget,
+        );
         expect(find.text('Điền nhanh'), findsOneWidget);
 
         // Nhấn nút "Điền nhanh" để tự động điền tiêu đề và địa chỉ phòng
@@ -171,7 +190,17 @@ void main() {
         await tester.pumpAndSettle();
 
         // Kiểm tra tiêu đề đã được điền tự động
-        expect(find.text('Tìm bạn ở ghép - Phòng trọ ban công Linh Trung'), findsOneWidget);
+        expect(
+          find.text('Tìm bạn ở ghép - Phòng trọ ban công Linh Trung'),
+          findsOneWidget,
+        );
+        expect(find.text('TP. Hồ Chí Minh'), findsOneWidget);
+        expect(find.text('Thành phố Thủ Đức'), findsOneWidget);
+        expect(find.text('Phường Phước Long A'), findsOneWidget);
+        expect(
+          find.widgetWithText(TextFormField, '66 Lê Văn Tăng'),
+          findsOneWidget,
+        );
       },
     );
   });

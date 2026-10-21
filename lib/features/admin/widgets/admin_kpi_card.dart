@@ -26,7 +26,7 @@ class AdminKpiCard extends StatelessWidget {
     this.subtext,
     this.subtextColor,
     this.backgroundColor = Colors.white,
-    this.borderColor = const Color(0xFFEAECF0),
+    this.borderColor = const Color(0xFFDCEAF5),
     this.onTap,
   });
 
@@ -59,8 +59,8 @@ class AdminKpiCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w700,
-                color: valueColor == const Color(0xFF155EEF)
-                    ? const Color(0xFF155EEF)
+                color: valueColor == const Color(0xFF398FC0)
+                    ? const Color(0xFF398FC0)
                     : const Color(0xFF64748B),
                 letterSpacing: 0.4,
               ),
@@ -86,7 +86,10 @@ class AdminKpiCard extends StatelessWidget {
             // Badge / Subtext
             if (badgeText != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 2.5,
+                ),
                 decoration: BoxDecoration(
                   color: badgeColor ?? const Color(0xFFECFDF3),
                   borderRadius: BorderRadius.circular(6),
@@ -123,7 +126,7 @@ class AdminKpiCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
-                  color: subtextColor ?? const Color(0xFF2E90FA),
+                  color: subtextColor ?? const Color(0xFF398FC0),
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

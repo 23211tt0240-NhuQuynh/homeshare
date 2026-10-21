@@ -264,8 +264,9 @@ class HostRepository {
     // Bảng ảnh trọ riêng biệt (property_images)
     for (var i = 0; i < urls.length; i++) {
       try {
-        final imgDoc =
-            _db.collection(FirestoreCollections.propertyImages).doc();
+        final imgDoc = _db
+            .collection(FirestoreCollections.propertyImages)
+            .doc();
         final imgData = {
           'id': imgDoc.id,
           'propertyId': property.id,
@@ -525,12 +526,16 @@ class HostRepository {
       if (count >= (data['plannedRooms'] as num).toInt()) {
         throw StateError('Đã đạt tổng số phòng của cơ sở.');
       }
-      final resolvedCode = room.roomCode.isNotEmpty ? room.roomCode : roomRef.id;
+      final resolvedCode = room.roomCode.isNotEmpty
+          ? room.roomCode
+          : roomRef.id;
       final roomData = {
         'id': roomRef.id,
         'propertyId': room.propertyId,
         'roomCode': resolvedCode,
-        'title': room.title.trim().isNotEmpty ? room.title.trim() : 'Phòng $resolvedCode',
+        'title': room.title.trim().isNotEmpty
+            ? room.title.trim()
+            : 'Phòng $resolvedCode',
         'description': room.description,
         'price': room.price,
         'deposit': room.deposit,
@@ -595,8 +600,9 @@ class HostRepository {
       final name = amName.trim();
       if (name.isEmpty) continue;
       try {
-        final linkDoc =
-            _db.collection(FirestoreCollections.roomAmenities).doc();
+        final linkDoc = _db
+            .collection(FirestoreCollections.roomAmenities)
+            .doc();
         final linkData = {
           'id': linkDoc.id,
           'roomId': roomRef.id,
@@ -808,10 +814,7 @@ class HostRepository {
     for (int i = 0; i < images.length; i++) {
       final imgUrl = images[i];
       final imgDocId = '${base.id}_img_$i';
-      await _db
-          .collection(FirestoreCollections.roomImages)
-          .doc(imgDocId)
-          .set({
+      await _db.collection(FirestoreCollections.roomImages).doc(imgDocId).set({
         'id': imgDocId,
         'roomId': base.id,
         'url': imgUrl,
@@ -827,8 +830,7 @@ class HostRepository {
       for (final am in rawAmenities) {
         final amName = am.toString().trim();
         if (amName.isEmpty) continue;
-        final amDocId =
-            '${base.id}_${amName.replaceAll(RegExp(r'\s+'), '_')}';
+        final amDocId = '${base.id}_${amName.replaceAll(RegExp(r'\s+'), '_')}';
         await _db
             .collection(FirestoreCollections.roomAmenities)
             .doc(amDocId)
@@ -848,18 +850,62 @@ class HostRepository {
   Future<void> deleteRoom(RoomModel base) async {
     await _requireHost(base.hostId);
     final roomRef = _db.collection(FirestoreCollections.hostRooms).doc(base.id);
+    final publicRoomRef = _db
+        .collection(FirestoreCollections.rooms)
+        .doc(base.id);
     final propertyRef = _db
         .collection(FirestoreCollections.hostProperties)
         .doc(base.propertyId);
+    final nestedRoomRef = propertyRef
+        .collection(FirestoreCollections.rooms)
+        .doc(base.id);
+
+    // Một số dữ liệu cũ dùng tên khóa roomId/phongId khác nhau. Thu thập toàn
+    // bộ bài liên kết để thao tác xóa phòng không để lại bài active mồ côi.
+    final linkedPostRefs = <String, DocumentReference<Map<String, dynamic>>>{};
+    for (final field in const ['roomId', 'room_id', 'phongId']) {
+      final posts = await _db
+          .collection(FirestoreCollections.posts)
+          .where(field, isEqualTo: base.id)
+          .get();
+      for (final post in posts.docs) {
+        linkedPostRefs[post.reference.path] = post.reference;
+      }
+    }
+
     await _db.runTransaction((transaction) async {
       final current = await transaction.get(roomRef);
       final property = await transaction.get(propertyRef);
+      final publicRoom = await transaction.get(publicRoomRef);
+      final nestedRoom = await transaction.get(nestedRoomRef);
       final data = current.data();
       final parent = property.data();
-      if (data == null || data['status'] == 'deleted') return;
+      if (data == null) return;
       if (data['hostId'] != base.hostId || parent?['hostId'] != base.hostId) {
         throw StateError('Bạn không có quyền xóa phòng này.');
       }
+
+      final alreadyDeleted = data['status'] == 'deleted';
+      final deletedPayload = {
+        'status': 'deleted',
+        'isAvailable': false,
+        'deletedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      // Luôn đồng bộ lại các bản sao, kể cả khi host_rooms đã deleted từ một
+      // phiên bản ứng dụng cũ. Nhờ vậy dữ liệu tồn đọng cũng được dọn đúng.
+      if (publicRoom.exists) {
+        transaction.update(publicRoomRef, deletedPayload);
+      }
+      if (nestedRoom.exists) {
+        transaction.update(nestedRoomRef, deletedPayload);
+      }
+      for (final postRef in linkedPostRefs.values) {
+        transaction.update(postRef, deletedPayload);
+      }
+      if (alreadyDeleted) return;
+
       _checkRevision(data, base);
       if (data['status'] == 'occupied' ||
           data['status'] == 'reserved' ||
@@ -873,12 +919,7 @@ class HostRepository {
       final key = _codeKey(data['roomCode'] as String? ?? '');
       if (codes[key] == base.id) codes.remove(key);
       final count = (parent['roomCount'] as num?)?.toInt() ?? 0;
-      transaction.update(roomRef, {
-        'status': 'deleted',
-        'isAvailable': false,
-        'deletedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      transaction.update(roomRef, deletedPayload);
       transaction.update(propertyRef, {
         'roomCount': count > 0 ? count - 1 : 0,
         'roomCodes': codes,
@@ -920,13 +961,14 @@ class HostRepository {
                 .get();
             for (final d in snap.docs) {
               final data = d.data();
-              final name = (data['amenityName'] ??
-                      data['ten_tien_ich'] ??
-                      data['tenTienIch'] ??
-                      data['name'] ??
-                      '')
-                  .toString()
-                  .trim();
+              final name =
+                  (data['amenityName'] ??
+                          data['ten_tien_ich'] ??
+                          data['tenTienIch'] ??
+                          data['name'] ??
+                          '')
+                      .toString()
+                      .trim();
               if (name.isNotEmpty && !results.contains(name)) {
                 results.add(name);
               }
@@ -967,27 +1009,32 @@ class HostRepository {
                 .get();
             final docs = snap.docs.toList()
               ..sort((a, b) {
-                final oa = (a.data()['sortOrder'] ??
-                        a.data()['thu_tu'] ??
-                        a.data()['thuTu']) as num? ??
+                final oa =
+                    (a.data()['sortOrder'] ??
+                            a.data()['thu_tu'] ??
+                            a.data()['thuTu'])
+                        as num? ??
                     0;
-                final ob = (b.data()['sortOrder'] ??
-                        b.data()['thu_tu'] ??
-                        b.data()['thuTu']) as num? ??
+                final ob =
+                    (b.data()['sortOrder'] ??
+                            b.data()['thu_tu'] ??
+                            b.data()['thuTu'])
+                        as num? ??
                     0;
                 return oa.compareTo(ob);
               });
             for (final doc in docs) {
               final data = doc.data();
-              final url = (data['url'] ??
-                      data['url_anh'] ??
-                      data['duongDan'] ??
-                      data['image'] ??
-                      data['imageUrl'] ??
-                      data['link'] ??
-                      '')
-                  .toString()
-                  .trim();
+              final url =
+                  (data['url'] ??
+                          data['url_anh'] ??
+                          data['duongDan'] ??
+                          data['image'] ??
+                          data['imageUrl'] ??
+                          data['link'] ??
+                          '')
+                      .toString()
+                      .trim();
               if (url.isNotEmpty && !results.contains(url)) {
                 results.add(url);
               }
@@ -1018,14 +1065,15 @@ class HostRepository {
                     .get();
                 for (final d in subSnap.docs) {
                   final data = d.data();
-                  final url = (data['url'] ??
-                          data['url_anh'] ??
-                          data['duongDan'] ??
-                          data['image'] ??
-                          data['imageUrl'] ??
-                          '')
-                      .toString()
-                      .trim();
+                  final url =
+                      (data['url'] ??
+                              data['url_anh'] ??
+                              data['duongDan'] ??
+                              data['image'] ??
+                              data['imageUrl'] ??
+                              '')
+                          .toString()
+                          .trim();
                   if (url.isNotEmpty && !results.contains(url)) {
                     results.add(url);
                   }
@@ -1047,7 +1095,8 @@ class HostRepository {
             final doc = await _db.collection(col).doc(tid).get();
             if (doc.exists && doc.data() != null) {
               final data = doc.data()!;
-              final raw = data['images'] ??
+              final raw =
+                  data['images'] ??
                   data['anhPhong'] ??
                   data['roomImages'] ??
                   data['imageUrls'] ??
@@ -1086,7 +1135,7 @@ class HostRepository {
     required String chuNhaId,
     required String diaDiemId,
     required String loaiThueId,
-    required String trangThaiId,
+    required String status,
     required String tieuDe,
     required String moTa,
     required double giaThue,
@@ -1191,7 +1240,8 @@ class HostRepository {
       'depositPercentage': phanTramTienCoc,
       'images': finalUrls,
       'amenities': selectedAmenities.toList(),
-      'status': trangThaiId.isNotEmpty ? trangThaiId : 'active',
+      'status': status.isNotEmpty ? status : 'pending',
+      'isAvailable': status == 'active' || status == 'approved',
       'isPinned': false,
       'createdAt': FieldValue.serverTimestamp(),
     };

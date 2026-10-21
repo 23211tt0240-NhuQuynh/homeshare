@@ -60,14 +60,15 @@ class RoleResolver {
   /// Đọc và chuẩn hóa vai trò từ Map dữ liệu Firestore của bảng Người dùng.
   /// Thứ tự ưu tiên kiểm tra:
   /// 1. `role` (Tiêu chuẩn code)
-  /// 2. `vaiTro` (Tiếng Việt DrawIO)
-  /// 3. `vaiTro_id` (Khóa ngoại DrawIO / AuthService)
+  /// 2. `roleId` (Tên khóa chuẩn trong schema)
+  /// 3. `vaiTro` (Tiếng Việt DrawIO)
+  /// 4. `vaiTro_id` (Khóa ngoại DrawIO / AuthService)
   ///
   /// Trả về `null` nếu không có khóa nào chứa vai trò hợp lệ.
   static String? extractRoleFromMap(Map<String, dynamic>? data) {
     if (data == null) return null;
 
-    const candidateKeys = ['role', 'vaiTro', 'vaiTro_id'];
+    const candidateKeys = ['role', 'roleId', 'vaiTro', 'vaiTro_id'];
 
     for (final key in candidateKeys) {
       if (data.containsKey(key)) {

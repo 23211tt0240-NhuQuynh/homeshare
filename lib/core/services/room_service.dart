@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../constants/firestore_collections.dart';
 import '../../data/models/room_model.dart';
 
 class RoomFilterParams {
@@ -49,24 +50,285 @@ class RoomFilterParams {
 
   @override
   int get hashCode => Object.hash(
-        city,
-        district,
-        rentalType,
-        minPrice,
-        maxPrice,
-        minArea,
-        maxArea,
-        Object.hashAll(amenities),
-        roomType,
-        searchQuery,
-        sortBy,
-      );
+    city,
+    district,
+    rentalType,
+    minPrice,
+    maxPrice,
+    minArea,
+    maxArea,
+    Object.hashAll(amenities),
+    roomType,
+    searchQuery,
+    sortBy,
+  );
 }
 
 class RoomService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
 
-  // Stream danh sách phòng realtime, kết hợp cả collection 'rooms' và 'posts' của Chủ trọ
+  /// `posts` là nguồn dữ liệu công khai duy nhất của Dashboard người thuê.
+  ///
+  /// `rooms` chỉ là bản sao thông tin phòng để quản lý/đặt phòng. Nếu tiếp tục
+  /// ghép bản sao đó vào feed, một bài đã xóa khỏi `posts` có thể xuất hiện lại
+  /// vì document `rooms` cũ vẫn còn trạng thái active/available.
+  @visibleForTesting
+  static List<RoomModel> mergeDashboardListings({
+    required Iterable<RoomModel> roomMirrors,
+    required Iterable<RoomModel> posts,
+  }) {
+    // Cố ý không đưa roomMirrors vào kết quả. Tham số này giúp kiểm thử và ghi
+    // rõ ranh giới giữa dữ liệu quản lý phòng với dữ liệu bài đăng công khai.
+    final listingsById = <String, RoomModel>{};
+    for (final post in posts) {
+      if (post.isDisplayable) listingsById[post.id] = post;
+    }
+    return listingsById.values.toList();
+  }
+
+  String _readReference(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
+  Future<Map<String, dynamic>?> _readDocument(
+    Iterable<String> collections,
+    String id,
+  ) async {
+    if (id.trim().isEmpty) return null;
+    for (final collection in collections.toSet()) {
+      try {
+        final doc = await _firestore.collection(collection).doc(id).get();
+        final data = doc.data();
+        if (doc.exists && data != null) {
+          return {...data, 'id': doc.id};
+        }
+      } catch (error) {
+        debugPrint('Không thể đọc $collection/$id: $error');
+      }
+    }
+    return null;
+  }
+
+  Future<RoomModel?> _readReferencedRoom(String roomId) async {
+    if (roomId.trim().isEmpty) return null;
+    final collections = <String>{
+      FirestoreCollections.hostRooms,
+      FirestoreCollections.rooms,
+      FirestoreCollections.phongTro,
+    };
+
+    final directData = await _readDocument(collections, roomId);
+    if (directData != null) return RoomModel.fromMap(directData, roomId);
+
+    for (final collection in collections) {
+      for (final field in const [
+        'roomId',
+        'room_id',
+        'phongId',
+        'phong_tro_id',
+      ]) {
+        try {
+          final result = await _firestore
+              .collection(collection)
+              .where(field, isEqualTo: roomId)
+              .limit(1)
+              .get();
+          if (result.docs.isNotEmpty) {
+            final doc = result.docs.first;
+            return RoomModel.fromMap(doc.data(), doc.id);
+          }
+        } catch (error) {
+          debugPrint('Không thể tìm phòng $roomId theo $field: $error');
+        }
+      }
+    }
+    return null;
+  }
+
+  Future<RoomModel> _enrichPostDocument(
+    DocumentSnapshot<Map<String, dynamic>> document, {
+    RoomModel? referencedRoom,
+  }) async {
+    final data = document.data() ?? const <String, dynamic>{};
+    final post = RoomModel.fromMap(data, document.id);
+
+    try {
+      final roomId = _readReference(data, const [
+        'roomId',
+        'room_id',
+        'phongId',
+        'phong_tro_id',
+      ]);
+      final room = referencedRoom ?? await _readReferencedRoom(roomId);
+      final hostId = post.hostId.trim().isNotEmpty
+          ? post.hostId.trim()
+          : (room?.hostId.trim() ?? '');
+      final propertyId = post.propertyId.trim().isNotEmpty
+          ? post.propertyId.trim()
+          : (room?.propertyId.trim() ?? '');
+      final locationId = _readReference(data, const [
+        'locationId',
+        'location_id',
+        'diaDiemId',
+        'dia_diem_id',
+      ]);
+
+      final results = await Future.wait<Map<String, dynamic>?>([
+        _readDocument(const [
+          FirestoreCollections.users,
+          FirestoreCollections.nguoiDung,
+        ], hostId),
+        _readDocument(const [
+          FirestoreCollections.properties,
+          FirestoreCollections.batDongSan,
+        ], propertyId),
+        _readDocument(const [FirestoreCollections.locations], locationId),
+      ]);
+      final hostData = results[0];
+      var propertyData = results[1];
+      final locationData = results[2];
+
+      if (propertyData == null && hostId.isNotEmpty && propertyId.isNotEmpty) {
+        try {
+          final nested = await _firestore
+              .collection(FirestoreCollections.users)
+              .doc(hostId)
+              .collection(FirestoreCollections.properties)
+              .doc(propertyId)
+              .get();
+          if (nested.exists && nested.data() != null) {
+            propertyData = {...nested.data()!, 'id': nested.id};
+          }
+        } catch (error) {
+          debugPrint('Không thể đọc nhà trọ $propertyId của $hostId: $error');
+        }
+      }
+
+      return post.enrichWithRelatedData(
+        room: room,
+        propertyData: propertyData,
+        hostData: hostData,
+        locationData: locationData,
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Không thể nối dữ liệu bài đăng ${document.id}: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return post;
+    }
+  }
+
+  Future<RoomModel?> _readListingDocument(
+    DocumentSnapshot<Map<String, dynamic>> document,
+  ) async {
+    try {
+      // 1. Bỏ tất cả các bài mẫu hardcode (sample_room_...)
+      if (document.id.toLowerCase().startsWith('sample')) return null;
+
+      final listing = RoomModel.fromFirestore(document);
+      // 2. Lọc CHỈ HIỂN THỊ những bài đang hoạt động (đã duyệt, còn mở):
+      // Các bài bị gỡ, bị ẩn, từ chối hoặc chờ duyệt, bài hardcode thì lọc KHÔNG hiển thị.
+      if (!listing.isDisplayable) {
+        return null;
+      }
+
+      // Bài cũ có thể vẫn active trong `posts` dù phòng quản lý đã bị xóa mềm.
+      // Kiểm tra phòng gốc để không làm sống lại bài đăng mồ côi trên Dashboard.
+      final roomId = _readReference(document.data() ?? const {}, const [
+        'roomId',
+        'room_id',
+        'phongId',
+        'phong_tro_id',
+      ]);
+      final referencedRoom = await _readReferencedRoom(roomId);
+      if (referencedRoom?.isDeleted == true) return null;
+
+      final addressText = listing.address
+          .replaceAll(RegExp(r'[,\s]'), '')
+          .trim();
+      final normalizedHost = listing.hostName.trim().toLowerCase();
+      final needsRelatedData =
+          addressText.isEmpty ||
+          normalizedHost.isEmpty ||
+          normalizedHost == 'chủ nhà' ||
+          normalizedHost == 'chủ trọ';
+      if (needsRelatedData) {
+        final enriched = await _enrichPostDocument(
+          document,
+          referencedRoom: referencedRoom,
+        );
+        if (!enriched.isDisplayable) return null;
+        return enriched;
+      }
+      return listing;
+    } catch (error, stackTrace) {
+      debugPrint('Không thể đọc phòng/bài đăng ${document.id}: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return null;
+    }
+  }
+
+  /// Theo dõi trực tiếp một bài đăng trong collection `posts`.
+  ///
+  /// Màn chi tiết dùng stream này để luôn phản ánh dữ liệu mới nhất trên
+  /// Firestore thay vì tiếp tục hiển thị snapshot được truyền từ danh sách.
+  Stream<RoomModel?> watchPostById(String postOrRoomId) {
+    if (postOrRoomId.trim().isEmpty) return Stream.value(null);
+
+    late StreamController<RoomModel?> controller;
+    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? directSub;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? roomIdSub;
+
+    void startRoomIdFallback() {
+      if (roomIdSub != null) return;
+      roomIdSub = _firestore
+          .collection(FirestoreCollections.posts)
+          .where(PostFields.roomId, isEqualTo: postOrRoomId)
+          .limit(1)
+          .snapshots()
+          .listen((snapshot) async {
+            if (controller.isClosed) return;
+            if (snapshot.docs.isEmpty) {
+              controller.add(null);
+              return;
+            }
+            final post = await _readListingDocument(snapshot.docs.first);
+            if (!controller.isClosed) controller.add(post);
+          }, onError: controller.addError);
+    }
+
+    controller = StreamController<RoomModel?>(
+      onListen: () {
+        directSub = _firestore
+            .collection(FirestoreCollections.posts)
+            .doc(postOrRoomId)
+            .snapshots()
+            .listen((doc) async {
+              if (doc.exists) {
+                await roomIdSub?.cancel();
+                roomIdSub = null;
+                if (!controller.isClosed) {
+                  final post = await _readListingDocument(doc);
+                  if (!controller.isClosed) controller.add(post);
+                }
+                return;
+              }
+              startRoomIdFallback();
+            }, onError: controller.addError);
+      },
+      onCancel: () async {
+        await directSub?.cancel();
+        await roomIdSub?.cancel();
+      },
+    );
+    return controller.stream;
+  }
+
+  // Stream bài đăng công khai realtime. Collection `rooms` không phải nguồn
+  // feed vì nó có thể còn bản sao cũ sau khi bài đăng bị xóa.
   Stream<List<RoomModel>> getRoomsStream({
     String? city,
     String? district,
@@ -81,18 +343,12 @@ class RoomService {
     String? sortBy,
   }) {
     late StreamController<List<RoomModel>> controller;
-    StreamSubscription? roomsSub;
     StreamSubscription? postsSub;
-    List<RoomModel> latestRooms = [];
     List<RoomModel> latestPosts = [];
 
     List<RoomModel> filterAndSort(List<RoomModel> rawList) {
-      var list = List<RoomModel>.from(rawList);
-
-      // Nạp dữ liệu phòng mẫu nếu Firestore hoàn toàn chưa có dữ liệu phòng nào
-      if (list.isEmpty) {
-        list = getSampleRooms();
-      }
+      // Chỉ giữ lại những bài đang hiển thị hợp lệ (đã duyệt, còn mở, không bị ẩn/gỡ, không phải bài mẫu hardcode)
+      var list = rawList.where((r) => r.isDisplayable).toList();
 
       // 1. Lọc theo Thành phố
       if (city != null &&
@@ -138,8 +394,9 @@ class RoomService {
       // 3. Lọc theo loại phòng / hình thức thuê
       if (roomType != null && roomType.isNotEmpty && roomType != 'Tất cả') {
         list = list
-            .where((r) =>
-                r.roomType.toLowerCase().contains(roomType.toLowerCase()))
+            .where(
+              (r) => r.roomType.toLowerCase().contains(roomType.toLowerCase()),
+            )
             .toList();
       }
 
@@ -164,10 +421,13 @@ class RoomService {
         list = list.where((r) {
           return amenities.any((a) {
             final key = a.toLowerCase().trim();
-            final hasMatch = r.amenities.any((item) =>
-                item.toLowerCase().contains(key) ||
-                key.contains(item.toLowerCase()));
-            final hasMatchDesc = r.description.toLowerCase().contains(key) ||
+            final hasMatch = r.amenities.any(
+              (item) =>
+                  item.toLowerCase().contains(key) ||
+                  key.contains(item.toLowerCase()),
+            );
+            final hasMatchDesc =
+                r.description.toLowerCase().contains(key) ||
                 r.title.toLowerCase().contains(key);
             return hasMatch || hasMatchDesc;
           });
@@ -178,11 +438,13 @@ class RoomService {
       if (searchQuery != null && searchQuery.trim().isNotEmpty) {
         final q = searchQuery.toLowerCase().trim();
         list = list
-            .where((r) =>
-                r.title.toLowerCase().contains(q) ||
-                r.address.toLowerCase().contains(q) ||
-                r.district.toLowerCase().contains(q) ||
-                r.description.toLowerCase().contains(q))
+            .where(
+              (r) =>
+                  r.title.toLowerCase().contains(q) ||
+                  r.address.toLowerCase().contains(q) ||
+                  r.district.toLowerCase().contains(q) ||
+                  r.description.toLowerCase().contains(q),
+            )
             .toList();
       }
 
@@ -208,66 +470,35 @@ class RoomService {
 
     void emitMerged() {
       if (controller.isClosed) return;
-      final Map<String, RoomModel> roomMap = {};
-      // Thêm phòng từ collection 'rooms'
-      for (final r in latestRooms) {
-        roomMap[r.id] = r;
-      }
-      // Hợp nhất bài đăng từ collection 'posts' nếu chưa có trong 'rooms'
-      for (final p in latestPosts) {
-        final exists = roomMap.containsKey(p.id) ||
-            roomMap.values.any((r) =>
-                r.id == p.id ||
-                (p.title.isNotEmpty &&
-                    r.title == p.title &&
-                    r.hostId == p.hostId));
-        if (!exists) {
-          roomMap[p.id] = p;
-        }
-      }
-
-      final merged = filterAndSort(roomMap.values.toList());
+      final publicListings = mergeDashboardListings(
+        roomMirrors: const <RoomModel>[],
+        posts: latestPosts,
+      );
+      final merged = filterAndSort(publicListings);
       controller.add(merged);
     }
 
     controller = StreamController<List<RoomModel>>(
       onListen: () {
-        roomsSub = _firestore.collection('rooms').snapshots().listen(
-          (snapshot) {
-            latestRooms = snapshot.docs.map((doc) {
-              try {
-                return RoomModel.fromFirestore(doc);
-              } catch (e) {
-                return null;
-              }
-            }).whereType<RoomModel>().where((r) => r.isAvailable).toList();
-            emitMerged();
-          },
-          onError: (err) {
-            debugPrint('Firestore room stream error: $err');
-            emitMerged();
-          },
-        );
-
-        postsSub = _firestore.collection('posts').snapshots().listen(
-          (snapshot) {
-            latestPosts = snapshot.docs.map((doc) {
-              try {
-                return RoomModel.fromFirestore(doc);
-              } catch (e) {
-                return null;
-              }
-            }).whereType<RoomModel>().where((r) => r.isAvailable).toList();
-            emitMerged();
-          },
-          onError: (err) {
-            debugPrint('Firestore posts stream error: $err');
-            emitMerged();
-          },
-        );
+        postsSub = _firestore
+            .collection('posts')
+            .snapshots()
+            .listen(
+              (snapshot) async {
+                final posts = await Future.wait(
+                  snapshot.docs.map(_readListingDocument),
+                );
+                if (controller.isClosed) return;
+                latestPosts = posts.whereType<RoomModel>().toList();
+                emitMerged();
+              },
+              onError: (err) {
+                debugPrint('Firestore posts stream error: $err');
+                emitMerged();
+              },
+            );
       },
       onCancel: () async {
-        await roomsSub?.cancel();
         await postsSub?.cancel();
       },
     );
@@ -277,152 +508,59 @@ class RoomService {
 
   // Lấy chi tiết 1 phòng
   Future<RoomModel?> getRoomById(String id) async {
+    final cleanId = id.trim();
+    if (cleanId.isEmpty || cleanId.toLowerCase().startsWith('sample')) {
+      return null;
+    }
     try {
-      final doc = await _firestore.collection('rooms').doc(id).get();
+      final doc = await _firestore.collection('rooms').doc(cleanId).get();
       if (doc.exists) {
-        return RoomModel.fromFirestore(doc);
+        final room = RoomModel.fromFirestore(doc);
+        if (room.isDisplayable) return room;
+      }
+      final postDoc = await _firestore.collection('posts').doc(cleanId).get();
+      if (postDoc.exists) {
+        final post = RoomModel.fromFirestore(postDoc);
+        if (post.isDisplayable) return post;
       }
     } catch (e) {
       debugPrint('Error getting room from firestore $id: $e');
     }
-    final samples = getSampleRooms();
-    final match = samples.where((r) => r.id == id);
-    if (match.isNotEmpty) return match.first;
     return null;
   }
 
-  // Danh sách phòng mẫu chuẩn HomeShare
+  // Đã gỡ bỏ toàn bộ bài mẫu hardcode
   static List<RoomModel> getSampleRooms() {
-    return [
-      RoomModel(
-        id: 'sample_room_1',
-        roomCode: 'P001',
-        title: 'Phòng trọ máy lạnh gần ĐH Nông Lâm',
-        description: 'Phòng mới xây gác đúc, máy lạnh Inverter, chỗ để xe miễn phí, an ninh 24/7, giờ giấc tự do.',
-        price: 3200000,
-        deposit: 3200000,
-        address: 'Đ. Số 8, P. Linh Trung',
-        district: 'TP. Thủ Đức',
-        city: 'TP. Hồ Chí Minh',
-        area: 25.0,
-        roomType: 'Phòng trọ',
-        amenities: ['Máy lạnh', 'Có gác lửng', 'Chỗ để xe miễn phí', 'Giờ giấc tự do', 'Wifi tốc độ cao', 'Gần trường ĐH / Bến xe'],
-        images: [
-          'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80',
-        ],
-        hostId: 'host_chu_ba_101',
-        hostName: 'Chú Ba Linh Trung',
-        hostPhone: '0908123456',
-        rating: 4.8,
-        reviewCount: 15,
-        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-      ),
-      RoomModel(
-        id: 'sample_room_2',
-        roomCode: 'P002',
-        title: 'Studio ban công thoáng mát Nguyễn Văn Lượng',
-        description: 'Căn hộ Studio full nội thất cao cấp phong cách Bắc Âu, có ban công view đẹp, thang máy, máy giặt riêng.',
-        price: 4500000,
-        deposit: 4500000,
-        address: 'Nguyễn Văn Lượng, P.3',
-        district: 'Gò Vấp',
-        city: 'TP. Hồ Chí Minh',
-        area: 30.0,
-        roomType: 'Căn hộ mini',
-        amenities: ['Máy lạnh', 'Ban công / Cửa sổ lớn', 'Tủ lạnh & Máy giặt', 'Wifi tốc độ cao', 'Không chung chủ', 'Chỗ để xe miễn phí', 'Giờ giấc tự do'],
-        images: [
-          'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80',
-        ],
-        hostId: 'host_minh_gv',
-        hostName: 'Anh Minh Gò Vấp',
-        hostPhone: '0938112233',
-        rating: 4.9,
-        reviewCount: 22,
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-      ),
-      RoomModel(
-        id: 'sample_room_3',
-        roomCode: 'P003',
-        title: 'Phòng trọ duplex cao cấp D2 Hutech',
-        description: 'Phòng gác đúc cao 2m2, khóa vân tay thẻ từ ra vào, kệ bếp rộng rãi, vệ sinh riêng khép kín, gần trạm xe buýt và chợ.',
-        price: 3800000,
-        deposit: 3800000,
-        address: 'Đường D2 (Nguyễn Gia Trí), P. 25',
-        district: 'Bình Thạnh',
-        city: 'TP. Hồ Chí Minh',
-        area: 22.0,
-        roomType: 'Phòng trọ',
-        amenities: ['Máy lạnh', 'Có gác lửng', 'Chỗ để xe miễn phí', 'Không chung chủ', 'Gần trường ĐH / Bến xe', 'Giờ giấc tự do'],
-        images: [
-          'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80',
-        ],
-        hostId: 'host_linhtrung_99',
-        hostName: 'Cô Lan Bình Thạnh',
-        hostPhone: '0912345678',
-        rating: 4.7,
-        reviewCount: 18,
-        createdAt: DateTime.now().subtract(const Duration(days: 2)),
-      ),
-      RoomModel(
-        id: 'sample_room_4',
-        roomCode: 'P004',
-        title: 'Căn hộ dịch vụ 1PN Mai Chí Thọ có hồ bơi',
-        description: 'Căn hộ dịch vụ hạng sang có ban công rộng, đầy đủ tiện ích hồ bơi tràn bờ, phòng gym, bảo vệ 24/7.',
-        price: 6500000,
-        deposit: 6500000,
-        address: 'Số 10 Mai Chí Thọ, P. An Phú',
-        district: 'TP. Thủ Đức',
-        city: 'TP. Hồ Chí Minh',
-        area: 45.0,
-        roomType: 'Chung cư',
-        amenities: ['Máy lạnh', 'Tủ lạnh & Máy giặt', 'Ban công / Cửa sổ lớn', 'Chỗ để xe miễn phí', 'Giờ giấc tự do', 'Gần trường ĐH / Bến xe'],
-        images: [
-          'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80',
-        ],
-        hostId: 'host_saigon_luxury',
-        hostName: 'Homes Luxury Co.',
-        hostPhone: '0988776655',
-        rating: 5.0,
-        reviewCount: 30,
-        createdAt: DateTime.now().subtract(const Duration(days: 4)),
-      ),
-    ];
+    return const <RoomModel>[];
   }
 
-  // Tự động nạp dữ liệu mẫu chất lượng cao vào Firestore nếu database trống
+  // Không nạp dữ liệu mẫu
   Future<void> seedInitialRoomsIfEmpty() async {
-    try {
-      final snapshot = await _firestore.collection('rooms').limit(1).get();
-      if (snapshot.docs.isNotEmpty) return; // Đã có dữ liệu
-
-      final sampleRooms = getSampleRooms();
-      final batch = _firestore.batch();
-      for (var r in sampleRooms) {
-        final docRef = _firestore.collection('rooms').doc();
-        batch.set(docRef, r.toMap());
-      }
-      await batch.commit();
-    } catch (e) {
-      debugPrint('Error seeding rooms to firestore: $e');
-    }
+    return;
   }
 }
 
 final roomServiceProvider = Provider<RoomService>((ref) => RoomService());
 
-final roomsStreamProvider = StreamProvider.autoDispose.family<List<RoomModel>, RoomFilterParams>((ref, filters) {
-  final service = ref.watch(roomServiceProvider);
-  return service.getRoomsStream(
-    city: filters.city,
-    district: filters.district,
-    rentalType: filters.rentalType,
-    minPrice: filters.minPrice,
-    maxPrice: filters.maxPrice,
-    minArea: filters.minArea,
-    maxArea: filters.maxArea,
-    amenities: filters.amenities,
-    roomType: filters.roomType,
-    searchQuery: filters.searchQuery,
-    sortBy: filters.sortBy,
-  );
-});
+final roomPostDetailProvider = StreamProvider.autoDispose
+    .family<RoomModel?, String>((ref, postId) {
+      return ref.watch(roomServiceProvider).watchPostById(postId);
+    });
+
+final roomsStreamProvider = StreamProvider.autoDispose
+    .family<List<RoomModel>, RoomFilterParams>((ref, filters) {
+      final service = ref.watch(roomServiceProvider);
+      return service.getRoomsStream(
+        city: filters.city,
+        district: filters.district,
+        rentalType: filters.rentalType,
+        minPrice: filters.minPrice,
+        maxPrice: filters.maxPrice,
+        minArea: filters.minArea,
+        maxArea: filters.maxArea,
+        amenities: filters.amenities,
+        roomType: filters.roomType,
+        searchQuery: filters.searchQuery,
+        sortBy: filters.sortBy,
+      );
+    });

@@ -92,7 +92,7 @@ class CreatePostTestRepository extends HostRepository {
     required String chuNhaId,
     required String diaDiemId,
     required String loaiThueId,
-    required String trangThaiId,
+    required String status,
     required String tieuDe,
     required String moTa,
     required double giaThue,
@@ -145,7 +145,7 @@ class CreatePostTestRepository extends HostRepository {
       'chuNhaId': chuNhaId,
       'diaDiemId': diaDiemId,
       'loaiThue_id': loaiThueId,
-      'trangThai_id': trangThaiId,
+      'status': status,
       'tieuDe': tieuDe,
       'moTa': moTa,
       'giaThue': giaThue,
@@ -263,41 +263,39 @@ void main() {
   );
 
   group('Màn Tạo bài đăng - Role Chủ trọ', () {
-    testWidgets(
-      '1. Validate giá: chỉ nhận số digitsOnly, đồng bộ giá readonly ở Vị trí & liên hệ',
-      (tester) async {
-        setScreenSize(tester, width: 390);
-        final repo = CreatePostTestRepository()
-          ..properties.add(defaultProperty);
-        await tester.pumpWidget(
-          createTestApp(const HostCreatePostScreen(), repo),
-        );
-        await tester.pumpAndSettle();
-        final priceField = find.byKey(const ValueKey('price_input'));
-        final readonlyField = find.byKey(const ValueKey('price_readonly'));
+    testWidgets('1. Giá lấy từ phòng và không cho người dùng chỉnh sửa', (
+      tester,
+    ) async {
+      setScreenSize(tester, width: 390);
+      final repo = CreatePostTestRepository()
+        ..properties.add(defaultProperty)
+        ..rooms.add(defaultRoom);
+      await tester.pumpWidget(
+        createTestApp(const HostCreatePostScreen(), repo),
+      );
+      await tester.pumpAndSettle();
+      final priceField = find.byKey(const ValueKey('price_input'));
+      final readonlyField = find.byKey(const ValueKey('price_readonly'));
 
-        expect(priceField, findsOneWidget);
-        expect(readonlyField, findsOneWidget);
+      expect(priceField, findsOneWidget);
+      expect(readonlyField, findsOneWidget);
 
-        // Ban đầu chưa nhập
-        expect(find.text('Chưa nhập'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('property_select')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nhà trọ Hoa Sen').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('room_select')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('P101 - Phòng studio full nội thất').last);
+      await tester.pumpAndSettle();
 
-        // Nhập text số
-        await tester.enterText(priceField, '2800000');
-        await tester.pumpAndSettle();
+      final field = tester.widget<TextFormField>(priceField);
+      expect(field.controller?.text, '2.800.000');
+      expect(find.text('2.800.000'), findsWidgets);
 
-        // Giá readonly đồng bộ và hiển thị định dạng số
-        expect(find.text('2.800.000'), findsOneWidget);
-
-        // Đổi giá
-        await tester.enterText(priceField, '3500000');
-        await tester.pumpAndSettle();
-        expect(find.text('3.500.000'), findsOneWidget);
-
-        // Không tồn tại trường trạng thái phòng trong UI
-        expect(find.text('Trạng thái phòng'), findsNothing);
-      },
-    );
+      // Không tồn tại trường trạng thái phòng trong UI
+      expect(find.text('Trạng thái phòng'), findsNothing);
+    });
 
     testWidgets(
       '2. Chống trùng tiện ích: chuẩn hóa chuỗi, chống trùng Firestore catalog và local list',
@@ -655,11 +653,11 @@ void main() {
         await tester.pumpAndSettle();
 
         // Tự động điền:
-        // - Tiêu đề
+        // - Tiêu đề bài đăng không lấy từ phòng, để người dùng tự nhập
         final titleField = tester.widget<TextFormField>(
           find.byKey(const ValueKey('title_input')),
         );
-        expect(titleField.controller?.text, 'Phòng studio full nội thất');
+        expect(titleField.controller?.text, isEmpty);
 
         // - Diện tích
         final areaField = tester.widget<TextFormField>(
@@ -671,16 +669,16 @@ void main() {
         final priceField = tester.widget<TextFormField>(
           find.byKey(const ValueKey('price_input')),
         );
-        expect(priceField.controller?.text, '2800000');
+        expect(priceField.controller?.text, '2.800.000');
 
         // - Giá readonly đồng bộ
-        expect(find.text('2.800.000'), findsOneWidget);
+        expect(find.text('2.800.000'), findsWidgets);
 
         // - Tiền cọc đã lưu của phòng tự động điền
         final depositField = tester.widget<TextFormField>(
           find.byKey(const ValueKey('deposit_input')),
         );
-        expect(depositField.controller?.text, '840000');
+        expect(depositField.controller?.text, '840.000');
 
         // - Địa chỉ
         final addressField = tester.widget<TextFormField>(
@@ -732,23 +730,15 @@ void main() {
         await tester.tap(find.text('P101 - Phòng studio full nội thất').last);
         await tester.pumpAndSettle();
 
+        final titleInput = find.byKey(const ValueKey('title_input'));
+        await tester.ensureVisible(titleInput);
+        await tester.enterText(titleInput, 'Phòng studio gần trường đại học');
+
         // Tiền cọc tự động điền 840000 theo defaultRoom.deposit
         final depositInput = tester.widget<TextFormField>(
           find.byKey(const ValueKey('deposit_input')),
         );
-        expect(depositInput.controller?.text, '840000');
-
-        // 3. Người dùng có thể chỉnh sửa số tiền cọc trực tiếp
-        await tester.enterText(
-          find.byKey(const ValueKey('deposit_input')),
-          '1000000',
-        );
-        await tester.pumpAndSettle();
-
-        final updatedDeposit = tester.widget<TextFormField>(
-          find.byKey(const ValueKey('deposit_input')),
-        );
-        expect(updatedDeposit.controller?.text, '1000000');
+        expect(depositInput.controller?.text, '840.000');
       },
     );
 
@@ -801,7 +791,7 @@ void main() {
         final depositInput = tester.widget<TextFormField>(
           find.byKey(const ValueKey('deposit_input')),
         );
-        expect(depositInput.controller?.text, '3500000');
+        expect(depositInput.controller?.text, '3.500.000');
       },
     );
 
@@ -830,6 +820,10 @@ void main() {
         await tester.pumpAndSettle();
 
         // 2. Thêm tiện ích tùy chọn
+        final titleInput = find.byKey(const ValueKey('title_input'));
+        await tester.ensureVisible(titleInput);
+        await tester.enterText(titleInput, 'Phòng studio gần trường đại học');
+
         final customInput = find.byKey(const ValueKey('custom_amenity_input'));
         final addAmenityBtn = find.byKey(
           const ValueKey('add_custom_amenity_button'),
@@ -843,7 +837,8 @@ void main() {
         // 3. Điền liên hệ
         final phoneInput = find.byKey(const ValueKey('phone_input'));
         await tester.ensureVisible(phoneInput);
-        await tester.enterText(phoneInput, '0987654321');
+        // Dù controller bị thay đổi từ test, repository vẫn phải nhận SĐT hồ sơ.
+        await tester.enterText(phoneInput, '0900000000');
 
         final descInput = find.byKey(const ValueKey('description_input'));
         await tester.ensureVisible(descInput);
@@ -857,7 +852,7 @@ void main() {
         await tester.tap(submitButton);
         await tester.pumpAndSettle();
 
-        // A. Tiện ích tùy chọn lúc này mới được tạo trong amenities
+        // A. Sau khi chọn phòng, chủ nhà vẫn có thể thêm tiện ích cho bài đăng
         expect(repo.customAmenitiesCreated.length, 1);
         expect(repo.customAmenitiesCreated.first['name'], 'Khu an ninh 24/7');
 
@@ -875,8 +870,8 @@ void main() {
         expect(post['chuNhaId'], 'host-test-uid');
         expect(post['diaDiemId'], 'Tăng Nhơn Phú B');
         expect(post['loaiThue_id'], 'thang');
-        expect(post['trangThai_id'], 'dangHienThi');
-        expect(post['tieuDe'], 'Phòng studio full nội thất');
+        expect(post['status'], 'pending');
+        expect(post['tieuDe'], 'Phòng studio gần trường đại học');
         expect(post['giaThue'], 2800000);
         // defaultRoom có deposit 840.000 (30% của 2.800.000)
         expect(post['phanTramTienCoc'], 30);
@@ -910,6 +905,10 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('P101 - Phòng studio full nội thất').last);
         await tester.pumpAndSettle();
+
+        final titleInput = find.byKey(const ValueKey('title_input'));
+        await tester.ensureVisible(titleInput);
+        await tester.enterText(titleInput, 'Bài đăng kiểm thử rollback');
 
         final phoneInput = find.byKey(const ValueKey('phone_input'));
         await tester.ensureVisible(phoneInput);

@@ -360,8 +360,10 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
           _photoCard(photos),
           const SizedBox(height: 14),
           _posterCard(),
-          const SizedBox(height: 12),
-          _matchCard(),
+          if (_post.matchRate >= 0) ...[
+            const SizedBox(height: 12),
+            _matchCard(),
+          ],
           const SizedBox(height: 12),
           // Chỉ còn thời điểm đăng. Địa chỉ nằm một lần, ngay dưới tiêu đề.
           Text(

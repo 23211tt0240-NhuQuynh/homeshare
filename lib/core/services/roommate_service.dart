@@ -161,7 +161,15 @@ class RoommateService {
       }
 
       // Bỏ các bài mẫu cũ. Bài thật, gồm bài mới nhất của Trần Thanh Anh Toàn, vẫn giữ.
-      const obsoleteSampleIds = {'figma_post_1', 'figma_post_2', 'figma_post_3', 'figma_post_4'};
+      const obsoleteSampleIds = {
+        'figma_post_1',
+        'figma_post_2',
+        'figma_post_3',
+        'figma_post_4',
+        'demo_has_room_lan',
+        'demo_has_room_khoa',
+        'demo_has_room_hamy',
+      };
       merged.removeWhere((post) => obsoleteSampleIds.contains(post.id));
       for (final demo in getDemoRoommatePosts()) {
         if (!merged.any((post) => post.id == demo.id)) {
@@ -170,6 +178,9 @@ class RoommateService {
       }
 
       final hydrated = await _withLiveAuthorAndImages(merged);
+      final mine = viewerId == null || viewerId.isEmpty
+          ? const <RoommatePostModel>[]
+          : hydrated.where((post) => post.authorId == viewerId).toList();
 
       final filtered = hydrated.where((post) {
         // 1. Tình trạng phòng (Đã có phòng / Chưa có phòng)
@@ -247,7 +258,14 @@ class RoommateService {
         return true;
       }).toList();
 
-      return _rankByViewerHobbies(filtered, viewerId: viewerId, minMatchRate: minMatchRate);
+      return _rankByViewerHobbies(
+        filtered,
+        viewerId: viewerId,
+        minMatchRate: minMatchRate,
+        viewerHasRoom: mine.any((post) => post.hasRoom),
+        viewerNeedsRoom: mine.any((post) => !post.hasRoom),
+        viewerPostHabits: _uniqueHabits(mine),
+      );
     });
   }
 
@@ -270,24 +288,69 @@ class RoommateService {
     return ((hit / mine.length) * 100).round();
   }
 
+  /// Chỉ so sở thích khi một bên đã có phòng và bên kia đang tìm phòng.
+  bool _isOppositeRoom({
+    required RoommatePostModel post,
+    required String? viewerId,
+    required bool viewerHasRoom,
+    required bool viewerNeedsRoom,
+  }) {
+    if (viewerId == null || viewerId.isEmpty || post.authorId == viewerId) return false;
+    if (post.hasRoom && viewerNeedsRoom) return true;
+    if (!post.hasRoom && viewerHasRoom) return true;
+    return false;
+  }
+
+  List<String> _uniqueHabits(List<RoommatePostModel> posts) {
+    final names = <String>[];
+    for (final post in posts) {
+      for (final habit in post.habits) {
+        final name = habit.trim();
+        if (name.isEmpty) continue;
+        if (names.any((item) => item.toLowerCase() == name.toLowerCase())) continue;
+        names.add(name);
+      }
+    }
+    return names;
+  }
+
   Future<List<RoommatePostModel>> _rankByViewerHobbies(
     List<RoommatePostModel> posts, {
     required String? viewerId,
     required int minMatchRate,
+    required bool viewerHasRoom,
+    required bool viewerNeedsRoom,
+    required List<String> viewerPostHabits,
   }) async {
-    final viewerHobbies = viewerId == null || viewerId.isEmpty
+    final profileHobbies = viewerId == null || viewerId.isEmpty
         ? const <String>[]
         : await _hobbyNamesOf(viewerId);
+    final viewerHobbies = profileHobbies.isNotEmpty ? profileHobbies : viewerPostHabits;
     if (viewerHobbies.isEmpty) {
       final plain = posts.map((post) => post.copyWith(matchRate: -1)).toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return plain;
     }
 
-    final authorIds = posts.map((post) => post.authorId).where((id) => id.isNotEmpty).toSet();
+    final opposite = posts.where((post) => _isOppositeRoom(
+      post: post,
+      viewerId: viewerId,
+      viewerHasRoom: viewerHasRoom,
+      viewerNeedsRoom: viewerNeedsRoom,
+    ));
+    final authorIds = opposite.map((post) => post.authorId).where((id) => id.isNotEmpty).toSet();
     final authorHobbies = await _hobbyNamesByUser(authorIds);
     final ranked = <RoommatePostModel>[];
     for (final post in posts) {
+      if (!_isOppositeRoom(
+        post: post,
+        viewerId: viewerId,
+        viewerHasRoom: viewerHasRoom,
+        viewerNeedsRoom: viewerNeedsRoom,
+      )) {
+        ranked.add(post.copyWith(matchRate: -1));
+        continue;
+      }
       final candidate = <String>[
         ...post.habits,
         ...authorHobbies[post.authorId] ?? const <String>[],
@@ -492,79 +555,10 @@ class RoommateService {
     return false;
   }
 
-  /// Vài bài cố định để thử tìm kiếm. Hai bài ở TP.HCM mỗi phía, một bài tỉnh khác để không ra hết.
+  /// Bài cố định chỉ còn ở tab cần tìm phòng. Tab đã có phòng lấy bài thật trên Firebase.
   static List<RoommatePostModel> getDemoRoommatePosts() {
     final now = DateTime.now();
     return [
-      RoommatePostModel(
-        id: 'demo_has_room_lan',
-        authorId: 'demo_lan_anh',
-        authorName: 'Lan Anh',
-        authorAge: 21,
-        authorGender: 'Nữ',
-        authorOccupation: 'Sinh viên',
-        title: 'Cần một bạn nữ ghép căn hộ Linh Trung',
-        description: 'Đã thuê căn 2 phòng ngủ ở Linh Trung, còn một chỗ. Mình học buổi sáng, về sớm.',
-        postType: 'timNguoiOGhep',
-        pricePerPerson: 1800000,
-        budgetMin: 1500000,
-        budgetMax: 2000000,
-        address: 'Số 20 Đường Số 1, Phường Linh Trung, Thành phố Thủ Đức, TP. Hồ Chí Minh',
-        latitude: 10.8696,
-        longitude: 106.7782,
-        district: 'Thành phố Thủ Đức',
-        targetGender: 'Nữ',
-        habits: ['Sạch sẽ, ngăn nắp cao', 'Yên tĩnh sau 23h'],
-        hasRoom: true,
-        contactPhone: '0901000001',
-        createdAt: now.subtract(const Duration(hours: 5)),
-      ),
-      RoommatePostModel(
-        id: 'demo_has_room_khoa',
-        authorId: 'demo_minh_khoa',
-        authorName: 'Minh Khoa',
-        authorAge: 24,
-        authorGender: 'Nam',
-        authorOccupation: 'Người đi làm',
-        title: 'Ghép phòng Bình Thạnh, đã có nhà',
-        description: 'Phòng đã thuê gần chợ Bà Chiểu, tìm một bạn nam đi làm giờ hành chính.',
-        postType: 'timNguoiOGhep',
-        pricePerPerson: 2800000,
-        budgetMin: 2500000,
-        budgetMax: 3000000,
-        address: '88 Đường D2, Phường 25, Quận Bình Thạnh, TP. Hồ Chí Minh',
-        latitude: 10.8036,
-        longitude: 106.7302,
-        district: 'Quận Bình Thạnh',
-        targetGender: 'Nam',
-        habits: ['Giờ giấc tự do', 'Có xe máy riêng'],
-        hasRoom: true,
-        contactPhone: '0901000002',
-        createdAt: now.subtract(const Duration(hours: 8)),
-      ),
-      RoommatePostModel(
-        id: 'demo_has_room_hamy',
-        authorId: 'demo_ha_my',
-        authorName: 'Hà My',
-        authorAge: 22,
-        authorGender: 'Nữ',
-        authorOccupation: 'Sinh viên',
-        title: 'Tìm bạn nữ ghép phòng Cầu Giấy',
-        description: 'Phòng ở Cầu Giấy đã có, chỉ nhận bạn nữ.',
-        postType: 'timNguoiOGhep',
-        pricePerPerson: 2500000,
-        budgetMin: 2000000,
-        budgetMax: 3000000,
-        address: '18 Trần Thái Tông, Phường Dịch Vọng, Cầu Giấy, Hà Nội',
-        latitude: 21.0360,
-        longitude: 105.7895,
-        district: 'Cầu Giấy',
-        targetGender: 'Nữ',
-        habits: ['Chăm học/Làm việc'],
-        hasRoom: true,
-        contactPhone: '0901000003',
-        createdAt: now.subtract(const Duration(days: 2)),
-      ),
       RoommatePostModel(
         id: 'demo_need_room_phuong',
         authorId: 'demo_phuong_anh',

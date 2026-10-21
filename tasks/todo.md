@@ -163,3 +163,25 @@
 
 
 
+# Ghép Admin QUYNH vào THE
+
+- [x] Xác định và giải conflict phía `HEAD` cho toàn bộ `lib/features/admin/**`.
+- [x] Ghép các dependency trực tiếp của Admin (PDF biên nhận/VietQR/assets) nếu THE chưa có.
+- [x] Thêm test hồi quy cho logic đối soát/hoàn hủy mới.
+- [x] Chạy test Admin và `flutter analyze` sau từng lát cắt.
+- [x] Build APK debug và rà soát diff cuối, bảo đảm không chạm luồng Host/Renter ngoài phạm vi.
+
+
+## Merge phần Chủ trọ từ homeshare-dev-T.ANH (2026-10-21)
+
+- [x] Kiểm kê trạng thái Git của THE và xác nhận source T.ANH không có conflict marker.
+- [x] Đối chiếu hash để khoanh vùng 14 file Host khác biệt và dependency trực tiếp.
+- [x] Nhập test T.ANH và xác nhận RED trên code hiện tại.
+- [x] Ghép module Host, model bài đăng và giữ nguyên các file dùng chung mới hơn của THE.
+- [x] Sửa Dashboard người thuê: chỉ lấy nguồn công khai từ `posts`, không để bản sao `rooms` làm sống lại bài đã xóa.
+- [x] Đồng bộ xóa phòng sang `posts`, `rooms` và subcollection phòng để không tạo bài active mồ côi.
+- [x] Thêm test hồi quy cho bài đã xóa và bài trùng giữa `posts`/`rooms`.
+- [x] Sửa bộ lọc hình thức thuê: `Ở 1 mình` hiện phòng, `Ở ghép` hiện bài tìm ở ghép, `Cả hai` hiện đủ hai nguồn.
+- [x] Sửa overflow của tiêu đề kết quả và bộ lọc nâng cao trên màn hình rộng 320px.
+- [x] Chạy test Chủ trọ, analyzer, full test và build APK.
+- [x] Tổng hợp đầy đủ file/chức năng đã ghép và các lỗi còn tồn tại.

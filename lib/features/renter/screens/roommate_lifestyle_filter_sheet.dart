@@ -72,9 +72,6 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
   // 4. Lối sống & Thói quen
   final Set<String> _selectedHabits = {};
 
-  // 5. Match Rate
-  int _matchRate = 0;
-
   @override
   void initState() {
     super.initState();
@@ -105,7 +102,6 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
       if (!_habitOptions.contains(habit)) _habitOptions.add(habit);
     }
 
-    _matchRate = widget.initialFilters.minMatchRate;
     if (widget.embedded) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _notify());
     }
@@ -130,7 +126,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
       budgetMax: _budgetTouched ? _budgetRange.end : null,
       clearBudget: !_budgetTouched,
       habits: _selectedHabits.toList(),
-      minMatchRate: _matchRate,
+      minMatchRate: 0,
     );
   }
 
@@ -180,7 +176,6 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
       _budgetRange = const RangeValues(1000000, 3000000);
       _budgetTouched = false;
       _selectedHabits.clear();
-      _matchRate = 0;
     });
   }
 
@@ -201,8 +196,6 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
       _buildSection3Budget(),
       const SizedBox(height: 22),
       _buildSection4LifestyleHabits(),
-      const SizedBox(height: 22),
-      _buildSection5MatchRate(),
       const SizedBox(height: 12),
     ];
   }
@@ -220,7 +213,26 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
     if (widget.embedded) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: _formSections(),
+        children: [
+          ..._formSections(),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: OutlinedButton.icon(
+              onPressed: _resetFilters,
+              icon: const Icon(Icons.refresh_rounded, size: 16),
+              label: const Text('Đặt lại', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF334155),
+                side: const BorderSide(color: Color(0xFFCBD5E1)),
+                minimumSize: const Size(0, 44),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
       );
     }
 
@@ -829,76 +841,6 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
     );
   }
 
-
-  /// 5. MỨC ĐỘ TƯƠNG THÍCH (MATCH RATE)
-  Widget _buildSection5MatchRate() {
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _matchRate = _matchRate >= 80 ? 0 : 80;
-        });
-      },
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.primarySurface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.auto_awesome, size: 18, color: Colors.white),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Mức độ tương thích (Match rate)',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    'Chỉ hiện hồ sơ có độ trùng thói quen từ 80%',
-                    style: TextStyle(fontSize: 10.5, color: Color(0xFF475569)),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
-              ),
-              child: Text(
-                _matchRate > 0 ? '≥ $_matchRate%' : 'Tất cả',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   /// Sticky Footer Action Bar
   Widget _buildStickyFooter(int matchingCount) {

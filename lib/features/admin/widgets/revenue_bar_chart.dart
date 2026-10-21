@@ -1,58 +1,112 @@
 import 'package:flutter/material.dart';
 
+/// Biểu đồ doanh thu theo năm.
+/// [monthlyData]: 12 phần tử, đơn vị = triệu đồng. null = chưa có dữ liệu.
+/// Đỉnh (cao nhất) và trung bình được TÍNH từ dữ liệu, không hardcode.
 class RevenueBarChart extends StatelessWidget {
-  final List<double?> monthlyData; // null for future months
-  final int peakIndex;
-  final String peakTooltipText;
-  final String averageMonthlyText;
+  final List<double?> monthlyData;
 
   const RevenueBarChart({
     super.key,
     this.monthlyData = const [
-      6.2, 4.0, 7.5, 9.8, 11.2, 13.5, 15.0, 16.2, 18.5, null, null, null
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
     ],
-    this.peakIndex = 8, // T9 (0-indexed 8)
-    this.peakTooltipText = '● T9: 18.5M đ (Cao nhất)',
-    this.averageMonthlyText = 'TB mỗi tháng: 14.020.000 đ',
   });
+
+  /// 1.234.567 (đ)
+  static String _formatVnd(double vnd) {
+    final s = vnd.round().toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+      buf.write(s[i]);
+    }
+    return buf.toString();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final int currentMonth = now.month; // 1..12
+
+    // Chỉ tính các tháng đã qua/đang diễn ra
+    double total = 0;
+    double maxVal = 0;
+    int peakIndex = -1;
+    for (int i = 0; i < monthlyData.length && i < currentMonth; i++) {
+      final v = monthlyData[i] ?? 0;
+      total += v;
+      if (v > maxVal) {
+        maxVal = v;
+        peakIndex = i;
+      }
+    }
+    final double peakVnd = maxVal * 1000000;
+    final bool hasData = maxVal > 0;
+    final double avgVnd = (total / currentMonth) * 1000000;
+
+    final String peakText = hasData
+        ? '● T${peakIndex + 1}: ${_formatVnd(peakVnd)} đ (Cao nhất)'
+        : '';
+    final String avgText = '${_formatVnd(avgVnd)} đ';
+
+    // Căn tooltip theo vị trí cột đỉnh
+    final double tooltipAlignX = hasData
+        ? (-1 + 2 * peakIndex / (monthlyData.length - 1))
+        : 1;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Tooltip container above the peak bar
-        Padding(
-          padding: const EdgeInsets.only(right: 16.0, bottom: 6.0),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E60FF),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF1E60FF).withValues(alpha: 0.25),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+        // Tooltip: chỉ hiện khi thực sự có doanh thu
+        SizedBox(
+          height: 30,
+          child: hasData
+              ? Align(
+                  alignment: Alignment(tooltipAlignX.clamp(-0.7, 1.0), 0),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF398FC0),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(
+                            0xFF398FC0,
+                          ).withValues(alpha: 0.25),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      peakText,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
                   ),
-                ],
-              ),
-              child: Text(
-                peakTooltipText,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ),
-          ),
+                )
+              : const SizedBox.shrink(),
         ),
 
-        // Custom Bar Chart canvas
         SizedBox(
           height: 155,
           child: CustomPaint(
@@ -60,19 +114,20 @@ class RevenueBarChart extends StatelessWidget {
             painter: _BarChartPainter(
               data: monthlyData,
               peakIndex: peakIndex,
+              currentMonth: currentMonth,
             ),
           ),
         ),
         const SizedBox(height: 6),
 
-        // Month Labels T1 -> T12
+        // Nhãn T1 -> T12
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: List.generate(12, (index) {
               final isPeak = index == peakIndex;
-              final isFuture = index >= 9;
+              final isFuture = index >= currentMonth;
               return SizedBox(
                 width: 22,
                 child: Text(
@@ -82,8 +137,10 @@ class RevenueBarChart extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: isPeak ? FontWeight.bold : FontWeight.w500,
                     color: isPeak
-                        ? const Color(0xFF1E60FF)
-                        : (isFuture ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                        ? const Color(0xFF398FC0)
+                        : (isFuture
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF64748B)),
                   ),
                 ),
               );
@@ -92,21 +149,18 @@ class RevenueBarChart extends StatelessWidget {
         ),
         const SizedBox(height: 14),
 
-        // Average summary note
+        // Trung bình mỗi tháng (tính từ dữ liệu thật)
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
+            color: const Color(0xFFF4F9FF),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                '⚡',
-                style: TextStyle(fontSize: 14),
-              ),
+              const Text('⚡', style: TextStyle(fontSize: 14)),
               const SizedBox(width: 6),
               RichText(
                 text: TextSpan(
@@ -118,7 +172,7 @@ class RevenueBarChart extends StatelessWidget {
                   ),
                   children: [
                     TextSpan(
-                      text: averageMonthlyText.replaceFirst('TB mỗi tháng: ', ''),
+                      text: avgText,
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
@@ -138,15 +192,18 @@ class RevenueBarChart extends StatelessWidget {
 
 class _BarChartPainter extends CustomPainter {
   final List<double?> data;
-  final int peakIndex;
+  final int peakIndex; // -1 nếu chưa có dữ liệu
+  final int currentMonth;
 
-  _BarChartPainter({required this.data, required this.peakIndex});
+  _BarChartPainter({
+    required this.data,
+    required this.peakIndex,
+    required this.currentMonth,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Guard: need at least 2 data points to calculate stepX safely
     if (data.length < 2) return;
-    // Guard: canvas must have positive dimensions
     if (size.width <= 0 || size.height <= 0) return;
 
     const double barWidth = 14.0;
@@ -159,22 +216,25 @@ class _BarChartPainter extends CustomPainter {
     final double chartHeight = size.height - 10.0;
     if (chartHeight <= 0) return;
 
-    // Find max value
-    double maxVal = 20.0;
+    double maxVal = 0;
     for (final val in data) {
       if (val != null && val > maxVal) maxVal = val;
     }
+    if (maxVal <= 0) maxVal = 1;
 
     const solidBarColors = [
-      Color(0xFFD0E1FD), // T1
-      Color(0xFFC2D9FC), // T2
-      Color(0xFFB5D2FB), // T3
-      Color(0xFFA5C9FB), // T4
-      Color(0xFF90BCFA), // T5
-      Color(0xFF75ABFA), // T6
-      Color(0xFF5394F8), // T7
-      Color(0xFF387EF5), // T8
-      Color(0xFF1E60FF), // T9 (Peak)
+      Color(0xFFD0E1FD),
+      Color(0xFFC2D9FC),
+      Color(0xFFB5D2FB),
+      Color(0xFFA5C9FB),
+      Color(0xFF90BCFA),
+      Color(0xFF75ABFA),
+      Color(0xFF5394F8),
+      Color(0xFF398FC0),
+      Color(0xFF398FC0),
+      Color(0xFF398FC0),
+      Color(0xFF398FC0),
+      Color(0xFF398FC0),
     ];
 
     for (int i = 0; i < data.length; i++) {
@@ -184,18 +244,15 @@ class _BarChartPainter extends CustomPainter {
       final double? value = data[i];
 
       if (value != null && value > 0) {
-        // Render solid rounded bar
         final double barHeight = (value / maxVal) * chartHeight;
         final double top = size.height - barHeight;
-        final rect = Rect.fromLTRB(left, top, right, size.height);
-        final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(radius));
-
+        final rrect = RRect.fromRectAndRadius(
+          Rect.fromLTRB(left, top, right, size.height),
+          const Radius.circular(radius),
+        );
         final color = i == peakIndex
-            ? const Color(0xFF1E60FF)
-            : (i < solidBarColors.length
-                ? solidBarColors[i]
-                : const Color(0xFF75ABFA));
-
+            ? const Color(0xFF398FC0)
+            : solidBarColors[i.clamp(0, solidBarColors.length - 1)];
         canvas.drawRRect(
           rrect,
           Paint()
@@ -203,14 +260,13 @@ class _BarChartPainter extends CustomPainter {
             ..style = PaintingStyle.fill,
         );
       } else {
-        // Render simple stroked placeholder for null / zero-value months.
-        // Deliberately NOT using computeMetrics() (causes assertion flood on
-        // Flutter Web). A plain stroke rectangle looks identical at this scale.
+        // Placeholder viền cho tháng chưa có doanh thu / tháng tương lai
         final double placeholderHeight = chartHeight * 0.75;
         final double top = size.height - placeholderHeight;
-        final rect = Rect.fromLTRB(left, top, right, size.height);
-        final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(radius));
-
+        final rrect = RRect.fromRectAndRadius(
+          Rect.fromLTRB(left, top, right, size.height),
+          const Radius.circular(radius),
+        );
         canvas.drawRRect(
           rrect,
           Paint()
@@ -224,6 +280,8 @@ class _BarChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BarChartPainter oldDelegate) {
-    return oldDelegate.data != data || oldDelegate.peakIndex != peakIndex;
+    return oldDelegate.data != data ||
+        oldDelegate.peakIndex != peakIndex ||
+        oldDelegate.currentMonth != currentMonth;
   }
 }

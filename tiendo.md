@@ -2009,3 +2009,41 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
 * **Kiểm định chất lượng sau khi gộp:**
   - `flutter analyze lib/ test/`: **No issues found! (0 errors, 0 warnings)** trên toàn bộ codebase.
   - `flutter test`: **37/37 PASSED (100%)** trên toàn bộ các bộ test suite (IdGenerator, CreateRoommatePost, HostManagement, ProfileScreen).
+
+---
+
+### Phase 2.56: Khóa Quyền Gửi Lời Mời Ở Ghép Trong Tin Nhắn Theo Vai Trò Và Phòng Thật
+* **Ngày hoàn thành:** 20/10/2026
+* **Yêu cầu người dùng:**
+  - Chỉ hiển thị và cho gửi lời mời ở ghép trong cuộc trò chuyện giữa hai Người dùng/Người thuê.
+  - Chủ trọ ↔ Chủ trọ và Chủ trọ ↔ Người dùng tuyệt đối không có nút/lời mời ở ghép.
+  - Trong cuộc trò chuyện Người dùng ↔ Người dùng, chỉ người đang có phòng thật trên hệ thống mới được gửi lời mời.
+  - Không dùng phòng, giá hoặc mã phòng gán cứng; phải kiểm tra dữ liệu Firebase thực tế.
+* **Các thay đổi đã triển khai:**
+  1. **[roommate_invitation_policy.dart](file:///d:/App/homeshare-dev-THE/lib/features/chat/services/roommate_invitation_policy.dart):**
+     - Tạo một nguồn quy tắc duy nhất theo kiểu fail-closed cho ma trận quyền `renter-renter + có phòng`.
+     - Chuẩn hóa và kiểm tra các trạng thái booking đã duyệt/đang ở và trạng thái cư dân đang ở; vai trò thiếu hoặc không hợp lệ luôn bị chặn.
+  2. **[roommate_invitation_eligibility_service.dart](file:///d:/App/homeshare-dev-THE/lib/features/chat/services/roommate_invitation_eligibility_service.dart):**
+     - Đọc vai trò thật của cả người gửi và người nhận từ `users`.
+     - Tìm phòng thật của chính người gửi từ booking hợp lệ hoặc bản ghi `residents` đang hoạt động; hỗ trợ các tên trường dữ liệu hiện hành/legacy.
+     - Tải phòng theo đúng ID từ `rooms` hoặc `host_rooms`, yêu cầu có chủ trọ thật và loại bỏ phòng đã xóa.
+     - Không dùng `pinnedRoom`, phòng mẫu, giá mẫu hay bất kỳ fallback hardcode nào để cấp quyền.
+  3. **[chat_detail_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/chat/screens/chat_detail_screen.dart):**
+     - Nút đính kèm **Mời ở ghép** và chip nhanh **+ Mời vào ở ghép** chỉ xuất hiện khi đồng thời thỏa `renter ↔ renter` và người gửi có phòng hợp lệ.
+     - Kiểm tra lại vai trò/phòng khi mở hộp thoại và kiểm tra lần nữa ngay trước lúc ghi tin nhắn, tránh gửi bằng trạng thái cũ.
+     - Xóa toàn bộ fallback cũ `Căn hộ mini / Phòng trọ`, giá `3.600.000` và giá chia `1.800.000`; thẻ lời mời lấy ID, tiêu đề, mã phòng, chủ trọ và giá từ phòng thật.
+     - Sau khi gửi tin nhắn thành công, tạo thông báo cho đúng người nhận bằng dữ liệu phòng đã xác minh.
+     - Khi người nhận chấp nhận lời mời, chỉ lấy đúng phòng từ `rooms`/`host_rooms` và đúng `hostId` trong document phòng; xóa nhánh nguy hiểm từng chọn đại Chủ trọ đầu tiên nếu dữ liệu thiếu.
+  4. **[chat_service.dart](file:///d:/App/homeshare-dev-THE/lib/core/services/chat_service.dart):**
+     - Chặn lưu payload `roommate_invitation` nếu thiếu `roomId`, sai `senderId`/`receiverId` hoặc tự mời chính mình.
+     - Thông báo lời mời bắt buộc có đủ người gửi, người nhận, phòng và tiêu đề; bỏ fallback mã phòng `P001`, dùng ID phòng thật khi phòng chưa có `roomCode`.
+  5. **[role_resolver.dart](file:///d:/App/homeshare-dev-THE/lib/features/auth/services/role_resolver.dart):**
+     - Bổ sung đọc khóa schema `roleId` bên cạnh `role`, `vaiTro`, `vaiTro_id`, vẫn giữ nguyên nguyên tắc không tự ép vai trò lạ thành renter.
+  6. **Kiểm thử:**
+     - Thêm [roommate_invitation_policy_test.dart](file:///d:/App/homeshare-dev-THE/test/roommate_invitation_policy_test.dart), bao phủ renter-renter có/không có phòng, host-host, host-renter, role không hợp lệ, booking và resident status.
+     - Bổ sung test đọc `roleId` trong [role_routing_test.dart](file:///d:/App/homeshare-dev-THE/test/role_routing_test.dart).
+     - `flutter test test/roommate_invitation_policy_test.dart test/roommate_invitation_flow_test.dart test/role_routing_test.dart test/chat_rtdb_test.dart`: **34/34 PASSED**.
+     - `flutter analyze` trên 5 file logic đã thay đổi: **No issues found**.
+     - `git diff --check`: **Passed**.
+     - Đã chạy toàn bộ `flutter test`: còn **18 test ngoài phạm vi thay đổi bị lỗi** (các test Host UI bị trùng finder/overflow và `roommate_scroll_test` chưa khởi tạo Firebase); bộ test đúng phạm vi lời mời ở ghép vẫn đạt 100%.
+* **Git:** Chưa commit và chưa push theo yêu cầu của người dùng.

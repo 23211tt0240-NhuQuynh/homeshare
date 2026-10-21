@@ -228,3 +228,32 @@
 - **Static Analysis:** Toàn bộ workspace 0 error, 0 warning (chờ user tự chạy kiểm thử suite).
 
 
+# Active Plan — Ghép mô-đun Admin từ homeshare-dev-QUYNH vào homeshare-dev-THE
+
+## Phạm vi
+- Dùng `D:/App/homeshare-dev-THE` làm bản gốc và giữ nguyên các thay đổi Host/Renter/Chat đang có.
+- Lấy nhánh `HEAD` trong các conflict của `D:/homeshare-dev-QUYNH` làm phần Admin của QUYNH; không chép nguyên các file còn conflict.
+- Chỉ đưa vào các màn hình, service, utility và widget mà mô-đun Admin trực tiếp phụ thuộc.
+
+## Lát cắt triển khai
+1. Hợp nhất nền tảng giao diện Admin và tiện ích dùng chung; chạy analyzer.
+2. Hợp nhất dashboard, bài đăng và duyệt bài; chạy test Admin.
+3. Hợp nhất đơn thuê, đối soát, hoàn/hủy tiền và lịch sử; chạy test Admin, analyzer và build APK debug.
+
+## Tiêu chí nghiệm thu
+- Không còn conflict marker trong phần được ghép.
+- `flutter analyze` sạch sau khi ghép.
+- Test Admin hiện có vẫn vượt qua và có test hồi quy cho logic Admin mới.
+- APK debug build thành công; không sửa các luồng Host/Renter ngoài dependency bắt buộc của Admin.
+
+## Rủi ro và xử lý
+- Bản QUYNH hiện tại chứa conflict Git chưa giải quyết: chọn có chủ đích phía `HEAD` cho mô-đun Admin, không lấy phía THE trùng lặp.
+- Worktree THE đang có thay đổi chưa commit: chỉ sửa file Admin/dependency trực tiếp và kiểm tra diff theo từng lát cắt.
+
+
+## Merge phần Chủ trọ từ homeshare-dev-T.ANH (2026-10-21)
+
+- Giữ `homeshare-dev-THE` làm project gốc và bảo toàn phần Admin/Renter/Chat hiện có.
+- Đối chiếu module `lib/features/host`, chỉ nhập các thay đổi của T.ANH và dependency trực tiếp cần thiết.
+- Chạy test Chủ trọ ở trạng thái RED trước khi nhập code, sau đó chạy focused tests, analyzer, full test và build APK.
+- Không sao chép nguyên các file dùng chung đã cũ hơn từ T.ANH (`room_service`, `room_model`, `main.dart`, dependency Admin).

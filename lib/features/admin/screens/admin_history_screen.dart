@@ -2,6 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../auth/screens/login_screen.dart';
+import '../widgets/admin_branded_title.dart';
 
 class AdminHistoryScreen extends ConsumerStatefulWidget {
   const AdminHistoryScreen({super.key});
@@ -32,10 +35,113 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
     super.dispose();
   }
 
+  Future<void> _confirmLogout(BuildContext context) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3F2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.logout_rounded,
+                color: Color(0xFFD92D20),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Đăng xuất',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF101828),
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản Quản trị viên không?',
+          style: TextStyle(
+            fontSize: 14.5,
+            color: Color(0xFF475467),
+            height: 1.4,
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              side: const BorderSide(color: Color(0xFFD0D5DD)),
+            ),
+            child: const Text(
+              'Hủy',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF344054),
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD92D20),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text(
+              'Đăng xuất',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout == true && mounted) {
+      try {
+        final authService = ref.read(authServiceProvider);
+        await authService.signOut();
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (route) => false,
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFFD92D20),
+              content: const Text('Không thể đăng xuất. Vui lòng thử lại.'),
+            ),
+          );
+        }
+      }
+    }
+  }
+
   // Tự động khởi tạo dữ liệu kiểm toán mẫu lên Firebase nếu Firestore 'audit_logs' đang rỗng
   Future<void> _checkAndSeedInitialLogs() async {
     try {
-      final snap = await FirebaseFirestore.instance.collection('audit_logs').limit(1).get();
+      final snap = await FirebaseFirestore.instance
+          .collection('audit_logs')
+          .limit(1)
+          .get();
       if (snap.docs.isEmpty && !_isSeeding) {
         _isSeeding = true;
         final batch = FirebaseFirestore.instance.batch();
@@ -63,7 +169,8 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
             'performer': 'Admin A',
             'timeStr': '16:45:00',
             'category': 'refund',
-            'dateGroup': 'HÔM QUA - ${DateFormat('dd/MM/yyyy').format(yesterday)}',
+            'dateGroup':
+                'HÔM QUA - ${DateFormat('dd/MM/yyyy').format(yesterday)}',
             'timestamp': Timestamp.fromDate(yesterday),
           },
           {
@@ -74,21 +181,26 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
             'performer': 'Super Admin B',
             'timeStr': '10:15:30',
             'category': 'system',
-            'dateGroup': 'HÔM QUA - ${DateFormat('dd/MM/yyyy').format(yesterday)}',
+            'dateGroup':
+                'HÔM QUA - ${DateFormat('dd/MM/yyyy').format(yesterday)}',
             'timestamp': Timestamp.fromDate(yesterday),
           },
         ];
 
         for (var item in seedLogs) {
-          final docRef = FirebaseFirestore.instance.collection('audit_logs').doc(item['id'] as String);
+          final docRef = FirebaseFirestore.instance
+              .collection('audit_logs')
+              .doc(item['id'] as String);
           batch.set(docRef, item);
         }
 
         // Tạo cấu hình hoa hồng mặc định nếu chưa có
-        final configRef = FirebaseFirestore.instance.collection('system_configs').doc('platform_settings');
+        final configRef = FirebaseFirestore.instance
+            .collection('system_configs')
+            .doc('platform_settings');
         batch.set(configRef, {
-          'commission_rate': 5.0,
-          'previous_rate': 4.5,
+          'commission_rate': 10.0,
+          'previous_rate': 10.0,
           'performer': 'Super Admin B',
           'timeStr': '09:30:12',
           'updatedAt': Timestamp.fromDate(now),
@@ -140,17 +252,18 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
           .collection('system_configs')
           .doc('platform_settings')
           .set({
-        'commission_rate': newRate,
-        'previous_rate': currentRate,
-        'performer': 'Super Admin B',
-        'timeStr': timeStr,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+            'commission_rate': newRate,
+            'previous_rate': currentRate,
+            'performer': 'Super Admin B',
+            'timeStr': timeStr,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
 
       // Ghi nhật ký kiểm toán vào Firestore
       await FirebaseFirestore.instance.collection('audit_logs').add({
         'title': 'Cập Nhật Phí Hoa Hồng Sàn',
-        'subtitle': 'Thay đổi mức phí từ ${currentRate.toStringAsFixed(1)}% ➔ ${newRate.toStringAsFixed(1)}%',
+        'subtitle':
+            'Thay đổi mức phí từ ${currentRate.toStringAsFixed(1)}% ➔ ${newRate.toStringAsFixed(1)}%',
         'performer': 'Super Admin B',
         'timeStr': timeStr,
         'amount': null,
@@ -164,10 +277,15 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
           SnackBar(
             backgroundColor: const Color(0xFF12B76A),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             content: Text(
               'Đã cập nhật hoa hồng sàn thành ${newRate.toStringAsFixed(1)}% lên Firebase!',
-              style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         );
@@ -178,8 +296,13 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
           SnackBar(
             backgroundColor: const Color(0xFFD92D20),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            content: Text('Không thể cập nhật: $e', style: const TextStyle(fontSize: 14)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            content: Text(
+              'Không thể cập nhật cấu hình. Vui lòng thử lại.',
+              style: const TextStyle(fontSize: 14),
+            ),
           ),
         );
       }
@@ -222,12 +345,12 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF8FF),
+                      color: const Color(0xFFE9F5FC),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Icon(
                       Icons.settings_suggest_rounded,
-                      color: Color(0xFF155EEF),
+                      color: Color(0xFF398FC0),
                       size: 28,
                     ),
                   ),
@@ -247,34 +370,67 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
               const SizedBox(height: 14),
               const Text(
                 'Mức phí áp dụng tự động khi quyết toán các đơn cọc phòng trên toàn hệ thống HomeShare.',
-                style: TextStyle(fontSize: 14.5, color: Color(0xFF667085), height: 1.4),
+                style: TextStyle(
+                  fontSize: 14.5,
+                  color: Color(0xFF667085),
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: 22),
               TextField(
                 controller: rateCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF101828)),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF101828),
+                ),
                 decoration: InputDecoration(
                   labelText: 'Tỷ lệ hoa hồng sàn (%)',
-                  labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF344054)),
+                  labelStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF344054),
+                  ),
                   hintText: 'Nhập %, ví dụ: 5.0',
-                  hintStyle: const TextStyle(fontSize: 15, color: Color(0xFF98A2B3)),
+                  hintStyle: const TextStyle(
+                    fontSize: 15,
+                    color: Color(0xFF98A2B3),
+                  ),
                   suffixText: '%',
-                  suffixStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF155EEF)),
+                  suffixStyle: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF398FC0),
+                  ),
                   filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+                  fillColor: const Color(0xFFF4F9FF),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 18,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Color(0xFFEAECF0), width: 1.2),
+                    borderSide: const BorderSide(
+                      color: Color(0xFFDCEAF5),
+                      width: 1.2,
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Color(0xFFEAECF0), width: 1.2),
+                    borderSide: const BorderSide(
+                      color: Color(0xFFDCEAF5),
+                      width: 1.2,
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Color(0xFF155EEF), width: 1.8),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF398FC0),
+                      width: 1.8,
+                    ),
                   ),
                 ),
               ),
@@ -290,12 +446,21 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF155EEF),
+                    backgroundColor: const Color(0xFF398FC0),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     elevation: 0,
                   ),
-                  child: const Text('LƯU CẤU HÌNH MỚI', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.3)),
+                  child: const Text(
+                    'LƯU CẤU HÌNH MỚI',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -312,7 +477,9 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
     final performer = (log['performer'] ?? '').toString();
     final timeStr = (log['timeStr'] ?? '').toString();
     final category = (log['category'] ?? '').toString();
-    final amount = log['amount'] is num ? (log['amount'] as num).toDouble() : null;
+    final amount = log['amount'] is num
+        ? (log['amount'] as num).toDouble()
+        : null;
     final dateGroup = (log['dateGroup'] ?? '').toString();
 
     showModalBottomSheet(
@@ -342,60 +509,86 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: category == 'finance'
                         ? const Color(0xFFECFDF3)
-                        : (category == 'refund' ? const Color(0xFFFEF3F2) : const Color(0xFF0C111D)),
+                        : (category == 'refund'
+                              ? const Color(0xFFFEF3F2)
+                              : const Color(0xFF0C111D)),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    category == 'finance' ? 'TÀI CHÍNH' : (category == 'refund' ? 'HOÀN CỌC' : 'HỆ THỐNG'),
+                    category == 'finance'
+                        ? 'TÀI CHÍNH'
+                        : (category == 'refund' ? 'HOÀN CỌC' : 'HỆ THỐNG'),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: category == 'finance'
                           ? const Color(0xFF12B76A)
-                          : (category == 'refund' ? const Color(0xFFD92D20) : Colors.white),
+                          : (category == 'refund'
+                                ? const Color(0xFFD92D20)
+                                : Colors.white),
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Text(
                   dateGroup,
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF667085)),
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF667085),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 14),
             Text(
               title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF101828)),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF101828),
+              ),
             ),
             const SizedBox(height: 10),
             Text(
               subtitle,
-              style: const TextStyle(fontSize: 15, color: Color(0xFF475467), height: 1.4),
+              style: const TextStyle(
+                fontSize: 15,
+                color: Color(0xFF475467),
+                height: 1.4,
+              ),
             ),
             if (amount != null) ...[
               const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: const Color(0xFFF4F9FF),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFEAECF0)),
+                  border: Border.all(color: const Color(0xFFDCEAF5)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Số tiền giao dịch:', style: TextStyle(fontSize: 14, color: Color(0xFF667085))),
+                    const Text(
+                      'Số tiền giao dịch:',
+                      style: TextStyle(fontSize: 14, color: Color(0xFF667085)),
+                    ),
                     Text(
                       '${currencyFormatter.format(amount)} đ',
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
-                        color: category == 'finance' ? const Color(0xFF12B76A) : const Color(0xFFD92D20),
+                        color: category == 'finance'
+                            ? const Color(0xFF12B76A)
+                            : const Color(0xFFD92D20),
                       ),
                     ),
                   ],
@@ -405,17 +598,38 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
             const SizedBox(height: 16),
             Row(
               children: [
-                const Icon(Icons.person_outline_rounded, size: 20, color: Color(0xFF155EEF)),
+                const Icon(
+                  Icons.person_outline_rounded,
+                  size: 20,
+                  color: Color(0xFF398FC0),
+                ),
                 const SizedBox(width: 8),
-                const Text('Người thực hiện: ', style: TextStyle(fontSize: 14, color: Color(0xFF667085))),
+                const Text(
+                  'Người thực hiện: ',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF667085)),
+                ),
                 Text(
                   performer,
-                  style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Color(0xFF155EEF)),
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF398FC0),
+                  ),
                 ),
                 const Spacer(),
-                const Icon(Icons.access_time_rounded, size: 18, color: Color(0xFF667085)),
+                const Icon(
+                  Icons.access_time_rounded,
+                  size: 18,
+                  color: Color(0xFF667085),
+                ),
                 const SizedBox(width: 4),
-                Text(timeStr, style: const TextStyle(fontSize: 14, color: Color(0xFF667085))),
+                Text(
+                  timeStr,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF667085),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 24),
@@ -425,10 +639,19 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
               child: OutlinedButton(
                 onPressed: () => Navigator.pop(ctx),
                 style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   side: const BorderSide(color: Color(0xFFD0D5DD)),
                 ),
-                child: const Text('ĐÓNG', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF344054))),
+                child: const Text(
+                  'ĐÓNG',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF344054),
+                  ),
+                ),
               ),
             ),
           ],
@@ -440,23 +663,54 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
         titleSpacing: 20,
-        title: const Text(
-          'LỊCH SỬ',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            color: Color(0xFF101828),
-            letterSpacing: 0.4,
-          ),
-        ),
+        title: const AdminBrandedTitle(title: 'Lịch sử'),
         centerTitle: false,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: InkWell(
+              onTap: () => _confirmLogout(context),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3F2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFECDCA)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(
+                      Icons.logout_rounded,
+                      size: 17,
+                      color: Color(0xFFD92D20),
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      'Đăng xuất',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFD92D20),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -470,14 +724,28 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
               child: TextField(
                 controller: _searchCtrl,
                 onChanged: (val) => setState(() {}),
-                style: const TextStyle(fontSize: 14.5, color: Color(0xFF101828)),
+                style: const TextStyle(
+                  fontSize: 14.5,
+                  color: Color(0xFF101828),
+                ),
                 decoration: InputDecoration(
                   hintText: 'Tìm theo tên Admin, Mã HĐ, Loại tác vụ...',
-                  hintStyle: const TextStyle(fontSize: 14, color: Color(0xFF98A2B3)),
-                  prefixIcon: const Icon(Icons.search, size: 22, color: Color(0xFF667085)),
+                  hintStyle: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF98A2B3),
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    size: 22,
+                    color: Color(0xFF667085),
+                  ),
                   suffixIcon: _searchCtrl.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 18, color: Color(0xFF98A2B3)),
+                          icon: const Icon(
+                            Icons.clear_rounded,
+                            size: 18,
+                            color: Color(0xFF98A2B3),
+                          ),
                           onPressed: () {
                             _searchCtrl.clear();
                             setState(() {});
@@ -485,19 +753,31 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                         )
                       : null,
                   filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  fillColor: const Color(0xFFF4F9FF),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Color(0xFFEAECF0), width: 1.2),
+                    borderSide: const BorderSide(
+                      color: Color(0xFFDCEAF5),
+                      width: 1.2,
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Color(0xFFEAECF0), width: 1.2),
+                    borderSide: const BorderSide(
+                      color: Color(0xFFDCEAF5),
+                      width: 1.2,
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Color(0xFF155EEF), width: 1.6),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF398FC0),
+                      width: 1.6,
+                    ),
                   ),
                 ),
               ),
@@ -515,7 +795,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF155EEF),
+                    color: Color(0xFF398FC0),
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -535,15 +815,22 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                   }(),
                   builder: (context, snapshot) {
                     Map<String, dynamic> data = {};
-                    if (snapshot.hasData && snapshot.data != null && snapshot.data!.exists) {
+                    if (snapshot.hasData &&
+                        snapshot.data != null &&
+                        snapshot.data!.exists) {
                       try {
-                        data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+                        data =
+                            snapshot.data!.data() as Map<String, dynamic>? ??
+                            {};
                       } catch (_) {}
                     }
 
-                    final currentRate = (data['commission_rate'] as num?)?.toDouble() ?? 5.0;
-                    final previousRate = (data['previous_rate'] as num?)?.toDouble() ?? 4.5;
-                    final performer = (data['performer'] ?? 'Super Admin B').toString();
+                    final currentRate =
+                        (data['commission_rate'] as num?)?.toDouble() ?? 10.0;
+                    final previousRate =
+                        (data['previous_rate'] as num?)?.toDouble() ?? 10.0;
+                    final performer = (data['performer'] ?? 'Super Admin B')
+                        .toString();
                     final timeStr = (data['timeStr'] ?? '09:30:12').toString();
 
                     return Container(
@@ -551,7 +838,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: const Color(0xFFEAECF0)),
+                        border: Border.all(color: const Color(0xFFDCEAF5)),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.03),
@@ -563,74 +850,121 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                       child: Row(
                         children: [
                           Container(
-                            width: 50,
-                            height: 50,
+                            width: 44,
+                            height: 44,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEFF8FF),
-                              borderRadius: BorderRadius.circular(14),
+                              color: const Color(0xFFE9F5FC),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
                               Icons.local_offer_rounded,
-                              size: 26,
+                              size: 24,
                               color: Color(0xFFF79009),
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
                                   'Cập Nhật Phí Hoa Hồng Sàn',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontSize: 16.5,
+                                    fontSize: 14.5,
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFF101828),
                                   ),
                                 ),
-                                const SizedBox(height: 5),
+                                const SizedBox(height: 4),
                                 RichText(
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   text: TextSpan(
-                                    style: const TextStyle(fontSize: 14.5, color: Color(0xFF475467)),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF475467),
+                                    ),
                                     children: [
-                                      const TextSpan(text: 'Thay đổi mức phí từ '),
+                                      const TextSpan(
+                                        text: 'Thay đổi mức phí từ ',
+                                      ),
                                       TextSpan(
-                                        text: '${previousRate.toStringAsFixed(1)}% ',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF344054)),
+                                        text:
+                                            '${previousRate.toStringAsFixed(1)}% ',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF344054),
+                                        ),
                                       ),
                                       const TextSpan(text: '➔ '),
                                       TextSpan(
-                                        text: '${currentRate.toStringAsFixed(1)}%',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF155EEF)),
+                                        text:
+                                            '${currentRate.toStringAsFixed(1)}%',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF398FC0),
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    const Text('Thực hiện bởi: ', style: TextStyle(fontSize: 13, color: Color(0xFF667085))),
-                                    Text(
-                                      performer,
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF155EEF)),
+                                const SizedBox(height: 5),
+                                Text.rich(
+                                  TextSpan(
+                                    text: 'Thực hiện bởi: ',
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      color: Color(0xFF667085),
                                     ),
-                                    Text(' • $timeStr', style: const TextStyle(fontSize: 13, color: Color(0xFF667085))),
-                                  ],
+                                    children: [
+                                      TextSpan(
+                                        text: performer,
+                                        style: const TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF398FC0),
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: ' • $timeStr',
+                                        style: const TextStyle(
+                                          fontSize: 11.5,
+                                          color: Color(0xFF667085),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(width: 8),
                           ElevatedButton(
-                            onPressed: () => _showCommissionConfigBottomSheet(currentRate),
+                            onPressed: () =>
+                                _showCommissionConfigBottomSheet(currentRate),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFEFF8FF),
-                              foregroundColor: const Color(0xFF155EEF),
+                              backgroundColor: const Color(0xFFE9F5FC),
+                              foregroundColor: const Color(0xFF398FC0),
                               elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
-                            child: const Text('THAY ĐỔI', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
+                            child: const Text(
+                              'THAY ĐỔI',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -659,25 +993,40 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 11,
+                        ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF2F4F7),
+                          color: const Color(0xFFEAF4FA),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFEAECF0)),
+                          border: Border.all(color: const Color(0xFFDCEAF5)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.calendar_month_outlined, size: 20, color: Color(0xFF344054)),
+                            const Icon(
+                              Icons.calendar_month_outlined,
+                              size: 20,
+                              color: Color(0xFF344054),
+                            ),
                             const SizedBox(width: 8),
                             RichText(
                               text: TextSpan(
-                                style: const TextStyle(fontSize: 14.5, color: Color(0xFF344054)),
+                                style: const TextStyle(
+                                  fontSize: 14.5,
+                                  color: Color(0xFF344054),
+                                ),
                                 children: [
                                   const TextSpan(text: 'Đối soát: '),
                                   TextSpan(
-                                    text: DateFormat('dd/MM/yyyy').format(effectiveSelectedDate),
-                                    style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF101828)),
+                                    text: DateFormat(
+                                      'dd/MM/yyyy',
+                                    ).format(effectiveSelectedDate),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF101828),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -690,8 +1039,18 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                       const SizedBox(width: 8),
                       TextButton.icon(
                         onPressed: () => setState(() => _filterByDate = false),
-                        icon: const Icon(Icons.close_rounded, size: 16, color: Color(0xFF667085)),
-                        label: const Text('Hiện tất cả', style: TextStyle(fontSize: 13.5, color: Color(0xFF667085))),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: Color(0xFF667085),
+                        ),
+                        label: const Text(
+                          'Hiện tất cả',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            color: Color(0xFF667085),
+                          ),
+                        ),
                       ),
                     ],
                   ],
@@ -712,33 +1071,46 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(
-                        child: CircularProgressIndicator(color: Color(0xFF155EEF)),
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF398FC0),
+                        ),
                       );
                     }
 
-                    List<QueryDocumentSnapshot> docs = snapshot.data?.docs ?? [];
+                    List<QueryDocumentSnapshot> docs =
+                        snapshot.data?.docs ?? [];
                     final List<Map<String, dynamic>> logsList = [];
 
                     for (var doc in docs) {
                       try {
                         final data = doc.data() as Map<String, dynamic>? ?? {};
-                        final title = (data['title'] ?? 'Tác vụ hệ thống').toString();
-                        final performer = (data['performer'] ?? 'Admin').toString();
+                        final title = (data['title'] ?? 'Tác vụ hệ thống')
+                            .toString();
+                        final performer = (data['performer'] ?? 'Admin')
+                            .toString();
                         final subtitle = (data['subtitle'] ?? '').toString();
-                        final category = (data['category'] ?? 'system').toString();
-                        final amount = data['amount'] is num ? (data['amount'] as num).toDouble() : null;
-                        final timeStr = (data['timeStr'] ?? '12:00:00').toString();
-                        
+                        final category = (data['category'] ?? 'system')
+                            .toString();
+                        final amount = data['amount'] is num
+                            ? (data['amount'] as num).toDouble()
+                            : null;
+                        final timeStr = (data['timeStr'] ?? '12:00:00')
+                            .toString();
+
                         final dt = _parseDateTimeSafe(data['timestamp']);
                         String dateGroup = (data['dateGroup'] ?? '').toString();
-                        
+
                         if (dateGroup.isEmpty) {
                           if (dt != null) {
                             final now = DateTime.now();
-                            if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
-                              dateGroup = 'HÔM NAY - ${DateFormat('dd/MM/yyyy').format(dt)}';
+                            if (dt.year == now.year &&
+                                dt.month == now.month &&
+                                dt.day == now.day) {
+                              dateGroup =
+                                  'HÔM NAY - ${DateFormat('dd/MM/yyyy').format(dt)}';
                             } else {
-                              dateGroup = 'HÔM QUA - ${DateFormat('dd/MM/yyyy').format(dt)}';
+                              dateGroup =
+                                  'HÔM QUA - ${DateFormat('dd/MM/yyyy').format(dt)}';
                             }
                           } else {
                             dateGroup = 'LỊCH SỬ CHUNG';
@@ -783,9 +1155,15 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                       }
                       if (query.isEmpty) return true;
                       final t = (log['title'] ?? '').toString().toUpperCase();
-                      final p = (log['performer'] ?? '').toString().toUpperCase();
-                      final s = (log['subtitle'] ?? '').toString().toUpperCase();
-                      return t.contains(query) || p.contains(query) || s.contains(query);
+                      final p = (log['performer'] ?? '')
+                          .toString()
+                          .toUpperCase();
+                      final s = (log['subtitle'] ?? '')
+                          .toString()
+                          .toUpperCase();
+                      return t.contains(query) ||
+                          p.contains(query) ||
+                          s.contains(query);
                     }).toList();
 
                     // Nhóm danh sách theo ngày
@@ -802,14 +1180,32 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.history_toggle_off_rounded, size: 56, color: Colors.grey.shade400),
+                              Icon(
+                                Icons.history_toggle_off_rounded,
+                                size: 56,
+                                color: Colors.grey.shade400,
+                              ),
                               const SizedBox(height: 12),
-                              const Text('Chưa có lịch sử hoạt động nào trên Firestore', style: TextStyle(color: Color(0xFF667085), fontSize: 15)),
+                              const Text(
+                                'Chưa có lịch sử hoạt động nào trên Firestore',
+                                style: TextStyle(
+                                  color: Color(0xFF667085),
+                                  fontSize: 15,
+                                ),
+                              ),
                               if (_filterByDate) ...[
                                 const SizedBox(height: 8),
                                 TextButton(
-                                  onPressed: () => setState(() => _filterByDate = false),
-                                  child: const Text('Xem tất cả các ngày', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF155EEF))),
+                                  onPressed: () =>
+                                      setState(() => _filterByDate = false),
+                                  child: const Text(
+                                    'Xem tất cả các ngày',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF398FC0),
+                                    ),
+                                  ),
                                 ),
                               ],
                             ],
@@ -825,7 +1221,10 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Padding(
-                              padding: const EdgeInsets.only(top: 4, bottom: 12),
+                              padding: const EdgeInsets.only(
+                                top: 4,
+                                bottom: 12,
+                              ),
                               child: Text(
                                 entry.key,
                                 style: const TextStyle(
@@ -836,14 +1235,16 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                                 ),
                               ),
                             ),
-                            ...entry.value.map((log) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 14),
-                                  child: InkWell(
-                                    onTap: () => _showLogDetail(log),
-                                    borderRadius: BorderRadius.circular(18),
-                                    child: _buildHistoryCard(log),
-                                  ),
-                                )),
+                            ...entry.value.map(
+                              (log) => Padding(
+                                padding: const EdgeInsets.only(bottom: 14),
+                                child: InkWell(
+                                  onTap: () => _showLogDetail(log),
+                                  borderRadius: BorderRadius.circular(18),
+                                  child: _buildHistoryCard(log),
+                                ),
+                              ),
+                            ),
                           ],
                         );
                       }).toList(),
@@ -865,7 +1266,9 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
     final performer = (log['performer'] ?? '').toString();
     final timeStr = (log['timeStr'] ?? '').toString();
     final category = (log['category'] ?? '').toString();
-    final amount = log['amount'] is num ? (log['amount'] as num).toDouble() : null;
+    final amount = log['amount'] is num
+        ? (log['amount'] as num).toDouble()
+        : null;
 
     Widget iconWidget;
     Widget badgeWidget;
@@ -878,7 +1281,11 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
           color: const Color(0xFFECFDF3),
           borderRadius: BorderRadius.circular(14),
         ),
-        child: const Icon(Icons.check_box_rounded, color: Color(0xFF12B76A), size: 26),
+        child: const Icon(
+          Icons.check_box_rounded,
+          color: Color(0xFF12B76A),
+          size: 26,
+        ),
       );
       badgeWidget = Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
@@ -886,7 +1293,14 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
           color: const Color(0xFFECFDF3),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Text('TÀI CHÍNH', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF12B76A))),
+        child: const Text(
+          'TÀI CHÍNH',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF12B76A),
+          ),
+        ),
       );
     } else if (category == 'refund') {
       iconWidget = Container(
@@ -896,7 +1310,11 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
           color: const Color(0xFFFEF3F2),
           borderRadius: BorderRadius.circular(14),
         ),
-        child: const Icon(Icons.sync_alt_rounded, color: Color(0xFFD92D20), size: 24),
+        child: const Icon(
+          Icons.sync_alt_rounded,
+          color: Color(0xFFD92D20),
+          size: 24,
+        ),
       );
       badgeWidget = Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
@@ -904,7 +1322,14 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
           color: const Color(0xFFFEF3F2),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Text('HOÀN CỌC', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFD92D20))),
+        child: const Text(
+          'HOÀN CỌC',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFFD92D20),
+          ),
+        ),
       );
     } else {
       iconWidget = Container(
@@ -914,7 +1339,11 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
           color: const Color(0xFFFEF0C7),
           borderRadius: BorderRadius.circular(14),
         ),
-        child: const Icon(Icons.account_balance_rounded, color: Color(0xFFB54708), size: 24),
+        child: const Icon(
+          Icons.account_balance_rounded,
+          color: Color(0xFFB54708),
+          size: 24,
+        ),
       );
       badgeWidget = Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
@@ -922,7 +1351,14 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
           color: const Color(0xFF0C111D),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Text('HỆ THỐNG', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+        child: const Text(
+          'HỆ THỐNG',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
       );
     }
 
@@ -931,7 +1367,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFEAECF0)),
+        border: Border.all(color: const Color(0xFFDCEAF5)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -970,15 +1406,30 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                 const SizedBox(height: 6),
                 _buildSubtitleWithHighlightedAmount(subtitle, amount, category),
                 const SizedBox(height: 7),
-                Row(
-                  children: [
-                    const Text('Thực hiện bởi: ', style: TextStyle(fontSize: 13, color: Color(0xFF667085))),
-                    Text(
-                      performer,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF155EEF)),
-                    ),
-                    Text(' • $timeStr', style: const TextStyle(fontSize: 13, color: Color(0xFF667085))),
-                  ],
+                Text.rich(
+                  TextSpan(
+                    text: 'Thực hiện bởi: ',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF667085)),
+                    children: [
+                      TextSpan(
+                        text: performer,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF398FC0),
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' • $timeStr',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF667085),
+                        ),
+                      ),
+                    ],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -988,12 +1439,18 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
     );
   }
 
-  Widget _buildSubtitleWithHighlightedAmount(String subtitle, double? amount, String category) {
+  Widget _buildSubtitleWithHighlightedAmount(
+    String subtitle,
+    double? amount,
+    String category,
+  ) {
     if (amount != null) {
       final formatted = currencyFormatter.format(amount);
       if (subtitle.contains(formatted)) {
         final parts = subtitle.split(formatted);
-        final color = category == 'finance' ? const Color(0xFF12B76A) : const Color(0xFFD92D20);
+        final color = category == 'finance'
+            ? const Color(0xFF12B76A)
+            : const Color(0xFFD92D20);
 
         return RichText(
           text: TextSpan(
@@ -1002,7 +1459,11 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
               TextSpan(text: parts[0]),
               TextSpan(
                 text: '$formatted đ',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
               if (parts.length > 1)
                 TextSpan(text: parts[1].replaceAll('đ', '').trimLeft()),
