@@ -94,8 +94,8 @@ class IdGenerator {
   static String booking({String? renterCode, String? roomCode}) {
     final dateStr = DateFormat('yyyyMMdd').format(DateTime.now());
     final rCode = (renterCode != null && renterCode.isNotEmpty) ? renterCode : 'NT001';
-    final pCode = (roomCode != null && roomCode.isNotEmpty) ? roomCode : 'P001';
-    return 'DP_${dateStr}_${pCode}_$rCode';
+    final pCode = (roomCode != null && roomCode.isNotEmpty && roomCode != 'P001') ? roomCode : '';
+    return pCode.isNotEmpty ? 'DP_${dateStr}_${pCode}_$rCode' : 'DP_${dateStr}_$rCode';
   }
 
   /// Sinh Nội dung chuyển khoản ngân hàng:

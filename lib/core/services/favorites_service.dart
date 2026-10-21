@@ -62,7 +62,7 @@ class FavoritesState {
 }
 
 class FavoritesNotifier extends Notifier<FavoritesState> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
 
   static const _spKeyRoomIds = 'homeshare_favorite_room_ids';
   static const _spKeyPostIds = 'homeshare_favorite_post_ids';
@@ -164,22 +164,13 @@ class FavoritesNotifier extends Notifier<FavoritesState> {
     final updatedRooms = Map<String, RoomModel>.from(state.roomsCache);
     bool hasNew = false;
     final roomService = ref.read(roomServiceProvider);
-    final sampleRooms = RoomService.getSampleRooms();
-
     for (final id in roomIds) {
+      if (id.toLowerCase().startsWith('sample')) continue;
       if (!updatedRooms.containsKey(id)) {
-        // Tìm trong sample rooms
-        final sampleMatch = sampleRooms.where((r) => r.id == id);
-        if (sampleMatch.isNotEmpty) {
-          updatedRooms[id] = sampleMatch.first;
-          hasNew = true;
-          continue;
-        }
-
         // Tìm trong Firestore
         try {
           final room = await roomService.getRoomById(id);
-          if (room != null) {
+          if (room != null && room.isDisplayable) {
             updatedRooms[id] = room;
             hasNew = true;
           }

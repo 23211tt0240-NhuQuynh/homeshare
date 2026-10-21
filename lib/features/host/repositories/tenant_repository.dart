@@ -489,15 +489,6 @@ class TenantRepository {
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
-    final roomRef = _firestore.collection(FirestoreCollections.rooms).doc(roomId);
-    batch.set(roomRef, {
-      'status': 'occupied',
-      'tenantName': combinedTenantName,
-      'tenantIds': FieldValue.arrayUnion([primaryTenantId, newRoommateId]),
-      'roommates': FieldValue.arrayUnion([newRoommateName]),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
     await batch.commit();
   }
 }

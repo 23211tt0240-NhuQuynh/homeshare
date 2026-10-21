@@ -171,6 +171,19 @@ class ChatService {
       throw Exception('Tin nhắn vi phạm tiêu chuẩn cộng đồng về an toàn thông tin.');
     }
 
+    // Không lưu lời mời nếu thiếu liên kết phòng hoặc định danh hai bên.
+    if (message.messageType == 'roommate_invitation') {
+      final roomId = '${message.extraData['roomId'] ?? ''}'.trim();
+      final senderId = '${message.extraData['senderId'] ?? ''}'.trim();
+      final receiverId = '${message.extraData['receiverId'] ?? ''}'.trim();
+      if (roomId.isEmpty ||
+          senderId != message.senderId ||
+          receiverId != message.receiverId ||
+          senderId == receiverId) {
+        throw StateError('Lời mời ở ghép không có dữ liệu phòng/người dùng hợp lệ.');
+      }
+    }
+
     final chatId = getChatId(message.senderId, message.receiverId);
     final messagesRef = _rtdb.ref('messages/$chatId');
     final newMsgRef = message.id.isNotEmpty ? messagesRef.child(message.id) : messagesRef.push();
@@ -449,9 +462,19 @@ class ChatService {
     String hostId = '',
     String note = '',
   }) async {
-    if (receiverId.isEmpty) return;
+    final cleanReceiverId = receiverId.trim();
+    final cleanSenderId = senderId.trim();
+    final cleanRoomId = roomId.trim();
+    final cleanRoomTitle = roomTitle.trim();
+    if (cleanReceiverId.isEmpty ||
+        cleanSenderId.isEmpty ||
+        cleanRoomId.isEmpty ||
+        cleanRoomTitle.isEmpty ||
+        cleanReceiverId == cleanSenderId) {
+      throw ArgumentError('Thông báo lời mời ở ghép thiếu dữ liệu bắt buộc.');
+    }
 
-    final resolvedCode = roomCode.isNotEmpty ? roomCode : 'P001';
+    final resolvedCode = roomCode.trim().isNotEmpty ? roomCode.trim() : cleanRoomId;
     final notifRef = _firestore.collection('notifications').doc();
     final customMessage = note.trim().isNotEmpty
         ? note.trim()
@@ -460,8 +483,8 @@ class ChatService {
     await notifRef.set({
       'notificationId': notifRef.id,
       'id': notifRef.id,
-      'receiverId': receiverId,
-      'senderId': senderId,
+      'receiverId': cleanReceiverId,
+      'senderId': cleanSenderId,
       'senderName': senderName,
       'hostId': hostId,
       'notificationType': 'roommate_invitation',
@@ -471,9 +494,9 @@ class ChatService {
       'message': customMessage,
       'noiDung': customMessage,
       'note': note.trim(),
-      'roomId': roomId,
+      'roomId': cleanRoomId,
       'roomCode': resolvedCode,
-      'roomTitle': roomTitle,
+      'roomTitle': cleanRoomTitle,
       'pricePerPerson': pricePerPerson,
       'status': 'pending',
       'isRead': false,

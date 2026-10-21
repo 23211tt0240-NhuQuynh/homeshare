@@ -37,12 +37,11 @@ class HostTheme {
     Color borderColor = cardBorder,
     double borderWidth = 1.2,
     BorderRadius? borderRadius,
-  }) =>
-      BoxDecoration(
-        color: backgroundColor,
-        borderRadius: borderRadius ?? radius16,
-        border: Border.all(color: borderColor, width: borderWidth),
-      );
+  }) => BoxDecoration(
+    color: backgroundColor,
+    borderRadius: borderRadius ?? radius16,
+    border: Border.all(color: borderColor, width: borderWidth),
+  );
 
   // InputDecoration dùng chung cho các TextFormField & DropdownFormField
   static InputDecoration inputDecoration({
@@ -65,7 +64,8 @@ class HostTheme {
       hintText: hintText,
       hintStyle: const TextStyle(fontSize: 13, color: textMuted),
       suffixText: suffixText,
-      suffixStyle: suffixStyle ??
+      suffixStyle:
+          suffixStyle ??
           const TextStyle(
             color: textSecondary,
             fontSize: 13,
@@ -74,7 +74,8 @@ class HostTheme {
       prefixIcon: prefixIcon,
       filled: isFilled,
       fillColor: fillColor ?? Colors.white,
-      contentPadding: contentPadding ??
+      contentPadding:
+          contentPadding ??
           const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: radius14,
@@ -106,14 +107,15 @@ class HostImageUtils {
   static String cleanImageUrl(dynamic raw) {
     if (raw == null) return '';
     if (raw is Map) {
-      final u = (raw['url'] ??
-              raw['duongDan'] ??
-              raw['image'] ??
-              raw['imageUrl'] ??
-              raw['link'] ??
-              '')
-          .toString()
-          .trim();
+      final u =
+          (raw['url'] ??
+                  raw['duongDan'] ??
+                  raw['image'] ??
+                  raw['imageUrl'] ??
+                  raw['link'] ??
+                  '')
+              .toString()
+              .trim();
       return cleanImageUrl(u);
     }
     var s = raw.toString().trim();
@@ -128,11 +130,7 @@ class HostImageUtils {
         r'(?:duongDan|url|image|imageUrl|link):\s*([^,}]+)',
       ).firstMatch(s);
       if (match != null) {
-        s = match
-            .group(1)!
-            .trim()
-            .replaceAll('"', '')
-            .replaceAll("'", "");
+        s = match.group(1)!.trim().replaceAll('"', '').replaceAll("'", "");
       }
     }
     return s;
@@ -140,7 +138,8 @@ class HostImageUtils {
 
   /// Nhận diện Content-Type của file ảnh qua magic bytes (PNG / JPEG)
   static String? detectContentType(Uint8List bytes) {
-    final isPng = bytes.length >= 8 &&
+    final isPng =
+        bytes.length >= 8 &&
         bytes[0] == 137 &&
         bytes[1] == 80 &&
         bytes[2] == 78 &&
@@ -149,7 +148,8 @@ class HostImageUtils {
         bytes[5] == 10 &&
         bytes[6] == 26 &&
         bytes[7] == 10;
-    final isJpg = bytes.length >= 3 &&
+    final isJpg =
+        bytes.length >= 3 &&
         bytes[0] == 255 &&
         bytes[1] == 216 &&
         bytes[2] == 255;
@@ -321,14 +321,14 @@ class HostImageThumbnail extends StatelessWidget {
     this.rawUrl,
     this.upload,
     this.isCover = false,
-    required this.onRemove,
+    this.onRemove,
   });
 
   final int index;
   final String? rawUrl;
   final HostUpload? upload;
   final bool isCover;
-  final VoidCallback onRemove;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -351,18 +351,19 @@ class HostImageThumbnail extends StatelessWidget {
               ? Image.memory(upload!.bytes, fit: BoxFit.cover)
               : _buildImage(rawUrl ?? ''),
         ),
-        Positioned(
-          top: 4,
-          right: 14,
-          child: InkWell(
-            onTap: onRemove,
-            child: const CircleAvatar(
-              radius: 11,
-              backgroundColor: Color(0x99000000),
-              child: Icon(Icons.close, size: 13, color: Colors.white),
+        if (onRemove != null)
+          Positioned(
+            top: 4,
+            right: 14,
+            child: InkWell(
+              onTap: onRemove,
+              child: const CircleAvatar(
+                radius: 11,
+                backgroundColor: Color(0x99000000),
+                child: Icon(Icons.close, size: 13, color: Colors.white),
+              ),
             ),
           ),
-        ),
         if (isCover)
           Positioned(
             left: 5,
@@ -394,8 +395,9 @@ class HostImageThumbnail extends StatelessWidget {
     if (clean.startsWith('data:image') || clean.startsWith('base64,')) {
       try {
         final commaIdx = clean.indexOf(',');
-        final base64Str =
-            commaIdx != -1 ? clean.substring(commaIdx + 1) : clean;
+        final base64Str = commaIdx != -1
+            ? clean.substring(commaIdx + 1)
+            : clean;
         final bytes = base64Decode(base64Str);
         return Image.memory(
           bytes,
@@ -490,14 +492,14 @@ class HostAmenityTile extends StatelessWidget {
     required this.name,
     required this.isSelected,
     this.isCustom = false,
-    required this.onTap,
+    this.onTap,
     this.onDeleteCustom,
   });
 
   final String name;
   final bool isSelected;
   final bool isCustom;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final VoidCallback? onDeleteCustom;
 
   @override
@@ -507,8 +509,9 @@ class HostAmenityTile extends StatelessWidget {
     final Color checkColor;
 
     if (isSelected) {
-      borderColor =
-          isCustom ? const Color(0xFF60A5FA) : const Color(0xFF93C5FD);
+      borderColor = isCustom
+          ? const Color(0xFF60A5FA)
+          : const Color(0xFF93C5FD);
       bgColor = isCustom ? const Color(0xFFEFF6FF) : const Color(0xFFF0F7FF);
       checkColor = HostTheme.primary;
     } else {

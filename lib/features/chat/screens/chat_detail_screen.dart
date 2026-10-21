@@ -14,9 +14,10 @@ import '../../../data/models/roommate_post_model.dart';
 import '../../../core/services/call_service.dart';
 import '../../../core/services/chat_service.dart';
 import '../../../core/services/roommate_service.dart';
-import '../../auth/providers/user_provider.dart';
 import '../../renter/screens/room_detail_screen.dart';
 import '../../renter/screens/roommate_room_detail_screen.dart';
+import '../services/roommate_invitation_eligibility_service.dart';
+import '../services/roommate_invitation_policy.dart';
 import 'call_screen.dart';
 
 /// Màn hình Chi tiết Tin nhắn & Trao đổi (Feature #10 theo chuẩn SRS CDLTDD & Tc_CHAT_01 -> 50)
@@ -61,69 +62,56 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   RoommatePostModel? _linkedPost;
   bool _showScrollToBottom = false;
   bool _isRecordingAudio = false;
-  bool _receiverIsHost = false;
+  String? _senderRole;
+  String? _receiverRole;
   RoomModel? _activeRentedRoom;
+  late final RoommateInvitationEligibilityService _invitationEligibilityService;
   final Set<String> _deletedForMeIds = {};
   final Set<String> _revokedIds = {};
   ChatMessageModel? _replyingToMessage;
   final FocusNode _focusNode = FocusNode();
 
   bool get _isUserToUser {
-    final profile = ref.read(userProfileProvider).value;
-    final isCurrentRenter = profile?.isHost != true && profile?.isAdmin != true;
-    final isReceiverRenter = !widget.isLandlord && !_receiverIsHost;
-    return isCurrentRenter && isReceiverRenter;
+    return RoommateInvitationPolicy.canInvite(
+      senderRole: _senderRole,
+      receiverRole: _receiverRole,
+      hasActiveRoom: true,
+    );
   }
+
+  bool get _canSendRoommateInvitation => _isUserToUser && _activeRentedRoom != null;
+
+  bool get _receiverIsHost => _receiverRole == 'host';
 
   @override
   void initState() {
     super.initState();
+    _invitationEligibilityService = RoommateInvitationEligibilityService();
     _scrollController.addListener(_onScroll);
     // Tự động đánh dấu đã đọc khi mở chi tiết cuộc trò chuyện và kiểm tra vai trò đối phương
     _linkedPost = widget.pinnedPost;
     Future.microtask(() {
       if (mounted) {
         ref.read(chatServiceProvider).markAsRead(widget.currentUserId, widget.receiverId);
-        _fetchReceiverRole();
-        _fetchActiveRentedRoom();
+        _refreshRoommateInvitationEligibility();
         _attachRoommatePost();
       }
     });
   }
 
-  Future<void> _fetchReceiverRole() async {
-    try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(widget.receiverId).get();
-      if (doc.exists && mounted) {
-        final role = (doc.data()?['role'] ?? doc.data()?['vaiTro'] ?? '').toString().toLowerCase();
-        final isHost = role == 'host' || role == 'landlord' || role == 'chutro';
-        if (isHost != _receiverIsHost) {
-          setState(() => _receiverIsHost = isHost);
-        }
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _fetchActiveRentedRoom() async {
-    try {
-      final query = await FirebaseFirestore.instance
-          .collection('bookings')
-          .where('userId', isEqualTo: widget.currentUserId)
-          .limit(1)
-          .get();
-      if (query.docs.isNotEmpty && mounted) {
-        final b = query.docs.first.data();
-        final roomId = b['roomId'] ?? b['phongId'] ?? '';
-        if (roomId.toString().isNotEmpty) {
-          final rDoc = await FirebaseFirestore.instance.collection('rooms').doc(roomId).get();
-          if (rDoc.exists && mounted && rDoc.data() != null) {
-            setState(() {
-              _activeRentedRoom = RoomModel.fromMap(rDoc.data()!, rDoc.id);
-            });
-          }
-        }
-      }
-    } catch (_) {}
+  Future<RoommateInvitationEligibility> _refreshRoommateInvitationEligibility() async {
+    final eligibility = await _invitationEligibilityService.resolve(
+      senderId: widget.currentUserId,
+      receiverId: widget.receiverId,
+    );
+    if (mounted) {
+      setState(() {
+        _senderRole = eligibility.senderRole;
+        _receiverRole = eligibility.receiverRole;
+        _activeRentedRoom = eligibility.activeRoom;
+      });
+    }
+    return eligibility;
   }
 
   void _onScroll() {
@@ -265,7 +253,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   }
 
   // Gửi thẻ đa phương tiện (Lịch hẹn, Lời mời ở ghép, Vị trí, Ảnh)
-  Future<void> _sendRichMessage({
+  Future<bool> _sendRichMessage({
     required String text,
     required String messageType,
     String attachmentUrl = '',
@@ -298,12 +286,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       );
       _clearReply();
       _scrollToBottom();
+      return true;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Lỗi: $e'), backgroundColor: AppColors.danger),
         );
       }
+      return false;
     }
   }
 
@@ -653,8 +643,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                       _sendLocationMessage();
                     },
                   ),
-                  // CHỈ hiển thị 'Mời ở ghép' khi cả 2 bên đều là Người dùng / Người thuê (_isUserToUser)
-                  if (_isUserToUser)
+                  // Chỉ hiện khi renter-renter và người gửi có phòng thật đang hoạt động.
+                  if (_canSendRoommateInvitation)
                     _buildAttachOption(
                       icon: Icons.group_add_outlined,
                       label: 'Mời ở ghép',
@@ -788,8 +778,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   }
 
 
-  void _showRoommateInviteDialog() {
-    if (!_isUserToUser) {
+  Future<void> _showRoommateInviteDialog() async {
+    final eligibility = await _refreshRoommateInvitationEligibility();
+    if (!mounted) return;
+
+    if (eligibility.blockReason == RoommateInvitationBlockReason.roleNotAllowed) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Tính năng mời ở ghép chỉ áp dụng khi hai người dùng (người thuê) trao đổi với nhau.'),
@@ -799,12 +792,26 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return;
     }
 
-    final targetRoom = widget.pinnedRoom ?? _activeRentedRoom;
-    final roomTitle = targetRoom?.title ?? 'Căn hộ mini / Phòng trọ';
-    final roomId = targetRoom?.id ?? '';
-    final hostId = targetRoom?.hostId ?? '';
-    final rawPrice = targetRoom?.price ?? 3600000;
-    final sharePrice = (rawPrice > 0 ? (rawPrice / 2).round() : 1800000);
+    final targetRoom = eligibility.activeRoom;
+    if (targetRoom == null) {
+      final lookupFailed = eligibility.blockReason == RoommateInvitationBlockReason.lookupFailed;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            lookupFailed
+                ? 'Không thể xác minh phòng của bạn lúc này. Vui lòng kiểm tra kết nối và thử lại.'
+                : 'Bạn phải có phòng đang thuê trên hệ thống mới có thể gửi lời mời ở ghép.',
+          ),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    final roomTitle = targetRoom.title.trim().isNotEmpty
+        ? targetRoom.title.trim()
+        : (targetRoom.roomCode.trim().isNotEmpty ? targetRoom.roomCode.trim() : targetRoom.id);
+    final sharePrice = targetRoom.price > 0 ? (targetRoom.price / 2).round() : 0;
 
     showDialog(
       context: context,
@@ -829,7 +836,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Chi phí dự kiến: ${NumberFormat("#,###", "vi_VN").format(sharePrice)} đ/tháng/người',
+              sharePrice > 0
+                  ? 'Chi phí dự kiến: ${NumberFormat("#,###", "vi_VN").format(sharePrice)} đ/tháng/người'
+                  : 'Chi phí dự kiến: Chưa cập nhật',
               style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 12),
             ),
             const SizedBox(height: 8),
@@ -843,23 +852,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              _sendRichMessage(
-                text: 'Lời mời cùng ở ghép phòng tại HomeShare',
-                messageType: 'roommate_invitation',
-                extraData: {
-                  'status': 'pending',
-                  'roomId': roomId,
-                  'roomTitle': roomTitle,
-                  'hostId': hostId,
-                  'pricePerPerson': sharePrice,
-                  'senderName': widget.currentUserName,
-                  'senderId': widget.currentUserId,
-                  'receiverName': widget.receiverName,
-                  'receiverId': widget.receiverId,
-                },
-              );
+              await _sendVerifiedRoommateInvitation();
             },
             child: const Text('Gửi Lời Mời'),
           ),
@@ -868,8 +863,91 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
+  Future<void> _sendVerifiedRoommateInvitation() async {
+    // Kiểm tra lại ngay trước lúc ghi tin nhắn để không dùng quyền/phòng đã cũ.
+    final eligibility = await _refreshRoommateInvitationEligibility();
+    if (!mounted) return;
+
+    final room = eligibility.activeRoom;
+    if (!eligibility.canInvite || room == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            eligibility.blockReason == RoommateInvitationBlockReason.roleNotAllowed
+                ? 'Lời mời ở ghép chỉ được gửi giữa hai người dùng (người thuê).'
+                : 'Không tìm thấy phòng đang thuê hợp lệ. Lời mời chưa được gửi.',
+          ),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    final roomTitle = room.title.trim().isNotEmpty
+        ? room.title.trim()
+        : (room.roomCode.trim().isNotEmpty ? room.roomCode.trim() : room.id);
+    final sharePrice = room.price > 0 ? (room.price / 2).round() : 0;
+    final sent = await _sendRichMessage(
+      text: 'Lời mời cùng ở ghép phòng tại HomeShare',
+      messageType: 'roommate_invitation',
+      extraData: {
+        'status': 'pending',
+        'roomId': room.id,
+        'roomCode': room.roomCode,
+        'roomTitle': roomTitle,
+        'hostId': room.hostId,
+        'pricePerPerson': sharePrice,
+        'senderName': widget.currentUserName,
+        'senderId': widget.currentUserId,
+        'receiverName': widget.receiverName,
+        'receiverId': widget.receiverId,
+      },
+    );
+
+    if (!sent) return;
+    try {
+      await ref.read(chatServiceProvider).notifyUserRoommateInvitation(
+            receiverId: widget.receiverId,
+            senderId: widget.currentUserId,
+            senderName: widget.currentUserName,
+            roomId: room.id,
+            roomCode: room.roomCode.trim().isNotEmpty ? room.roomCode.trim() : room.id,
+            roomTitle: roomTitle,
+            pricePerPerson: sharePrice.toDouble(),
+            hostId: room.hostId,
+          );
+    } catch (error) {
+      debugPrint('[Chat] Đã gửi lời mời nhưng chưa tạo được thông báo: $error');
+    }
+  }
+
   Future<void> _acceptRoommateInvite(ChatMessageModel msg) async {
     try {
+      final roomId = msg.extraData['roomId']?.toString().trim() ?? '';
+      if (roomId.isEmpty) {
+        throw StateError('Lời mời không liên kết với phòng hợp lệ.');
+      }
+
+      RoomModel? verifiedRoom;
+      for (final collection in const ['host_rooms']) {
+        final roomDoc = await FirebaseFirestore.instance.collection(collection).doc(roomId).get();
+        if (roomDoc.exists && roomDoc.data() != null) {
+          final candidate = RoomModel.fromMap(roomDoc.data()!, roomDoc.id);
+          if (candidate.hostId.trim().isNotEmpty) {
+            verifiedRoom = candidate;
+            break;
+          }
+        }
+      }
+      if (verifiedRoom == null || verifiedRoom.hostId.trim().isEmpty) {
+        throw StateError('Không xác minh được phòng hoặc chủ trọ của lời mời.');
+      }
+
+      final hostId = verifiedRoom.hostId.trim();
+      final roomTitle = verifiedRoom.title.trim().isNotEmpty
+          ? verifiedRoom.title.trim()
+          : (verifiedRoom.roomCode.trim().isNotEmpty ? verifiedRoom.roomCode.trim() : verifiedRoom.id);
+
       final updatedExtraData = Map<String, dynamic>.from(msg.extraData);
       updatedExtraData['status'] = 'accepted';
       updatedExtraData['acceptedBy'] = widget.currentUserId;
@@ -883,74 +961,16 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         extraData: updatedExtraData,
       );
 
-      // Tìm hostId để gửi thông báo đến Chủ nhà
-      String hostId = msg.extraData['hostId']?.toString() ?? '';
-      String roomId = msg.extraData['roomId']?.toString() ?? '';
-      String roomTitle = msg.extraData['roomTitle']?.toString() ?? 'Phòng trọ HomeShare';
-
-      if (hostId.isEmpty && roomId.isNotEmpty) {
-        try {
-          final roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(roomId).get();
-          if (roomDoc.exists) {
-            hostId = roomDoc.data()?['hostId'] ?? roomDoc.data()?['chuNhaId'] ?? '';
-            roomTitle = roomDoc.data()?['title'] ?? roomDoc.data()?['tieuDe'] ?? roomTitle;
-          }
-        } catch (_) {}
-      }
-
-      if (hostId.isEmpty && roomId.isNotEmpty) {
-        try {
-          final postDoc = await FirebaseFirestore.instance.collection('posts').doc(roomId).get();
-          if (postDoc.exists) {
-            hostId = postDoc.data()?['hostId'] ?? postDoc.data()?['chuNhaId'] ?? '';
-            roomTitle = postDoc.data()?['title'] ?? postDoc.data()?['tieuDe'] ?? roomTitle;
-          }
-        } catch (_) {}
-      }
-
-      if (hostId.isEmpty) {
-        try {
-          final bookingQuery = await FirebaseFirestore.instance
-              .collection('bookings')
-              .where('userId', isEqualTo: msg.senderId)
-              .limit(1)
-              .get();
-          if (bookingQuery.docs.isNotEmpty) {
-            final bData = bookingQuery.docs.first.data();
-            hostId = bData['hostId'] ?? bData['chuNhaId'] ?? '';
-            if (roomId.isEmpty) roomId = bData['roomId'] ?? bData['phongId'] ?? '';
-            if (roomTitle == 'Phòng trọ HomeShare') {
-              roomTitle = bData['roomTitle'] ?? bData['tieuDe'] ?? roomTitle;
-            }
-          }
-        } catch (_) {}
-      }
-
-      if (hostId.isEmpty) {
-        try {
-          final hostQuery = await FirebaseFirestore.instance
-              .collection('users')
-              .where('role', isEqualTo: 'host')
-              .limit(1)
-              .get();
-          if (hostQuery.docs.isNotEmpty) {
-            hostId = hostQuery.docs.first.id;
-          }
-        } catch (_) {}
-      }
-
-      // Gửi thông báo đến chủ nhà
-      if (hostId.isNotEmpty) {
-        await ref.read(chatServiceProvider).notifyHostRoommateAccepted(
-          hostId: hostId,
-          roomId: roomId,
-          roomTitle: roomTitle,
-          primaryTenantName: msg.senderName,
-          primaryTenantId: msg.senderId,
-          newRoommateName: widget.currentUserName,
-          newRoommateId: widget.currentUserId,
-        );
-      }
+      // Chỉ thông báo đúng chủ trọ lấy từ document phòng đã xác minh.
+      await ref.read(chatServiceProvider).notifyHostRoommateAccepted(
+        hostId: hostId,
+        roomId: roomId,
+        roomTitle: roomTitle,
+        primaryTenantName: msg.senderName,
+        primaryTenantId: msg.senderId,
+        newRoommateName: widget.currentUserName,
+        newRoommateId: widget.currentUserId,
+      );
 
       // Gửi tin nhắn xác nhận realtime vào đoạn chat
       await _sendMessage('✅ Tôi đã chấp nhận lời mời ở ghép cùng bạn tại phòng $roomTitle. Hệ thống đã gửi thông báo đến chủ nhà!');
@@ -1752,11 +1772,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   // Widget Thanh câu hỏi gợi ý nhanh (Tc_CHAT_12 -> 14)
   Widget _buildQuickChipsBar() {
     final chips = _isUserToUser
-        ? [
+        ? <String>[
             'Chào bạn, bạn đã tìm được phòng chưa?',
             'Ngân sách phòng trọ bạn dự kiến bao nhiêu?',
             'Thói quen sinh hoạt của bạn như thế nào?',
-            '+ Mời vào ở ghép',
+            if (_canSendRoommateInvitation) '+ Mời vào ở ghép',
           ]
         : (widget.isLandlord || _receiverIsHost)
             ? [

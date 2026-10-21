@@ -128,6 +128,10 @@ void main() {
         RoleResolver.extractRoleFromMap({'role': 'admin'}),
         equals(RoleResolver.admin),
       );
+      expect(
+        RoleResolver.extractRoleFromMap({'roleId': 'tenant'}),
+        equals(RoleResolver.renter),
+      );
     });
 
     test('Đọc thành công từ khóa tiếng Việt `vaiTro`', () {

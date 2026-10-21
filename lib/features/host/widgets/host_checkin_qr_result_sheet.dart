@@ -96,7 +96,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
 
     if ((_liveRoomPrice == null || _liveRoomPrice == 0) && rId.isNotEmpty) {
       try {
-        final rDoc = await FirebaseFirestore.instance.collection('rooms').doc(rId).get();
+        final rDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(rId).get();
         if (rDoc.exists && rDoc.data() != null) {
           final data = rDoc.data()!;
           final price = (data['price'] ?? data['giaPhong'] ?? data['giaThue']) as num?;

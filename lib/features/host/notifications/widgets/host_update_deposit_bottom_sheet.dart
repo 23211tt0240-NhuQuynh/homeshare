@@ -9,10 +9,7 @@ import '../providers/host_notification_provider.dart';
 class HostUpdateDepositBottomSheet extends ConsumerStatefulWidget {
   final HostNotificationModel notification;
 
-  const HostUpdateDepositBottomSheet({
-    super.key,
-    required this.notification,
-  });
+  const HostUpdateDepositBottomSheet({super.key, required this.notification});
 
   static Future<bool?> show(
     BuildContext context, {
@@ -38,36 +35,36 @@ class _HostUpdateDepositBottomSheetState
   late DateTime _selectedCheckInDate;
   late TextEditingController _reasonController;
   bool _isLoading = false;
-
-  final List<Map<String, String>> _roomOptions = [
-    {
-      'id': 'room_101',
-      'title': 'Phòng 101 (Tầng 1 • 25m² • 3.2tr/tháng)',
-    },
-    {
-      'id': 'room_201',
-      'title': 'Phòng 201 (Tầng 2 • Có gác lửng • 3.2tr/tháng)',
-    },
-    {
-      'id': 'room_203',
-      'title': 'Phòng 203 (Tầng 2 • Khép kín 22m² • 3.5tr/tháng)',
-    },
-  ];
+  late List<Map<String, String>> _roomOptions;
 
   @override
   void initState() {
     super.initState();
-    _selectedRoomId = widget.notification.newRoomId ??
-        widget.notification.roomId.ifEmpty('room_101');
-    _selectedRoomTitle = widget.notification.newRoomTitle ??
-        'Phòng 101 (Tầng 1 • 25m² • 3.2tr/tháng)';
-    _selectedCheckInDate = widget.notification.newCheckInDate ??
-        widget.notification.checkInDate ??
-        DateTime(2026, 10, 15);
+    final notif = widget.notification;
+    final defaultTitle = notif.roomTitle.isNotEmpty
+        ? notif.roomTitle
+        : (notif.displayRoomCode.isNotEmpty
+              ? 'Phòng ${notif.displayRoomCode}'
+              : 'Phòng hiện tại');
+
+    _selectedRoomId = notif.newRoomId?.isNotEmpty == true
+        ? notif.newRoomId!
+        : notif.roomId;
+    _selectedRoomTitle = notif.newRoomTitle?.isNotEmpty == true
+        ? notif.newRoomTitle!
+        : defaultTitle;
+    _selectedCheckInDate =
+        notif.newCheckInDate ?? notif.checkInDate ?? DateTime.now();
     _reasonController = TextEditingController(
-      text: widget.notification.adjustmentReason ??
-          'Phòng 101 đang được vệ sinh và bảo dưỡng điều hòa, giữ nguyên giá cọc và hỗ trợ nhận phòng sớm.',
+      text: notif.adjustmentReason ?? '',
     );
+
+    _roomOptions = [
+      {
+        'id': _selectedRoomId.isNotEmpty ? _selectedRoomId : 'room_current',
+        'title': _selectedRoomTitle,
+      },
+    ];
   }
 
   @override
@@ -85,8 +82,8 @@ class _HostUpdateDepositBottomSheetState
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedCheckInDate,
-      firstDate: DateTime(2026, 1, 1),
-      lastDate: DateTime(2027, 12, 31),
+      firstDate: DateTime.now().subtract(const Duration(days: 30)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (picked != null) {
       setState(() => _selectedCheckInDate = picked);
@@ -111,16 +108,19 @@ class _HostUpdateDepositBottomSheetState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             backgroundColor: Color(0xFF027A48),
-            content: Text('Đã lưu & gửi thông báo điều chỉnh cọc đến khách thuê'),
+            content: Text(
+              'Đã lưu & gửi thông báo điều chỉnh cọc đến khách thuê',
+            ),
           ),
         );
       }
     } catch (e) {
+      debugPrint('Không thể cập nhật thông tin đặt chỗ: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             backgroundColor: AppColors.danger,
-            content: Text('Lỗi: $e'),
+            content: Text('Không thể lưu thay đổi. Vui lòng thử lại.'),
           ),
         );
       }
@@ -231,7 +231,7 @@ class _HostUpdateDepositBottomSheetState
                           child: Text(
                             notif.renterName.isNotEmpty
                                 ? notif.renterName[0].toUpperCase()
-                                : 'L',
+                                : 'K',
                             style: const TextStyle(
                               color: Color(0xFF3538CD),
                               fontWeight: FontWeight.bold,
@@ -255,7 +255,7 @@ class _HostUpdateDepositBottomSheetState
                               Text(
                                 notif.renterName.isNotEmpty
                                     ? notif.renterName
-                                    : 'Trần Phương Linh',
+                                    : 'Khách thuê',
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
@@ -277,9 +277,7 @@ class _HostUpdateDepositBottomSheetState
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              _formatCurrency(
-                                notif.amount > 0 ? notif.amount : 1500000,
-                              ),
+                              _formatCurrency(notif.amount),
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
@@ -317,7 +315,7 @@ class _HostUpdateDepositBottomSheetState
                         ],
                       ),
                       Text(
-                        'Hiện tại: ${notif.roomCode.isNotEmpty ? 'Phòng ${notif.roomCode}' : 'Phòng 101'}',
+                        'Hiện tại: ${notif.displayRoomCode.isNotEmpty ? 'Phòng ${notif.displayRoomCode}' : 'Phòng đang chọn'}',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Color(0xFF667085),
@@ -335,7 +333,8 @@ class _HostUpdateDepositBottomSheetState
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
-                        value: _roomOptions.any((r) => r['id'] == _selectedRoomId)
+                        value:
+                            _roomOptions.any((r) => r['id'] == _selectedRoomId)
                             ? _selectedRoomId
                             : _roomOptions.first['id'],
                         isExpanded: true,
@@ -379,7 +378,7 @@ class _HostUpdateDepositBottomSheetState
                       ),
                       SizedBox(width: 6),
                       Text(
-                        'Phòng 101 đang có khách chuyển sang ngày 15/10',
+                        'Đổi sang phòng mới sẽ tự động cập nhật thông tin cho khách.',
                         style: TextStyle(
                           fontSize: 11,
                           color: AppColors.primary,
@@ -414,7 +413,7 @@ class _HostUpdateDepositBottomSheetState
                         ],
                       ),
                       Text(
-                        'Gốc: ${dateFmt.format(notif.checkInDate ?? DateTime(2026, 10, 15))}',
+                        'Gốc: ${notif.checkInDate != null ? dateFmt.format(notif.checkInDate!) : 'Chưa thiết lập'}',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Color(0xFF667085),
@@ -491,38 +490,35 @@ class _HostUpdateDepositBottomSheetState
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      _buildQuickDateChip(
-                        day: 13,
-                        label: '13 Th2',
-                        date: DateTime(2026, 10, 13),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildQuickDateChip(
-                        day: 14,
-                        label: '14 Th3',
-                        date: DateTime(2026, 10, 14),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildQuickDateChip(
-                        day: 15,
-                        label: '15 Th4',
-                        date: DateTime(2026, 10, 15),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildQuickDateChip(
-                        day: 16,
-                        label: '16 Th5',
-                        date: DateTime(2026, 10, 16),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildQuickDateChip(
-                        day: 17,
-                        label: '17 Th6',
-                        date: DateTime(2026, 10, 17),
-                      ),
-                    ],
+                  Builder(
+                    builder: (context) {
+                      final baseDate =
+                          _selectedCheckInDate.isAfter(DateTime.now())
+                          ? _selectedCheckInDate
+                          : DateTime.now();
+                      final quickDates = List.generate(
+                        4,
+                        (i) => DateTime(
+                          baseDate.year,
+                          baseDate.month,
+                          baseDate.day,
+                        ).add(Duration(days: i + 1)),
+                      );
+
+                      return Row(
+                        children: [
+                          for (int i = 0; i < quickDates.length; i++) ...[
+                            if (i > 0) const SizedBox(width: 8),
+                            _buildQuickDateChip(
+                              day: quickDates[i].day,
+                              label:
+                                  '${quickDates[i].day} Th${quickDates[i].month}',
+                              date: quickDates[i],
+                            ),
+                          ],
+                        ],
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 18),
@@ -540,7 +536,10 @@ class _HostUpdateDepositBottomSheetState
                   TextField(
                     controller: _reasonController,
                     maxLines: 3,
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF101828)),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF101828),
+                    ),
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF9FAFB),
@@ -665,7 +664,8 @@ class _HostUpdateDepositBottomSheetState
     required String label,
     required DateTime date,
   }) {
-    final isSelected = _selectedCheckInDate.year == date.year &&
+    final isSelected =
+        _selectedCheckInDate.year == date.year &&
         _selectedCheckInDate.month == date.month &&
         _selectedCheckInDate.day == date.day;
 
@@ -692,8 +692,4 @@ class _HostUpdateDepositBottomSheetState
       ),
     );
   }
-}
-
-extension on String {
-  String ifEmpty(String fallback) => isEmpty ? fallback : this;
 }

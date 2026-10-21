@@ -134,7 +134,7 @@ class ResidentModel {
     String roomId, [
     FirebaseFirestore? firestore,
   ]) => (firestore ?? FirebaseFirestore.instance)
-      .collection(FirestoreCollections.rooms)
+      .collection(FirestoreCollections.hostRooms)
       .doc(roomId)
       .collection(FirestoreCollections.residents);
 

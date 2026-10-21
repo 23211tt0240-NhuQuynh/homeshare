@@ -57,7 +57,8 @@ class AdminActionItem {
 class AdminRevenueChartData {
   final List<double> weeklyData; // 7 ngày: T2 -> CN (đơn vị Triệu VNĐ)
   final List<double> monthlyWeeksData; // 4 tuần trong tháng (Triệu VNĐ)
-  final List<double?> yearlyData; // 12 tháng: T1 -> T12 (Triệu VNĐ, null nếu tương lai)
+  final List<double?>
+  yearlyData; // 12 tháng: T1 -> T12 (Triệu VNĐ, null nếu tương lai)
   final int peakYearlyMonthIndex; // 0-indexed tháng cao nhất
   final double peakYearlyAmount; // Số tiền tháng cao nhất (Triệu VNĐ)
   final double monthlyAverage; // Doanh thu trung bình tháng (VNĐ)
@@ -65,7 +66,20 @@ class AdminRevenueChartData {
   const AdminRevenueChartData({
     this.weeklyData = const [0, 0, 0, 0, 0, 0, 0],
     this.monthlyWeeksData = const [0, 0, 0, 0],
-    this.yearlyData = const [null, null, null, null, null, null, null, null, null, null, null, null],
+    this.yearlyData = const [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    ],
     this.peakYearlyMonthIndex = 0,
     this.peakYearlyAmount = 0.0,
     this.monthlyAverage = 0.0,
@@ -136,76 +150,8 @@ class AdminService {
   Stream<AdminDashboardStats> getDashboardStatsStream() {
     final firestore = _firestore;
     if (firestore == null) {
-      return Stream.value(const AdminDashboardStats(
-        totalFlow: 1748500000,
-        netRevenue: 168250000,
-        successfulTransactions: 45600,
-        totalUsers: 5880,
-        newHosts: 320,
-        growthYoy: 18.4,
-        monthlyAverage: 14020000,
-      ));
-    }
-
-    return firestore.collection('bookings').snapshots().asyncMap((bookingSnapshot) async {
-      try {
-        double calculatedFlow = 0;
-        int completedCount = 0;
-
-        for (var doc in bookingSnapshot.docs) {
-          final data = doc.data();
-          final total = (data['totalAmount'] as num?)?.toDouble() ??
-              (data['roomPrice'] as num?)?.toDouble() ??
-              (data['deposit'] as num?)?.toDouble() ??
-              0;
-          calculatedFlow += total;
-
-          final status = (data['status'] ?? data['trangThai'] ?? '').toString().toLowerCase();
-          if (status == 'paid' ||
-              status == 'completed' ||
-              status == 'dathanhtoan' ||
-              status == 'daduyet' ||
-              status == 'dacoc' ||
-              status == 'dagiaingan') {
-            completedCount++;
-          }
-        }
-
-        // Lấy số lượng users và hosts thật từ collection 'users'
-        int userCount = 0;
-        int hostCount = 0;
-        try {
-          final userSnap = await firestore.collection('users').get();
-          userCount = userSnap.docs.length;
-          for (var u in userSnap.docs) {
-            final uData = u.data();
-            final role = (uData['role'] ?? uData['vaiTro'] ?? '').toString().toLowerCase();
-            if (role == 'host' || role == 'chunha') {
-              hostCount++;
-            }
-          }
-        } catch (_) {}
-
-        // Tính doanh thu sàn thực nhận (khoảng 9.6% hoa hồng + các khoản phí giao dịch)
-        final netRevenue = calculatedFlow > 0 ? (calculatedFlow * 0.0962) : 168250000.0;
-        final totalFlow = calculatedFlow > 0 ? calculatedFlow : 1748500000.0;
-        final successfulTx = completedCount > 0 ? completedCount : 45600;
-        final totalUsers = userCount > 0 ? userCount : 5880;
-        final newHosts = hostCount > 0 ? hostCount : 320;
-        final monthlyAverage = netRevenue / 12;
-
-        return AdminDashboardStats(
-          totalFlow: totalFlow,
-          netRevenue: netRevenue,
-          successfulTransactions: successfulTx,
-          totalUsers: totalUsers,
-          newHosts: newHosts,
-          growthYoy: 18.4,
-          monthlyAverage: monthlyAverage,
-        );
-      } catch (e) {
-        debugPrint('Error calculating admin stats from Firestore: $e');
-        return const AdminDashboardStats(
+      return Stream.value(
+        const AdminDashboardStats(
           totalFlow: 1748500000,
           netRevenue: 168250000,
           successfulTransactions: 45600,
@@ -213,20 +159,103 @@ class AdminService {
           newHosts: 320,
           growthYoy: 18.4,
           monthlyAverage: 14020000,
-        );
-      }
-    }).handleError((error) {
-      debugPrint('Error in getDashboardStatsStream: $error');
-      return const AdminDashboardStats(
-        totalFlow: 1748500000,
-        netRevenue: 168250000,
-        successfulTransactions: 45600,
-        totalUsers: 5880,
-        newHosts: 320,
-        growthYoy: 18.4,
-        monthlyAverage: 14020000,
+        ),
       );
-    });
+    }
+
+    return firestore
+        .collection('bookings')
+        .snapshots()
+        .asyncMap((bookingSnapshot) async {
+          try {
+            double calculatedFlow = 0;
+            int completedCount = 0;
+
+            for (var doc in bookingSnapshot.docs) {
+              final data = doc.data();
+              final total =
+                  (data['totalAmount'] as num?)?.toDouble() ??
+                  (data['roomPrice'] as num?)?.toDouble() ??
+                  (data['deposit'] as num?)?.toDouble() ??
+                  0;
+              calculatedFlow += total;
+
+              final status = (data['status'] ?? data['trangThai'] ?? '')
+                  .toString()
+                  .toLowerCase();
+              if (status == 'paid' ||
+                  status == 'completed' ||
+                  status == 'dathanhtoan' ||
+                  status == 'daduyet' ||
+                  status == 'dacoc' ||
+                  status == 'dagiaingan') {
+                completedCount++;
+              }
+            }
+
+            // Lấy số lượng users và hosts thật từ collection 'users'
+            int userCount = 0;
+            int hostCount = 0;
+            try {
+              final userSnap = await firestore.collection('users').get();
+              userCount = userSnap.docs.length;
+              for (var u in userSnap.docs) {
+                final uData = u.data();
+                final role = (uData['role'] ?? uData['vaiTro'] ?? '')
+                    .toString()
+                    .toLowerCase();
+                if (role == 'host' || role == 'chunha') {
+                  hostCount++;
+                }
+              }
+            } catch (_) {}
+
+            // Tính doanh thu sàn thực nhận (khoảng 9.6% hoa hồng + các khoản phí giao dịch)
+            final netRevenue = calculatedFlow > 0
+                ? (calculatedFlow * 0.0962)
+                : 168250000.0;
+            final totalFlow = calculatedFlow > 0
+                ? calculatedFlow
+                : 1748500000.0;
+            final successfulTx = completedCount > 0 ? completedCount : 45600;
+            final totalUsers = userCount > 0 ? userCount : 5880;
+            final newHosts = hostCount > 0 ? hostCount : 320;
+            final monthlyAverage = netRevenue / 12;
+
+            return AdminDashboardStats(
+              totalFlow: totalFlow,
+              netRevenue: netRevenue,
+              successfulTransactions: successfulTx,
+              totalUsers: totalUsers,
+              newHosts: newHosts,
+              growthYoy: 18.4,
+              monthlyAverage: monthlyAverage,
+            );
+          } catch (e) {
+            debugPrint('Error calculating admin stats from Firestore: $e');
+            return const AdminDashboardStats(
+              totalFlow: 1748500000,
+              netRevenue: 168250000,
+              successfulTransactions: 45600,
+              totalUsers: 5880,
+              newHosts: 320,
+              growthYoy: 18.4,
+              monthlyAverage: 14020000,
+            );
+          }
+        })
+        .handleError((error) {
+          debugPrint('Error in getDashboardStatsStream: $error');
+          return const AdminDashboardStats(
+            totalFlow: 1748500000,
+            netRevenue: 168250000,
+            successfulTransactions: 45600,
+            totalUsers: 5880,
+            newHosts: 320,
+            growthYoy: 18.4,
+            monthlyAverage: 14020000,
+          );
+        });
   }
 
   // =========================================================================
@@ -235,132 +264,172 @@ class AdminService {
   Stream<AdminRevenueChartData> getRevenueChartDataStream() {
     final firestore = _firestore;
     if (firestore == null) {
-      return Stream.value(const AdminRevenueChartData(
-        weeklyData: [2.5, 4.2, 3.1, 2.0, 5.8, 12.4, 7.6],
-        monthlyWeeksData: [28.0, 36.5, 42.0, 48.2],
-        yearlyData: [6.2, 4.0, 7.5, 9.8, 11.2, 13.5, 15.0, 16.2, 18.5, null, null, null],
-        peakYearlyMonthIndex: 8,
-        peakYearlyAmount: 18.5,
-        monthlyAverage: 14020000,
-      ));
-    }
-
-    return firestore.collection('bookings').snapshots().map((snapshot) {
-      try {
-        final now = DateTime.now();
-        final currentYear = now.year;
-        final currentMonth = now.month;
-
-        // 12 tháng trong năm (đơn vị: Triệu VNĐ)
-        List<double?> yearlyBuckets = List<double?>.filled(12, null);
-        for (int m = 0; m < currentMonth; m++) {
-          yearlyBuckets[m] = 0.0;
-        }
-
-        // 7 ngày trong tuần hiện tại (T2: index 0 -> CN: index 6)
-        List<double> weeklyBuckets = List<double>.filled(7, 0.0);
-        // 4 tuần trong tháng hiện tại
-        List<double> monthWeeksBuckets = List<double>.filled(4, 0.0);
-
-        bool hasData = false;
-
-        for (var doc in snapshot.docs) {
-          final data = doc.data();
-          final amount = ((data['deposit'] ?? data['totalAmount'] ?? data['roomPrice'] ?? 0) as num).toDouble();
-          final commission = amount * 0.1; // 10% hoa hồng sàn
-
-          DateTime? createdAt;
-          if (data['createdAt'] is Timestamp) {
-            createdAt = (data['createdAt'] as Timestamp).toDate();
-          } else if (data['ngayTao'] is Timestamp) {
-            createdAt = (data['ngayTao'] as Timestamp).toDate();
-          }
-
-          if (createdAt != null) {
-            hasData = true;
-            // Phân bổ theo năm hiện tại
-            if (createdAt.year == currentYear && createdAt.month <= 12) {
-              final mIndex = createdAt.month - 1;
-              yearlyBuckets[mIndex] = (yearlyBuckets[mIndex] ?? 0.0) + (commission / 1000000);
-            }
-
-            // Phân bổ theo tháng hiện tại
-            if (createdAt.year == currentYear && createdAt.month == currentMonth) {
-              final weekIndex = ((createdAt.day - 1) ~/ 7).clamp(0, 3);
-              monthWeeksBuckets[weekIndex] += (commission / 1000000);
-            }
-
-            // Phân bổ theo tuần hiện tại
-            final diffDays = now.difference(createdAt).inDays;
-            if (diffDays >= 0 && diffDays < 7) {
-              final weekdayIndex = (createdAt.weekday - 1).clamp(0, 6); // 1 = Monday
-              weeklyBuckets[weekdayIndex] += (commission / 1000000);
-            }
-          }
-        }
-
-        // Nếu Firestore chưa có nhiều dữ liệu mẫu, hòa trộn dữ liệu chuẩn giao diện
-        if (!hasData || yearlyBuckets[currentMonth - 1] == 0) {
-          return const AdminRevenueChartData(
-            weeklyData: [2.5, 4.2, 3.1, 2.0, 5.8, 12.4, 7.6],
-            monthlyWeeksData: [28.0, 36.5, 42.0, 48.2],
-            yearlyData: [6.2, 4.0, 7.5, 9.8, 11.2, 13.5, 15.0, 16.2, 18.5, null, null, null],
-            peakYearlyMonthIndex: 8,
-            peakYearlyAmount: 18.5,
-            monthlyAverage: 14020000,
-          );
-        }
-
-        // Tìm tháng có doanh thu cao nhất
-        int peakIndex = 0;
-        double peakAmount = 0.0;
-        double sumYear = 0;
-        int activeMonths = 0;
-
-        for (int i = 0; i < 12; i++) {
-          final val = yearlyBuckets[i];
-          if (val != null) {
-            sumYear += val * 1000000;
-            activeMonths++;
-            if (val > peakAmount) {
-              peakAmount = val;
-              peakIndex = i;
-            }
-          }
-        }
-
-        final avgMonthly = activeMonths > 0 ? (sumYear / activeMonths) : 14020000.0;
-
-        return AdminRevenueChartData(
-          weeklyData: weeklyBuckets,
-          monthlyWeeksData: monthWeeksBuckets,
-          yearlyData: yearlyBuckets,
-          peakYearlyMonthIndex: peakIndex,
-          peakYearlyAmount: peakAmount > 0 ? peakAmount : 18.5,
-          monthlyAverage: avgMonthly,
-        );
-      } catch (e) {
-        debugPrint('Error computing revenue chart from Firestore: $e');
-        return const AdminRevenueChartData(
+      return Stream.value(
+        const AdminRevenueChartData(
           weeklyData: [2.5, 4.2, 3.1, 2.0, 5.8, 12.4, 7.6],
           monthlyWeeksData: [28.0, 36.5, 42.0, 48.2],
-          yearlyData: [6.2, 4.0, 7.5, 9.8, 11.2, 13.5, 15.0, 16.2, 18.5, null, null, null],
+          yearlyData: [
+            6.2,
+            4.0,
+            7.5,
+            9.8,
+            11.2,
+            13.5,
+            15.0,
+            16.2,
+            18.5,
+            null,
+            null,
+            null,
+          ],
           peakYearlyMonthIndex: 8,
           peakYearlyAmount: 18.5,
           monthlyAverage: 14020000,
-        );
-      }
-    }).handleError((error) {
-      debugPrint('Error in getRevenueChartDataStream: $error');
-      return const AdminRevenueChartData(
-        weeklyData: [2.5, 4.2, 3.1, 2.0, 5.8, 12.4, 7.6],
-        monthlyWeeksData: [28.0, 36.5, 42.0, 48.2],
-        yearlyData: [6.2, 4.0, 7.5, 9.8, 11.2, 13.5, 15.0, 16.2, 18.5, null, null, null],
-        peakYearlyMonthIndex: 8,
-        peakYearlyAmount: 18.5,
-        monthlyAverage: 14020000,
+        ),
       );
-    });
+    }
+
+    return firestore
+        .collection('bookings')
+        .snapshots()
+        .map((snapshot) {
+          try {
+            final now = DateTime.now();
+            final currentYear = now.year;
+            final currentMonth = now.month;
+
+            // 12 tháng trong năm (đơn vị: Triệu VNĐ)
+            List<double?> yearlyBuckets = List<double?>.filled(12, null);
+            for (int m = 0; m < currentMonth; m++) {
+              yearlyBuckets[m] = 0.0;
+            }
+
+            // 7 ngày trong tuần hiện tại (T2: index 0 -> CN: index 6)
+            List<double> weeklyBuckets = List<double>.filled(7, 0.0);
+            // 4 tuần trong tháng hiện tại
+            List<double> monthWeeksBuckets = List<double>.filled(4, 0.0);
+
+            for (var doc in snapshot.docs) {
+              final data = doc.data();
+              final rawStatus = (data['status'] ?? data['trangThai'] ?? '')
+                  .toString()
+                  .toLowerCase();
+              final isDisbursed = data['isDisbursed'] == true;
+              final isRefunded = data['isRefunded'] == true;
+              final amount =
+                  ((data['deposit'] ??
+                              data['totalAmount'] ??
+                              data['roomPrice'] ??
+                              0)
+                          as num)
+                      .toDouble();
+
+              double commission = 0.0;
+              final isCancelled =
+                  rawStatus == 'cancelled' ||
+                  rawStatus == 'canceled' ||
+                  rawStatus == 'rejected' ||
+                  rawStatus == 'dahuy';
+              if (isCancelled && isRefunded) {
+                commission =
+                    amount *
+                    0.05; // Chỉ ghi nhận sau khi admin xác nhận xử lý tiền hủy
+              } else if (!isCancelled && isDisbursed) {
+                commission =
+                    amount * 0.10; // 10% hoa hồng sàn từ đơn cọc thành công
+              }
+
+              final settledValue = isCancelled
+                  ? (data['refundedAt'] ?? data['updatedAt'])
+                  : (data['disbursedAt'] ?? data['updatedAt']);
+              DateTime? createdAt = settledValue is Timestamp
+                  ? settledValue.toDate()
+                  : (data['createdAt'] is Timestamp
+                        ? (data['createdAt'] as Timestamp).toDate()
+                        : (data['ngayTao'] is Timestamp
+                              ? (data['ngayTao'] as Timestamp).toDate()
+                              : null));
+
+              if (createdAt != null && commission > 0) {
+                // Phân bổ theo năm hiện tại
+                if (createdAt.year == currentYear && createdAt.month <= 12) {
+                  final mIndex = createdAt.month - 1;
+                  yearlyBuckets[mIndex] =
+                      (yearlyBuckets[mIndex] ?? 0.0) + (commission / 1000000);
+                }
+
+                // Phân bổ theo tháng hiện tại
+                if (createdAt.year == currentYear &&
+                    createdAt.month == currentMonth) {
+                  final weekIndex = ((createdAt.day - 1) ~/ 7).clamp(0, 3);
+                  monthWeeksBuckets[weekIndex] += (commission / 1000000);
+                }
+
+                // Phân bổ theo tuần hiện tại
+                final diffDays = now.difference(createdAt).inDays;
+                if (diffDays >= 0 && diffDays < 7) {
+                  final weekdayIndex = (createdAt.weekday - 1).clamp(
+                    0,
+                    6,
+                  ); // 1 = Monday
+                  weeklyBuckets[weekdayIndex] += (commission / 1000000);
+                }
+              }
+            }
+
+            // Tìm tháng có doanh thu cao nhất
+            int peakIndex = 0;
+            double peakAmount = 0.0;
+            double sumYear = 0;
+            int activeMonths = 0;
+
+            for (int i = 0; i < 12; i++) {
+              final val = yearlyBuckets[i];
+              if (val != null) {
+                sumYear += val * 1000000;
+                activeMonths++;
+                if (val > peakAmount) {
+                  peakAmount = val;
+                  peakIndex = i;
+                }
+              }
+            }
+
+            final avgMonthly = activeMonths > 0
+                ? (sumYear / activeMonths)
+                : 0.0;
+
+            return AdminRevenueChartData(
+              weeklyData: weeklyBuckets,
+              monthlyWeeksData: monthWeeksBuckets,
+              yearlyData: yearlyBuckets,
+              peakYearlyMonthIndex: peakIndex,
+              peakYearlyAmount: peakAmount,
+              monthlyAverage: avgMonthly,
+            );
+          } catch (e) {
+            debugPrint('Error computing revenue chart from Firestore: $e');
+            return const AdminRevenueChartData(
+              weeklyData: [0, 0, 0, 0, 0, 0, 0],
+              monthlyWeeksData: [0, 0, 0, 0],
+              yearlyData: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+              peakYearlyMonthIndex: 0,
+              peakYearlyAmount: 0,
+              monthlyAverage: 0,
+            );
+          }
+        })
+        .handleError((error) {
+          debugPrint('Error in getRevenueChartDataStream: $error');
+          return const AdminRevenueChartData(
+            weeklyData: [0, 0, 0, 0, 0, 0, 0],
+            monthlyWeeksData: [0, 0, 0, 0],
+            yearlyData: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            peakYearlyMonthIndex: 0,
+            peakYearlyAmount: 0,
+            monthlyAverage: 0,
+          );
+        });
   }
 
   // =========================================================================
@@ -378,33 +447,58 @@ class AdminService {
       // 1. Quét các đơn cọc đã thanh toán nhưng chưa giải ngân cho chủ trọ
       for (var doc in bookingSnap.docs) {
         final data = doc.data();
-        final status = (data['status'] ?? data['trangThai'] ?? '').toString().toLowerCase();
+        final status = (data['status'] ?? data['trangThai'] ?? '')
+            .toString()
+            .toLowerCase();
 
-        if (status == 'paid' || status == 'dathanhtoan' || status == 'chogiaingan' || status == 'dacoc') {
-          final deposit = ((data['deposit'] ?? data['tienCoc'] ?? data['totalAmount'] ?? 4250000) as num).toDouble();
-          final orderCode = '#DH${doc.id.substring(0, doc.id.length.clamp(0, 4)).toUpperCase()}';
-          final hostName = (data['hostName'] ?? data['tenChuNha'] ?? 'Chủ trọ').toString();
-          final hostCode = (data['hostId'] != null && data['hostId'].toString().length >= 4)
+        if (status == 'paid' ||
+            status == 'dathanhtoan' ||
+            status == 'chogiaingan' ||
+            status == 'dacoc') {
+          final deposit =
+              ((data['deposit'] ??
+                          data['tienCoc'] ??
+                          data['totalAmount'] ??
+                          4250000)
+                      as num)
+                  .toDouble();
+          final orderCode =
+              '#DH${doc.id.substring(0, doc.id.length.clamp(0, 4)).toUpperCase()}';
+          final hostName = (data['hostName'] ?? data['tenChuNha'] ?? 'Chủ trọ')
+              .toString();
+          final hostCode =
+              (data['hostId'] != null && data['hostId'].toString().length >= 4)
               ? 'CT${data['hostId'].toString().substring(0, 4).toUpperCase()}'
               : 'CT0089';
 
-          items.add(AdminActionItem(
-            id: doc.id,
-            type: 'disbursement',
-            title: 'Giải ngân cọc',
-            highlightCode: '$orderCode → $hostCode',
-            subtitle: 'Chủ trọ: $hostName • Số tiền: ${_formatVND(deposit)}',
-            amount: deposit,
-            hostName: hostName,
-            hostPhone: (data['hostPhone'] ?? data['soDienThoaiChuNha'] ?? '0912 345 678').toString(),
-            hostBankName: (data['hostBankName'] ?? 'MB Bank').toString(),
-            hostAccountNumber: (data['hostAccountNumber'] ?? '091234567899').toString(),
-            roomTitle: (data['roomTitle'] ?? data['tieuDePhong'] ?? 'Phòng trọ HomeShare').toString(),
-            createdAt: (data['createdAt'] is Timestamp)
-                ? (data['createdAt'] as Timestamp).toDate()
-                : DateTime.now(),
-            rawData: data,
-          ));
+          items.add(
+            AdminActionItem(
+              id: doc.id,
+              type: 'disbursement',
+              title: 'Giải ngân cọc',
+              highlightCode: '$orderCode → $hostCode',
+              subtitle: 'Chủ trọ: $hostName • Số tiền: ${_formatVND(deposit)}',
+              amount: deposit,
+              hostName: hostName,
+              hostPhone:
+                  (data['hostPhone'] ??
+                          data['soDienThoaiChuNha'] ??
+                          '0912 345 678')
+                      .toString(),
+              hostBankName: (data['hostBankName'] ?? 'MB Bank').toString(),
+              hostAccountNumber: (data['hostAccountNumber'] ?? '091234567899')
+                  .toString(),
+              roomTitle:
+                  (data['roomTitle'] ??
+                          data['tieuDePhong'] ??
+                          'Phòng trọ HomeShare')
+                      .toString(),
+              createdAt: (data['createdAt'] is Timestamp)
+                  ? (data['createdAt'] as Timestamp).toDate()
+                  : DateTime.now(),
+              rawData: data,
+            ),
+          );
         }
       }
 
@@ -429,28 +523,32 @@ class AdminService {
         .collection('transactions')
         .snapshots()
         .map((snapshot) {
-      if (snapshot.docs.isEmpty) {
-        return _getDefaultTransactions();
-      }
-      final list = snapshot.docs.map((doc) {
-        try {
-          return AdminTransactionModel.fromFirestore(doc);
-        } catch (e) {
-          debugPrint('Error parsing transaction ${doc.id}: $e');
-          return null;
-        }
-      }).whereType<AdminTransactionModel>().toList();
+          if (snapshot.docs.isEmpty) {
+            return _getDefaultTransactions();
+          }
+          final list = snapshot.docs
+              .map((doc) {
+                try {
+                  return AdminTransactionModel.fromFirestore(doc);
+                } catch (e) {
+                  debugPrint('Error parsing transaction ${doc.id}: $e');
+                  return null;
+                }
+              })
+              .whereType<AdminTransactionModel>()
+              .toList();
 
-      if (list.isEmpty) {
-        return _getDefaultTransactions();
-      }
+          if (list.isEmpty) {
+            return _getDefaultTransactions();
+          }
 
-      list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-      return list;
-    }).handleError((error) {
-      debugPrint('Error in getTransactionsHistoryStream: $error');
-      return _getDefaultTransactions();
-    });
+          list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          return list;
+        })
+        .handleError((error) {
+          debugPrint('Error in getTransactionsHistoryStream: $error');
+          return _getDefaultTransactions();
+        });
   }
 
   // =========================================================================
@@ -469,12 +567,12 @@ class AdminService {
 
     try {
       if (!bookingId.startsWith('mock_')) {
-        // Cập nhật trạng thái đơn đặt phòng (100% tiếng Anh)
+        // Cập nhật trạng thái đơn đặt phòng
         await firestore.collection('bookings').doc(bookingId).update({
           'status': 'completed',
+          'trangThai': 'daGiaiNgan',
           'disbursedAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
-          'trangThai': FieldValue.delete(),
         });
       }
 
@@ -494,52 +592,67 @@ class AdminService {
     }
   }
 
-  // Phê duyệt bài đăng phòng trọ (100% tiếng Anh)
+  // Phê duyệt bài đăng phòng trọ
   Future<void> approveRoomPost(String roomId) async {
     final firestore = _firestore;
-    if (firestore == null || roomId.startsWith('mock_') || roomId.startsWith('p')) return;
+    if (firestore == null ||
+        roomId.startsWith('mock_') ||
+        roomId.startsWith('p')) {
+      return;
+    }
 
     try {
-      await firestore.collection('rooms').doc(roomId).update({
+      await firestore.collection('posts').doc(roomId).update({
         'status': 'active',
+        'trangThai': 'daDuyet',
         'isAvailable': true,
         'approvedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-        'trangThai': FieldValue.delete(),
       });
     } catch (e) {
       debugPrint('Error approving room post: $e');
     }
   }
 
-  // Từ chối bài đăng phòng trọ (100% tiếng Anh)
-  Future<void> rejectRoomPost(String roomId, {String reason = 'Vi phạm quy định'}) async {
+  // Từ chối bài đăng phòng trọ
+  Future<void> rejectRoomPost(
+    String roomId, {
+    String reason = 'Vi phạm quy định',
+  }) async {
     final firestore = _firestore;
-    if (firestore == null || roomId.startsWith('mock_') || roomId.startsWith('p')) return;
+    if (firestore == null ||
+        roomId.startsWith('mock_') ||
+        roomId.startsWith('p')) {
+      return;
+    }
 
     try {
-      await firestore.collection('rooms').doc(roomId).update({
+      await firestore.collection('posts').doc(roomId).update({
         'status': 'rejected',
+        'trangThai': 'tuChoi',
         'rejectReason': reason,
         'updatedAt': FieldValue.serverTimestamp(),
-        'trangThai': FieldValue.delete(),
       });
     } catch (e) {
       debugPrint('Error rejecting room post: $e');
     }
   }
 
-  // Khóa bài đăng phòng trọ (100% tiếng Anh)
+  // Khóa bài đăng phòng trọ
   Future<void> lockRoomPost(String roomId) async {
     final firestore = _firestore;
-    if (firestore == null || roomId.startsWith('mock_') || roomId.startsWith('p')) return;
+    if (firestore == null ||
+        roomId.startsWith('mock_') ||
+        roomId.startsWith('p')) {
+      return;
+    }
 
     try {
-      await firestore.collection('rooms').doc(roomId).update({
+      await firestore.collection('posts').doc(roomId).update({
         'status': 'locked',
+        'trangThai': 'daKhoa',
         'isAvailable': false,
         'updatedAt': FieldValue.serverTimestamp(),
-        'trangThai': FieldValue.delete(),
       });
     } catch (e) {
       debugPrint('Error locking room post: $e');
@@ -628,22 +741,26 @@ class AdminService {
 
 final adminServiceProvider = Provider<AdminService>((ref) => AdminService());
 
-final adminDashboardStatsStreamProvider = StreamProvider.autoDispose<AdminDashboardStats>((ref) {
-  final service = ref.watch(adminServiceProvider);
-  return service.getDashboardStatsStream();
-});
+final adminDashboardStatsStreamProvider =
+    StreamProvider.autoDispose<AdminDashboardStats>((ref) {
+      final service = ref.watch(adminServiceProvider);
+      return service.getDashboardStatsStream();
+    });
 
-final adminRevenueChartDataProvider = StreamProvider.autoDispose<AdminRevenueChartData>((ref) {
-  final service = ref.watch(adminServiceProvider);
-  return service.getRevenueChartDataStream();
-});
+final adminRevenueChartDataProvider =
+    StreamProvider.autoDispose<AdminRevenueChartData>((ref) {
+      final service = ref.watch(adminServiceProvider);
+      return service.getRevenueChartDataStream();
+    });
 
-final adminPendingActionsProvider = StreamProvider.autoDispose<List<AdminActionItem>>((ref) {
-  final service = ref.watch(adminServiceProvider);
-  return service.getPendingActionItemsStream();
-});
+final adminPendingActionsProvider =
+    StreamProvider.autoDispose<List<AdminActionItem>>((ref) {
+      final service = ref.watch(adminServiceProvider);
+      return service.getPendingActionItemsStream();
+    });
 
-final adminTransactionsHistoryProvider = StreamProvider.autoDispose<List<AdminTransactionModel>>((ref) {
-  final service = ref.watch(adminServiceProvider);
-  return service.getTransactionsHistoryStream();
-});
+final adminTransactionsHistoryProvider =
+    StreamProvider.autoDispose<List<AdminTransactionModel>>((ref) {
+      final service = ref.watch(adminServiceProvider);
+      return service.getTransactionsHistoryStream();
+    });

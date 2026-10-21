@@ -16,10 +16,12 @@ import 'host_violation_management_screen.dart';
 
 class HostCheckinCheckoutScreen extends ConsumerStatefulWidget {
   final ValueChanged<HostManagementSection>? onSectionChanged;
+  final int initialTab;
 
   const HostCheckinCheckoutScreen({
     super.key,
     this.onSectionChanged,
+    this.initialTab = 1,
   });
 
   @override
@@ -29,7 +31,13 @@ class HostCheckinCheckoutScreen extends ConsumerStatefulWidget {
 
 class _HostCheckinCheckoutScreenState
     extends ConsumerState<HostCheckinCheckoutScreen> {
-  int _selectedTab = 1; // 0: Check-in, 1: Check-out (default matches mockup)
+  late int _selectedTab;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTab = widget.initialTab == 0 ? 0 : 1;
+  }
 
   void _openSwitcherMenu() {
     HostManagementMenu.show(
@@ -64,7 +72,9 @@ class _HostCheckinCheckoutScreenState
             'bookingId': firstPending.bookingId,
             'roomId': firstPending.roomId,
             'roomCode': firstPending.roomCode,
-            'roomTitle': firstPending.roomTitle.isNotEmpty ? firstPending.roomTitle : firstPending.propertyName,
+            'roomTitle': firstPending.roomTitle.isNotEmpty
+                ? firstPending.roomTitle
+                : firstPending.propertyName,
             'renterId': firstPending.renterId,
             'renterName': firstPending.renterName,
             'renterPhone': firstPending.renterPhone,
@@ -73,7 +83,7 @@ class _HostCheckinCheckoutScreenState
             'totalAmount': firstPending.totalAmount,
             'paymentOption': firstPending.paymentOption,
           })
-        : (_selectedTab == 0 ? 'ROOM_204_CHECKIN' : 'ROOM_204_CHECKOUT');
+        : '';
 
     showModalBottomSheet(
       context: context,
@@ -82,7 +92,7 @@ class _HostCheckinCheckoutScreenState
       builder: (ctx) => HostQrScannerModal(
         isCheckin: _selectedTab == 0,
         sampleCode: sampleCode,
-        sampleRoomCode: firstPending?.roomCode ?? '204',
+        sampleRoomCode: firstPending?.roomCode ?? '',
         onCodeScanned: (code) {
           _handleQrDetected(code);
         },
@@ -113,10 +123,13 @@ class _HostCheckinCheckoutScreenState
         if (parts.length >= 2) parsedBookingId = parts[1];
         if (parts.length >= 3) parsedRoomId = parts[2];
         if (parts.length >= 4) parsedRoomCode = parts[3];
-      } else if (rawTrimmed.contains('CHECKIN') || rawTrimmed.contains('CHECKOUT')) {
+      } else if (rawTrimmed.contains('CHECKIN') ||
+          rawTrimmed.contains('CHECKOUT')) {
         final digits = RegExp(r'\d+').firstMatch(rawTrimmed)?.group(0);
         if (digits != null) parsedRoomCode = digits;
-      } else if (rawTrimmed.startsWith('bk_') || rawTrimmed.startsWith('DP_') || rawTrimmed.length >= 10) {
+      } else if (rawTrimmed.startsWith('bk_') ||
+          rawTrimmed.startsWith('DP_') ||
+          rawTrimmed.length >= 10) {
         parsedBookingId = rawTrimmed;
       } else {
         parsedRoomCode = rawTrimmed;
@@ -142,21 +155,42 @@ class _HostCheckinCheckoutScreenState
             qrPayload['roomId'] ??= data['roomId'] ?? data['phongId'];
             qrPayload['roomCode'] ??= data['roomCode'] ?? data['maPhong'];
             qrPayload['roomTitle'] ??= data['roomTitle'] ?? data['tieuDePhong'];
-            qrPayload['roomAddress'] ??= data['roomAddress'] ?? data['diaChiPhong'];
-            qrPayload['roomPrice'] ??= data['roomPrice'] ?? data['giaThue'] ?? data['giaPhong'] ?? data['price'] ?? data['rentalPrice'];
-            qrPayload['deposit'] ??= data['deposit'] ?? data['tienCoc'] ?? data['depositAmount'];
-            qrPayload['totalAmount'] ??= data['totalAmount'] ?? data['tongPhaiTra'] ?? data['paymentAmount'] ?? data['amount'];
-            qrPayload['paymentOption'] ??= data['paymentOption'] ?? data['hinhThucThanhToan'] ?? data['paymentType'];
-            qrPayload['rentalMonths'] ??= data['rentalMonths'] ?? data['soThangThue'];
+            qrPayload['roomAddress'] ??=
+                data['roomAddress'] ?? data['diaChiPhong'];
+            qrPayload['roomPrice'] ??=
+                data['roomPrice'] ??
+                data['giaThue'] ??
+                data['giaPhong'] ??
+                data['price'] ??
+                data['rentalPrice'];
+            qrPayload['deposit'] ??=
+                data['deposit'] ?? data['tienCoc'] ?? data['depositAmount'];
+            qrPayload['totalAmount'] ??=
+                data['totalAmount'] ??
+                data['tongPhaiTra'] ??
+                data['paymentAmount'] ??
+                data['amount'];
+            qrPayload['paymentOption'] ??=
+                data['paymentOption'] ??
+                data['hinhThucThanhToan'] ??
+                data['paymentType'];
+            qrPayload['rentalMonths'] ??=
+                data['rentalMonths'] ?? data['soThangThue'];
             qrPayload['renterId'] ??= data['renterId'] ?? data['nguoiDungId'];
             qrPayload['renterName'] ??= data['renterName'] ?? data['tenNguoiO'];
-            qrPayload['renterPhone'] ??= data['renterPhone'] ?? data['sdtNguoiO'];
-            qrPayload['renterUserCode'] ??= data['renterUserCode'] ?? data['maNguoiDung'];
+            qrPayload['renterPhone'] ??=
+                data['renterPhone'] ?? data['sdtNguoiO'];
+            qrPayload['renterUserCode'] ??=
+                data['renterUserCode'] ?? data['maNguoiDung'];
             qrPayload['status'] ??= data['status'] ?? data['trangThai'];
             if (data['moveInDate'] is Timestamp) {
-              qrPayload['moveInDate'] = (data['moveInDate'] as Timestamp).toDate().toIso8601String();
+              qrPayload['moveInDate'] = (data['moveInDate'] as Timestamp)
+                  .toDate()
+                  .toIso8601String();
             } else if (data['ngayVao'] is Timestamp) {
-              qrPayload['moveInDate'] = (data['ngayVao'] as Timestamp).toDate().toIso8601String();
+              qrPayload['moveInDate'] = (data['ngayVao'] as Timestamp)
+                  .toDate()
+                  .toIso8601String();
             }
           }
         } catch (e) {
@@ -170,7 +204,8 @@ class _HostCheckinCheckoutScreenState
       for (final item in checkinItems) {
         if ((parsedBookingId.isNotEmpty && item.bookingId == parsedBookingId) ||
             (parsedRoomId.isNotEmpty && item.roomId == parsedRoomId) ||
-            (parsedRoomCode.isNotEmpty && item.roomCode.toLowerCase() == parsedRoomCode.toLowerCase())) {
+            (parsedRoomCode.isNotEmpty &&
+                item.roomCode.toLowerCase() == parsedRoomCode.toLowerCase())) {
           matchedItem = item;
           break;
         }
@@ -180,7 +215,9 @@ class _HostCheckinCheckoutScreenState
         qrPayload['bookingId'] ??= matchedItem.bookingId;
         qrPayload['roomId'] ??= matchedItem.roomId;
         qrPayload['roomCode'] ??= matchedItem.roomCode;
-        qrPayload['roomTitle'] ??= matchedItem.roomTitle.isNotEmpty ? matchedItem.roomTitle : 'Phòng ${matchedItem.roomCode} - ${matchedItem.propertyName}';
+        qrPayload['roomTitle'] ??= matchedItem.roomTitle.isNotEmpty
+            ? matchedItem.roomTitle
+            : 'Phòng ${matchedItem.roomCode} - ${matchedItem.propertyName}';
         qrPayload['renterId'] ??= matchedItem.renterId;
         qrPayload['renterName'] ??= matchedItem.renterName;
         qrPayload['renterPhone'] ??= matchedItem.renterPhone;
@@ -194,13 +231,19 @@ class _HostCheckinCheckoutScreenState
       // 3. Fallback tra cứu Firestore collection rooms nếu roomPrice hoặc deposit vẫn bằng 0
       final resolvedRoomId = (qrPayload['roomId'] ?? parsedRoomId).toString();
       if (resolvedRoomId.isNotEmpty &&
-          (qrPayload['roomPrice'] == null || qrPayload['roomPrice'] == 0 ||
-           qrPayload['deposit'] == null || qrPayload['deposit'] == 0)) {
+          (qrPayload['roomPrice'] == null ||
+              qrPayload['roomPrice'] == 0 ||
+              qrPayload['deposit'] == null ||
+              qrPayload['deposit'] == 0)) {
         try {
-          final roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(resolvedRoomId).get();
+          final roomDoc = await FirebaseFirestore.instance
+              .collection('host_rooms')
+              .doc(resolvedRoomId)
+              .get();
           if (roomDoc.exists && roomDoc.data() != null) {
             final rData = roomDoc.data()!;
-            qrPayload['roomPrice'] ??= rData['price'] ?? rData['giaPhong'] ?? rData['giaThue'];
+            qrPayload['roomPrice'] ??=
+                rData['price'] ?? rData['giaPhong'] ?? rData['giaThue'];
             qrPayload['deposit'] ??= rData['deposit'] ?? rData['tienCoc'];
             qrPayload['roomTitle'] ??= rData['title'] ?? rData['tieuDe'];
             qrPayload['roomAddress'] ??= rData['address'] ?? rData['diaChi'];
@@ -209,10 +252,16 @@ class _HostCheckinCheckoutScreenState
       }
 
       // Fallback nếu payload vẫn trống
-      qrPayload['bookingId'] ??= parsedBookingId.isNotEmpty ? parsedBookingId : 'DP_DEMO_${DateTime.now().millisecondsSinceEpoch % 10000}';
-      qrPayload['roomCode'] ??= parsedRoomCode.isNotEmpty ? parsedRoomCode : '204';
+      qrPayload['bookingId'] ??= parsedBookingId.isNotEmpty
+          ? parsedBookingId
+          : 'DP_DEMO_${DateTime.now().millisecondsSinceEpoch % 10000}';
+      qrPayload['roomCode'] ??= parsedRoomCode.isNotEmpty
+          ? parsedRoomCode
+          : '204';
       qrPayload['roomTitle'] ??= 'Phòng ${qrPayload['roomCode']}';
-      qrPayload['renterName'] ??= parsedRenterName.isNotEmpty ? parsedRenterName : 'Khách thuê';
+      qrPayload['renterName'] ??= parsedRenterName.isNotEmpty
+          ? parsedRenterName
+          : 'Khách thuê';
 
       final hostId = ref.read(hostSessionProvider).value ?? '';
       if (!mounted) return;
@@ -234,7 +283,8 @@ class _HostCheckinCheckoutScreenState
 
       for (final item in checkoutItems) {
         if (parsedBookingId.isNotEmpty &&
-            (item.bookingId == parsedBookingId || item.periodId == parsedBookingId)) {
+            (item.bookingId == parsedBookingId ||
+                item.periodId == parsedBookingId)) {
           matchedItem = item;
           break;
         }
@@ -287,8 +337,10 @@ class _HostCheckinCheckoutScreenState
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setModalState) {
-            final refundAmount =
-                (item.deposit - currentDeduction).clamp(0.0, double.infinity);
+            final refundAmount = (item.deposit - currentDeduction).clamp(
+              0.0,
+              double.infinity,
+            );
 
             return Padding(
               padding: EdgeInsets.only(
@@ -478,14 +530,10 @@ class _HostCheckinCheckoutScreenState
     final checkinItemsAsync = ref.watch(hostCheckinItemsProvider);
     final checkoutItemsAsync = ref.watch(hostCheckoutItemsProvider);
 
-    final checkinCount = checkinItemsAsync.value
-            ?.where((i) => !i.isCompleted)
-            .length ??
-        1;
-    final checkoutCount = checkoutItemsAsync.value
-            ?.where((i) => !i.isCompleted)
-            .length ??
-        2;
+    final checkinCount =
+        checkinItemsAsync.value?.where((i) => !i.isCompleted).length ?? 1;
+    final checkoutCount =
+        checkoutItemsAsync.value?.where((i) => !i.isCompleted).length ?? 2;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -746,58 +794,48 @@ class _HostCheckinCheckoutScreenState
         final pending = items.where((i) => !i.isCompleted).toList();
         final completed = items.where((i) => i.isCompleted).toList();
 
-        // Sample pending nếu chưa có
-        final displayPending = pending.isNotEmpty
-            ? pending
-            : [
-                CheckinCheckoutItem(
-                  id: 'sample_checkin_1',
-                  bookingId: 'bk_sample',
-                  roomId: 'r_204',
-                  roomCode: '204',
-                  renterId: 'renter_hl',
-                  renterName: 'Đỗ Hoàng Long',
-                  renterPhone: '0912 345 678',
-                  propertyName: 'Nhà Đặng Văn Bi',
-                  floor: 2,
-                  deposit: 4800000.0,
-                  expectedDate: DateTime(2024, 11, 30),
-                  status: 'Chờ nhận phòng',
-                  isCompleted: false,
-                ),
-              ];
+        if (pending.isEmpty && completed.isEmpty) {
+          return _buildEmptyState(
+            icon: Icons.meeting_room_outlined,
+            title: 'Chưa có phòng nào cần Check-in',
+            subtitle:
+                'Các đơn cọc hoặc thanh toán thành công sẽ xuất hiện tại đây.',
+          );
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Flexible(
-                  child: Text(
-                    'DANH SÁCH CẦN XỬ LÝ',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF475569),
-                      letterSpacing: 0.5,
+            if (pending.isNotEmpty) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Flexible(
+                    child: Text(
+                      'DANH SÁCH CẦN XỬ LÝ',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF475569),
+                        letterSpacing: 0.5,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${displayPending.length} phòng liên quan',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF64748B),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${pending.length} phòng liên quan',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...displayPending.map((item) => CheckinCheckoutCard(
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...pending.map(
+                (item) => CheckinCheckoutCard(
                   item: item,
                   isCheckinTab: true,
                   onAction: () {
@@ -811,7 +849,9 @@ class _HostCheckinCheckoutScreenState
                       ),
                     );
                   },
-                )),
+                ),
+              ),
+            ],
             if (completed.isNotEmpty) ...[
               const SizedBox(height: 16),
               const Text(
@@ -824,11 +864,13 @@ class _HostCheckinCheckoutScreenState
                 ),
               ),
               const SizedBox(height: 12),
-              ...completed.map((item) => CheckinCheckoutCard(
-                    item: item,
-                    isCheckinTab: true,
-                    onAction: () {},
-                  )),
+              ...completed.map(
+                (item) => CheckinCheckoutCard(
+                  item: item,
+                  isCheckinTab: true,
+                  onAction: () {},
+                ),
+              ),
             ],
           ],
         );
@@ -844,7 +886,7 @@ class _HostCheckinCheckoutScreenState
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-              Text('Lỗi: $err'),
+              const Text('Không thể tải danh sách nhận phòng.'),
               ElevatedButton(
                 onPressed: () => ref.refresh(hostCheckinItemsProvider),
                 child: const Text('Thử lại'),
@@ -864,99 +906,74 @@ class _HostCheckinCheckoutScreenState
         final pending = items.where((i) => !i.isCompleted).toList();
         final completed = items.where((i) => i.isCompleted).toList();
 
-        // Sample pending & completed để match mockup nếu dữ liệu trống
-        final displayPending = pending.isNotEmpty
-            ? pending
-            : [
-                CheckinCheckoutItem(
-                  id: 'sample_checkout_1',
-                  bookingId: 'bk_204',
-                  roomId: 'r_204',
-                  roomCode: '204',
-                  renterId: 'renter_hl',
-                  renterName: 'Đỗ Hoàng Long',
-                  renterPhone: '0912 345 678',
-                  propertyName: 'Nhà Đặng Văn Bi',
-                  floor: 2,
-                  deposit: 4800000.0,
-                  expectedDate: DateTime(2024, 11, 30),
-                  status: 'Đang ở',
-                  isCompleted: false,
-                ),
-              ];
-
-        final displayCompleted = completed.isNotEmpty
-            ? completed
-            : [
-                CheckinCheckoutItem(
-                  id: 'sample_done_1',
-                  bookingId: '',
-                  roomId: 'r_105',
-                  roomCode: '105',
-                  renterId: 'renter_mai',
-                  renterName: 'Trần Thị Mai',
-                  propertyName: 'Ký túc xá L2',
-                  floor: 1,
-                  deposit: 3500000.0,
-                  expectedDate: DateTime(2024, 11, 15),
-                  status: 'Đã Check-out',
-                  isCompleted: true,
-                  completedTime: DateTime(2024, 11, 15, 10, 30),
-                  refundedDeposit: 3500000.0,
-                ),
-              ];
+        if (pending.isEmpty && completed.isEmpty) {
+          return _buildEmptyState(
+            icon: Icons.exit_to_app_rounded,
+            title: 'Chưa có phòng nào cần Check-out',
+            subtitle:
+                'Các phòng sắp hết hạn thuê hoặc trả phòng sẽ xuất hiện tại đây.',
+          );
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Flexible(
-                  child: Text(
-                    'DANH SÁCH CẦN XỬ LÝ',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF475569),
-                      letterSpacing: 0.5,
+            if (pending.isNotEmpty) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Flexible(
+                    child: Text(
+                      'DANH SÁCH CẦN XỬ LÝ',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF475569),
+                        letterSpacing: 0.5,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${displayPending.length} phòng liên quan',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF64748B),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${pending.length} phòng liên quan',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...displayPending.map((item) => CheckinCheckoutCard(
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...pending.map(
+                (item) => CheckinCheckoutCard(
                   item: item,
                   isCheckinTab: false,
                   onAction: () => _showCheckoutDialog(item),
-                )),
-            const SizedBox(height: 16),
-            const Text(
-              'PHÒNG ĐÃ HOÀN TẤT',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF475569),
-                letterSpacing: 0.5,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            ...displayCompleted.map((item) => CheckinCheckoutCard(
+            ],
+            if (completed.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              const Text(
+                'PHÒNG ĐÃ HOÀN TẤT',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF475569),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...completed.map(
+                (item) => CheckinCheckoutCard(
                   item: item,
                   isCheckinTab: false,
                   onAction: () {},
-                )),
+                ),
+              ),
+            ],
           ],
         );
       },
@@ -971,7 +988,7 @@ class _HostCheckinCheckoutScreenState
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-              Text('Lỗi: $err'),
+              const Text('Không thể tải danh sách trả phòng.'),
               ElevatedButton(
                 onPressed: () => ref.refresh(hostCheckoutItemsProvider),
                 child: const Text('Thử lại'),
@@ -979,6 +996,46 @@ class _HostCheckinCheckoutScreenState
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF1F5F9),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 36, color: const Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E293B),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }

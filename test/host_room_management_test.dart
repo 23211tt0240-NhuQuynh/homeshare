@@ -42,6 +42,8 @@ RoomModel photoRoom() => RoomModel.fromMap({
   ...fixture.makeRoom('101').toMap(),
   'images': ['https://example.com/room.jpg'],
   'tenantName': '',
+  'depositPercentage': 50,
+  'deposit': 1500000,
   'electricityRate': 3500,
 }, '101');
 void main() {
@@ -88,7 +90,6 @@ void main() {
     await tester.tap(edit);
     await tester.pumpAndSettle();
     for (final entry in {
-      'roomCode': '103',
       'price': '3200000',
       'waterRate': '20000',
       'capacity': '35',
@@ -102,7 +103,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.edits, 1);
     expect(repo.rooms.first.id, '101');
-    expect(repo.rooms.first.roomCode, '103');
+    expect(repo.rooms.first.roomCode, '101');
     expect(repo.rooms.first.waterRate, 20000);
     expect(repo.rooms.first.capacity, 35);
     expect(find.text('Chi tiết phòng'), findsOneWidget);
@@ -136,7 +137,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.edits, 1);
     expect(find.text('Không lưu được phòng kiểm thử'), findsOneWidget);
-    expect(find.text('3100000'), findsOneWidget);
+    expect(find.text('3.100.000'), findsOneWidget);
     expect(find.text('Chỉnh sửa phòng'), findsOneWidget);
   });
   testWidgets('Deletion requires confirmation and returns to room list', (

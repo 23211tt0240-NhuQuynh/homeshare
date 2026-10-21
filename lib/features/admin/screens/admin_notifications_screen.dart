@@ -4,10 +4,7 @@ import 'package:flutter/material.dart';
 class AdminNotificationsBottomSheet extends StatelessWidget {
   final Function(String type, String? targetId)? onNavigateTarget;
 
-  const AdminNotificationsBottomSheet({
-    super.key,
-    this.onNavigateTarget,
-  });
+  const AdminNotificationsBottomSheet({super.key, this.onNavigateTarget});
 
   // Chuyển đổi mốc thời gian hiển thị thân thiện
   String _formatTimestamp(Timestamp? timestamp) {
@@ -29,7 +26,7 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
     final batch = FirebaseFirestore.instance.batch();
     for (var doc in docs) {
       final data = doc.data() as Map<String, dynamic>;
-      if (data['isRead'] == false) {
+      if (data['isRead'] != true) {
         batch.update(doc.reference, {'isRead': true});
       }
     }
@@ -75,11 +72,14 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
               final docs = snapshot.data?.docs ?? [];
               final unreadDocs = docs.where((doc) {
                 final data = doc.data() as Map<String, dynamic>;
-                return data['isRead'] == false;
+                return data['isRead'] != true;
               }).toList();
 
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -96,7 +96,10 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                         if (unreadDocs.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFEF3F2),
                               borderRadius: BorderRadius.circular(12),
@@ -121,7 +124,7 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF155EEF),
+                            color: Color(0xFF398FC0),
                           ),
                         ),
                       ),
@@ -173,24 +176,35 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                 // Sắp xếp thông báo mới nhất lên đầu
                 final sortedDocs = docs.toList()
                   ..sort((a, b) {
-                    final aTime = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-                    final bTime = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-                    if (aTime == null || bTime == null) return 0;
+                    final aTime =
+                        (a.data() as Map<String, dynamic>)['createdAt']
+                            as Timestamp?;
+                    final bTime =
+                        (b.data() as Map<String, dynamic>)['createdAt']
+                            as Timestamp?;
+                    // createdAt null = vừa ghi, serverTimestamp chưa về -> coi là mới nhất
+                    if (aTime == null && bTime == null) return 0;
+                    if (aTime == null) return -1;
+                    if (bTime == null) return 1;
                     return bTime.compareTo(aTime);
                   });
 
                 return ListView.separated(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: sortedDocs.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
+                  separatorBuilder: (_, _) =>
+                      const Divider(height: 1, indent: 68),
                   itemBuilder: (context, index) {
                     final doc = sortedDocs[index];
                     final data = doc.data() as Map<String, dynamic>;
                     final isRead = data['isRead'] == true;
                     final title = data['title'] ?? 'Thông báo';
                     final body = data['body'] ?? data['message'] ?? '';
-                    final type = data['type'] ?? 'general';
-                    final targetId = data['targetId']?.toString();
+                    final type =
+                        (data['notificationType'] ?? data['type'] ?? 'general')
+                            .toString();
+                    final targetId = (data['targetId'] ?? data['bookingId'])
+                        ?.toString();
                     final timestamp = data['createdAt'] as Timestamp?;
 
                     return InkWell(
@@ -206,8 +220,13 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                         }
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        color: isRead ? Colors.transparent : const Color(0xFFF5F8FF),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        color: isRead
+                            ? Colors.transparent
+                            : const Color(0xFFF5F8FF),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -218,14 +237,17 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Expanded(
                                         child: Text(
                                           title,
                                           style: TextStyle(
                                             fontSize: 13.5,
-                                            fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
+                                            fontWeight: isRead
+                                                ? FontWeight.w600
+                                                : FontWeight.bold,
                                             color: const Color(0xFF101828),
                                           ),
                                         ),
@@ -244,7 +266,9 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                                     body,
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: isRead ? const Color(0xFF667085) : const Color(0xFF344054),
+                                      color: isRead
+                                          ? const Color(0xFF667085)
+                                          : const Color(0xFF344054),
                                     ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
@@ -259,7 +283,7 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                                 height: 8,
                                 margin: const EdgeInsets.only(top: 6),
                                 decoration: const BoxDecoration(
-                                  color: Color(0xFF155EEF),
+                                  color: Color(0xFF398FC0),
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -285,6 +309,7 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
     Color bgColor;
 
     switch (type) {
+      case 'booking':
       case 'disbursement':
         iconData = Icons.account_balance_wallet_rounded;
         iconColor = const Color(0xFF12B76A);
@@ -292,7 +317,7 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
         break;
       case 'post_approval':
         iconData = Icons.apartment_rounded;
-        iconColor = const Color(0xFF155EEF);
+        iconColor = const Color(0xFF398FC0);
         bgColor = const Color(0xFFF5F8FF);
         break;
       case 'report':

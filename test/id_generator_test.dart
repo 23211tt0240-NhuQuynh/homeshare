@@ -31,6 +31,12 @@ void main() {
         roomCode: 'P005',
       );
       expect(note3, 'NT001 P005');
+
+      final noteWithDocId = IdGenerator.transferContent(
+        renterCode: 'NT001',
+        roomCode: '3EXJLGVJD4UD',
+      );
+      expect(noteWithDocId, 'NT001 3EXJLGVJD4UD');
     });
 
     test('booking ID includes date, room code and renter code', () {

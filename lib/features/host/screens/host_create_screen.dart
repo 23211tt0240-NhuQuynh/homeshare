@@ -10,13 +10,13 @@ import '../../../core/utils/room_deposit.dart';
 import '../widgets/host_deposit_input.dart';
 import '../../../core/utils/room_identity.dart';
 import '../../../core/constants/vietnam_locations.dart';
-import '../../../core/utils/id_generator.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/user_provider.dart';
 import '../data/host_property.dart';
 import '../providers/host_management_provider.dart';
 import '../widgets/host_room_widgets.dart';
 import '../widgets/host_range_input.dart';
+import '../widgets/host_area_input.dart';
 import '../widgets/host_form_theme.dart';
 
 // Chủ trọ - Bộ chọn ảnh - Luồng đi: Dùng picker có thể thay thế khi
@@ -78,7 +78,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
   HostUpload? _proof;
   bool _roomTab = false, _saving = false, _picking = false;
   RangeValues _rent = const RangeValues(0, 0);
-  RangeValues _area = const RangeValues(25, 25);
+  double _area = 25;
   String _roomType = 'Phòng trọ';
   bool get _editingProperty => widget.propertyToEdit != null;
   final String _operationId = List.generate(
@@ -86,7 +86,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0'),
   ).join();
   int _depositPercentage = 20;
-  final String _roomId = newRoomId();
+  String _roomId = newRoomId();
   static const _amenityOptions = roomAmenityOptions;
 
   // Chủ trọ - Khởi tạo form - Luồng đi: Nhận cơ sở khi mở từ thẻ nhà;
@@ -99,6 +99,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     _fields['floors']!.text = '1';
     _fields['floor']!.text = '1';
     _fields['capacity']!.text = '2';
+    _fields['code']!.text = _roomId;
     final property = widget.propertyToEdit;
     if (property != null) {
       _roomTab = false;
@@ -156,7 +157,8 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         }
         final Uint8List bytes = await file.readAsBytes();
         final contentType = HostImageUtils.detectContentType(bytes);
-        if (contentType == null) throw StateError('Chỉ hỗ trợ ảnh JPG hoặc PNG.');
+        if (contentType == null)
+          throw StateError('Chỉ hỗ trợ ảnh JPG hoặc PNG.');
         selected.add(HostUpload(bytes, contentType));
       }
       if (!mounted) return;
@@ -233,14 +235,12 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
       if (_roomTab) {
         final user = ref.read(userProfileProvider).value;
         final parent = property!;
-        final allRooms = ref.read(hostRoomsProvider).value ?? [];
-        final currentCount =
-            allRooms.where((r) => r.propertyId == parent.id).length;
-        // Chủ trọ - Lưu mã phòng tự sinh - Luồng đi: Đếm phòng thuộc cơ sở
-        // đang chọn rồi sinh mã để lưu, không lấy mã do người dùng nhập.
-        final finalRoomCode = IdGenerator.roomCode(currentCount + 1);
+        final inputCode = _fields['code']!.text.trim().toUpperCase();
+        final finalRoomCode = inputCode.isNotEmpty ? inputCode : _roomId;
         final inputTitle = _fields['title']!.text.trim();
-        final finalTitle = inputTitle.isNotEmpty ? inputTitle : 'Phòng $finalRoomCode';
+        final finalTitle = inputTitle.isNotEmpty
+            ? inputTitle
+            : 'Phòng $finalRoomCode';
         await repository.createRoom(
           RoomModel(
             id: _roomId,
@@ -261,9 +261,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                 ? parent.district
                 : parent.ward,
             city: parent.city,
-            area: _area.start,
-            minArea: _area.start,
-            maxArea: _area.end,
+            area: _area,
             roomType: _roomType,
             amenities: _amenities.toList(),
             images: const [],
@@ -273,21 +271,24 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             hostAvatar: user?.avatarUrl ?? '',
             capacity: int.parse(_fields['capacity']!.text),
             floor: int.parse(_fields['floor']!.text),
-            electricityRate: double.tryParse(
+            electricityRate:
+                double.tryParse(
                   _fields['electricityRate']!.text
                       .trim()
                       .replaceAll('.', '')
                       .replaceAll(',', ''),
                 ) ??
                 0.0,
-            waterRate: double.tryParse(
+            waterRate:
+                double.tryParse(
                   _fields['waterRate']!.text
                       .trim()
                       .replaceAll('.', '')
                       .replaceAll(',', ''),
                 ) ??
                 0.0,
-            serviceFee: double.tryParse(
+            serviceFee:
+                double.tryParse(
                   _fields['serviceFee']!.text
                       .trim()
                       .replaceAll('.', '')
@@ -334,6 +335,8 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         for (final field in ['name', 'address', 'ward', 'planned']) {
           _fields[field]!.clear();
         }
+        _roomId = newRoomId();
+        _fields['code']!.text = _roomId;
       });
       _message('Đã lưu cơ sở. Bạn có thể tạo phòng cho cơ sở này.');
     } catch (error) {
@@ -727,14 +730,8 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     if (selectedFloor != null) {
       _fields['floor']!.text = selectedFloor.toString();
     }
-    final allRooms = ref.watch(hostRoomsProvider).value ?? [];
-    final currentCount =
-        allRooms.where((r) => r.propertyId == selected?.id).length;
-    // Chủ trọ - Đồng bộ mã phòng - Luồng đi: Khi đổi cơ sở hoặc danh sách
-    // phòng thay đổi, cập nhật ô mã theo số phòng của cơ sở đang chọn.
-    final defaultCode = IdGenerator.roomCode(currentCount + 1);
-    if (_fields['code']!.text != defaultCode) {
-      _fields['code']!.text = defaultCode;
+    if (_fields['code']!.text.isEmpty) {
+      _fields['code']!.text = _roomId;
     }
     return Form(
       key: _roomForm,
@@ -786,24 +783,32 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
               child: TextFormField(
                 key: const ValueKey('host_field_code'),
                 controller: _fields['code'],
-                // Chủ trọ - Khóa mã phòng - Luồng đi: Chỉ hiển thị mã tự sinh,
-                // khóa nhập và chỉnh sửa; biểu tượng ổ khóa giải thích trạng thái.
                 readOnly: true,
-                enableInteractiveSelection: false,
-                decoration: const InputDecoration(
-                  labelText: 'Mã phòng (tự sinh)',
-                  suffixIcon: Icon(Icons.lock_outline),
-                  helperText: 'Mã phòng được tạo tự động bởi hệ thống.',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.1,
+                  color: AppColors.primary,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Mã phòng*',
+                  prefixIcon: const Icon(Icons.vpn_key_outlined),
+                  suffixIcon: const Icon(Icons.lock_outline),
+                  filled: true,
+                  fillColor: const Color(0xFFF0F4FF),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 validator: (value) => value == null || value.trim().isEmpty
-                    ? 'Không thể tạo mã phòng tự động.'
+                    ? 'Không có mã phòng. Vui lòng mở lại form.'
                     : null,
               ),
             ),
             _field(
               'title',
               'Tên phòng (tùy chọn)',
-              hint: 'Ví dụ: Phòng ${_fields['code']!.text.isNotEmpty ? _fields['code']!.text : defaultCode}',
+              hint:
+                  'Ví dụ: Phòng ${_fields['code']!.text.isNotEmpty ? _fields['code']!.text : _roomId}',
               optional: true,
               maxLength: 100,
             ),
@@ -826,12 +831,8 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
               onChanged: (value) => setState(() => _roomType = value!),
             ),
             const SizedBox(height: 14),
-            HostRangeInput(
-              label: 'Khoảng diện tích phòng',
-              unit: 'm²',
-              values: _area,
-              minimum: 1,
-              sliderMax: 100,
+            HostAreaInput(
+              value: _area,
               onChanged: (value) => setState(() => _area = value),
             ),
             _field(
@@ -1227,14 +1228,13 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
           return 'Vui lòng nhập thông tin';
         }
         if (number) {
-          final isMoney = name == 'price' ||
+          final isMoney =
+              name == 'price' ||
               name == 'deposit' ||
               name == 'electricityRate' ||
               name == 'waterRate' ||
               name == 'serviceFee';
-          final value = int.tryParse(
-            isMoney ? vndDigits(text) : text,
-          );
+          final value = int.tryParse(isMoney ? vndDigits(text) : text);
           if (value == null || value < (allowZero ? 0 : 1) || value > max) {
             return 'Nhập từ ${allowZero ? 0 : 1} đến $max';
           }

@@ -91,18 +91,18 @@ class HostPostModel {
     int? phanTramTienCoc,
     String? soDienThoaiLienHe,
     DateTime? ngayDang,
-  })  : roomId = roomId ?? phongId ?? '',
-        hostId = hostId ?? chuNhaId ?? '',
-        locationId = locationId ?? diaDiemId ?? '',
-        rentalTypeId = rentalTypeId ?? loaiThueId ?? 'thang',
-        statusId = statusId ?? trangThaiId ?? 'dangHienThi',
-        title = title ?? tieuDe ?? '',
-        description = description ?? moTa ?? '',
-        rentalPrice = rentalPrice ?? giaThue ?? 0.0,
-        depositAmount = depositAmount ?? tienCoc ?? 0.0,
-        depositPercentage = depositPercentage ?? phanTramTienCoc ?? 20,
-        contactPhone = contactPhone ?? soDienThoaiLienHe ?? '',
-        createdAt = createdAt ?? ngayDang ?? DateTime.now();
+  }) : roomId = roomId ?? phongId ?? '',
+       hostId = hostId ?? chuNhaId ?? '',
+       locationId = locationId ?? diaDiemId ?? '',
+       rentalTypeId = rentalTypeId ?? loaiThueId ?? 'thang',
+       statusId = statusId ?? trangThaiId ?? 'dangHienThi',
+       title = title ?? tieuDe ?? '',
+       description = description ?? moTa ?? '',
+       rentalPrice = rentalPrice ?? giaThue ?? 0.0,
+       depositAmount = depositAmount ?? tienCoc ?? 0.0,
+       depositPercentage = depositPercentage ?? phanTramTienCoc ?? 20,
+       contactPhone = contactPhone ?? soDienThoaiLienHe ?? '',
+       createdAt = createdAt ?? ngayDang ?? DateTime.now();
 
   // Vietnamese Schema Aliases for backward compatibility in code
   String get phongId => roomId;
@@ -122,13 +122,11 @@ class HostPostModel {
   DateTime get ngayDang => createdAt;
   String get trangThai => status;
 
-  bool get isActive =>
-      statusId != 'daAn' &&
-      statusId != 'deleted' &&
-      statusId != 'closed' &&
-      statusId != 'hidden' &&
-      status != 'daAn' &&
-      status != 'deleted';
+  bool get isActive {
+    final sId = statusId.toLowerCase().trim();
+    const activeStatuses = {'active', 'danghienthi', 'published', 'approved'};
+    return activeStatuses.contains(sId);
+  }
 
   /// Đường dẫn Sub-collection trên Firestore theo quan hệ 1-N:
   /// Path: rooms/{roomId}/rental_posts
@@ -145,7 +143,7 @@ class HostPostModel {
     String roomId, [
     FirebaseFirestore? firestore,
   ]) => (firestore ?? FirebaseFirestore.instance)
-      .collection(FirestoreCollections.rooms)
+      .collection(FirestoreCollections.hostRooms)
       .doc(roomId)
       .collection(FirestoreCollections.rentalPosts);
 
@@ -179,7 +177,10 @@ class HostPostModel {
   };
 
   /// Factory đọc từ dữ liệu bảng bai_dang_cho_thue chuẩn SQL
-  factory HostPostModel.fromBaiDangChoThueSql(Map<String, dynamic> data, String id) {
+  factory HostPostModel.fromBaiDangChoThueSql(
+    Map<String, dynamic> data,
+    String id,
+  ) {
     return HostPostModel.fromMap(data, id);
   }
 
@@ -230,27 +231,30 @@ class HostPostModel {
       postDate = DateTime.tryParse(rawDate) ?? DateTime.now();
     }
 
-    final double price = (data[PostFields.rentalPrice] ??
-            data['rentalPrice'] ??
-            data['giaThue'] ??
-            data['price'] ??
-            data['gia'] ??
-            data['giaThueThang'] ??
-            0.0 as num)
-        .toDouble();
+    final double price =
+        (data[PostFields.rentalPrice] ??
+                data['rentalPrice'] ??
+                data['giaThue'] ??
+                data['price'] ??
+                data['gia'] ??
+                data['giaThueThang'] ??
+                0.0 as num)
+            .toDouble();
 
-    final int depositPct = (data[PostFields.depositPercentage] ??
-            data['depositPercentage'] ??
-            data['phanTramTienCoc'] as num?)
-        ?.toInt() ??
+    final int depositPct =
+        (data[PostFields.depositPercentage] ??
+                data['depositPercentage'] ??
+                data['phanTramTienCoc'] as num?)
+            ?.toInt() ??
         20;
 
-    final double deposit = (data[PostFields.depositAmount] ??
-            data['depositAmount'] ??
-            data['tienCoc'] ??
-            data['deposit'] ??
-            (price > 0 ? (price * depositPct / 100) : 0.0) as num)
-        .toDouble();
+    final double deposit =
+        (data[PostFields.depositAmount] ??
+                data['depositAmount'] ??
+                data['tienCoc'] ??
+                data['deposit'] ??
+                (price > 0 ? (price * depositPct / 100) : 0.0) as num)
+            .toDouble();
 
     final interestedList = data['interestedUsers'];
     final bool isUserInterested =
@@ -258,108 +262,117 @@ class HostPostModel {
         interestedList is List &&
         interestedList.contains(currentUserId);
 
-    final int interestedCount = (data['interestedCount'] ??
-            data['soNguoiQuanTam'] ??
-            data['luotQuanTam'] ??
-            (interestedList is List ? interestedList.length : 0) as num?)
-        ?.toInt() ??
+    final int interestedCount =
+        (data['interestedCount'] ??
+                data['soNguoiQuanTam'] ??
+                data['luotQuanTam'] ??
+                (interestedList is List ? interestedList.length : 0) as num?)
+            ?.toInt() ??
         0;
 
-    final int responseCount = (data['responseCount'] ??
-            data['soPhanHoi'] ??
-            data['repliesCount'] ??
-            0 as num?)
-        ?.toInt() ??
+    final int responseCount =
+        (data['responseCount'] ??
+                data['soPhanHoi'] ??
+                data['repliesCount'] ??
+                0 as num?)
+            ?.toInt() ??
         0;
 
     final effectiveId = id.isNotEmpty
         ? id
         : (data[PostFields.postId] ?? data['postId'] ?? data['baiDangId'] ?? '')
-            .toString()
-            .trim();
+              .toString()
+              .trim();
 
     return HostPostModel(
       id: effectiveId,
-      roomId: (data[BaiDangChoThueSqlFields.phongTroId] ??
-              data['phong_tro_id'] ??
-              data[PostFields.roomId] ??
-              data['roomId'] ??
-              data['phongId'] ??
-              '')
-          .toString()
-          .trim(),
-      hostId: (data[BaiDangChoThueSqlFields.chuTroId] ??
-              data['chu_tro_id'] ??
-              data[PostFields.hostId] ??
-              data['hostId'] ??
-              data['chuNhaId'] ??
-              data['userId'] ??
-              '')
-          .toString()
-          .trim(),
-      locationId: (data[PostFields.locationId] ??
-              data['locationId'] ??
-              data['diaDiemId'] ??
-              data['placeId'] ??
-              '')
-          .toString()
-          .trim(),
-      rentalTypeId: (data[PostFields.rentalTypeId] ??
-              data['rentalTypeId'] ??
-              data['loaiThue_id'] ??
-              'thang')
-          .toString()
-          .trim(),
-      statusId: (data[BaiDangChoThueSqlFields.trangThai] ??
-              data['trang_thai'] ??
-              data[PostFields.statusId] ??
-              data['statusId'] ??
-              data['trangThai_id'] ??
-              data['status'] ??
-              'dangHienThi')
-          .toString()
-          .trim(),
-      title: (data[BaiDangChoThueSqlFields.tieuDe] ??
-              data['tieu_de'] ??
-              data[PostFields.title] ??
-              data['title'] ??
-              data['tieuDe'] ??
-              '')
-          .toString()
-          .trim(),
-      description: (data[BaiDangChoThueSqlFields.noiDung] ??
-              data['noi_dung'] ??
-              data[PostFields.description] ??
-              data['description'] ??
-              data['moTa'] ??
-              '')
-          .toString()
-          .trim(),
+      roomId:
+          (data[BaiDangChoThueSqlFields.phongTroId] ??
+                  data['phong_tro_id'] ??
+                  data[PostFields.roomId] ??
+                  data['roomId'] ??
+                  data['phongId'] ??
+                  '')
+              .toString()
+              .trim(),
+      hostId:
+          (data[BaiDangChoThueSqlFields.chuTroId] ??
+                  data['chu_tro_id'] ??
+                  data[PostFields.hostId] ??
+                  data['hostId'] ??
+                  data['chuNhaId'] ??
+                  data['userId'] ??
+                  '')
+              .toString()
+              .trim(),
+      locationId:
+          (data[PostFields.locationId] ??
+                  data['locationId'] ??
+                  data['diaDiemId'] ??
+                  data['placeId'] ??
+                  '')
+              .toString()
+              .trim(),
+      rentalTypeId:
+          (data[PostFields.rentalTypeId] ??
+                  data['rentalTypeId'] ??
+                  data['loaiThue_id'] ??
+                  'thang')
+              .toString()
+              .trim(),
+      statusId:
+          (data[BaiDangChoThueSqlFields.trangThai] ??
+                  data['trang_thai'] ??
+                  data[PostFields.statusId] ??
+                  data['statusId'] ??
+                  data['trangThai_id'] ??
+                  data['status'] ??
+                  'dangHienThi')
+              .toString()
+              .trim(),
+      title:
+          (data[BaiDangChoThueSqlFields.tieuDe] ??
+                  data['tieu_de'] ??
+                  data[PostFields.title] ??
+                  data['title'] ??
+                  data['tieuDe'] ??
+                  '')
+              .toString()
+              .trim(),
+      description:
+          (data[BaiDangChoThueSqlFields.noiDung] ??
+                  data['noi_dung'] ??
+                  data[PostFields.description] ??
+                  data['description'] ??
+                  data['moTa'] ??
+                  '')
+              .toString()
+              .trim(),
       rentalPrice: price,
       depositAmount: deposit,
       depositPercentage: depositPct,
       amenities: amenitiesList,
       images: imagesList,
-      address: (data[PostFields.address] ??
-              data['address'] ??
-              data['diaChi'] ??
-              '')
-          .toString()
-          .trim(),
-      contactPhone: (data[PostFields.contactPhone] ??
-              data['contactPhone'] ??
-              data['soDienThoaiLienHe'] ??
-              data['phone'] ??
-              '')
-          .toString()
-          .trim(),
+      address:
+          (data[PostFields.address] ?? data['address'] ?? data['diaChi'] ?? '')
+              .toString()
+              .trim(),
+      contactPhone:
+          (data[PostFields.contactPhone] ??
+                  data['contactPhone'] ??
+                  data['soDienThoaiLienHe'] ??
+                  data['phone'] ??
+                  '')
+              .toString()
+              .trim(),
       createdAt: postDate,
-      status: (data[PostFields.status] ??
-              data['status'] ??
-              data['trangThai'] ??
-              'dangHienThi')
-          .toString()
-          .trim(),
+      status:
+          (data[PostFields.status] ??
+                  data['status'] ??
+                  data['trangThai'] ??
+                  'dangHienThi')
+              .toString()
+              .trim(),
       // In-memory UI/Join properties
       authorName: (data['authorName'] ?? data['hostName'] ?? '')
           .toString()
@@ -371,25 +384,23 @@ class HostPostModel {
           .toString()
           .trim(),
       city: (data['city'] ?? data['thanhPho'] ?? '').toString().trim(),
-      district: (data['district'] ?? data['quanHuyen'] ?? '')
-          .toString()
-          .trim(),
-      roomArea: (data['roomArea'] ??
-              data['dienTich'] ??
-              data['area'] ??
-              0.0 as num)
-          .toDouble(),
+      district: (data['district'] ?? data['quanHuyen'] ?? '').toString().trim(),
+      roomArea:
+          (data['roomArea'] ?? data['dienTich'] ?? data['area'] ?? 0.0 as num)
+              .toDouble(),
       roomType: (data['roomType'] ?? data['loaiPhong'] ?? 'Phòng trọ')
           .toString()
           .trim(),
-      mucDichHopTac: (data['mucDichHopTac'] ??
-              data['purpose'] ??
-              'Chia sẻ khách thuê & Hợp tác quản lý')
-          .toString()
-          .trim(),
+      mucDichHopTac:
+          (data['mucDichHopTac'] ??
+                  data['purpose'] ??
+                  'Chia sẻ khách thuê & Hợp tác quản lý')
+              .toString()
+              .trim(),
       interestedCount: interestedCount,
       responseCount: responseCount,
-      isVerified: data['isVerified'] == true ||
+      isVerified:
+          data['isVerified'] == true ||
           data['xacThuc'] == true ||
           data['daXacThuc'] == true,
       isVip: data['isVip'] == true || data['vip'] == true,
@@ -405,14 +416,15 @@ class HostPostModel {
         if (item is String && item.trim().isNotEmpty) {
           list.add(item.trim());
         } else if (item is Map) {
-          final s = (item['url'] ??
-                  item['duongDan'] ??
-                  item['name'] ??
-                  item['ten'] ??
-                  item['amenityName'] ??
-                  '')
-              .toString()
-              .trim();
+          final s =
+              (item['url'] ??
+                      item['duongDan'] ??
+                      item['name'] ??
+                      item['ten'] ??
+                      item['amenityName'] ??
+                      '')
+                  .toString()
+                  .trim();
           if (s.isNotEmpty) list.add(s);
         }
       }
@@ -542,8 +554,9 @@ class HostPostModel {
   HostPostModel withLocation({String? resolvedCity, String? resolvedDistrict}) {
     return copyWith(
       city: resolvedCity?.isNotEmpty == true ? resolvedCity : city,
-      district:
-          resolvedDistrict?.isNotEmpty == true ? resolvedDistrict : district,
+      district: resolvedDistrict?.isNotEmpty == true
+          ? resolvedDistrict
+          : district,
     );
   }
 }

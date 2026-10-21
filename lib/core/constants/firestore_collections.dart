@@ -10,7 +10,7 @@ abstract final class FirestoreCollections {
   static const users = 'users';
   static const bankAccounts = 'bank_accounts';
   static const properties = 'properties';
-  static const rooms = 'rooms';
+  static const rooms = 'host_rooms';
   static const amenities = 'amenities';
   static const locations = 'locations';
   static const posts = 'posts';
@@ -83,7 +83,7 @@ abstract final class FirestoreCollections {
   static const nhatKyKiemToanHeThong = 'nhat_ky_kiem_toan_he_thong';
 
   // Backward compatibility alias: publicRooms & hostRooms
-  static const publicRooms = 'rooms';
+  static const publicRooms = 'host_rooms';
   static const hostRooms = 'host_rooms';
   static const hostProperties = 'properties';
 }
@@ -1040,27 +1040,27 @@ abstract final class HostFirestorePaths {
   static String propertyDoc(String hostId, String propertyId) =>
       'users/$hostId/properties/$propertyId';
 
-  /// [1-N] Rooms: Sub-collection of properties
-  /// Path: properties/{propertyId}/rooms/{roomId}
-  static String rooms(String propertyId) => 'properties/$propertyId/rooms';
+  /// Rooms are stored once; propertyId links them to their property.
+  /// Path: host_rooms/{roomId}
+  static String rooms(String propertyId) => 'host_rooms';
   static String roomDoc(String propertyId, String roomId) =>
-      'properties/$propertyId/rooms/$roomId';
+      'host_rooms/$roomId';
 
-  /// [1-N] Nested Rooms: users/{hostId}/properties/{propertyId}/rooms/{roomId}
+  /// Compatibility helper: returns the canonical room collection.
   static String nestedRooms(String hostId, String propertyId) =>
-      'users/$hostId/properties/$propertyId/rooms';
+      'host_rooms';
 
   /// [1-N] Room Images: Sub-collection of rooms
-  /// Path: rooms/{roomId}/room_images/{imageId}
-  static String roomImages(String roomId) => 'rooms/$roomId/room_images';
+  /// Path: host_rooms/{roomId}/room_images/{imageId}
+  static String roomImages(String roomId) => 'host_rooms/$roomId/room_images';
   static String roomImageDoc(String roomId, String imageId) =>
-      'rooms/$roomId/room_images/$imageId';
+      'host_rooms/$roomId/room_images/$imageId';
 
   /// [1-N] Rental Posts: Sub-collection of rooms
-  /// Path: rooms/{roomId}/rental_posts/{postId}
-  static String rentalPosts(String roomId) => 'rooms/$roomId/rental_posts';
+  /// Path: host_rooms/{roomId}/rental_posts/{postId}
+  static String rentalPosts(String roomId) => 'host_rooms/$roomId/rental_posts';
   static String rentalPostDoc(String roomId, String postId) =>
-      'rooms/$roomId/rental_posts/$postId';
+      'host_rooms/$roomId/rental_posts/$postId';
 
   /// [1-N] Post Reports: Sub-collection of rental_posts
   /// Path: rental_posts/{postId}/post_reports/{reportId}
@@ -1069,10 +1069,10 @@ abstract final class HostFirestorePaths {
       'rental_posts/$postId/post_reports/$reportId';
 
   /// [1-N] Bookings: Sub-collection of rooms
-  /// Path: rooms/{roomId}/bookings/{bookingId}
-  static String bookings(String roomId) => 'rooms/$roomId/bookings';
+  /// Path: host_rooms/{roomId}/bookings/{bookingId}
+  static String bookings(String roomId) => 'host_rooms/$roomId/bookings';
   static String bookingDoc(String roomId, String bookingId) =>
-      'rooms/$roomId/bookings/$bookingId';
+      'host_rooms/$roomId/bookings/$bookingId';
 
   /// [1-1] Escrow Deposits: Sub-collection of bookings
   /// Path: bookings/{bookingId}/escrow_deposits/{depositId}
@@ -1087,10 +1087,10 @@ abstract final class HostFirestorePaths {
       'bookings/$bookingId/checkin_records/$checkinId';
 
   /// [1-N] Residents: Sub-collection of rooms
-  /// Path: rooms/{roomId}/residents/{residentId}
-  static String residents(String roomId) => 'rooms/$roomId/residents';
+  /// Path: host_rooms/{roomId}/residents/{residentId}
+  static String residents(String roomId) => 'host_rooms/$roomId/residents';
   static String residentDoc(String roomId, String residentId) =>
-      'rooms/$roomId/residents/$residentId';
+      'host_rooms/$roomId/residents/$residentId';
 
   /// [1-N] Resident Vehicles: Sub-collection of residents
   /// Path: residents/{residentId}/resident_vehicles/{vehicleId}

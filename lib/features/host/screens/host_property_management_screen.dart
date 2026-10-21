@@ -144,15 +144,6 @@ class HostPropertyManagementScreen extends ConsumerWidget {
                     ),
                   ),
                   const Spacer(),
-                  IconButton(
-                    tooltip: 'Thông báo',
-                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Thông báo sẽ được bổ sung sau.'),
-                      ),
-                    ),
-                    icon: const Icon(Icons.notifications_none, color: _muted),
-                  ),
                 ],
               ),
             ),

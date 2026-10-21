@@ -4,11 +4,14 @@ library;
 
 /// Phân loại thông báo chủ trọ
 enum HostNotificationType {
+  /// Đang chờ chủ trọ xử lý (Yêu cầu đặt phòng mới, yêu cầu duyệt ở ghép, check-in, vi phạm, xác nhận bàn giao...)
+  pendingAction,
+
+  /// Đang ở (Khách đang sinh sống tại phòng, bao gồm người ở ghép đã duyệt vào phòng)
+  staying,
+
   /// Thông báo liên quan đến tiền cọc (Người thuê đặt cọc, chờ xác nhận cọc, đã xác nhận cọc)
   deposit,
-
-  /// Đang chờ chủ trọ xử lý (Yêu cầu đặt phòng mới, check-in, vi phạm, xác nhận bàn giao...)
-  pendingAction,
 
   /// Thanh toán hoàn tất (Tiền thuê, cọc, điện/nước, phí phạt đã hoàn tất)
   paymentCompleted,
@@ -19,10 +22,12 @@ extension HostNotificationTypeX on HostNotificationType {
   /// Mã lưu trữ chuẩn vào Firestore
   String get code {
     switch (this) {
-      case HostNotificationType.deposit:
-        return 'deposit';
       case HostNotificationType.pendingAction:
         return 'pendingAction';
+      case HostNotificationType.staying:
+        return 'staying';
+      case HostNotificationType.deposit:
+        return 'deposit';
       case HostNotificationType.paymentCompleted:
         return 'paymentCompleted';
     }
@@ -31,10 +36,12 @@ extension HostNotificationTypeX on HostNotificationType {
   /// Nhãn hiển thị trên thanh tab/chip của giao diện Figma
   String get label {
     switch (this) {
-      case HostNotificationType.deposit:
-        return 'Đã cọc';
       case HostNotificationType.pendingAction:
         return 'Đang xử lý';
+      case HostNotificationType.staying:
+        return 'Đang ở';
+      case HostNotificationType.deposit:
+        return 'Đã cọc';
       case HostNotificationType.paymentCompleted:
         return 'Đã thanh toán hết';
     }
@@ -44,6 +51,14 @@ extension HostNotificationTypeX on HostNotificationType {
   static HostNotificationType fromString(String? value) {
     if (value == null) return HostNotificationType.pendingAction;
     final val = value.toLowerCase().trim();
+    if (val == 'staying' ||
+        val == 'dango' ||
+        val == 'dang_o' ||
+        val == 'living' ||
+        val == 'occupying' ||
+        val == 'active') {
+      return HostNotificationType.staying;
+    }
     if (val == 'deposit' ||
         val == 'tiencoc' ||
         val == 'dacoc' ||

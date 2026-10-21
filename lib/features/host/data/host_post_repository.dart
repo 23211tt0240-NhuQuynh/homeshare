@@ -153,7 +153,6 @@ class HostPostRepository {
       DocumentSnapshot? doc;
       for (final col in [
         FirestoreCollections.hostRooms,
-        FirestoreCollections.publicRooms,
         FirestoreCollections.phongTro,
       ]) {
         final d = await db.collection(col).doc(roomId).get();
@@ -198,7 +197,6 @@ class HostPostRepository {
         for (final roomCol in [
           FirestoreCollections.phongTro,
           FirestoreCollections.hostRooms,
-          FirestoreCollections.publicRooms,
         ]) {
           final subSnap = await db
               .collection(roomCol)

@@ -133,7 +133,8 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     if (room == null) return;
     setState(() {
       _selectedRoom = room;
-      _title.text = room.title.isNotEmpty ? room.title : room.roomCode;
+      // Tiêu đề thuộc bài đăng, không sao chép từ dữ liệu phòng.
+      _title.clear();
       _areaController.text = room.area > 0
           ? room.area.round().toString()
           : '25';
@@ -179,15 +180,10 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             .collection(FirestoreCollections.hostRooms)
             .doc(room.id)
             .get();
-        if (!doc.exists) {
-          doc = await db
-              .collection(FirestoreCollections.publicRooms)
-              .doc(room.id)
-              .get();
-        }
         if (doc.exists && mounted && _selectedRoom?.id == room.id) {
           final data = doc.data() ?? {};
-          final rawDeposit = data['deposit'] ??
+          final rawDeposit =
+              data['deposit'] ??
               data['tienCoc'] ??
               data['tien_coc'] ??
               data['depositAmount'] ??
@@ -203,7 +199,8 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           if (parsedDep == null || parsedDep <= 0) {
             final percent =
                 data['phanTramTienCoc'] ?? data['phan_tram_tien_coc'];
-            final p = data['price'] ??
+            final p =
+                data['price'] ??
                 data['gia'] ??
                 data['giaThue'] ??
                 data['giaThueThang'];
@@ -228,7 +225,8 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           }
 
           // Trích xuất ảnh trực tiếp từ document phòng Firestore:
-          final rawDocImages = data['images'] ??
+          final rawDocImages =
+              data['images'] ??
               data['roomImages'] ??
               data['anhPhong'] ??
               data['imageUrls'] ??
@@ -362,9 +360,11 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
 
     // 2. Chống trùng với tiện ích sẵn có của phòng (không phân biệt dấu tiếng Việt, hoa/thường)
     final roomMatch = (_selectedRoom?.amenities ?? [])
-        .where((item) =>
-            normalizeVietnameseComparison(item) ==
-            normalizeVietnameseComparison(normalized))
+        .where(
+          (item) =>
+              normalizeVietnameseComparison(item) ==
+              normalizeVietnameseComparison(normalized),
+        )
         .firstOrNull;
     if (roomMatch != null) {
       setState(() {
@@ -378,9 +378,11 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
 
     // 3. Chống trùng với tiện ích tùy chọn local (không phân biệt dấu tiếng Việt, hoa/thường)
     final customMatch = _customAmenities
-        .where((item) =>
-            normalizeVietnameseComparison(item) ==
-            normalizeVietnameseComparison(normalized))
+        .where(
+          (item) =>
+              normalizeVietnameseComparison(item) ==
+              normalizeVietnameseComparison(normalized),
+        )
         .firstOrNull;
 
     if (customMatch != null) {
@@ -429,6 +431,14 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       return;
     }
 
+    final accountPhone = profile?.phoneNumber.trim() ?? '';
+    if (accountPhone.isEmpty) {
+      _message(
+        'Vui lòng cập nhật số điện thoại trong thông tin tài khoản trước khi đăng bài.',
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     final totalImages = _existingImageUrls.length + _images.length;
@@ -450,15 +460,28 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           25.0;
       final parsedDeposit =
           double.tryParse(vndDigits(_depositController.text.trim())) ??
-              (_selectedRoom?.deposit ?? 0.0);
+          (_selectedRoom?.deposit ?? 0.0);
       int depositPercent = 20;
       if (parsedPrice > 0 && parsedDeposit > 0) {
         depositPercent = ((parsedDeposit / parsedPrice) * 100).round();
       }
-      if (!const [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].contains(depositPercent)) {
+      if (!const [
+        10,
+        20,
+        30,
+        40,
+        50,
+        60,
+        70,
+        80,
+        90,
+        100,
+      ].contains(depositPercent)) {
         const allowed = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-        depositPercent = allowed.reduce((a, b) =>
-            (depositPercent - a).abs() < (depositPercent - b).abs() ? a : b);
+        depositPercent = allowed.reduce(
+          (a, b) =>
+              (depositPercent - a).abs() < (depositPercent - b).abs() ? a : b,
+        );
       }
 
       final roomToSave = RoomModel(
@@ -482,15 +505,15 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
         images: _existingImageUrls,
         hostId: uid,
         hostName: profile?.displayName ?? 'Chủ nhà',
-        hostPhone: _phone.text.trim(),
+        hostPhone: accountPhone,
         hostAvatar: profile?.avatarUrl ?? '',
         rating: 0.0,
         reviewCount: 0,
-        isAvailable: true,
+        isAvailable: false,
         capacity: _selectedRoom?.capacity ?? 2,
         floor: _selectedRoom?.floor ?? 1,
         createdAt: DateTime.now(),
-        status: 'available',
+        status: 'pending',
       );
 
       final catalogItems = ref.read(hostAmenitiesProvider).value ?? [];
@@ -517,13 +540,13 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                       ? _property!.district
                       : 'TP. Thủ Đức'),
             loaiThueId: 'thang',
-            trangThaiId: 'dangHienThi',
+            status: 'pending',
             tieuDe: _title.text.trim(),
             moTa: _description.text.trim(),
             giaThue: parsedPrice,
             phanTramTienCoc: depositPercent,
             tienCoc: parsedDeposit,
-            soDienThoaiLienHe: _phone.text.trim(),
+            soDienThoaiLienHe: accountPhone,
             authorName: profile?.displayName ?? 'Chủ nhà',
             authorAvatar: profile?.avatarUrl ?? '',
             nhaTroId: _property!.id,
@@ -531,9 +554,13 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Đăng bài thành công!')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Tạo bài đăng thành công! Bài đăng đang ở trạng thái chờ duyệt (pending).',
+          ),
+        ),
+      );
       Navigator.of(context).pop(true);
     } catch (error) {
       if (mounted) _message(hostErrorMessage(error));
@@ -557,6 +584,16 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     final propertiesAsync = ref.watch(hostPropertiesProvider);
     final allRoomsAsync = ref.watch(hostRoomsProvider);
     final uid = session;
+
+    // Số liên hệ của bài đăng luôn phản ánh hồ sơ tài khoản người đăng.
+    // Controller chỉ dùng để hiển thị, không được dùng làm nguồn dữ liệu lúc lưu.
+    final accountPhone = profile?.phoneNumber.trim() ?? '';
+    if (_phone.text != accountPhone) {
+      _phone.value = TextEditingValue(
+        text: accountPhone,
+        selection: TextSelection.collapsed(offset: accountPhone.length),
+      );
+    }
 
     final properties = propertiesAsync.value ?? [];
     final allRooms = allRoomsAsync.value ?? [];
@@ -708,8 +745,8 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                     const SizedBox(height: 12),
                     _textField(
                       _title,
-                      'Mô tả phòng *',
-                      'Phòng trọ studio có gác đúc cao ráo, full nội thất, giờ tự do',
+                      'Tiêu đề bài đăng *',
+                      'VD: Phòng trọ studio có gác, đầy đủ nội thất',
                       key: const ValueKey('title_input'),
                       maxLength: 240,
                     ),
@@ -724,6 +761,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                       keyboard: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       suffixText: 'm²',
+                      readOnly: true,
                     ),
                     const SizedBox(height: 16),
 
@@ -754,6 +792,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                       Icons.location_on_outlined,
                       '18 Đường số 6, Tăng Nhơn Phú B, TP. Thủ Đức',
                       key: const ValueKey('address_input'),
+                      readOnly: true,
                     ),
                     Row(
                       children: [
@@ -767,6 +806,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                             '0987 654 321',
                             key: const ValueKey('phone_input'),
                             keyboard: TextInputType.phone,
+                            readOnly: true,
                           ),
                         ),
                       ],
@@ -924,6 +964,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
   Widget _depositInput() => TextFormField(
     key: const ValueKey('deposit_input'),
     controller: _depositController,
+    readOnly: true,
     keyboardType: TextInputType.number,
     inputFormatters: [VndInputFormatter()],
     style: const TextStyle(
@@ -951,6 +992,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
   Widget _priceInput() => TextFormField(
     key: const ValueKey('price_input'),
     controller: _price,
+    readOnly: true,
     keyboardType: TextInputType.number,
     inputFormatters: [VndInputFormatter()],
     style: const TextStyle(
@@ -1025,11 +1067,13 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     String hint, {
     Key? key,
     TextInputType? keyboard,
+    bool readOnly = false,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
     child: TextFormField(
       key: key,
       controller: controller,
+      readOnly: readOnly,
       keyboardType: keyboard ?? TextInputType.streetAddress,
       inputFormatters: keyboard == TextInputType.phone
           ? [FilteringTextInputFormatter.digitsOnly]
@@ -1068,15 +1112,21 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  HostAddImageButton(onTap: _pickImages, disabled: _picking),
+                  HostAddImageButton(
+                    onTap: _pickImages,
+                    disabled: _picking || _selectedRoom != null,
+                  ),
                   // Hiển thị ảnh phòng đã nạp từ trước
                   ..._existingImageUrls.asMap().entries.map(
                     (entry) => HostImageThumbnail(
                       index: entry.key,
                       rawUrl: entry.value,
                       isCover: entry.key == 0,
-                      onRemove: () =>
-                          setState(() => _existingImageUrls.removeAt(entry.key)),
+                      onRemove: _selectedRoom == null
+                          ? () => setState(
+                              () => _existingImageUrls.removeAt(entry.key),
+                            )
+                          : null,
                     ),
                   ),
                   // Hiển thị ảnh mới chọn qua ImagePicker
@@ -1085,8 +1135,9 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                       index: entry.key,
                       upload: entry.value,
                       isCover: _existingImageUrls.isEmpty && entry.key == 0,
-                      onRemove: () =>
-                          setState(() => _images.removeAt(entry.key)),
+                      onRemove: _selectedRoom == null
+                          ? () => setState(() => _images.removeAt(entry.key))
+                          : null,
                     ),
                   ),
                 ],
@@ -1124,11 +1175,13 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     String? suffixText,
     int maxLines = 1,
     int? maxLength,
+    bool readOnly = false,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
     child: TextFormField(
       key: key,
       controller: controller,
+      readOnly: readOnly,
       keyboardType: keyboard,
       inputFormatters: inputFormatters,
       maxLines: maxLines,
@@ -1278,7 +1331,9 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               isCustom: isCustom,
               isSelected: isSelected,
               onTap: () => _toggleAmenity(name),
-              onDeleteCustom: isCustom ? () => _removeCustomAmenity(name) : null,
+              onDeleteCustom: isCustom
+                  ? () => _removeCustomAmenity(name)
+                  : null,
             );
           }),
           const SizedBox(height: 6),

@@ -93,17 +93,9 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
       String hostId = data['hostId']?.toString() ?? '';
       if (hostId.isEmpty && roomId.isNotEmpty) {
         try {
-          final roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(roomId).get();
+          final roomDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(roomId).get();
           if (roomDoc.exists) {
             hostId = roomDoc.data()?['hostId'] ?? roomDoc.data()?['chuNhaId'] ?? '';
-          }
-        } catch (_) {}
-      }
-      if (hostId.isEmpty && roomId.isNotEmpty) {
-        try {
-          final hostRoomDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(roomId).get();
-          if (hostRoomDoc.exists) {
-            hostId = hostRoomDoc.data()?['hostId'] ?? hostRoomDoc.data()?['chuNhaId'] ?? '';
           }
         } catch (_) {}
       }

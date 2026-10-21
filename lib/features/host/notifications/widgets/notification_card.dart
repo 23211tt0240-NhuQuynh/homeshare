@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../screens/host_checkin_checkout_screen.dart';
 import '../models/host_notification_model.dart';
 import '../notification_types.dart';
 import '../providers/host_notification_provider.dart';
@@ -125,7 +126,9 @@ class NotificationCard extends ConsumerWidget {
                           child: Text(
                             notif.displayRoomCode,
                             style: TextStyle(
-                              fontSize: notif.displayRoomCode.length > 3 ? 12 : 15,
+                              fontSize: notif.displayRoomCode.length > 3
+                                  ? 12
+                                  : 15,
                               fontWeight: FontWeight.bold,
                               color: _getBadgeTextColor(notif.displayRoomCode),
                             ),
@@ -144,8 +147,8 @@ class NotificationCard extends ConsumerWidget {
                             notif.roomTitle.isNotEmpty
                                 ? notif.roomTitle
                                 : (notif.roomFloorInfo.isNotEmpty
-                                    ? notif.roomFloorInfo
-                                    : 'Phòng ${notif.displayRoomCode}'),
+                                      ? notif.roomFloorInfo
+                                      : 'Phòng ${notif.displayRoomCode}'),
                             style: const TextStyle(
                               fontSize: 14.5,
                               fontWeight: FontWeight.bold,
@@ -156,9 +159,12 @@ class NotificationCard extends ConsumerWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            notif.roomFloorInfo.isNotEmpty && notif.roomTitle.isNotEmpty
+                            notif.roomFloorInfo.isNotEmpty &&
+                                    notif.roomTitle.isNotEmpty
                                 ? notif.roomFloorInfo
-                                : (notif.roomFloorInfo.isNotEmpty ? 'Phòng trọ' : 'Phòng trọ tiện nghi'),
+                                : (notif.roomFloorInfo.isNotEmpty
+                                      ? 'Phòng trọ'
+                                      : 'Phòng trọ tiện nghi'),
                             style: const TextStyle(
                               fontSize: 12,
                               color: Color(0xFF667085),
@@ -257,18 +263,20 @@ class NotificationCard extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            currentTabType == HostNotificationType.paymentCompleted
+                            currentTabType ==
+                                    HostNotificationType.paymentCompleted
                                 ? 'Đã thanh toán'
-                                : 'Tiền cọc giữ phòng',
+                                : (currentTabType ==
+                                          HostNotificationType.staying
+                                      ? 'Tiền cọc / phí phòng'
+                                      : 'Tiền cọc giữ phòng'),
                             style: const TextStyle(
                               fontSize: 11,
                               color: Color(0xFF667085),
                             ),
                           ),
                           Text(
-                            _formatCurrency(
-                              notif.amount > 0 ? notif.amount : 1500000,
-                            ),
+                            _formatCurrency(notif.amount),
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -332,16 +340,24 @@ class NotificationCard extends ConsumerWidget {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: const Color(0xFFA6F4C5)),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF12B76A)),
-              SizedBox(width: 6),
-              Text(
-                'Đã xác nhận duyệt cho vào ở ghép',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF027A48),
+              const Icon(
+                Icons.check_circle_rounded,
+                size: 16,
+                color: Color(0xFF12B76A),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  currentTabType == HostNotificationType.staying
+                      ? 'Đang ở • Đã xác nhận duyệt cho vào ở ghép'
+                      : 'Đã xác nhận duyệt cho vào ở ghép',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF027A48),
+                  ),
                 ),
               ),
             ],
@@ -393,7 +409,9 @@ class NotificationCard extends ConsumerWidget {
                         ),
                         ElevatedButton(
                           onPressed: () => Navigator.of(ctx).pop(true),
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD92D20)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFD92D20),
+                          ),
                           child: const Text('Xác nhận từ chối'),
                         ),
                       ],
@@ -401,7 +419,9 @@ class NotificationCard extends ConsumerWidget {
                   );
 
                   if (confirm == true) {
-                    await ref.read(hostNotificationRepositoryProvider).rejectRoommateRequest(
+                    await ref
+                        .read(hostNotificationRepositoryProvider)
+                        .rejectRoommateRequest(
                           notificationId: notif.id,
                           primaryTenantId: notif.primaryTenantId,
                           primaryTenantName: notif.primaryTenantName,
@@ -425,9 +445,14 @@ class NotificationCard extends ConsumerWidget {
                   foregroundColor: const Color(0xFFD92D20),
                   side: const BorderSide(color: Color(0xFFFDA29B)),
                   padding: const EdgeInsets.symmetric(vertical: 9),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
-                child: const Text('Từ chối', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Từ chối',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -450,7 +475,9 @@ class NotificationCard extends ConsumerWidget {
                         ),
                         ElevatedButton(
                           onPressed: () => Navigator.of(ctx).pop(true),
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF12B76A)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF12B76A),
+                          ),
                           child: const Text('Xác nhận duyệt'),
                         ),
                       ],
@@ -458,7 +485,9 @@ class NotificationCard extends ConsumerWidget {
                   );
 
                   if (confirm == true) {
-                    await ref.read(hostNotificationRepositoryProvider).approveRoommateRequest(
+                    await ref
+                        .read(hostNotificationRepositoryProvider)
+                        .approveRoommateRequest(
                           notificationId: notif.id,
                           roomId: notif.roomId,
                           primaryTenantId: notif.primaryTenantId,
@@ -474,7 +503,7 @@ class NotificationCard extends ConsumerWidget {
                         SnackBar(
                           backgroundColor: const Color(0xFF12B76A),
                           content: Text(
-                            'Đã duyệt cho ${notif.newRoommateName} vào ở ghép phòng ${notif.displayRoomCode} thành công!',
+                            'Đã duyệt cho ${notif.newRoommateName} vào ở ghép phòng ${notif.displayRoomCode} thành công! Đã lưu vào tab Đang ở.',
                           ),
                         ),
                       );
@@ -482,13 +511,18 @@ class NotificationCard extends ConsumerWidget {
                   }
                 },
                 icon: const Icon(Icons.check_rounded, size: 16),
-                label: const Text('Duyệt vào phòng', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                label: const Text(
+                  'Duyệt vào phòng',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF12B76A),
                   foregroundColor: Colors.white,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 9),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
             ),
@@ -497,7 +531,33 @@ class NotificationCard extends ConsumerWidget {
       }
     }
 
-    if (currentTabType == HostNotificationType.pendingAction) {
+    if (currentTabType == HostNotificationType.staying) {
+      // Tab "Đang ở": Hiển thị trạng thái khách đang sinh sống tại phòng
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFECFDF3),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFA6F4C5)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.home_rounded, size: 16, color: Color(0xFF12B76A)),
+            SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Khách đang sinh sống tại phòng',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF027A48),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (currentTabType == HostNotificationType.pendingAction) {
       // Tab "Đang xử lý": Thanh hiển thị trạng thái Chờ xác nhận cọc màu vàng (Figma Ảnh 2)
       // Quyền xác nhận thuộc role Admin, chủ nhà chỉ xem trạng thái
       return Container(
@@ -509,10 +569,7 @@ class NotificationCard extends ConsumerWidget {
         ),
         child: const Row(
           children: [
-            Text(
-              '⏳',
-              style: TextStyle(fontSize: 13),
-            ),
+            Text('⏳', style: TextStyle(fontSize: 13)),
             SizedBox(width: 6),
             Text(
               'Chờ xác nhận cọc',
@@ -525,15 +582,20 @@ class NotificationCard extends ConsumerWidget {
           ],
         ),
       );
-    } else if (currentTabType == HostNotificationType.deposit) {
-      // Tab "Đã cọc": Hai nút [Chỉnh sửa] và [Duyệt check-in] (Figma Image 4)
+    } else if (currentTabType == HostNotificationType.deposit ||
+        currentTabType == HostNotificationType.paymentCompleted) {
+      // Tab "Đã cọc" & "Đã thanh toán hết" có chức năng như nhau:
+      // + Chỉnh sửa ngày đến check in (mở bottom sheet)
+      // + Nút Check-in chỉ điều hướng tới màn quản lý; không xử lý booking tại Thông báo.
       return Row(
         children: [
-          // Nút Chỉnh sửa
+          // Nút Chỉnh sửa ngày đến check in
           Expanded(
             child: OutlinedButton.icon(
               onPressed: () {
-                ref.read(hostNotificationRepositoryProvider).markAsRead(notif.id);
+                ref
+                    .read(hostNotificationRepositoryProvider)
+                    .markAsRead(notif.id);
                 HostUpdateDepositBottomSheet.show(context, notification: notif);
               },
               style: OutlinedButton.styleFrom(
@@ -545,62 +607,27 @@ class NotificationCard extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              icon: const Icon(Icons.edit_outlined, size: 15),
+              icon: const Icon(Icons.edit_calendar_outlined, size: 15),
               label: const Text(
-                'Chỉnh sửa',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
+                'Sửa ngày đến',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
             ),
           ),
           const SizedBox(width: 10),
-          // Nút Duyệt check-in
+          // Nút Checkin chuyển sang trang checkin
           Expanded(
             child: ElevatedButton.icon(
-              onPressed: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Xác nhận Check-in'),
-                    content: Text(
-                      'Duyệt nhận phòng ${notif.roomCode} cho khách ${notif.renterName}?',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(false),
-                        child: const Text('Hủy'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () => Navigator.of(ctx).pop(true),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                        ),
-                        child: const Text('Xác nhận'),
-                      ),
-                    ],
+              onPressed: () {
+                ref
+                    .read(hostNotificationRepositoryProvider)
+                    .markAsRead(notif.id);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const HostCheckinCheckoutScreen(initialTab: 0),
                   ),
                 );
-
-                if (confirm == true) {
-                  await ref
-                      .read(hostNotificationRepositoryProvider)
-                      .approveCheckIn(
-                        bookingId: notif.bookingId,
-                        notificationId: notif.id,
-                      );
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: const Color(0xFF027A48),
-                        content: Text(
-                          'Đã duyệt check-in phòng ${notif.roomCode} thành công!',
-                        ),
-                      ),
-                    );
-                  }
-                }
               },
               style: ElevatedButton.styleFrom(
                 foregroundColor: Colors.white,
@@ -611,78 +638,17 @@ class NotificationCard extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              icon: const Icon(Icons.check_rounded, size: 16),
+              icon: const Icon(Icons.login_rounded, size: 16),
               label: const Text(
-                'Duyệt check-in',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
+                'Check-in',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
             ),
           ),
         ],
       );
     } else {
-      // Tab "Đã thanh toán": Thông tin phương thức & Xem hóa đơn
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFECFDF3),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.check_circle_outline_rounded,
-                  size: 13,
-                  color: Color(0xFF027A48),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  notif.paymentMethod,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF027A48),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          OutlinedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Hóa đơn giao dịch: ${notif.displayBookingCode} - ${_formatCurrency(notif.amount)}',
-                  ),
-                ),
-              );
-            },
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              minimumSize: Size.zero,
-              side: const BorderSide(color: Color(0xFFD0D5DD)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text(
-              'Xem hóa đơn',
-              style: TextStyle(
-                fontSize: 12,
-                color: Color(0xFF344054),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      );
+      return const SizedBox.shrink();
     }
   }
 }
