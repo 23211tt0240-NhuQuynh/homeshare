@@ -2129,3 +2129,33 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
      - `flutter test test/renter_booking_timeout_test.dart`: **PASSED (100%)**.
 * **Git:** Commit và push lên nhánh `dev-TOAN` (`https://github.com/23211tt0240-NhuQuynh/homeshare/tree/dev-TOAN`).
 
+---
+
+### Phase 2.61: Chuẩn Hóa Menu Đính Kèm 4 Mục Thẳng Hàng & Ràng Buộc Logic Mời Ở Ghép
+* **Ngày hoàn thành:** 23/10/2026
+* **Yêu cầu người dùng:**
+  - Để 4 mục trong menu đính kèm phương tiện & hành động (+) nằm trên cùng 1 hàng thẳng (`Row` ngang).
+  - Đảm bảo đúng logic nghiệp vụ: Chỉ có User gửi cho User mới được mời; và người gửi phải thực tế đang ở trong phòng trọ (`dangO`, `active`, `danhanphong`, `rented`) thì mới gửi được lời mời ở ghép.
+* **Các thay đổi đã triển khai:**
+  1. **[chat_detail_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/chat/screens/chat_detail_screen.dart):**
+     - Chuyển `Wrap(...)` trong `_showAttachmentMenu()` sang `Row(...)` với 4 `Expanded` widget đồng đều, bố trí thẳng hàng hoàn hảo:
+       + **Gửi ảnh Album** (Xanh dương)
+       + **Chụp ảnh** (Tím)
+       + **Vị trí hiện tại** (Đỏ)
+       + **Mời ở ghép** (Cam)
+     - Cập nhật `_buildAttachOption`: tinh chỉnh padding và typography gọn gàng, hỗ trợ hiển thị 2 dòng căn giữa đẹp mắt.
+     - Kiểm tra phân quyền rõ ràng trong `_showRoommateInviteDialog`:
+       + Báo lỗi khi không phải User-to-User: `Tính năng mời ở ghép chỉ áp dụng giữa người dùng với nhau (người thuê gửi cho người thuê).`
+       + Báo lỗi khi người gửi chưa nhận phòng / chưa có phòng đang ở: `Bạn phải đang ở trong trọ mới có thể gửi lời mời ở ghép.`
+  2. **[roommate_invitation_policy.dart](file:///d:/App/homeshare-dev-THE/lib/features/chat/services/roommate_invitation_policy.dart):**
+     - Thu hẹp `_activeBookingStatuses` chỉ bao gồm các trạng thái thực tế đã nhận phòng và đang ở: `active`, `rented`, `dango`, `danhanphong`, `completed`. Loại bỏ các trạng thái chưa nhận phòng như `approved`, `daDuyet`, `deposit_paid`, `daCoc`, `choNhanPhong`.
+  3. **[roommate_invitation_eligibility_service.dart](file:///d:/App/homeshare-dev-THE/lib/features/chat/services/roommate_invitation_eligibility_service.dart):**
+     - Bổ sung truy vấn trực tiếp vào bảng `periods` (`renterId` / `userId`) để nhận diện phòng đang ở chuẩn xác nhất.
+  4. **[roommate_invitation_policy_test.dart](file:///d:/App/homeshare-dev-THE/test/roommate_invitation_policy_test.dart):**
+     - Cập nhật test suite khẳng định chặt chẽ các trạng thái đang ở thực tế (`7/7 PASSED`).
+  5. **Kiểm tra chất lượng & Test:**
+     - `flutter analyze`: **0 errors, 0 warnings (No issues found!)**.
+     - `flutter test test/roommate_invitation_policy_test.dart`: **PASSED (100%)**.
+* **Git:** Commit và push lên nhánh `dev-TOAN` (`https://github.com/23211tt0240-NhuQuynh/homeshare/tree/dev-TOAN`).
+
+

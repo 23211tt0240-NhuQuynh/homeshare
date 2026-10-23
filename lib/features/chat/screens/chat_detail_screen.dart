@@ -611,41 +611,45 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               ),
               const Text('Đính kèm phương tiện & hành động', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               const SizedBox(height: 16),
-              Wrap(
-                spacing: 12,
-                runSpacing: 10,
-                alignment: WrapAlignment.center,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildAttachOption(
-                    icon: Icons.photo_library_outlined,
-                    label: 'Gửi ảnh Album',
-                    color: Colors.blue,
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _pickAndSendImage(ImageSource.gallery);
-                    },
+                  Expanded(
+                    child: _buildAttachOption(
+                      icon: Icons.photo_library_outlined,
+                      label: 'Gửi ảnh Album',
+                      color: Colors.blue,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _pickAndSendImage(ImageSource.gallery);
+                      },
+                    ),
                   ),
-                  _buildAttachOption(
-                    icon: Icons.camera_alt_outlined,
-                    label: 'Chụp ảnh',
-                    color: Colors.purple,
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _pickAndSendImage(ImageSource.camera);
-                    },
+                  Expanded(
+                    child: _buildAttachOption(
+                      icon: Icons.camera_alt_outlined,
+                      label: 'Chụp ảnh',
+                      color: Colors.purple,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _pickAndSendImage(ImageSource.camera);
+                      },
+                    ),
                   ),
-                  _buildAttachOption(
-                    icon: Icons.location_on_outlined,
-                    label: 'Vị trí hiện tại',
-                    color: Colors.red,
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _sendLocationMessage();
-                    },
+                  Expanded(
+                    child: _buildAttachOption(
+                      icon: Icons.location_on_outlined,
+                      label: 'Vị trí hiện tại',
+                      color: Colors.red,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _sendLocationMessage();
+                      },
+                    ),
                   ),
-                  // Chỉ hiện khi renter-renter và người gửi có phòng thật đang hoạt động.
-                  if (_canSendRoommateInvitation)
-                    _buildAttachOption(
+                  Expanded(
+                    child: _buildAttachOption(
                       icon: Icons.group_add_outlined,
                       label: 'Mời ở ghép',
                       color: Colors.orange,
@@ -654,6 +658,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                         _showRoommateInviteDialog();
                       },
                     ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -674,8 +679,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             CircleAvatar(
               radius: 26,
@@ -683,7 +689,17 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               child: Icon(icon, color: color, size: 26),
             ),
             const SizedBox(height: 6),
-            Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
+              ),
+            ),
           ],
         ),
       ),
@@ -782,10 +798,17 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     final eligibility = await _refreshRoommateInvitationEligibility();
     if (!mounted) return;
 
-    if (eligibility.blockReason == RoommateInvitationBlockReason.roleNotAllowed) {
+    final isUserToUser = RoommateInvitationPolicy.canInvite(
+      senderRole: eligibility.senderRole,
+      receiverRole: eligibility.receiverRole,
+      hasActiveRoom: true,
+    );
+
+    if (!isUserToUser ||
+        eligibility.blockReason == RoommateInvitationBlockReason.roleNotAllowed) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Tính năng mời ở ghép chỉ áp dụng khi hai người dùng (người thuê) trao đổi với nhau.'),
+          content: Text('Tính năng mời ở ghép chỉ áp dụng giữa người dùng với nhau (người thuê gửi cho người thuê).'),
           backgroundColor: AppColors.danger,
         ),
       );
@@ -800,7 +823,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           content: Text(
             lookupFailed
                 ? 'Không thể xác minh phòng của bạn lúc này. Vui lòng kiểm tra kết nối và thử lại.'
-                : 'Bạn phải có phòng đang thuê trên hệ thống mới có thể gửi lời mời ở ghép.',
+                : 'Bạn phải đang ở trong trọ mới có thể gửi lời mời ở ghép.',
           ),
           backgroundColor: AppColors.danger,
         ),

@@ -76,16 +76,13 @@ void main() {
   });
 
   group('RoommateInvitationPolicy booking/resident', () {
-    test('chỉ nhận các trạng thái booking đã có quyền sử dụng phòng', () {
+    test('chỉ nhận các trạng thái booking thực tế đang ở trong trọ', () {
       for (final status in [
-        'approved',
-        'deposit_paid',
         'completed',
         'active',
         'rented',
         'dangO',
-        'daCoc',
-        'daDuyet',
+        'daNhanPhong',
       ]) {
         expect(
           RoommateInvitationPolicy.isActiveBookingStatus(status),
@@ -96,6 +93,11 @@ void main() {
 
       for (final status in [
         '',
+        'approved',
+        'daDuyet',
+        'deposit_paid',
+        'daCoc',
+        'choNhanPhong',
         'pending',
         'choDuyet',
         'cancelled',

@@ -164,6 +164,28 @@ class RoommateInvitationEligibilityService {
       if (room != null) return room;
     }
 
+    final periodDocs = await _queryAliases(
+      collection: 'periods',
+      fields: const ['renterId', 'userId', 'nguoiDungId', 'nguoi_dung_id'],
+      value: userId,
+    );
+
+    for (final doc in periodDocs) {
+      final data = doc.data();
+      final status =
+          data['status'] ?? data['trangThai'] ?? data['trangThai_id'];
+      if (!RoommateInvitationPolicy.isActiveResidentStatus(status)) continue;
+
+      final roomId = _firstNonEmpty(data, const [
+        'roomId',
+        'phongId',
+        'phongTroId',
+        'phong_tro_id',
+      ]);
+      final room = await _loadRoom(roomId);
+      if (room != null) return room;
+    }
+
     return null;
   }
 
