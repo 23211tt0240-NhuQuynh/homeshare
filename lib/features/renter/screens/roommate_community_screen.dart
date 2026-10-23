@@ -290,46 +290,6 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                 icon: const Icon(Icons.search_rounded, color: Color(0xFF334155), size: 26),
                 onPressed: _openRoommateSearch,
               ),
-              Stack(
-                alignment: Alignment.topRight,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF334155), size: 24),
-                    onPressed: () {},
-                  ),
-                  Positioned(
-                    top: 10,
-                    right: 12,
-                    child: Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEF4444),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 4),
-              // Profile Avatar
-              Builder(builder: (context) {
-                final raw = profile?.avatarUrl.trim() ?? '';
-                final avatar = raw.startsWith('http') ? NetworkImage(raw) : null;
-                return CircleAvatar(
-                  radius: 17,
-                  backgroundColor: const Color(0xFFE2E8F0),
-                  backgroundImage: avatar,
-                  child: avatar == null
-                      ? Text(
-                          (profile?.displayName.trim().isNotEmpty == true)
-                              ? profile!.displayName.trim()[0].toUpperCase()
-                              : 'U',
-                          style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF334155)),
-                        )
-                      : null,
-                );
-              }),
             ],
           ),
         ],

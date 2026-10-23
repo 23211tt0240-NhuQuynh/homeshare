@@ -2084,3 +2084,21 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
      - `flutter analyze`: **0 errors, 0 warnings (No issues found!)**.
      - `flutter test`: Toàn bộ các bộ test trọng tâm (`renter_booking_timeout_test`, `profile_screen_test`, `roommate_invitation_flow_test`, `role_routing_test`, `chat_rtdb_test`, `id_generator_test`) **55/55 PASSED (100%)**.
 * **Git:** Đã commit và push lên nhánh `dev-TOAN` (`https://github.com/23211tt0240-NhuQuynh/homeshare/tree/dev-TOAN`).
+
+---
+
+### Phase 2.59: Tinh Gọn Header & Tập Trung Chuông Thông Báo Vào Tab Tin Nhắn
+* **Ngày hoàn thành:** 23/10/2026
+* **Yêu cầu người dùng:** Xóa icon chuông thông báo & avatar trong khung đen trên app bar của màn hình Tìm ở ghép và Trang chủ; chuông thông báo chỉ giữ lại sẵn ở tab Tin nhắn.
+* **Các thay đổi:**
+  1. **[renter_dashboard_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/renter_dashboard_screen.dart):**
+     - Xóa `IconButton` chuông thông báo ở `actions` trên AppBar Trang chủ, chỉ giữ lại nút mở bộ lọc tìm kiếm.
+  2. **[roommate_community_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/roommate_community_screen.dart):**
+     - Xóa cụm icon chuông thông báo (`Stack` có chấm đỏ) và avatar người dùng (`CircleAvatar`) ở góc phải app bar.
+     - Top bar chỉ giữ lại icon sắp xếp và tìm kiếm, loại bỏ hoàn toàn hiện tượng RenderFlex overflow.
+  3. **[chat_list_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/chat/screens/chat_list_screen.dart):**
+     - Giữ nguyên chuông thông báo với chức năng `_showNotificationSheet(context)` phục vụ việc nhận thông báo của người dùng tại tab Tin nhắn.
+  4. **Kiểm tra chất lượng & Test:**
+     - `flutter analyze`: **0 errors, 0 warnings (No issues found!)**.
+     - `flutter test test/roommate_scroll_test.dart`: **PASSED (100%)**, không còn bất kỳ lỗi vỡ layout nào.
+* **Git:** Đã commit và push lên nhánh `dev-TOAN` (`https://github.com/23211tt0240-NhuQuynh/homeshare/tree/dev-TOAN`).
