@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/services/call_push_service.dart';
-import '../../chat/screens/call_screen.dart';
 import '../../home/screens/home_screen.dart';
 import '../../chat/screens/chat_list_screen.dart';
 import 'renter_dashboard_screen.dart';
@@ -44,14 +42,6 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // App đang mở: Firestore báo cuộc gọi đến thì hiện màn hình nhận.
-    // IncomingCallRouter dùng chung với lúc bấm thông báo, nên không mở hai lần.
-    ref.listen(incomingCallProvider, (prev, next) {
-      final call = next.value;
-      if (call == null) return;
-      IncomingCallRouter.show(call);
-    });
-
     final currentIndex = ref.watch(renterBottomNavIndexProvider);
 
     return Scaffold(

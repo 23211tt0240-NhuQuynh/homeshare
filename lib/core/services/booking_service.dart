@@ -15,10 +15,16 @@ class BookingService {
             renterCode: booking.renterUserCode,
             roomCode: booking.roomId,
           );
+    final now = DateTime.now();
+    final expiresAt = (booking.createdAt.year > 2000)
+        ? booking.createdAt.add(const Duration(hours: 6))
+        : now.add(const Duration(hours: 6));
     await _firestore.collection('bookings').doc(bookingId).set({
       ...booking.toMap(),
       'id': bookingId,
       'bookingCode': bookingId,
+      'expiresAt': Timestamp.fromDate(expiresAt),
+      'deadline': Timestamp.fromDate(expiresAt),
     });
     return bookingId;
   }
@@ -84,20 +90,53 @@ class BookingService {
       });
     }
 
-    // Gửi thông báo đến chủ trọ
+    // Gửi / Cập nhật thông báo đến chủ trọ
     if (hostId.isNotEmpty && hostId != 'guest') {
-      final hostNotifId = IdGenerator.notification();
-      await _firestore.collection('notifications').doc(hostNotifId).set({
-        'id': hostNotifId,
-        'receiverId': hostId,
-        'recipientRole': 'host',
-        'title': 'Đơn thuê phòng đã được duyệt',
-        'message': 'Khách $renterName đã được duyệt cọc cho phòng "$roomTitle". Sẵn sàng tiếp nhận check-in nhận phòng.',
-        'notificationType': 'booking',
-        'bookingId': bookingId,
-        'isRead': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      final hostNotifQuery = await _firestore
+          .collection('notifications')
+          .where('bookingId', isEqualTo: bookingId)
+          .get();
+
+      bool hostNotifFound = false;
+      for (final doc in hostNotifQuery.docs) {
+        final dData = doc.data();
+        final rRole = (dData['recipientRole'] ?? '').toString().toLowerCase();
+        final recId = (dData['receiverId'] ?? '').toString();
+        if (rRole == 'host' || recId == hostId || dData.containsKey('roomFloorInfo')) {
+          await doc.reference.set({
+            'notificationType': 'deposit',
+            'type': 'deposit',
+            'statusId': 'deposited',
+            'status': 'approved',
+            'title': 'Đơn thuê phòng đã được duyệt',
+            'message':
+                'Khách $renterName đã được duyệt cọc cho phòng "$roomTitle". Sẵn sàng tiếp nhận check-in nhận phòng.',
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+          hostNotifFound = true;
+        }
+      }
+
+      if (!hostNotifFound) {
+        final hostNotifId = IdGenerator.notification();
+        await _firestore.collection('notifications').doc(hostNotifId).set({
+          'id': hostNotifId,
+          'notificationId': hostNotifId,
+          'receiverId': hostId,
+          'recipientRole': 'host',
+          'title': 'Đơn thuê phòng đã được duyệt',
+          'message':
+              'Khách $renterName đã được duyệt cọc cho phòng "$roomTitle". Sẵn sàng tiếp nhận check-in nhận phòng.',
+          'notificationType': 'deposit',
+          'type': 'deposit',
+          'bookingId': bookingId,
+          'statusId': 'deposited',
+          'status': 'approved',
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
     }
 
     // Ghi audit log

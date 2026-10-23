@@ -2047,3 +2047,40 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
      - `git diff --check`: **Passed**.
      - Đã chạy toàn bộ `flutter test`: còn **18 test ngoài phạm vi thay đổi bị lỗi** (các test Host UI bị trùng finder/overflow và `roommate_scroll_test` chưa khởi tạo Firebase); bộ test đúng phạm vi lời mời ở ghép vẫn đạt 100%.
 * **Git:** Chưa commit và chưa push theo yêu cầu của người dùng.
+
+---
+
+### Phase 2.57: Chuông Cuộc Gọi Đa Role, Ẩn Mã ID Khách Thuê & Cho Phép Xoay Màn Hình
+* **Ngày hoàn thành:** 20/10/2026 - 22/10/2026
+* **Các thay đổi:**
+  1. **[main.dart](file:///d:/App/homeshare-dev-THE/lib/main.dart):**
+     - Bỏ giới hạn xoay dọc cố định (`SystemChrome.setPreferredOrientations`), cho phép xoay tự do đa hướng.
+     - Di chuyển bộ lắng nghe cuộc gọi đến (`ref.listen(incomingCallProvider)`) vào `_SignedInShellState` để cả 3 vai trò (Người thuê, Chủ trọ, Quản trị viên) đều lập tức nhận chuông cuộc gọi khi app đang mở.
+  2. **[renter_main_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/renter_main_screen.dart):**
+     - Loại bỏ khối lắng nghe cuộc gọi trùng lặp cũ vốn chỉ chạy cho người thuê.
+  3. **[home_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/home/screens/home_screen.dart) & [profile_header_card.dart](file:///d:/App/homeshare-dev-THE/lib/features/home/widgets/profile_header_card.dart):**
+     - Ẩn dòng mã ID người dùng đối với Khách thuê (Renter). Giữ hiển thị mã ID đầy đủ cho Chủ trọ và Quản trị viên.
+
+---
+
+### Phase 2.58: Ghép & Hợp Nhất Toàn Bộ Code Nhánh `dev-THE` (Commit `3fc4176`) Vào Project
+* **Ngày hoàn thành:** 23/10/2026
+* **Nguồn ghép:** Nhánh `dev-THE` (commit mới nhất `3fc4176` của Thế trên GitHub `https://github.com/23211tt0240-NhuQuynh/homeshare/tree/dev-THE`).
+* **Các tính năng & giao diện đã ghép thành công:**
+  1. **Giao diện Đăng nhập & Đăng ký ([login_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/auth/screens/login_screen.dart), [register_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/auth/screens/register_screen.dart), [auth_form_card.dart](file:///d:/App/homeshare-dev-THE/lib/features/auth/widgets/auth_form_card.dart)):**
+     - Chuẩn hóa hậu tố `@gmail.com` và nút ẩn/hiện mật khẩu nằm sát mép phải, cân đối thẩm mỹ.
+     - Tinh chỉnh bo góc khung thẻ đăng nhập lên `20dp`, tăng đổ bóng viền mượt mà.
+  2. **Sắp xếp bài đăng ở ghép ([roommate_community_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/roommate_community_screen.dart)):**
+     - Tích hợp menu `PopupMenuButton<_RoommateSort>` với biểu tượng lọc điều chỉnh `Icons.tune_rounded`.
+     - 3 tùy chọn sắp xếp:
+       + `Bài đăng mới nhất` (`_RoommateSort.newest`)
+       + `Sở thích phù hợp` (`_RoommateSort.hobby` - ưu tiên matchRate cao nhất)
+       + `Giá thấp đến cao` (`_RoommateSort.priceLow`)
+  3. **Sở thích dạng thẻ & Chế độ xem hồ sơ ([personal_profile_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/profile/screens/personal_profile_screen.dart)):**
+     - Trình bày sở thích người dùng bằng `InputChip` nền `primaryContainer`, hỗ trợ xóa nhanh.
+     - Ô nhập thêm sở thích yêu cầu bấm nút `+` để thêm, kiểm tra độ dài và trùng lặp an toàn.
+     - Tinh giản giao diện khi xem hồ sơ người khác (`_viewOnly`): hiển thị tên ngay dưới avatar, bố cục dòng gọn gàng.
+  4. **Kiểm tra chất lượng & Test:**
+     - `flutter analyze`: **0 errors, 0 warnings (No issues found!)**.
+     - `flutter test`: Toàn bộ các bộ test trọng tâm (`renter_booking_timeout_test`, `profile_screen_test`, `roommate_invitation_flow_test`, `role_routing_test`, `chat_rtdb_test`, `id_generator_test`) **55/55 PASSED (100%)**.
+* **Git:** Đã commit và push lên nhánh `dev-TOAN` (`https://github.com/23211tt0240-NhuQuynh/homeshare/tree/dev-TOAN`).

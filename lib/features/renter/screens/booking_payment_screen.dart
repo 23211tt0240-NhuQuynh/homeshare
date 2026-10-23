@@ -39,9 +39,11 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
   late String _qrImageUrl;
   late String _emvcoPayload;
 
+  static const int timeoutHours = 6;
   Timer? _countdownTimer;
-  int _secondsRemaining = 15 * 60; // 15 phút đếm ngược giữ phòng
+  int _secondsRemaining = timeoutHours * 3600; // 6 tiếng đếm ngược giữ phòng
   bool _isConfirming = false;
+  bool _isAutoCancelling = false;
   bool _useVectorQrFallback = false;
 
   @override
@@ -78,8 +80,20 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
       bankBin: VietQRHelper.defaultBankBin,
     );
 
+    // Tính toán thời gian còn lại (6 tiếng tính từ lúc tạo đơn)
+    final created = widget.booking.createdAt;
+    final expiresAt = created.add(const Duration(hours: timeoutHours));
+    final diff = expiresAt.difference(DateTime.now()).inSeconds;
+    _secondsRemaining = diff > 0 ? diff : 0;
+
     // Kích hoạt đồng hồ đếm ngược
     _startTimer();
+
+    if (_secondsRemaining <= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handleExpired();
+      });
+    }
 
     // Nếu ID phòng còn trống thì mới truy vấn ID từ Firestore
     if (roomId.isEmpty) {
@@ -125,6 +139,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
   }
 
   void _startTimer() {
+    _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsRemaining > 0) {
         if (mounted) {
@@ -132,8 +147,76 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
         }
       } else {
         timer.cancel();
+        if (mounted) {
+          _handleExpired();
+        }
       }
     });
+  }
+
+  Future<void> _handleExpired() async {
+    if (_isAutoCancelling) return;
+    _isAutoCancelling = true;
+    _countdownTimer?.cancel();
+
+    try {
+      if (widget.booking.id.isNotEmpty) {
+        await FirebaseFirestore.instance.collection('bookings').doc(widget.booking.id).set({
+          'status': 'cancelled',
+          'cancelReason': 'Tự động hủy do quá thời gian thanh toán 6 tiếng',
+          'subTag': 'Đã hủy',
+          'description': 'Quá hạn thanh toán 6 tiếng',
+          'cancelledAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'daHuy': true,
+        }, SetOptions(merge: true));
+      }
+    } catch (e) {
+      debugPrint('Error auto cancelling booking: $e');
+    }
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.timer_off_outlined, color: AppColors.danger),
+            SizedBox(width: 8),
+            Text(
+              'Hết thời gian thanh toán',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Đã quá thời hạn 6 tiếng để hoàn tất thanh toán. Đơn đặt phòng này đã tự động hủy để giải phóng phòng.',
+          style: TextStyle(fontSize: 13.5, height: 1.4),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const RenterBookingsScreen(initialStatusFilter: 'Đã hủy'),
+                ),
+              );
+            },
+            child: const Text('Xem danh sách đơn'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -143,9 +226,11 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
   }
 
   String _formatDuration(int seconds) {
-    final m = seconds ~/ 60;
+    if (seconds <= 0) return '00:00:00';
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
     final s = seconds % 60;
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   void _copyToClipboard(String text, String label) {
@@ -165,10 +250,11 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
     if (_secondsRemaining <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Thời gian giữ phòng đã hết. Vui lòng tạo đơn đặt phòng mới!'),
+          content: Text('Thời gian giữ phòng 6 tiếng đã hết. Đơn đã tự động hủy!'),
           backgroundColor: AppColors.danger,
         ),
       );
+      _handleExpired();
       return;
     }
 
@@ -385,7 +471,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
   }
 
   Widget _buildCountdownBanner() {
-    final isExpiringSoon = _secondsRemaining < 300; // Dưới 5 phút
+    final isExpiringSoon = _secondsRemaining < 3600; // Dưới 1 tiếng
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -409,11 +495,13 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Phòng đang được tạm giữ cho bạn',
+                  'Phòng đang được tạm giữ (Tối đa 6 tiếng)',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
                 ),
                 Text(
-                  'Vui lòng chuyển khoản trong thời gian để giữ phòng',
+                  _secondsRemaining > 0
+                      ? 'Vui lòng chuyển khoản trước khi hết hạn để tránh bị tự hủy đơn'
+                      : 'Đơn đặt phòng đã hết thời hạn giữ phòng',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 ),
               ],

@@ -12,7 +12,8 @@ import 'cccd_verification_screen.dart';
 
 /// Hồ sơ cá nhân của role người dùng.
 /// Tên, ảnh, mã, điện thoại, email và trạng thái VNeID/CCCD lấy từ tài khoản.
-/// Giới thiệu để trống cho người dùng tự viết. Sở thích mặc định không có.
+/// Giới thiệu để trống cho người dùng tự viết.
+/// Sở thích có sẵn một danh sách chọn, cộng thêm mục tự gõ.
 class PersonalProfileScreen extends ConsumerStatefulWidget {
   final String? userId;
 
@@ -38,7 +39,6 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   final _picker = ImagePicker();
 
   final _emailController = TextEditingController();
-  String _userCode = '';
   String _avatarUrl = '';
   String _role = 'renter';
   String _gender = '';
@@ -56,6 +56,17 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   Uint8List? _pickedAvatar;
   DateTime? _birthDate;
   final List<String> _interests = [];
+  static const List<String> _defaultInterests = [
+    'Yên tĩnh sau 23h',
+    'Sạch sẽ, ngăn nắp cao',
+    'Tuyệt đối không thuốc lá',
+    'Giờ giấc tự do',
+    'Có xe máy riêng',
+    'Thích thể thao/Gym',
+    'Không ồn ào/tụ tập',
+    'Chăm học/Làm việc',
+    'Nấu ăn thường xuyên',
+  ];
 
   @override
   void initState() {
@@ -119,7 +130,6 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     _workplaceController.text = profile.workplace;
     _bioController.text = profile.bio;
     _emailController.text = profile.email;
-    _userCode = profile.userCode;
     _avatarUrl = profile.avatarUrl;
     _role = profile.role.isEmpty ? 'renter' : profile.role;
     _gender = _normalizeGender(profile.gender);
@@ -203,6 +213,25 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
         SnackBar(content: Text('Không chọn được ảnh: $e'), backgroundColor: AppColors.danger),
       );
     }
+  }
+
+  bool _sameInterest(String left, String right) => left.trim().toLowerCase() == right.trim().toLowerCase();
+
+  bool _isDefaultInterest(String name) => _defaultInterests.any((item) => _sameInterest(item, name));
+
+  bool _interestSelected(String name) => _interests.any((item) => _sameInterest(item, name));
+
+  void _toggleDefaultInterest(String name) {
+    final index = _interests.indexWhere((item) => _sameInterest(item, name));
+    if (index >= 0) {
+      setState(() => _interests.removeAt(index));
+      return;
+    }
+    if (_interests.length >= 12) {
+      _showResult(title: 'Đã đủ sở thích', message: 'Chỉ lưu tối đa 12 sở thích.', success: false);
+      return;
+    }
+    setState(() => _interests.add(name));
   }
 
   void _addInterest() {
@@ -441,8 +470,9 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                             _buildSection(
                               icon: Icons.badge_outlined,
                               title: 'Thông tin cơ bản & Liên hệ',
-                              subtitle: 'Thông tin dùng để xác minh danh tính và hồ sơ ở ghép',
+                              subtitle: _viewOnly ? '' : 'Thông tin dùng để xác minh danh tính và hồ sơ ở ghép',
                               child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   _textField(
                                     controller: _nameController,
@@ -501,8 +531,9 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                             _buildSection(
                               icon: Icons.work_outline,
                               title: 'Nghề nghiệp & Đơn vị công tác',
-                              subtitle: 'Giúp bạn cùng phòng hiểu về lịch trình công việc và thời gian biểu của bạn',
+                              subtitle: _viewOnly ? '' : 'Giúp bạn cùng phòng hiểu về lịch trình công việc và thời gian biểu của bạn',
                               child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   _textField(
                                     controller: _occupationController,
@@ -578,8 +609,9 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
         ] else
           const SizedBox(height: 8),
         Text(
-          'ID #$_userCode',
-          style: const TextStyle(fontSize: 13, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+          _nameController.text.trim().isEmpty ? 'Chưa cập nhật tên' : _nameController.text.trim(),
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 18, color: AppColors.textDark, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
         InkWell(
@@ -645,8 +677,10 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.35)),
+          if (subtitle.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.35)),
+          ],
           const SizedBox(height: 14),
           child,
         ],
@@ -654,7 +688,90 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     );
   }
 
+  Widget _profileLine(String label, String raw) {
+    final value = raw.trim();
+    final empty = value.isEmpty;
+    return SizedBox(
+      width: double.infinity,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 3),
+            Text(
+              empty ? 'Chưa cập nhật' : value,
+              style: TextStyle(
+                fontSize: 15.5,
+                height: 1.35,
+                fontWeight: FontWeight.w700,
+                color: empty ? AppColors.textMuted : AppColors.textDark,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildIntroSection() {
+    if (_viewOnly) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.notes_rounded, size: 18, color: AppColors.primary),
+                SizedBox(width: 8),
+                Text('Giới thiệu & Sở thích', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textDark)),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _profileLine('Giới thiệu', _bioController.text),
+            const Text('Sở thích', style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            if (_loadingInterests)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 14),
+                child: LinearProgressIndicator(minHeight: 2),
+              )
+            else if (_interests.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 14),
+                child: Text('Chưa có sở thích.', style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: AppColors.textMuted)),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final interest in _interests)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryContainer,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(interest, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
     final length = _bioController.text.characters.length;
     return Container(
       padding: const EdgeInsets.all(16),
@@ -700,47 +817,24 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               padding: EdgeInsets.symmetric(vertical: 8),
               child: LinearProgressIndicator(minHeight: 2),
             )
-          else if (_interests.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                _viewOnly ? 'Chưa có sở thích.' : 'Chưa có sở thích nào. Hãy thêm sở thích của bạn.',
-                style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted),
-              ),
-            )
-          else if (_viewOnly)
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _interests.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.favorite_border_rounded, color: AppColors.primary),
-                  title: Text(_interests[index], style: const TextStyle(fontWeight: FontWeight.w600)),
-                );
-              },
-            )
           else
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final interest in _interests)
-                    InputChip(
-                      label: Text(interest),
-                      onDeleted: () => setState(() => _interests.remove(interest)),
-                      backgroundColor: AppColors.primaryContainer,
-                      deleteIconColor: AppColors.primary,
-                      labelStyle: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
-                    ),
-                ],
-              ),
+            Column(
+              children: [
+                for (final interest in _defaultInterests)
+                  _interestCheckRow(
+                    name: interest,
+                    selected: _interestSelected(interest),
+                    onChanged: () => _toggleDefaultInterest(interest),
+                  ),
+                for (final interest in _interests.where((item) => !_isDefaultInterest(item)))
+                  _interestCheckRow(
+                    name: interest,
+                    selected: true,
+                    onChanged: () => setState(() => _interests.remove(interest)),
+                  ),
+              ],
             ),
-          if (!_viewOnly)
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -760,6 +854,52 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _interestCheckRow({
+    required String name,
+    required bool selected,
+    required VoidCallback onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: selected ? AppColors.primaryContainer : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onChanged,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 4, 6, 4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: selected ? AppColors.primary : const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    name,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: selected ? AppColors.primary : const Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+                Checkbox(
+                  value: selected,
+                  activeColor: AppColors.primary,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  onChanged: (_) => onChanged(),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -871,6 +1011,11 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
 
   Widget _yearField() {
     final age = _age();
+    if (_viewOnly) {
+      final year = _yearController.text.trim();
+      final shown = year.isEmpty ? '' : (age == null ? year : '$year · $age tuổi');
+      return _profileLine('Năm sinh', shown);
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -902,6 +1047,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   }
 
   Widget _genderField() {
+    if (_viewOnly) return _profileLine('Giới tính', _gender);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -961,6 +1107,9 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
+    if (_viewOnly) {
+      return _profileLine(label.replaceAll(' *', ''), controller?.text ?? '');
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
