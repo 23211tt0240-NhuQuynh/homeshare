@@ -1227,6 +1227,46 @@ class HostRepository {
     }
 
     // 4. Lưu bài đăng vào collection posts (100% tiếng Anh, không lặp key)
+    double finalElecRate = room.electricityRate ?? 0.0;
+    double finalWaterRate = room.waterRate ?? 0.0;
+    double finalServiceFee = room.serviceFee ?? 0.0;
+
+    if (targetRoomId.isNotEmpty &&
+        (finalElecRate <= 0 || finalWaterRate <= 0 || finalServiceFee <= 0)) {
+      try {
+        final existingSnap = await _db
+            .collection(FirestoreCollections.hostRooms)
+            .doc(targetRoomId)
+            .get();
+        if (existingSnap.exists) {
+          final ed = existingSnap.data() ?? {};
+          if (finalElecRate <= 0) {
+            final e = ed['electricityRate'] ??
+                ed['donGiaDien'] ??
+                ed['giaDien'] ??
+                ed['tienDien'] ??
+                ed['electricity_rate'];
+            if (e is num && e > 0) finalElecRate = e.toDouble();
+          }
+          if (finalWaterRate <= 0) {
+            final w = ed['waterRate'] ??
+                ed['donGiaNuoc'] ??
+                ed['giaNuoc'] ??
+                ed['tienNuoc'] ??
+                ed['water_rate'];
+            if (w is num && w > 0) finalWaterRate = w.toDouble();
+          }
+          if (finalServiceFee <= 0) {
+            final s = ed['serviceFee'] ??
+                ed['phiDichVu'] ??
+                ed['tienDichVu'] ??
+                ed['service_fee'];
+            if (s is num && s > 0) finalServiceFee = s.toDouble();
+          }
+        }
+      } catch (_) {}
+    }
+
     final postRef = _db.collection(FirestoreCollections.posts).doc();
     final postPayload = {
       'id': postRef.id,
@@ -1238,6 +1278,9 @@ class HostRepository {
       'rentalPrice': giaThue,
       'depositAmount': calculatedDeposit,
       'depositPercentage': phanTramTienCoc,
+      'electricityRate': finalElecRate,
+      'waterRate': finalWaterRate,
+      'serviceFee': finalServiceFee,
       'images': finalUrls,
       'amenities': selectedAmenities.toList(),
       'status': status.isNotEmpty ? status : 'pending',
@@ -1256,9 +1299,9 @@ class HostRepository {
       'price': giaThue,
       'deposit': calculatedDeposit,
       'depositPercentage': phanTramTienCoc,
-      'electricityRate': room.electricityRate ?? 0.0,
-      'waterRate': room.waterRate ?? 0.0,
-      'serviceFee': room.serviceFee ?? 0.0,
+      'electricityRate': finalElecRate,
+      'waterRate': finalWaterRate,
+      'serviceFee': finalServiceFee,
       'title': tieuDe,
       'description': moTa,
       'address': room.address,

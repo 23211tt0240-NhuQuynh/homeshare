@@ -234,15 +234,34 @@ class RoomModel {
   factory RoomModel.fromFirestore(DocumentSnapshot doc) {
     return RoomModel.fromMap(doc.data() as Map<String, dynamic>? ?? {}, doc.id);
   }
-
   factory RoomModel.fromMap(Map<String, dynamic> data, String id) {
+    double? parseRate(dynamic val) {
+      if (val == null) return null;
+      if (val is num) return val.toDouble();
+      if (val is String && val.trim().isNotEmpty) {
+        return double.tryParse(val.replaceAll(RegExp(r'[^0-9.]'), ''));
+      }
+      return null;
+    }
+
     return RoomModel(
       id: id,
       minArea: (data['minArea'] as num?)?.toDouble(),
       maxArea: (data['maxArea'] as num?)?.toDouble(),
-      electricityRate: (data['electricityRate'] as num?)?.toDouble(),
-      waterRate: (data['waterRate'] as num?)?.toDouble(),
-      serviceFee: (data['serviceFee'] as num?)?.toDouble(),
+      electricityRate: parseRate(data['electricityRate'] ??
+          data['donGiaDien'] ??
+          data['giaDien'] ??
+          data['tienDien'] ??
+          data['electricity_rate']),
+      waterRate: parseRate(data['waterRate'] ??
+          data['donGiaNuoc'] ??
+          data['giaNuoc'] ??
+          data['tienNuoc'] ??
+          data['water_rate']),
+      serviceFee: parseRate(data['serviceFee'] ??
+          data['phiDichVu'] ??
+          data['tienDichVu'] ??
+          data['service_fee']),
       tenantName: data['tenantName'] ?? '',
       tenantPhone: data['tenantPhone'] ?? '',
       tenantAvatar: data['tenantAvatar'] ?? '',

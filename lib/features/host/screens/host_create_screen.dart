@@ -270,24 +270,15 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             capacity: int.parse(_fields['capacity']!.text),
             floor: int.parse(_fields['floor']!.text),
             electricityRate: double.tryParse(
-                  _fields['electricityRate']!.text
-                      .trim()
-                      .replaceAll('.', '')
-                      .replaceAll(',', ''),
+                  vndDigits(_fields['electricityRate']!.text.trim()),
                 ) ??
                 0.0,
             waterRate: double.tryParse(
-                  _fields['waterRate']!.text
-                      .trim()
-                      .replaceAll('.', '')
-                      .replaceAll(',', ''),
+                  vndDigits(_fields['waterRate']!.text.trim()),
                 ) ??
                 0.0,
             serviceFee: double.tryParse(
-                  _fields['serviceFee']!.text
-                      .trim()
-                      .replaceAll('.', '')
-                      .replaceAll(',', ''),
+                  vndDigits(_fields['serviceFee']!.text.trim()),
                 ) ??
                 0.0,
             rating: 0,

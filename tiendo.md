@@ -2102,3 +2102,30 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
      - `flutter analyze`: **0 errors, 0 warnings (No issues found!)**.
      - `flutter test test/roommate_scroll_test.dart`: **PASSED (100%)**, không còn bất kỳ lỗi vỡ layout nào.
 * **Git:** Đã commit và push lên nhánh `dev-TOAN` (`https://github.com/23211tt0240-NhuQuynh/homeshare/tree/dev-TOAN`).
+
+---
+
+### Phase 2.60: Khắc Phục Lỗi Mất Tiền Điện, Nước, Phí Dịch Vụ Khi Chủ Trọ Đăng Bài
+* **Ngày hoàn thành:** 23/10/2026
+* **Nguyên nhân cốt lõi (Root Cause):**
+  1. Khi chủ trọ tạo phòng ở `HostCreateScreen`, việc parse chuỗi số chỉ dùng `.replaceAll('.', '')` khiến các chuỗi có định dạng tiền tệ hoặc khoảng trắng bị lỗi parse và fallback về `0.0`.
+  2. Khi chủ trọ đăng bài ở `HostCreatePostScreen`, màn hình thiếu các trường nhập/hiển thị đơn giá điện, nước, dịch vụ; đồng thời khi gọi `RoomModel(...)` để lưu đã không truyền `electricityRate`, `waterRate`, `serviceFee` (khiến các trường này mang giá trị `null`).
+  3. `createPostWithAmenities` trong `HostManagementRepository` ghi đè `electricityRate: room.electricityRate ?? 0.0`, dẫn đến tài liệu phòng trong `host_rooms` và `posts` bị reset về 0 (ví dụ phòng `6FATBZT7UGS7`).
+* **Các thay đổi đã triển khai:**
+  1. **[room_model.dart](file:///d:/App/homeshare-dev-THE/lib/data/models/room_model.dart):**
+     - Cải tiến `RoomModel.fromMap` với hàm `parseRate` an toàn, hỗ trợ cả `num` và chuỗi định dạng (loại bỏ ký tự không phải số/chấm), hỗ trợ đọc nhiều biến thể tên trường (`electricityRate`, `donGiaDien`, `giaDien`, `tienDien`, `waterRate`, `donGiaNuoc`, `giaNuoc`, `tienNuoc`, `serviceFee`, `phiDichVu`, `tienDichVu`).
+  2. **[host_create_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_create_screen.dart):**
+     - Sử dụng hàm chuẩn `vndDigits(...)` để parse đơn giá điện, nước, dịch vụ khi tạo phòng mới, loại bỏ hoàn toàn nguy cơ bị reset về `0.0`.
+  3. **[host_create_post_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_create_post_screen.dart):**
+     - Bổ sung 3 `TextEditingController`: `_electricityController`, `_waterController`, `_serviceFeeController`.
+     - Tự động nạp giá trị từ `RoomModel` được chọn và tải bổ sung từ Firestore doc (`host_rooms` / `rooms`).
+     - Bổ sung giao diện `_utilityRatesRow()` với 3 ô nhập liệu tiền điện (đ/kWh), tiền nước (đ/tháng), phí dịch vụ (đ/tháng) sử dụng `VndInputFormatter`.
+     - Trong phương thức `_save()`, parse đúng giá trị từ controller và truyền vào `RoomModel roomToSave`.
+  4. **[host_management_provider.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/providers/host_management_provider.dart):**
+     - Trong `createPostWithAmenities`, nếu các đơn giá truyền vào `<= 0`, tự động tra cứu lại tài liệu phòng hiện có trong Firestore `host_rooms` để bảo toàn giá trị gốc.
+     - Lưu đầy đủ `electricityRate`, `waterRate`, `serviceFee` vào cả tài liệu `posts` và tài liệu `host_rooms` / `rooms`.
+  5. **Kiểm tra chất lượng & Test:**
+     - `flutter analyze`: **0 errors, 0 warnings (No issues found!)**.
+     - `flutter test test/renter_booking_timeout_test.dart`: **PASSED (100%)**.
+* **Git:** Commit và push lên nhánh `dev-TOAN` (`https://github.com/23211tt0240-NhuQuynh/homeshare/tree/dev-TOAN`).
+

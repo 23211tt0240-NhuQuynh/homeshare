@@ -47,6 +47,9 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
   final _phone = TextEditingController();
   final _description = TextEditingController();
   final _customAmenity = TextEditingController();
+  final _electricityController = TextEditingController();
+  final _waterController = TextEditingController();
+  final _serviceFeeController = TextEditingController();
 
   final _images = <HostUpload>[];
   final _existingImageUrls = <String>[];
@@ -86,6 +89,9 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       _phone,
       _description,
       _customAmenity,
+      _electricityController,
+      _waterController,
+      _serviceFeeController,
     ]) {
       field.dispose();
     }
@@ -102,6 +108,9 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     _phone.clear();
     _description.clear();
     _customAmenity.clear();
+    _electricityController.clear();
+    _waterController.clear();
+    _serviceFeeController.clear();
     setState(() {
       _property = null;
       _selectedRoom = null;
@@ -126,6 +135,9 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       _existingImageUrls.clear();
       _images.clear();
       _selectedAmenities.clear();
+      _electricityController.clear();
+      _waterController.clear();
+      _serviceFeeController.clear();
     });
   }
 
@@ -152,6 +164,23 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       _address.text = room.address.isNotEmpty
           ? room.address
           : (_property?.fullAddress ?? '');
+
+      // Tự động điền phí điện, nước, dịch vụ từ phòng đã chọn:
+      if ((room.electricityRate ?? 0) > 0) {
+        _electricityController.text = formatVnd(room.electricityRate!.round());
+      } else {
+        _electricityController.text = '';
+      }
+      if ((room.waterRate ?? 0) > 0) {
+        _waterController.text = formatVnd(room.waterRate!.round());
+      } else {
+        _waterController.text = '';
+      }
+      if ((room.serviceFee ?? 0) > 0) {
+        _serviceFeeController.text = formatVnd(room.serviceFee!.round());
+      } else {
+        _serviceFeeController.text = '';
+      }
 
       // 1. Lấy ảnh từ room.images
       _existingImageUrls.clear();
@@ -188,6 +217,51 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
         }
         if (doc.exists && mounted && _selectedRoom?.id == room.id) {
           final data = doc.data() ?? {};
+
+          // Tải thêm phí điện, nước, dịch vụ từ document phòng Firestore:
+          setState(() {
+            final rawElec = data['electricityRate'] ??
+                data['donGiaDien'] ??
+                data['giaDien'] ??
+                data['tienDien'] ??
+                data['electricity_rate'];
+            if (rawElec is num && rawElec > 0) {
+              _electricityController.text = formatVnd(rawElec.round());
+            } else if (rawElec is String && rawElec.trim().isNotEmpty) {
+              final parsed = double.tryParse(vndDigits(rawElec));
+              if (parsed != null && parsed > 0) {
+                _electricityController.text = formatVnd(parsed.round());
+              }
+            }
+
+            final rawWater = data['waterRate'] ??
+                data['donGiaNuoc'] ??
+                data['giaNuoc'] ??
+                data['tienNuoc'] ??
+                data['water_rate'];
+            if (rawWater is num && rawWater > 0) {
+              _waterController.text = formatVnd(rawWater.round());
+            } else if (rawWater is String && rawWater.trim().isNotEmpty) {
+              final parsed = double.tryParse(vndDigits(rawWater));
+              if (parsed != null && parsed > 0) {
+                _waterController.text = formatVnd(parsed.round());
+              }
+            }
+
+            final rawService = data['serviceFee'] ??
+                data['phiDichVu'] ??
+                data['tienDichVu'] ??
+                data['service_fee'];
+            if (rawService is num && rawService > 0) {
+              _serviceFeeController.text = formatVnd(rawService.round());
+            } else if (rawService is String && rawService.trim().isNotEmpty) {
+              final parsed = double.tryParse(vndDigits(rawService));
+              if (parsed != null && parsed > 0) {
+                _serviceFeeController.text = formatVnd(parsed.round());
+              }
+            }
+          });
+
           final rawDeposit =
               data['deposit'] ??
               data['tienCoc'] ??
@@ -467,6 +541,15 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       final parsedDeposit =
           double.tryParse(vndDigits(_depositController.text.trim())) ??
           (_selectedRoom?.deposit ?? 0.0);
+      final parsedElectricity =
+          double.tryParse(vndDigits(_electricityController.text.trim())) ??
+          (_selectedRoom?.electricityRate ?? 0.0);
+      final parsedWater =
+          double.tryParse(vndDigits(_waterController.text.trim())) ??
+          (_selectedRoom?.waterRate ?? 0.0);
+      final parsedServiceFee =
+          double.tryParse(vndDigits(_serviceFeeController.text.trim())) ??
+          (_selectedRoom?.serviceFee ?? 0.0);
       int depositPercent = 20;
       if (parsedPrice > 0 && parsedDeposit > 0) {
         depositPercent = ((parsedDeposit / parsedPrice) * 100).round();
@@ -500,6 +583,9 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
         description: _description.text.trim(),
         price: parsedPrice,
         deposit: parsedDeposit,
+        electricityRate: parsedElectricity,
+        waterRate: parsedWater,
+        serviceFee: parsedServiceFee,
         address: _address.text.trim(),
         district: _property!.district.isNotEmpty
             ? _property!.district
@@ -769,6 +855,8 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                       suffixText: 'm²',
                       readOnly: true,
                     ),
+                    const SizedBox(height: 12),
+                    _utilityRatesRow(),
                     const SizedBox(height: 16),
 
                     // PHẦN 4: TIỆN ÍCH & YÊU CẦU
@@ -956,6 +1044,73 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       ),
     );
   }
+
+  /// Hàng nhập tiền điện, nước, phí dịch vụ
+  Widget _utilityRatesRow() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: _rateField(
+              controller: _electricityController,
+              label: 'Tiền điện',
+              hint: '3.500',
+              unit: 'đ/kWh',
+              key: const ValueKey('electricity_input'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _rateField(
+              controller: _waterController,
+              label: 'Tiền nước',
+              hint: '100.000',
+              unit: 'đ/tháng',
+              key: const ValueKey('water_input'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _rateField(
+              controller: _serviceFeeController,
+              label: 'Phí DV',
+              hint: '150.000',
+              unit: 'đ/tháng',
+              key: const ValueKey('service_fee_input'),
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+
+  Widget _rateField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required String unit,
+    Key? key,
+  }) => TextFormField(
+    key: key,
+    controller: controller,
+    keyboardType: TextInputType.number,
+    inputFormatters: [VndInputFormatter()],
+    style: const TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: HostTheme.textDark,
+    ),
+    decoration: HostTheme.inputDecoration(
+      labelText: label,
+      hintText: hint,
+      suffixText: unit,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      enabledBorderColor: HostTheme.inputBorder,
+      focusedBorderColor: HostTheme.primary,
+    ),
+  );
 
   /// Bố cục: [ Giá thuê ] [ Tiền cọc ]
   Widget _priceAndDepositRow() => Row(
