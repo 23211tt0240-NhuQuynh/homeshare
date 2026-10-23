@@ -12,7 +12,8 @@ import 'cccd_verification_screen.dart';
 
 /// Hồ sơ cá nhân của role người dùng.
 /// Tên, ảnh, mã, điện thoại, email và trạng thái VNeID/CCCD lấy từ tài khoản.
-/// Giới thiệu để trống cho người dùng tự viết. Sở thích mặc định không có.
+/// Giới thiệu để trống cho người dùng tự viết.
+/// Sở thích có sẵn một danh sách chọn, cộng thêm mục tự gõ.
 class PersonalProfileScreen extends ConsumerStatefulWidget {
   final String? userId;
 
@@ -51,15 +52,22 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   String _bankName = '';
   bool _saving = false;
   bool _viewOnly = false;
-  bool _chromeHidden = false;
-  bool _keyboardOpen = false;
-  double _scrollDistance = 0;
-  DateTime? _suppressShowUntil;
   bool _loadingUser = false;
   String? _loadError;
   Uint8List? _pickedAvatar;
   DateTime? _birthDate;
   final List<String> _interests = [];
+  static const List<String> _defaultInterests = [
+    'Yên tĩnh sau 23h',
+    'Sạch sẽ, ngăn nắp cao',
+    'Tuyệt đối không thuốc lá',
+    'Giờ giấc tự do',
+    'Có xe máy riêng',
+    'Thích thể thao/Gym',
+    'Không ồn ào/tụ tập',
+    'Chăm học/Làm việc',
+    'Nấu ăn thường xuyên',
+  ];
 
   @override
   void initState() {
@@ -207,6 +215,25 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
         SnackBar(content: Text('Không chọn được ảnh: $e'), backgroundColor: AppColors.danger),
       );
     }
+  }
+
+  bool _sameInterest(String left, String right) => left.trim().toLowerCase() == right.trim().toLowerCase();
+
+  bool _isDefaultInterest(String name) => _defaultInterests.any((item) => _sameInterest(item, name));
+
+  bool _interestSelected(String name) => _interests.any((item) => _sameInterest(item, name));
+
+  void _toggleDefaultInterest(String name) {
+    final index = _interests.indexWhere((item) => _sameInterest(item, name));
+    if (index >= 0) {
+      setState(() => _interests.removeAt(index));
+      return;
+    }
+    if (_interests.length >= 12) {
+      _showResult(title: 'Đã đủ sở thích', message: 'Chỉ lưu tối đa 12 sở thích.', success: false);
+      return;
+    }
+    setState(() => _interests.add(name));
   }
 
   void _addInterest() {
@@ -399,79 +426,8 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     }
   }
 
-  void _setChromeHidden(bool hidden) {
-    if (_viewOnly || _chromeHidden == hidden) return;
-    if (hidden) {
-      _suppressShowUntil = DateTime.now().add(const Duration(milliseconds: 400));
-    }
-    setState(() => _chromeHidden = hidden);
-  }
-
-  bool get _showSuppressed =>
-      _suppressShowUntil != null && DateTime.now().isBefore(_suppressShowUntil!);
-
-  void _revealFocusedField() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final focused = FocusManager.instance.primaryFocus?.context;
-      if (focused == null) return;
-      Scrollable.ensureVisible(
-        focused,
-        alignment: 0.3,
-        duration: const Duration(milliseconds: 220),
-      );
-    });
-  }
-
-  void _syncKeyboard(bool open) {
-    if (_viewOnly || _keyboardOpen == open) return;
-    _keyboardOpen = open;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _viewOnly) return;
-      if (open) {
-        _scrollDistance = 0;
-        _setChromeHidden(true);
-        _revealFocusedField();
-      } else if (!_scrollController.hasClients || _scrollController.offset <= 8) {
-        _scrollDistance = 0;
-        _setChromeHidden(false);
-      }
-    });
-  }
-
-  bool _onProfileScroll(ScrollNotification notification) {
-    if (_viewOnly) return false;
-    if (notification.metrics.axis != Axis.vertical || notification.depth != 0) return false;
-    if (notification is OverscrollNotification && notification.overscroll < 0 && !_showSuppressed) {
-      _scrollDistance = 0;
-      _setChromeHidden(false);
-      return false;
-    }
-    if (notification is! ScrollUpdateNotification) return false;
-    final delta = notification.scrollDelta ?? 0;
-    if (delta == 0) return false;
-    if (notification.metrics.pixels <= 8 && !_showSuppressed) {
-      _scrollDistance = 0;
-      _setChromeHidden(false);
-      return false;
-    }
-    if (delta > 0 && _scrollDistance < 0) _scrollDistance = 0;
-    if (delta < 0 && _scrollDistance > 0) _scrollDistance = 0;
-    _scrollDistance += delta;
-    if (!_chromeHidden && _scrollDistance >= 100) {
-      _scrollDistance = 0;
-      _setChromeHidden(true);
-      if (_keyboardOpen) _revealFocusedField();
-    } else if (_chromeHidden && _scrollDistance <= -80 && !_showSuppressed) {
-      _scrollDistance = 0;
-      _setChromeHidden(false);
-    }
-    return false;
-  }
-
   @override
   Widget build(BuildContext context) {
-    _syncKeyboard(MediaQueryData.fromView(View.of(context)).viewInsets.bottom > 0);
     final profileAsync = ref.watch(userProfileProvider);
     final profile = profileAsync.value;
     final requested = widget.userId?.trim() ?? '';
@@ -489,43 +445,26 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     final waiting = _loadingUser || (profileAsync.isLoading && profile == null && !_viewOnly);
     return Scaffold(
       backgroundColor: AppColors.background,
-      resizeToAvoidBottomInset: true,
+      appBar: AppBar(
+        title: Text(_viewOnly ? 'Hồ sơ' : 'Hồ sơ cá nhân'),
+        backgroundColor: Colors.white,
+        foregroundColor: AppColors.textDark,
+        elevation: 0,
+      ),
       body: waiting
           ? const Center(child: CircularProgressIndicator())
           : _loadError != null
               ? Center(child: Text(_loadError!))
               : profile == null && !_viewOnly
               ? const Center(child: Text('Không tìm thấy tài khoản.'))
-              : SafeArea(
-                  bottom: false,
-                  child: Column(
+              : Column(
                   children: [
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: _chromeHidden && !_viewOnly
-                          ? const SizedBox(width: double.infinity, height: 0)
-                          : SizedBox(
-                              height: kToolbarHeight,
-                              child: AppBar(
-                                primary: false,
-                                title: Text(_viewOnly ? 'Hồ sơ' : 'Hồ sơ cá nhân'),
-                                backgroundColor: Colors.white,
-                                foregroundColor: AppColors.textDark,
-                                elevation: 0,
-                              ),
-                            ),
-                    ),
                     Expanded(
-                      child: NotificationListener<ScrollNotification>(
-                        onNotification: _onProfileScroll,
-                        child: Form(
+                      child: Form(
                         key: _formKey,
                         autovalidateMode: _viewOnly ? AutovalidateMode.disabled : AutovalidateMode.onUserInteraction,
                         child: ListView(
                           controller: _scrollController,
-                          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                           children: [
                             _buildHeader(),
@@ -625,19 +564,10 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                           ],
                         ),
                       ),
-                      ),
                     ),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.bottomCenter,
-                      child: !_viewOnly && !_chromeHidden
-                          ? _buildFooter()
-                          : const SizedBox(width: double.infinity, height: 0),
-                    ),
+                    if (!_viewOnly) _buildFooter(),
                   ],
                 ),
-              ),
     );
   }
 
@@ -889,47 +819,24 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               padding: EdgeInsets.symmetric(vertical: 8),
               child: LinearProgressIndicator(minHeight: 2),
             )
-          else if (_interests.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                _viewOnly ? 'Chưa có sở thích.' : 'Chưa có sở thích nào. Hãy thêm sở thích của bạn.',
-                style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted),
-              ),
-            )
-          else if (_viewOnly)
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _interests.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.favorite_border_rounded, color: AppColors.primary),
-                  title: Text(_interests[index], style: const TextStyle(fontWeight: FontWeight.w600)),
-                );
-              },
-            )
           else
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final interest in _interests)
-                    InputChip(
-                      label: Text(interest),
-                      onDeleted: () => setState(() => _interests.remove(interest)),
-                      backgroundColor: AppColors.primaryContainer,
-                      deleteIconColor: AppColors.primary,
-                      labelStyle: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
-                    ),
-                ],
-              ),
+            Column(
+              children: [
+                for (final interest in _defaultInterests)
+                  _interestCheckRow(
+                    name: interest,
+                    selected: _interestSelected(interest),
+                    onChanged: () => _toggleDefaultInterest(interest),
+                  ),
+                for (final interest in _interests.where((item) => !_isDefaultInterest(item)))
+                  _interestCheckRow(
+                    name: interest,
+                    selected: true,
+                    onChanged: () => setState(() => _interests.remove(interest)),
+                  ),
+              ],
             ),
-          if (!_viewOnly)
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -949,6 +856,52 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _interestCheckRow({
+    required String name,
+    required bool selected,
+    required VoidCallback onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: selected ? AppColors.primaryContainer : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onChanged,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 4, 6, 4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: selected ? AppColors.primary : const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    name,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: selected ? AppColors.primary : const Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+                Checkbox(
+                  value: selected,
+                  activeColor: AppColors.primary,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  onChanged: (_) => onChanged(),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

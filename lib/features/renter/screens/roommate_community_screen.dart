@@ -17,20 +17,6 @@ import 'roommate_search_screen.dart';
 
 /// Màn hình Tìm Ở Ghép chuẩn Figma 100% (Hình 1)
 /// Tích hợp Bộ lọc Lifestyle & Ở ghép AI Match (Hình 2)
-/// Tab Tìm ở ghép thu thanh trên và thanh dưới khi người dùng kéo danh sách bài lên.
-class RoommateListChromeHiddenNotifier extends Notifier<bool> {
-  @override
-  bool build() => false;
-
-  void setHidden(bool hidden) {
-    if (state == hidden) return;
-    state = hidden;
-  }
-}
-
-final roommateListChromeHiddenProvider =
-    NotifierProvider<RoommateListChromeHiddenNotifier, bool>(RoommateListChromeHiddenNotifier.new);
-
 class RoommateCommunityScreen extends ConsumerStatefulWidget {
   const RoommateCommunityScreen({super.key});
 
@@ -38,9 +24,10 @@ class RoommateCommunityScreen extends ConsumerStatefulWidget {
   ConsumerState<RoommateCommunityScreen> createState() => _RoommateCommunityScreenState();
 }
 
+enum _RoommateSort { newest, hobby, priceLow }
+
 class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScreen> {
-  double _scrollDistance = 0;
-  DateTime? _suppressShowUntil;
+  _RoommateSort _sort = _RoommateSort.newest;
 
   RoommateFilterParams _currentFilters = const RoommateFilterParams(
     district: 'Tất cả',
@@ -182,61 +169,10 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
     );
   }
 
-  void _setChromeHidden(bool hidden) {
-    final current = ref.read(roommateListChromeHiddenProvider);
-    if (current == hidden) return;
-    if (hidden) {
-      _suppressShowUntil = DateTime.now().add(const Duration(milliseconds: 280));
-    }
-    ref.read(roommateListChromeHiddenProvider.notifier).setHidden(hidden);
-  }
-
-  bool get _showSuppressed =>
-      _suppressShowUntil != null && DateTime.now().isBefore(_suppressShowUntil!);
-
-  bool _onPostsScroll(ScrollNotification notification) {
-    if (notification.metrics.axis != Axis.vertical || notification.depth != 0) return false;
-    final hidden = ref.read(roommateListChromeHiddenProvider);
-    if (notification is OverscrollNotification && notification.overscroll < 0 && !_showSuppressed) {
-      _scrollDistance = 0;
-      _setChromeHidden(false);
-      return false;
-    }
-    if (notification is! ScrollUpdateNotification) return false;
-
-    final delta = notification.scrollDelta ?? 0;
-    if (delta == 0) return false;
-    if (notification.metrics.pixels <= 4 && delta < 0 && !_showSuppressed) {
-      _scrollDistance = 0;
-      _setChromeHidden(false);
-      return false;
-    }
-
-    if (delta > 0 && _scrollDistance < 0) _scrollDistance = 0;
-    if (delta < 0 && _scrollDistance > 0) _scrollDistance = 0;
-    _scrollDistance += delta;
-
-    if (!hidden && _scrollDistance > 56) {
-      _scrollDistance = 0;
-      _setChromeHidden(true);
-    } else if (hidden && _scrollDistance < -24 && !_showSuppressed) {
-      _scrollDistance = 0;
-      _setChromeHidden(false);
-    }
-    return false;
-  }
-
-  @override
-  void dispose() {
-    ref.read(roommateListChromeHiddenProvider.notifier).setHidden(false);
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(userProfileProvider).value;
     final postsAsync = ref.watch(roommatePostsStreamProvider(_currentFilters));
-    final chromeHidden = ref.watch(roommateListChromeHiddenProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -269,31 +205,17 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
         bottom: false,
         child: Column(
           children: [
-            AnimatedSize(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.topCenter,
-              child: chromeHidden
-                  ? const SizedBox(width: double.infinity, height: 0)
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildFigmaAppBar(profile),
-                        _buildSegmentTabSwitcher(),
-                      ],
-                    ),
-            ),
+            _buildFigmaAppBar(profile),
+
+            _buildSegmentTabSwitcher(),
 
             Expanded(
               child: postsAsync.when(
                 skipLoadingOnReload: true,
-                data: (posts) => NotificationListener<ScrollNotification>(
-                  onNotification: _onPostsScroll,
-                  child: RefreshIndicator(
-                    color: AppColors.primary,
-                    onRefresh: _reloadPosts,
-                    child: _buildPostsList(posts),
-                  ),
+                data: (posts) => RefreshIndicator(
+                  color: AppColors.primary,
+                  onRefresh: _reloadPosts,
+                  child: _buildPostsList(_sortedPosts(posts)),
                 ),
                 loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
                 error: (err, _) => Center(
@@ -346,6 +268,24 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
           ),
           Row(
             children: [
+              PopupMenuButton<_RoommateSort>(
+                tooltip: 'Sắp xếp',
+                initialValue: _sort,
+                offset: const Offset(0, 44),
+                color: Colors.white,
+                elevation: 8,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                onSelected: (value) => setState(() => _sort = value),
+                itemBuilder: (context) => [
+                  _sortMenuItem(_RoommateSort.newest, Icons.article_outlined, 'Bài đăng mới nhất'),
+                  _sortMenuItem(_RoommateSort.hobby, Icons.favorite_border, 'Sở thích phù hợp'),
+                  _sortMenuItem(_RoommateSort.priceLow, Icons.payments_outlined, 'Giá thấp đến cao'),
+                ],
+                child: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(Icons.tune_rounded, color: Color(0xFF334155), size: 24),
+                ),
+              ),
               IconButton(
                 icon: const Icon(Icons.search_rounded, color: Color(0xFF334155), size: 26),
                 onPressed: _openRoommateSearch,
@@ -477,10 +417,54 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
     );
   }
 
+  PopupMenuItem<_RoommateSort> _sortMenuItem(_RoommateSort value, IconData icon, String label) {
+    final selected = _sort == value;
+    final color = selected ? AppColors.primary : const Color(0xFF0F172A);
+    return PopupMenuItem<_RoommateSort>(
+      value: value,
+      height: 48,
+      child: Row(
+        children: [
+          Icon(icon, size: 22, color: color),
+          const SizedBox(width: 12),
+          Text(label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: color)),
+        ],
+      ),
+    );
+  }
+
+  double _sortPrice(RoommatePostModel post) {
+    if (post.pricePerPerson > 0) return post.pricePerPerson;
+    return post.budgetMax;
+  }
+
+  List<RoommatePostModel> _sortedPosts(List<RoommatePostModel> posts) {
+    final list = List<RoommatePostModel>.from(posts);
+    switch (_sort) {
+      case _RoommateSort.newest:
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      case _RoommateSort.hobby:
+        list.sort((a, b) {
+          final left = a.matchRate < 0 ? -1 : a.matchRate;
+          final right = b.matchRate < 0 ? -1 : b.matchRate;
+          final byRate = right.compareTo(left);
+          if (byRate != 0) return byRate;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+      case _RoommateSort.priceLow:
+        list.sort((a, b) {
+          final byPrice = _sortPrice(a).compareTo(_sortPrice(b));
+          if (byPrice != 0) return byPrice;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+    }
+    return list;
+  }
+
   /// Danh sách bài đăng
   Widget _buildPostsList(List<RoommatePostModel> posts) {
     return ListView(
-      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       children: [
         // Danh sách thẻ bài đăng
