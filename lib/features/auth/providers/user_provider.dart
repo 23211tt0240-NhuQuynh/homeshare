@@ -1,15 +1,9 @@
-<<<<<<< HEAD
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/role_resolver.dart';
+import '../../../core/services/image_storage_service.dart';
 import '../../../core/utils/id_generator.dart';
-=======
-import 'dart:math';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 import 'auth_provider.dart';
 
 /// Model thông tin người dùng HomeShare chuẩn hóa theo Database homeShare (DrawIO pkg_0: Tài khoản)
@@ -27,11 +21,8 @@ class UserProfile {
   final String hometown; // queQuan
   final int reputationScore; // diemUyTin
   final String occupation; // ngheNghiep
-<<<<<<< HEAD
   final String workplace; // noiLamViec
   final String bio; // gioiThieu
-=======
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   final List<String> hobbies; // soThich
   final DateTime? birthDate; // ngaySinh
   final DateTime? createdAt; // ngayTao
@@ -48,11 +39,7 @@ class UserProfile {
   String get id => uid;
   String get userCode => (_userCode != null && isValidUserCode(_userCode))
       ? _userCode
-<<<<<<< HEAD
       : generateUserCode(seed: uid, role: role);
-=======
-      : generateUserCode(seed: uid);
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   String get maNguoiDung => userCode;
   String get idNguoiDung => userCode;
   String get maDinhDanh => userCode;
@@ -64,7 +51,6 @@ class UserProfile {
   String get queQuan => hometown;
   int get diemUyTin => reputationScore;
   String get ngheNghiep => occupation;
-<<<<<<< HEAD
   String get noiLamViec => workplace;
   String get gioiThieu => bio;
   List<String> get soThich => hobbies;
@@ -73,13 +59,6 @@ class UserProfile {
   bool get isHost => role == 'host' || role == 'landlord' || role == 'chutro';
   bool get isAdmin => role == 'admin' || role == 'administrator' || role == 'quantri';
   bool get hasValidRole => RoleResolver.isValidRole(role);
-=======
-  List<String> get soThich => hobbies;
-  String get vaiTro => role;
-  bool get isRenter => role == 'renter';
-  bool get isHost => role == 'host';
-  bool get isAdmin => role == 'admin' || role == 'quantri';
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   DateTime? get ngaySinh => birthDate;
   DateTime? get ngayTao => createdAt;
   bool get daXacThucCccd => isCccdVerified;
@@ -89,7 +68,6 @@ class UserProfile {
   String get anhMatTruoc => cccdFrontImageUrl;
   String get anhMatSau => cccdBackImageUrl;
 
-<<<<<<< HEAD
   /// Kiểm tra mã người dùng có đúng chuẩn CT001, NT001, ADMIN01 (hoặc chuẩn cũ 382AN) hay không
   static bool isValidUserCode(String code) {
     final clean = code.trim().toUpperCase();
@@ -99,35 +77,6 @@ class UserProfile {
   /// Sinh mã người dùng theo vai trò: Chủ trọ (CT001), Người thuê (NT001), Quản trị viên (ADMIN01)
   static String generateUserCode({String? seed, String? role}) {
     return IdGenerator.userCode(role: role ?? 'renter', seed: seed);
-=======
-  /// Kiểm tra mã người dùng có đúng chuẩn 5 ký tự (3 số đầu + 2 chữ sau) hay không
-  static bool isValidUserCode(String code) {
-    return RegExp(r'^\d{3}[A-Z]{2}$').hasMatch(code.trim().toUpperCase());
-  }
-
-  /// Sinh mã người dùng chuẩn 5 ký tự gồm 3 số đầu và 2 chữ cái sau (vd: 382AN, 825TO)
-  /// - Nếu truyền seed (UID), thuật toán băm tất định (deterministic) đảm bảo mã luôn cố định
-  /// - Nếu không có seed, sinh ngẫu nhiên chuẩn 3 số (100-999) + 2 chữ in hoa (A-Z)
-  static String generateUserCode({String? seed}) {
-    if (seed != null && seed.isNotEmpty) {
-      var hash = 0;
-      for (var i = 0; i < seed.length; i++) {
-        hash = (hash * 31 + seed.codeUnitAt(i)) & 0x7FFFFFFF;
-      }
-      final digits = (100 + (hash % 900)).toString();
-      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-      final char1 = letters[(hash ~/ 900) % 26];
-      final char2 = letters[(hash ~/ 23400) % 26];
-      return '$digits$char1$char2';
-    } else {
-      final rand = Random();
-      final digits = (100 + rand.nextInt(900)).toString();
-      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-      final char1 = letters[rand.nextInt(letters.length)];
-      final char2 = letters[rand.nextInt(letters.length)];
-      return '$digits$char1$char2';
-    }
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   }
 
   UserProfile({
@@ -143,11 +92,8 @@ class UserProfile {
     this.hometown = '',
     this.reputationScore = 100,
     this.occupation = 'Sinh viên',
-<<<<<<< HEAD
     this.workplace = '',
     this.bio = '',
-=======
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     this.hobbies = const [],
     this.birthDate,
     this.createdAt,
@@ -161,93 +107,41 @@ class UserProfile {
     this.cccdBackImageUrl = '',
   }) : _userCode = (userCode != null && isValidUserCode(userCode))
             ? userCode.trim().toUpperCase()
-<<<<<<< HEAD
             : generateUserCode(seed: uid, role: role);
 
   factory UserProfile.fromMap(Map<String, dynamic> data, String uid) {
-    final rawHobbies = (data['soThich'] ?? data['hobbies']) as List<dynamic>?;
-=======
-            : generateUserCode(seed: uid);
-
-  factory UserProfile.fromMap(Map<String, dynamic> data, String uid) {
     final rawHobbies = (data['hobbies'] ?? data['soThich']) as List<dynamic>?;
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     final parsedHobbies = rawHobbies
             ?.map((e) => e?.toString() ?? '')
             .where((e) => e.isNotEmpty)
             .toList() ??
         [];
 
-<<<<<<< HEAD
     final resolvedRole = RoleResolver.extractRoleFromMap(data) ??
         (data['vaiTro'] != null ? RoleResolver.normalizeRole(data['vaiTro']) : null) ??
         (data['role'] != null ? RoleResolver.normalizeRole(data['role']) : null) ??
         'renter';
 
-    final rawUserCode = (data['maNguoiDung'] ?? data['userCode'] ?? data['idNguoiDung'])?.toString();
-    final userCode = (rawUserCode != null && isValidUserCode(rawUserCode))
-        ? rawUserCode.trim().toUpperCase()
-        : generateUserCode(seed: uid, role: resolvedRole);
-=======
     final rawUserCode = (data['userCode'] ?? data['maNguoiDung'] ?? data['idNguoiDung'])?.toString();
     final userCode = (rawUserCode != null && isValidUserCode(rawUserCode))
         ? rawUserCode.trim().toUpperCase()
-        : generateUserCode(seed: uid);
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
+        : generateUserCode(seed: uid, role: resolvedRole);
 
     return UserProfile(
       uid: uid,
       userCode: userCode,
       email: data['email'] ?? '',
-<<<<<<< HEAD
-      displayName: data['hoTen'] ?? data['displayName'] ?? 'Người dùng HomeShare',
-      phoneNumber: data['soDienThoai'] ?? data['phoneNumber'] ?? '',
-      role: resolvedRole,
-      avatarUrl: data['anhDaiDien'] ?? data['avatarUrl'] ?? '',
-      gender: data['gioiTinh'] ?? data['gender'] ?? 'Nam',
-      address: data['diaChi'] ?? data['address'] ?? '',
-      hometown: data['queQuan'] ?? data['hometown'] ?? '',
-      reputationScore: ((data['diemUyTin'] ?? data['reputationScore']) as num?)?.toInt() ?? 100,
-      occupation: data['ngheNghiep'] ?? data['occupation'] ?? 'Sinh viên',
-      workplace: data['workplace'] ?? data['noiLamViec'] ?? '',
-      bio: data['bio'] ?? data['gioiThieu'] ?? '',
-      hobbies: parsedHobbies,
-      birthDate: (data['ngaySinh'] is Timestamp)
-          ? (data['ngaySinh'] as Timestamp).toDate()
-          : (data['birthDate'] is Timestamp)
-              ? (data['birthDate'] as Timestamp).toDate()
-              : null,
-      createdAt: (data['ngayTao'] is Timestamp)
-          ? (data['ngayTao'] as Timestamp).toDate()
-          : (data['createdAt'] is Timestamp)
-              ? (data['createdAt'] as Timestamp).toDate()
-              : null,
-      isCccdVerified: (data['daXacThucCccd'] ??
-              data['isCccdVerified'] ??
-              (data['trangThaiXacMinh'] == 'daXacThuc') ??
-              (data['trangThaiXacMinh_id'] == 'daXacThuc')) ??
-          false,
-      cccdNumber: data['soCccd'] ?? data['soGiayTo'] ?? data['cccdNumber'] ?? '',
-      cccdFullName: data['hoTenCccd'] ?? data['cccdFullName'] ?? '',
-      cccdIssueDate: data['ngayCap'] ?? data['cccdIssueDate'] ?? '',
-      cccdHometown: data['queQuanCccd'] ?? data['cccdHometown'] ?? '',
-      cccdVerifiedAt: (data['ngayXacMinh'] is Timestamp)
-          ? (data['ngayXacMinh'] as Timestamp).toDate()
-          : (data['cccdVerifiedAt'] is Timestamp)
-              ? (data['cccdVerifiedAt'] as Timestamp).toDate()
-              : null,
-      cccdFrontImageUrl: data['anhMatTruoc'] ?? data['cccdFrontImageUrl'] ?? '',
-      cccdBackImageUrl: data['anhMatSau'] ?? data['cccdBackImageUrl'] ?? '',
-=======
       displayName: data['displayName'] ?? data['hoTen'] ?? 'Người dùng HomeShare',
       phoneNumber: data['phoneNumber'] ?? data['soDienThoai'] ?? '',
-      role: (data['role'] ?? data['vaiTro'] ?? 'renter').toString(),
+      role: resolvedRole,
       avatarUrl: data['avatarUrl'] ?? data['anhDaiDien'] ?? '',
       gender: data['gender'] ?? data['gioiTinh'] ?? 'Nam',
       address: data['address'] ?? data['diaChi'] ?? '',
       hometown: data['hometown'] ?? data['queQuan'] ?? '',
       reputationScore: ((data['reputationScore'] ?? data['diemUyTin']) as num?)?.toInt() ?? 100,
       occupation: data['occupation'] ?? data['ngheNghiep'] ?? 'Sinh viên',
+      workplace: data['workplace'] ?? data['noiLamViec'] ?? '',
+      bio: data['bio'] ?? data['gioiThieu'] ?? '',
       hobbies: parsedHobbies,
       birthDate: (data['birthDate'] is Timestamp)
           ? (data['birthDate'] as Timestamp).toDate()
@@ -259,11 +153,15 @@ class UserProfile {
           : (data['ngayTao'] is Timestamp)
               ? (data['ngayTao'] as Timestamp).toDate()
               : null,
-      isCccdVerified: (data['isCccdVerified'] ?? (data['trangThaiXacMinh_id'] == 'daXacThuc')) ?? false,
-      cccdNumber: data['cccdNumber'] ?? data['soGiayTo'] ?? data['soCccd'] ?? '',
+      isCccdVerified: (data['isCccdVerified'] ??
+              data['daXacThucCccd'] ??
+              (data['trangThaiXacMinh'] == 'daXacThuc') ??
+              (data['trangThaiXacMinh_id'] == 'daXacThuc')) ??
+          false,
+      cccdNumber: data['cccdNumber'] ?? data['soCccd'] ?? data['soGiayTo'] ?? '',
       cccdFullName: data['cccdFullName'] ?? data['hoTenCccd'] ?? '',
-      cccdIssueDate: data['cccdIssueDate'] ?? '',
-      cccdHometown: data['cccdHometown'] ?? '',
+      cccdIssueDate: data['cccdIssueDate'] ?? data['ngayCap'] ?? '',
+      cccdHometown: data['cccdHometown'] ?? data['queQuanCccd'] ?? '',
       cccdVerifiedAt: (data['cccdVerifiedAt'] is Timestamp)
           ? (data['cccdVerifiedAt'] as Timestamp).toDate()
           : (data['ngayXacMinh'] is Timestamp)
@@ -271,85 +169,36 @@ class UserProfile {
               : null,
       cccdFrontImageUrl: data['cccdFrontImageUrl'] ?? data['anhMatTruoc'] ?? '',
       cccdBackImageUrl: data['cccdBackImageUrl'] ?? data['anhMatSau'] ?? '',
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,
-<<<<<<< HEAD
-      'maNguoiDung': userCode,
-      'email': email,
-      'hoTen': displayName,
-      'soDienThoai': phoneNumber,
-      'vaiTro': role,
-      'anhDaiDien': avatarUrl,
-      'gioiTinh': gender,
-      'diaChi': address,
-      'queQuan': hometown,
-      'diemUyTin': reputationScore,
-      'ngheNghiep': occupation,
-      'workplace': workplace,
-      'noiLamViec': workplace,
-      'bio': bio,
-      'gioiThieu': bio,
-      'soThich': hobbies,
-      'daXacThucCccd': isCccdVerified,
-      'trangThaiXacMinh': isCccdVerified ? 'daXacThuc' : 'chuaXacThuc',
-      'soCccd': cccdNumber,
-      'hoTenCccd': cccdFullName,
-      'ngayCap': cccdIssueDate,
-      'queQuanCccd': cccdHometown,
-      'anhMatTruoc': cccdFrontImageUrl,
-      'anhMatSau': cccdBackImageUrl,
-      if (birthDate != null) 'ngaySinh': Timestamp.fromDate(birthDate!),
-      if (cccdVerifiedAt != null) 'ngayXacMinh': Timestamp.fromDate(cccdVerifiedAt!),
-=======
       'userCode': userCode,
-      'maNguoiDung': userCode,
-      'idNguoiDung': userCode,
       'email': email,
       'displayName': displayName,
-      'hoTen': displayName,
       'phoneNumber': phoneNumber,
-      'soDienThoai': phoneNumber,
       'role': role,
-      'vaiTro': role,
       'avatarUrl': avatarUrl,
-      'anhDaiDien': avatarUrl,
       'gender': gender,
-      'gioiTinh': gender,
       'address': address,
-      'diaChi': address,
       'hometown': hometown,
-      'queQuan': hometown,
       'reputationScore': reputationScore,
-      'diemUyTin': reputationScore,
       'occupation': occupation,
-      'ngheNghiep': occupation,
+      'workplace': workplace,
+      'bio': bio,
       'hobbies': hobbies,
-      'soThich': hobbies,
       'isCccdVerified': isCccdVerified,
-      'daXacThucCccd': isCccdVerified,
-      'trangThaiXacMinh_id': isCccdVerified ? 'daXacThuc' : 'chuaXacThuc',
       'cccdNumber': cccdNumber,
-      'soGiayTo': cccdNumber,
-      'soCccd': cccdNumber,
       'cccdFullName': cccdFullName,
       'cccdIssueDate': cccdIssueDate,
       'cccdHometown': cccdHometown,
       'cccdFrontImageUrl': cccdFrontImageUrl,
-      'anhMatTruoc': cccdFrontImageUrl,
       'cccdBackImageUrl': cccdBackImageUrl,
-      'anhMatSau': cccdBackImageUrl,
       if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate!),
-      if (birthDate != null) 'ngaySinh': Timestamp.fromDate(birthDate!),
       if (cccdVerifiedAt != null) 'cccdVerifiedAt': Timestamp.fromDate(cccdVerifiedAt!),
-      if (cccdVerifiedAt != null) 'ngayXacMinh': Timestamp.fromDate(cccdVerifiedAt!),
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
-      'ngayTao': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
     };
   }
 
@@ -366,11 +215,8 @@ class UserProfile {
     String? hometown,
     int? reputationScore,
     String? occupation,
-<<<<<<< HEAD
     String? workplace,
     String? bio,
-=======
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     List<String>? hobbies,
     DateTime? birthDate,
     DateTime? createdAt,
@@ -396,11 +242,8 @@ class UserProfile {
       hometown: hometown ?? this.hometown,
       reputationScore: reputationScore ?? this.reputationScore,
       occupation: occupation ?? this.occupation,
-<<<<<<< HEAD
       workplace: workplace ?? this.workplace,
       bio: bio ?? this.bio,
-=======
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       hobbies: hobbies ?? this.hobbies,
       birthDate: birthDate ?? this.birthDate,
       createdAt: createdAt ?? this.createdAt,
@@ -431,31 +274,30 @@ Future<void> saveCccdVerificationToBackend({
   final firestore = FirebaseFirestore.instance;
   final updateData = <String, dynamic>{
     'isCccdVerified': true,
-    'daXacThucCccd': true,
-    'trangThaiXacMinh_id': 'daXacThuc',
     'cccdNumber': cccdNumber,
-    'soGiayTo': cccdNumber,
-    'soCccd': cccdNumber,
     'cccdFullName': cccdFullName,
-    'hoTenCccd': cccdFullName,
     'displayName': cccdFullName,
-    'hoTen': cccdFullName,
     'cccdIssueDate': cccdIssueDate,
     'cccdHometown': cccdHometown,
     'gender': gender,
-    'gioiTinh': gender,
     if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate),
-    if (birthDate != null) 'ngaySinh': Timestamp.fromDate(birthDate),
-    if (cccdFrontImageUrl.isNotEmpty) ...{
-      'cccdFrontImageUrl': cccdFrontImageUrl,
-      'anhMatTruoc': cccdFrontImageUrl,
-    },
-    if (cccdBackImageUrl.isNotEmpty) ...{
-      'cccdBackImageUrl': cccdBackImageUrl,
-      'anhMatSau': cccdBackImageUrl,
-    },
+    if (cccdFrontImageUrl.isNotEmpty) 'cccdFrontImageUrl': cccdFrontImageUrl,
+    if (cccdBackImageUrl.isNotEmpty) 'cccdBackImageUrl': cccdBackImageUrl,
     'cccdVerifiedAt': FieldValue.serverTimestamp(),
-    'ngayXacMinh': FieldValue.serverTimestamp(),
+    'hoTen': FieldValue.delete(),
+    'gioiTinh': FieldValue.delete(),
+    'ngaySinh': FieldValue.delete(),
+    'daXacThucCccd': FieldValue.delete(),
+    'trangThaiXacMinh': FieldValue.delete(),
+    'trangThaiXacMinh_id': FieldValue.delete(),
+    'soCccd': FieldValue.delete(),
+    'soGiayTo': FieldValue.delete(),
+    'hoTenCccd': FieldValue.delete(),
+    'ngayCap': FieldValue.delete(),
+    'queQuanCccd': FieldValue.delete(),
+    'anhMatTruoc': FieldValue.delete(),
+    'anhMatSau': FieldValue.delete(),
+    'ngayXacMinh': FieldValue.delete(),
   };
 
   try {
@@ -478,6 +320,68 @@ Future<void> saveCccdVerificationToBackend({
   } catch (_) {}
 }
 
+bool _userFieldMissing(Object? value) {
+  if (value == null) return true;
+  if (value is String && value.trim().isEmpty) return true;
+  return false;
+}
+
+/// Chép giá trị sang tên tiếng Anh nếu bản tiếng Anh đang trống, rồi xóa bản trùng.
+Map<String, dynamic> englishUserFieldPatch(Map<String, dynamic> data) {
+  final patch = <String, dynamic>{};
+
+  void move(String english, List<String> aliases) {
+    if (_userFieldMissing(data[english])) {
+      for (final alias in aliases) {
+        final value = data[alias];
+        if (_userFieldMissing(value)) continue;
+        patch[english] = value;
+        break;
+      }
+    }
+    for (final alias in aliases) {
+      if (data.containsKey(alias)) patch[alias] = FieldValue.delete();
+    }
+  }
+
+  move('displayName', ['hoTen']);
+  move('phoneNumber', ['soDienThoai']);
+  move('userCode', ['maNguoiDung', 'idNguoiDung']);
+  move('createdAt', ['ngayTao']);
+  move('reputationScore', ['diemUyTin']);
+  move('gender', ['gioiTinh']);
+  move('address', ['diaChi']);
+  move('hometown', ['queQuan']);
+  move('occupation', ['ngheNghiep']);
+  move('workplace', ['noiLamViec']);
+  move('bio', ['gioiThieu']);
+  move('birthDate', ['ngaySinh']);
+  move('cccdNumber', ['soCccd', 'soGiayTo']);
+  move('cccdFullName', ['hoTenCccd']);
+  move('cccdIssueDate', ['ngayCap']);
+  move('cccdHometown', ['queQuanCccd']);
+  move('cccdFrontImageUrl', ['anhMatTruoc']);
+  move('cccdBackImageUrl', ['anhMatSau']);
+  move('cccdVerifiedAt', ['ngayXacMinh']);
+
+  if (_userFieldMissing(data['role'])) {
+    final named = data['vaiTro'];
+    if (named is String && named.trim().isNotEmpty) {
+      patch['role'] = named.trim();
+    }
+  }
+  if (data['isCccdVerified'] == null &&
+      (data['daXacThucCccd'] == true ||
+          data['trangThaiXacMinh'] == 'daXacThuc' ||
+          data['trangThaiXacMinh_id'] == 'daXacThuc')) {
+    patch['isCccdVerified'] = true;
+  }
+  for (final key in ['vaiTro', 'vaiTro_id', 'daXacThucCccd', 'trangThaiXacMinh', 'trangThaiXacMinh_id']) {
+    if (data.containsKey(key)) patch[key] = FieldValue.delete();
+  }
+  return patch;
+}
+
 // StreamProvider lấy thông tin chi tiết user từ Cloud Firestore
 final userProfileProvider = StreamProvider<UserProfile?>((ref) {
   final user = ref.watch(currentUserProvider);
@@ -487,13 +391,9 @@ final userProfileProvider = StreamProvider<UserProfile?>((ref) {
       .collection('users')
       .doc(user.uid)
       .snapshots()
-      .map((snapshot) {
+      .asyncMap((snapshot) async {
     if (!snapshot.exists || snapshot.data() == null) {
-<<<<<<< HEAD
       final code = UserProfile.generateUserCode(seed: user.uid, role: 'renter');
-=======
-      final code = UserProfile.generateUserCode(seed: user.uid);
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       return UserProfile(
         uid: user.uid,
         userCode: code,
@@ -504,26 +404,21 @@ final userProfileProvider = StreamProvider<UserProfile?>((ref) {
       );
     }
     final data = snapshot.data()!;
-<<<<<<< HEAD
     final resolvedRole = RoleResolver.extractRoleFromMap(data) ?? 'renter';
-    if (data['userCode'] == null || data['maNguoiDung'] == null) {
-      final code = UserProfile.generateUserCode(seed: user.uid, role: resolvedRole);
-=======
-    // Đảm bảo mã người dùng 5 ký tự luôn được lưu trong Firestore để Admin tìm kiếm
-    if (data['userCode'] == null || data['maNguoiDung'] == null) {
-      final code = UserProfile.generateUserCode(seed: user.uid);
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
-      FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'userCode': code,
-        'maNguoiDung': code,
-        'idNguoiDung': code,
-      }, SetOptions(merge: true));
+    final patch = englishUserFieldPatch(data);
+    if (data['userCode'] == null && data['maNguoiDung'] == null && data['idNguoiDung'] == null) {
+      patch['userCode'] = UserProfile.generateUserCode(seed: user.uid, role: resolvedRole);
     }
-    return UserProfile.fromMap(data, user.uid);
+    if (patch.isNotEmpty) {
+      FirebaseFirestore.instance.collection('users').doc(user.uid).set(patch, SetOptions(merge: true));
+    }
+    final profile = UserProfile.fromMap(data, user.uid);
+    final storedAvatar = await ImageStorageService().avatarDownloadUrl(user.uid);
+    if (storedAvatar == null) return profile;
+    return profile.copyWith(avatarUrl: storedAvatar);
   });
 });
 
-<<<<<<< HEAD
 // Cập nhật vai trò người dùng trong Firestore
 Future<void> updateUserRole({
   required String uid,
@@ -532,15 +427,12 @@ Future<void> updateUserRole({
   final normalized = RoleResolver.normalizeRole(newRole) ?? 'renter';
   await FirebaseFirestore.instance.collection('users').doc(uid).set({
     'role': normalized,
-    'vaiTro': normalized,
-    'vaiTro_id': normalized == 'host' ? 2 : (normalized == 'admin' ? 3 : 1),
+    'vaiTro': FieldValue.delete(),
+    'vaiTro_id': FieldValue.delete(),
   }, SetOptions(merge: true));
 }
 
 // Notifier quản lý Role hoạt động
-=======
-// Notifier quản lý Role hoạt động (Chỉ người dùng / Renter)
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 class ActiveRoleNotifier extends Notifier<String> {
   @override
   String build() {
@@ -548,11 +440,7 @@ class ActiveRoleNotifier extends Notifier<String> {
   }
 
   void switchRole(String role) {
-<<<<<<< HEAD
     state = RoleResolver.normalizeRole(role) ?? 'renter';
-=======
-    state = 'renter'; // Cố định role người dùng theo yêu cầu dự án
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   }
 }
 

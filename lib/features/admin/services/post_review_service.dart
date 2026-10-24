@@ -42,6 +42,12 @@ class PostReviewService {
 
     // ===== Lấy dữ liệu từ bảng posts =====
     final data = snap.data() ?? {};
+    final currentStatus = (data['status'] ?? 'pending').toString().toLowerCase();
+    if (approved &&
+        (currentStatus == 'rejected' || currentStatus == 'tuchoi') &&
+        data['hostResubmittedAt'] == null) {
+      throw StateError('Chủ trọ cần chỉnh sửa và gửi lại bài trước khi duyệt.');
+    }
     final hostId =
         (data['hostId'] ?? data['landlordId'] ?? data['userId'] ?? '')
             .toString();
@@ -80,6 +86,7 @@ class PostReviewService {
     // 1) Cập nhật bài đăng (chủ trọ đọc được các field này ngay trên post)
     batch.update(postRef, {
       'status': approved ? 'active' : 'rejected',
+      if (!approved) 'hostResubmittedAt': FieldValue.delete(),
       'rejectReason': approved ? FieldValue.delete() : cleanReason,
       'reviewedBy': performer,
       'reviewedAt': FieldValue.serverTimestamp(),

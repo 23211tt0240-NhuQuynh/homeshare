@@ -23,6 +23,8 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
   late TabController _tabController;
   final currencyFormatter = NumberFormat('#,###', 'vi_VN');
   bool _isProcessing = false;
+  double _commissionRate = 0.10;
+  bool _commissionRateFrozen = false;
 
   List<Map<String, dynamic>> _bookingDataList = [];
   Map<String, dynamic>? _hostProfile;
@@ -49,7 +51,23 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadCommissionRate();
     _loadData();
+  }
+
+  Future<void> _loadCommissionRate() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('system_configs')
+          .doc('platform_settings')
+          .get();
+      final rate = doc.data()?['commission_rate'];
+      if (rate is num && mounted && !_commissionRateFrozen) {
+        setState(() => _commissionRate = rate.toDouble().clamp(0, 100) / 100);
+      }
+    } catch (e) {
+      debugPrint('Không tải được hoa hồng khi xử lý đơn hủy: $e');
+    }
   }
 
   @override
@@ -88,6 +106,14 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
       }
 
       _bookingDataList = loaded;
+      for (final item in loaded) {
+        final savedRate = item['cancellationCommissionRate'];
+        if (savedRate is num) {
+          _commissionRate = savedRate.toDouble() / 100;
+          _commissionRateFrozen = true;
+          break;
+        }
+      }
     } catch (e) {
       debugPrint('Load cancellation data error: $e');
     }
@@ -100,8 +126,9 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
       if (src == null) continue;
       for (final k in keys) {
         final v = src[k];
-        if (v != null && v.toString().trim().isNotEmpty)
+        if (v != null && v.toString().trim().isNotEmpty) {
           return v.toString().trim();
+        }
       }
     }
     return '';
@@ -274,12 +301,13 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
     final bank = bankCtrl.text.trim();
     final account = accountCtrl.text.trim().replaceAll(RegExp(r'\s+'), '');
     if (bank.isEmpty || account.isEmpty || selectedCode == null) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Nhập ngân hàng và STK hợp lệ trước khi tạo QR.'),
           ),
         );
+      }
       return;
     }
     try {
@@ -315,10 +343,11 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
         );
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Không lưu được tài khoản: $e')));
+      }
     }
   }
 
@@ -344,7 +373,80 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
       final renterId = (first['renterId'] ?? '').toString();
       final recipientId = targetRole == 'host' ? hostId : renterId;
 
-      if (recipientId.isNotEmpty && recipientId != 'guest') {
+      final refs = widget.bookingIds
+          .map((id) => db.collection('bookings').doc(id))
+          .toList();
+      final shouldComplete = await db.runTransaction<bool>((tx) async {
+        final snapshots = <DocumentSnapshot<Map<String, dynamic>>>[];
+        for (final ref in refs) {
+          final snap = await tx.get(ref);
+          if (!snap.exists) throw StateError('Không tìm thấy đơn ${ref.id}.');
+          snapshots.add(snap);
+        }
+        for (var i = 0; i < refs.length; i++) {
+          final data = snapshots[i].data() ?? {};
+          final alreadyHandled = targetRole == 'host'
+              ? data['cancellationHostPaid'] == true
+              : data['cancellationRenterRefunded'] == true;
+          if (alreadyHandled || data['isRefunded'] == true) {
+            throw StateError(
+              'Đơn đã được ghi nhận chuyển tiền, không thể xác nhận lần nữa.',
+            );
+          }
+        }
+        for (var i = 0; i < refs.length; i++) {
+          final data = snapshots[i].data() ?? {};
+          final fullPayment = [
+            'full',
+            'toanbo',
+            'trahet',
+          ].contains((data['paymentOption'] ?? '').toString().toLowerCase());
+          final otherSideDone = targetRole == 'host'
+              ? data['cancellationRenterRefunded'] == true
+              : data['cancellationHostPaid'] == true;
+          final completesOrder = !fullPayment || otherSideDone;
+          final orderAmount = BookingUtils.amount(data);
+          final hostShare = fullPayment
+              ? (orderAmount / 2).round()
+              : orderAmount.round();
+          final orderPlatformFee = (hostShare * _commissionRate).round();
+          tx.update(refs[i], {
+            targetRole == 'host'
+                    ? 'cancellationHostPaid'
+                    : 'cancellationRenterRefunded':
+                true,
+            targetRole == 'host'
+                    ? 'cancellationHostPaidAt'
+                    : 'cancellationRenterRefundedAt':
+                FieldValue.serverTimestamp(),
+            'cancellationPlatformFee': orderPlatformFee,
+            'cancellationCommissionRate': _commissionRate * 100,
+            if (completesOrder) 'isRefunded': true,
+            if (completesOrder) 'refundedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+        return true;
+      });
+      if (mounted) {
+        setState(() {
+          for (final booking in _bookingDataList) {
+            booking[targetRole == 'host'
+                    ? 'cancellationHostPaid'
+                    : 'cancellationRenterRefunded'] =
+                true;
+            final full = ['full', 'toanbo', 'trahet'].contains(
+              (booking['paymentOption'] ?? '').toString().toLowerCase(),
+            );
+            final otherDone = targetRole == 'host'
+                ? booking['cancellationRenterRefunded'] == true
+                : booking['cancellationHostPaid'] == true;
+            if (!full || otherDone) booking['isRefunded'] = true;
+          }
+        });
+      }
+
+      if (recipientId.isNotEmpty && recipientId != 'guest' && shouldComplete) {
         await db.collection('notifications').add({
           'recipientId': recipientId,
           'recipientRole': targetRole,
@@ -356,14 +458,6 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
           'isRead': false,
           'createdAt': FieldValue.serverTimestamp(),
         });
-      }
-
-      for (final bId in widget.bookingIds) {
-        await db.collection('bookings').doc(bId).set({
-          'isRefunded': true,
-          'refundedAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
       }
 
       final auditRef = db.collection('audit_logs').doc();
@@ -395,6 +489,12 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
               recipientRole: targetRole,
               bankDetails: bankDetails,
               amount: amount,
+              isFullPayment: ['full', 'toanbo', 'trahet'].contains(
+                (_bookingDataList.first['paymentOption'] ?? '')
+                    .toString()
+                    .toLowerCase(),
+              ),
+              commissionRate: _commissionRate,
               totalDeposit: totalDeposit,
               renterRefund: renterRefund,
               hostCompensation: hostCompensation,
@@ -445,17 +545,27 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
       (acc, item) => acc + BookingUtils.amount(item),
     );
 
-    // Tính toán theo chính sách:
-    // Tổng cọc: 100%
-    // Phí sàn: 5% (cấn trừ)
-    // Bồi thường chủ trọ: 10%
-    // Hoàn người thuê: 85% (sau khi trừ 15% phí hủy phòng)
-    final split = BookingUtils.cancellationSplit(totalDeposit);
-    final platformFee = split['platformFee'] ?? (totalDeposit * 0.05).round();
-    final hostCompensation =
-        split['hostAmount'] ?? (totalDeposit * 0.10).round();
-    final renterRefund = split['refundAmount'] ?? (totalDeposit * 0.85).round();
-    final cancellationPenaltyTotal = platformFee + hostCompensation; // 15%
+    final isFullPayment = [
+      'full',
+      'toanbo',
+      'trahet',
+    ].contains((first['paymentOption'] ?? '').toString().toLowerCase());
+    var hostGross = 0;
+    var renterRefund = 0;
+    var platformFee = 0;
+    for (final booking in _bookingDataList) {
+      final amount = BookingUtils.amount(booking).round();
+      final full = [
+        'full',
+        'toanbo',
+        'trahet',
+      ].contains((booking['paymentOption'] ?? '').toString().toLowerCase());
+      final landlordShare = full ? (amount / 2).round() : amount;
+      hostGross += landlordShare;
+      if (full) renterRefund += amount - landlordShare;
+      platformFee += (landlordShare * _commissionRate).round();
+    }
+    final hostCompensation = hostGross - platformFee;
 
     final hostName = _pick(
       [_hostProfile, first],
@@ -533,66 +643,83 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
         scrolledUnderElevation: 0,
         title: const AdminBrandedTitle(title: 'Hóa đơn đơn hủy'),
         centerTitle: false,
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: const Color(0xFF398FC0),
-          unselectedLabelColor: const Color(0xFF667085),
-          indicatorColor: const Color(0xFF398FC0),
-          indicatorWeight: 3,
-          labelStyle: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 13.5,
-          ),
-          tabs: const [
-            Tab(
-              icon: Icon(Icons.real_estate_agent_outlined, size: 20),
-              text: '1. GỬI CHỦ TRỌ',
-            ),
-            Tab(
-              icon: Icon(Icons.person_outline_rounded, size: 20),
-              text: '2. GỬI NGƯỜI THUÊ',
-            ),
-          ],
-        ),
+        bottom: isFullPayment
+            ? TabBar(
+                controller: _tabController,
+                labelColor: const Color(0xFF398FC0),
+                unselectedLabelColor: const Color(0xFF667085),
+                indicatorColor: const Color(0xFF398FC0),
+                indicatorWeight: 3,
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13.5,
+                ),
+                tabs: const [
+                  Tab(
+                    icon: Icon(Icons.real_estate_agent_outlined, size: 20),
+                    text: '1. GỬI CHỦ TRỌ',
+                  ),
+                  Tab(
+                    icon: Icon(Icons.person_outline_rounded, size: 20),
+                    text: '2. GỬI NGƯỜI THUÊ',
+                  ),
+                ],
+              )
+            : null,
       ),
       body: AdminPageBackdrop(
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            // ── TAB 1: HÓA ĐƠN GỬI CHỦ TRỌ ──
-            _buildHostInvoiceTab(
-              orderCodes: orderCodes,
-              transferReference: transferReference,
-              hostName: hostName.isNotEmpty ? hostName : 'Chủ trọ',
-              hostPhone: hostPhone,
-              hostBank: hostBank,
-              hostAcc: hostAcc,
-              hostBankCode: hostBankCode,
-              hostId: (first['hostId'] ?? '').toString(),
-              totalDeposit: totalDeposit.round(),
-              platformFee: platformFee,
-              hostCompensation: hostCompensation,
-              renterRefund: renterRefund,
-            ),
-
-            // ── TAB 2: HÓA ĐƠN GỬI NGƯỜI THUÊ ──
-            _buildRenterInvoiceTab(
-              orderCodes: orderCodes,
-              transferReference: transferReference,
-              renterName: renterName.isNotEmpty ? renterName : 'Khách thuê',
-              renterPhone: renterPhone,
-              renterBank: renterBank,
-              renterAcc: renterAcc,
-              renterBankCode: renterBankCode,
-              renterId: (first['renterId'] ?? '').toString(),
-              totalDeposit: totalDeposit.round(),
-              platformFee: platformFee,
-              hostCompensation: hostCompensation,
-              cancellationPenaltyTotal: cancellationPenaltyTotal,
-              renterRefund: renterRefund,
-            ),
-          ],
-        ),
+        child: isFullPayment
+            ? TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildHostInvoiceTab(
+                    orderCodes: orderCodes,
+                    transferReference: transferReference,
+                    hostName: hostName.isNotEmpty ? hostName : 'Chủ trọ',
+                    hostPhone: hostPhone,
+                    hostBank: hostBank,
+                    hostAcc: hostAcc,
+                    hostBankCode: hostBankCode,
+                    hostId: (first['hostId'] ?? '').toString(),
+                    totalDeposit: totalDeposit.round(),
+                    platformFee: platformFee,
+                    hostCompensation: hostCompensation,
+                    renterRefund: renterRefund,
+                    isFullPayment: isFullPayment,
+                  ),
+                  _buildRenterInvoiceTab(
+                    orderCodes: orderCodes,
+                    transferReference: transferReference,
+                    renterName: renterName.isNotEmpty
+                        ? renterName
+                        : 'Khách thuê',
+                    renterPhone: renterPhone,
+                    renterBank: renterBank,
+                    renterAcc: renterAcc,
+                    renterBankCode: renterBankCode,
+                    renterId: (first['renterId'] ?? '').toString(),
+                    totalDeposit: totalDeposit.round(),
+                    platformFee: platformFee,
+                    hostCompensation: hostCompensation,
+                    renterRefund: renterRefund,
+                  ),
+                ],
+              )
+            : _buildHostInvoiceTab(
+                orderCodes: orderCodes,
+                transferReference: transferReference,
+                hostName: hostName.isNotEmpty ? hostName : 'Chủ trọ',
+                hostPhone: hostPhone,
+                hostBank: hostBank,
+                hostAcc: hostAcc,
+                hostBankCode: hostBankCode,
+                hostId: (first['hostId'] ?? '').toString(),
+                totalDeposit: totalDeposit.round(),
+                platformFee: platformFee,
+                hostCompensation: hostCompensation,
+                renterRefund: renterRefund,
+                isFullPayment: isFullPayment,
+              ),
       ),
     );
   }
@@ -611,8 +738,9 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
     required int platformFee,
     required int hostCompensation,
     required int renterRefund,
+    required bool isFullPayment,
   }) {
-    final memo = _transferMemo('BOI THUONG', transferReference);
+    final memo = _transferMemo('QUYET TOAN HUY', transferReference);
     final bankBin = hostBankCode == null ? null : _bankBins[hostBankCode];
     final qrPayload = (bankBin != null && hostAcc.isNotEmpty)
         ? VietQRHelper.generateNapasEmvcoPayload(
@@ -623,42 +751,319 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
             addInfo: memo.length > 25 ? memo.substring(0, 25) : memo,
           )
         : null;
+    final hostGross = hostCompensation + platformFee;
+    final hostBankLine =
+        '${hostBank.isEmpty ? 'Chưa cập nhật ngân hàng' : hostBank} - '
+        '${hostAcc.isEmpty ? 'chưa có STK' : hostAcc}';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Banner thông tin
+          // Thông tin người nhận, cùng cấu trúc với hóa đơn quyết toán.
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFE9F5FC),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFB2DDFF)),
+              border: Border.all(color: const Color(0xFFDCEAF5)),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.info_outline_rounded,
-                  color: Color(0xFF398FC0),
-                  size: 22,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE9F5FC),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.home_work_rounded,
+                        color: Color(0xFF398FC0),
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        hostName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF101828),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF0C7),
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: const Text(
+                        'Chờ thanh toán',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFB54708),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Expanded(
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Ngân hàng: $hostBankLine',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: hostAcc.isEmpty
+                              ? const Color(0xFFB42318)
+                              : const Color(0xFF667085),
+                        ),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _editBankAccount(
+                        role: 'host',
+                        userId: hostId,
+                        currentBank: hostBank,
+                        currentAccount: hostAcc,
+                      ),
+                      icon: const Icon(Icons.edit_rounded, size: 14),
+                      label: Text(hostAcc.isEmpty ? 'Nhập STK' : 'Đổi STK'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF398FC0),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '📅 Kỳ đối soát: ${DateFormat('dd/MM/yyyy').format(DateTime.now())}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF344054),
+                      ),
+                    ),
+                    Text(
+                      '${widget.bookingIds.length} đơn hủy',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFD92D20),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Tổng tiền thực chuyển; giữ cùng thẻ tổng quan như hóa đơn cọc.
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFDCEAF5)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFECFDF3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: Color(0xFF12B76A),
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'HÓA ĐƠN QUYẾT TOÁN ĐƠN HỦY',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.3,
+                    color: Color(0xFF027A48),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
                   child: Text(
-                    'Hóa đơn bồi thường hủy cọc gửi cho Chủ trọ ($hostName).',
+                    '${currencyFormatter.format(hostCompensation)} đ',
                     style: const TextStyle(
-                      fontSize: 12.5,
-                      color: Color(0xFF175CD3),
-                      height: 1.35,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF101828),
                     ),
                   ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Số tiền thực chuyển cho chủ trọ sau khi trừ hoa hồng',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11.5, color: Color(0xFF667085)),
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    _buildAmountBadge(
+                      'Tổng tiền cọc (${_bookingDataList.length} đơn)',
+                      '${currencyFormatter.format(totalDeposit)} đ',
+                      const Color(0xFFEAF4FA),
+                      const Color(0xFF344054),
+                    ),
+                    _buildAmountBadge(
+                      'Hoa hồng sàn (${(_commissionRate * 100).toStringAsFixed(_commissionRate * 100 % 1 == 0 ? 0 : 1)}%)',
+                      '-${currencyFormatter.format(platformFee)} đ',
+                      const Color(0xFFFEF3F2),
+                      const Color(0xFFD92D20),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
+
+          Text(
+            'DANH SÁCH GIAO DỊCH (${_bookingDataList.length} đơn)',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF101828),
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ..._bookingDataList.map((booking) {
+            final amount = BookingUtils.amount(booking).round();
+            final full = ['full', 'toanbo', 'trahet'].contains(
+              (booking['paymentOption'] ?? '').toString().toLowerCase(),
+            );
+            final gross = full ? (amount / 2).round() : amount;
+            final fee = (gross * _commissionRate).round();
+            final code =
+                (booking['orderCode'] ??
+                        booking['transferNote'] ??
+                        booking['id'] ??
+                        '')
+                    .toString();
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFDCEAF5)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          code,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF398FC0),
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          (booking['renterName'] ?? 'Khách thuê').toString(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF101828),
+                          ),
+                        ),
+                        Text(
+                          (booking['roomTitle'] ?? 'Phòng trọ').toString(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF667085),
+                          ),
+                        ),
+                        Text(
+                          full ? 'Đã trả hết • hoàn khách 50%' : 'Chỉ cọc',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFD92D20),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${currencyFormatter.format(amount)} đ',
+                        maxLines: 1,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF101828),
+                        ),
+                      ),
+                      Text(
+                        'Nhận: ${currencyFormatter.format(gross - fee)} đ',
+                        maxLines: 1,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF027A48),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+          const SizedBox(height: 6),
 
           // Khối Chi Tiết Hóa Đơn Chủ Trọ
           Container(
@@ -680,7 +1085,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
               children: [
                 const Center(
                   child: Text(
-                    'HÓA ĐƠN HOÀN TIỀN CỌC ĐƠN HỦY',
+                    'HÓA ĐƠN QUYẾT TOÁN ĐƠN HỦY',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -720,20 +1125,20 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                 ),
                 const SizedBox(height: 10),
                 _buildRow(
-                  'Trả người thuê (85%):',
+                  'Hoàn người thuê (50% cọc):',
                   '-${currencyFormatter.format(renterRefund)} đ',
                   color: const Color(0xFF667085),
                 ),
                 const SizedBox(height: 8),
                 _buildRow(
-                  'Cấn trừ phí dịch vụ sàn (5%):',
+                  'Hoa hồng sàn (${(_commissionRate * 100).toStringAsFixed(_commissionRate * 100 % 1 == 0 ? 0 : 1)}%):',
                   '-${currencyFormatter.format(platformFee)} đ',
                   color: const Color(0xFFD92D20),
                 ),
                 const SizedBox(height: 8),
                 _buildRow(
-                  'Bồi thường giữ chỗ cho Chủ trọ (+10%):',
-                  '+${currencyFormatter.format(hostCompensation)} đ',
+                  'Phần chủ trọ trước hoa hồng:',
+                  '${currencyFormatter.format(hostGross)} đ',
                   color: const Color(0xFF027A48),
                   isBold: true,
                 ),
@@ -750,18 +1155,26 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'THỰC CHUYỂN BỒI THƯỜNG:',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF027A48),
+                      const Expanded(
+                        child: Text(
+                          'THỰC CHUYỂN CHO CHỦ TRỌ:',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF027A48),
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         '${currencyFormatter.format(hostCompensation)} đ',
+                        textAlign: TextAlign.end,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: 16,
                           fontWeight: FontWeight.w900,
                           color: Color(0xFF027A48),
                         ),
@@ -817,7 +1230,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
           if (qrPayload == null) ...[
             _buildMissingBankCard(
               message: hostAcc.isEmpty
-                  ? 'Chủ trọ chưa có tài khoản nhận bồi thường.'
+                  ? 'Chủ trọ chưa có tài khoản nhận tiền.'
                   : 'Chưa nhận diện được ngân hàng để tạo QR.',
               onPressed: () => _editBankAccount(
                 role: 'host',
@@ -831,14 +1244,18 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
 
           // Nút xác nhận & gửi hóa đơn
           ElevatedButton.icon(
-            onPressed: _isProcessing
+            onPressed:
+                _isProcessing ||
+                    _bookingDataList.any(
+                      (b) => b['cancellationHostPaid'] == true,
+                    )
                 ? null
                 : () => _sendNotificationAndRecord(
                     targetRole: 'host',
                     amount: hostCompensation,
                     title: 'Thông báo bồi thường đơn hủy phòng ($orderCodes)',
                     body:
-                        'Khách đã hủy đơn $orderCodes. Tiền cọc ${currencyFormatter.format(totalDeposit)}đ được phân bổ: Hoàn khách 85% (-${currencyFormatter.format(renterRefund)}đ), Phí sàn 5% (-${currencyFormatter.format(platformFee)}đ), Bồi thường giữ chỗ cho bạn 10% (+${currencyFormatter.format(hostCompensation)}đ).',
+                        'Đơn $orderCodes đã hủy. Phần chủ trọ sau hoa hồng là ${currencyFormatter.format(hostCompensation)}đ.',
                     orderCodes: orderCodes,
                     recipientName: hostName,
                     bankDetails: hostAcc.isEmpty ? '' : '$hostBank ($hostAcc)',
@@ -857,9 +1274,11 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
             ),
             icon: const Icon(Icons.send_rounded, size: 18),
             label: Text(
-              _isProcessing
-                  ? 'ĐANG XỬ LÝ...'
-                  : 'XÁC NHẬN & GỬI HÓA ĐƠN CHO CHỦ TRỌ',
+              _bookingDataList.any((b) => b['cancellationHostPaid'] == true)
+                  ? 'ĐÃ GHI NHẬN CHUYỂN'
+                  : (_isProcessing
+                        ? 'ĐANG XỬ LÝ...'
+                        : 'XÁC NHẬN & GỬI HÓA ĐƠN CHO CHỦ TRỌ'),
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
             ),
           ),
@@ -882,7 +1301,6 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
     required int totalDeposit,
     required int platformFee,
     required int hostCompensation,
-    required int cancellationPenaltyTotal,
     required int renterRefund,
   }) {
     final memo = _transferMemo('HOAN TIEN', transferReference);
@@ -996,15 +1414,15 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                 ),
                 const SizedBox(height: 10),
                 _buildRow(
-                  'Phí hủy phòng (-15%):',
-                  '-${currencyFormatter.format(cancellationPenaltyTotal)} đ',
-                  color: const Color(0xFFD92D20),
+                  'Phần còn lại chuyển chủ trọ trước hoa hồng:',
+                  '${currencyFormatter.format(totalDeposit - renterRefund)} đ',
+                  color: const Color(0xFF475467),
                   isBold: true,
                 ),
                 const Padding(
                   padding: EdgeInsets.only(left: 4, top: 2),
                   child: Text(
-                    '• Bao gồm: 5% phí xử lý sàn & 10% bồi thường chủ trọ giữ phòng',
+                    '• Hoàn lại 50% tiền cọc cho khách; hoa hồng trừ trong phần của chủ trọ.',
                     style: TextStyle(fontSize: 11, color: Color(0xFF667085)),
                   ),
                 ),
@@ -1022,7 +1440,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'SỐ TIỀN THỰC HOÀN (85%):',
+                        'SỐ TIỀN HOÀN (50% CỌC):',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w900,
@@ -1102,14 +1520,18 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
 
           // Nút xác nhận & gửi hóa đơn cho người thuê
           ElevatedButton.icon(
-            onPressed: _isProcessing
+            onPressed:
+                _isProcessing ||
+                    _bookingDataList.any(
+                      (b) => b['cancellationRenterRefunded'] == true,
+                    )
                 ? null
                 : () => _sendNotificationAndRecord(
                     targetRole: 'renter',
                     amount: renterRefund,
                     title: 'Biên lai hoàn tiền cọc đơn hủy ($orderCodes)',
                     body:
-                        'Đơn $orderCodes đã hủy thành công. Tiền cọc ${currencyFormatter.format(totalDeposit)}đ -15% phí hủy phòng (${currencyFormatter.format(cancellationPenaltyTotal)}đ). Số tiền thực hoàn về tài khoản của bạn là ${currencyFormatter.format(renterRefund)}đ (85%).',
+                        'Đơn $orderCodes đã hủy. Bạn được hoàn 50% tiền cọc là ${currencyFormatter.format(renterRefund)}đ.',
                     orderCodes: orderCodes,
                     recipientName: renterName,
                     bankDetails: renterAcc.isEmpty
@@ -1130,9 +1552,13 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
             ),
             icon: const Icon(Icons.send_rounded, size: 18),
             label: Text(
-              _isProcessing
-                  ? 'ĐANG XỬ LÝ...'
-                  : 'XÁC NHẬN & GỬI HÓA ĐƠN CHO NGƯỜI THUÊ',
+              _bookingDataList.any(
+                    (b) => b['cancellationRenterRefunded'] == true,
+                  )
+                  ? 'ĐÃ GHI NHẬN HOÀN TIỀN'
+                  : (_isProcessing
+                        ? 'ĐANG XỬ LÝ...'
+                        : 'XÁC NHẬN & GỬI HÓA ĐƠN CHO NGƯỜI THUÊ'),
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
             ),
           ),
@@ -1149,25 +1575,77 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
     Color? color,
   }) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            color: color ?? const Color(0xFF475467),
-            fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              color: color ?? const Color(0xFF475467),
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+            ),
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 13.5,
-            color: color ?? const Color(0xFF101828),
-            fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13.5,
+              color: color ?? const Color(0xFF101828),
+              fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+            ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAmountBadge(
+    String title,
+    String amount,
+    Color background,
+    Color foreground,
+  ) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 132, maxWidth: 190),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: foreground,
+            ),
+          ),
+          Text(
+            amount,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: foreground,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

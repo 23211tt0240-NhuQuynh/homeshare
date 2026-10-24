@@ -32,10 +32,7 @@ class VietQRHelper {
     required String addInfo,
     String accountNo = defaultAccountNo,
     String bankBin = defaultBankBin,
-<<<<<<< HEAD
     String accountName = defaultAccountName,
-=======
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   }) {
     // 00: Payload Format Indicator (01)
     final f00 = _formatTlv('00', '01');
@@ -64,23 +61,29 @@ class VietQRHelper {
     final f58 = _formatTlv('58', 'VN');
 
     // 59: Merchant Name (Tên chủ tài khoản - Bắt buộc theo EMVCo/Napas, tối đa 25 ký tự)
-<<<<<<< HEAD
     final cleanMerchantName = _removeDiacritics(accountName).toUpperCase();
-=======
-    final cleanMerchantName = _removeDiacritics(defaultAccountName).toUpperCase();
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
-    final f59 = _formatTlv('59', cleanMerchantName.length > 25 ? cleanMerchantName.substring(0, 25) : cleanMerchantName);
+    final f59 = _formatTlv(
+      '59',
+      cleanMerchantName.length > 25
+          ? cleanMerchantName.substring(0, 25)
+          : cleanMerchantName,
+    );
 
     // 60: Merchant City (Thành phố - Bắt buộc theo EMVCo/Napas, tối đa 15 ký tự)
     final f60 = _formatTlv('60', 'HA NOI');
 
     // 62: Additional Data Field (Purpose/Reference)
     final cleanInfo = _removeDiacritics(addInfo).trim();
-    final sub6208 = _formatTlv('08', cleanInfo.isEmpty ? 'DATPHONG' : cleanInfo);
+    final sub6208 = _formatTlv(
+      '08',
+      cleanInfo.isEmpty ? 'DATPHONG' : cleanInfo,
+    );
     final f62 = _formatTlv('62', sub6208);
 
     // Ghép dữ liệu trước khi tính CRC (Checksum)
-    final rawData = '$f00$f01$f38$f53$f54$f58$f59$f60$f62' '6304';
+    final rawData =
+        '$f00$f01$f38$f53$f54$f58$f59$f60$f62'
+        '6304';
     final crc = _calculateCrc16(rawData);
 
     return '$rawData$crc';

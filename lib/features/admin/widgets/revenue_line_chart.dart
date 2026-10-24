@@ -7,15 +7,9 @@ class RevenueLineChart extends StatelessWidget {
 
   const RevenueLineChart({
     super.key,
-<<<<<<< HEAD
     this.weeklyData = const [0, 0, 0, 0, 0, 0, 0],
     this.labels = const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
     this.activeIndex = 0, // điểm được nhấn mạnh (vd: hôm nay)
-=======
-    this.weeklyData = const [2.5, 4.2, 3.1, 2.0, 5.8, 12.4, 7.6],
-    this.labels = const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
-    this.activeIndex = 5, // T7 is peak/highlighted
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   });
 
   @override
@@ -24,7 +18,6 @@ class RevenueLineChart extends StatelessWidget {
       children: [
         SizedBox(
           height: 170,
-<<<<<<< HEAD
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -45,14 +38,6 @@ class RevenueLineChart extends StatelessWidget {
                   ),
                 ),
             ],
-=======
-          child: CustomPaint(
-            size: const Size(double.infinity, 170),
-            painter: _SplineLineChartPainter(
-              data: weeklyData,
-              activeIndex: activeIndex,
-            ),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           ),
         ),
         const SizedBox(height: 10),
@@ -67,11 +52,7 @@ class RevenueLineChart extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-<<<<<<< HEAD
                   color: isSelected ? const Color(0xFF398FC0) : const Color(0xFF64748B),
-=======
-                  color: isSelected ? const Color(0xFF155EEF) : const Color(0xFF64748B),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
               );
             }),
@@ -90,11 +71,7 @@ class _SplineLineChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-<<<<<<< HEAD
     if (data.length < 2) return;
-=======
-    if (data.isEmpty) return;
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
     final double paddingBottom = 16.0;
     final double paddingTop = 16.0;
@@ -118,16 +95,10 @@ class _SplineLineChartPainter extends CustomPainter {
       );
     }
 
-<<<<<<< HEAD
     // Luôn lấy mốc 0 làm đáy để không phóng đại chênh lệch nhỏ
     const double minVal = 0;
     final double maxVal = data.reduce((a, b) => a > b ? a : b);
     final double range = maxVal <= 0 ? 1 : maxVal;
-=======
-    final double minVal = data.reduce((a, b) => a < b ? a : b);
-    final double maxVal = data.reduce((a, b) => a > b ? a : b);
-    final double range = (maxVal - minVal) == 0 ? 1 : (maxVal - minVal);
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
     // Compute coordinate points
     final List<Offset> points = [];
@@ -173,15 +144,9 @@ class _SplineLineChartPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-<<<<<<< HEAD
           const Color(0xFF398FC0).withValues(alpha: 0.28),
           const Color(0xFF89CFF0).withValues(alpha: 0.12),
           const Color(0xFF89CFF0).withValues(alpha: 0.0),
-=======
-          const Color(0xFF2563EB).withValues(alpha: 0.28),
-          const Color(0xFF3B82F6).withValues(alpha: 0.08),
-          const Color(0xFF3B82F6).withValues(alpha: 0.0),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         ],
       ).createShader(Rect.fromLTWH(0, paddingTop, size.width, chartHeight));
 
@@ -189,11 +154,7 @@ class _SplineLineChartPainter extends CustomPainter {
 
     // Draw main line stroke
     final strokePaint = Paint()
-<<<<<<< HEAD
       ..color = const Color(0xFF398FC0)
-=======
-      ..color = const Color(0xFF155EEF)
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       ..strokeWidth = 3.2
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -209,21 +170,13 @@ class _SplineLineChartPainter extends CustomPainter {
       if (isPeak) {
         // Outer halo / glow for active point
         final haloPaint = Paint()
-<<<<<<< HEAD
           ..color = const Color(0xFF398FC0).withValues(alpha: 0.2)
-=======
-          ..color = const Color(0xFF155EEF).withValues(alpha: 0.2)
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           ..style = PaintingStyle.fill;
         canvas.drawCircle(p, 10.0, haloPaint);
 
         // Active outer ring
         final activeRingPaint = Paint()
-<<<<<<< HEAD
           ..color = const Color(0xFF398FC0)
-=======
-          ..color = const Color(0xFF155EEF)
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           ..strokeWidth = 2.5
           ..style = PaintingStyle.stroke;
         canvas.drawCircle(p, 6.5, activeRingPaint);
@@ -235,11 +188,7 @@ class _SplineLineChartPainter extends CustomPainter {
         canvas.drawCircle(p, 4.5, centerPaint);
 
         final dotCenter = Paint()
-<<<<<<< HEAD
           ..color = const Color(0xFF398FC0)
-=======
-          ..color = const Color(0xFF155EEF)
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           ..style = PaintingStyle.fill;
         canvas.drawCircle(p, 2.5, dotCenter);
       } else {
@@ -250,11 +199,7 @@ class _SplineLineChartPainter extends CustomPainter {
         canvas.drawCircle(p, 4.5, dotBg);
 
         final dotStroke = Paint()
-<<<<<<< HEAD
           ..color = const Color(0xFF398FC0)
-=======
-          ..color = const Color(0xFF155EEF)
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           ..strokeWidth = 2.0
           ..style = PaintingStyle.stroke;
         canvas.drawCircle(p, 4.5, dotStroke);

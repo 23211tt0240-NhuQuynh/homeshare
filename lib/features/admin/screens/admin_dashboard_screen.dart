@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-import 'dart:async';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'admin_notifications_screen.dart';
@@ -8,27 +5,10 @@ import '../utils/booking_utils.dart';
 import '../widgets/admin_branded_title.dart';
 import '../widgets/revenue_line_chart.dart';
 import '../widgets/revenue_bar_chart.dart';
-import 'cancellation_invoice_screen.dart';
 
 enum RevenueTimeRange { week, month, year }
 
 class AdminDashboardScreen extends StatefulWidget {
-=======
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
-import '../../auth/providers/user_provider.dart';
-import '../services/admin_service.dart';
-import '../widgets/admin_alert_card.dart';
-import '../widgets/admin_kpi_card.dart';
-import '../widgets/revenue_bar_chart.dart';
-import '../widgets/revenue_line_chart.dart';
-import 'settlement_invoice_screen.dart';
-
-enum RevenueTimeRange { week, month, year }
-
-class AdminDashboardScreen extends ConsumerStatefulWidget {
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   final VoidCallback? onNavigateToOrders;
   final VoidCallback? onNavigateToPosts;
   final VoidCallback? onNavigateToHistory;
@@ -41,72 +21,16 @@ class AdminDashboardScreen extends ConsumerStatefulWidget {
   });
 
   @override
-<<<<<<< HEAD
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   RevenueTimeRange _selectedTimeRange = RevenueTimeRange.year;
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _checkinsSub;
-  Set<String> _checkedInBookingIds = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _checkinsSub = FirebaseFirestore.instance
-        .collection('checkins')
-        .snapshots()
-        .listen(
-          (snapshot) {
-            final ids = <String>{};
-            for (final doc in snapshot.docs) {
-              final data = doc.data();
-              final bookingId = (data['bookingId'] ?? data['donId'] ?? '')
-                  .toString()
-                  .trim();
-              if (bookingId.isNotEmpty) ids.add(bookingId);
-              ids.add(doc.id);
-            }
-            if (mounted) setState(() => _checkedInBookingIds = ids);
-          },
-          onError: (Object error) {
-            debugPrint('Lỗi tải checkins cho dashboard: $error');
-          },
-        );
-  }
-
-  @override
-  void dispose() {
-    _checkinsSub?.cancel();
-    super.dispose();
-  }
 
   String _formatMoney(num amount) {
     return "${amount.toStringAsFixed(0).replaceAll(RegExp(r'\B(?=(\d{3})+(?!\d))'), '.')} đ";
   }
-=======
-  ConsumerState<AdminDashboardScreen> createState() =>
-      _AdminDashboardScreenState();
-}
 
-class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
-  RevenueTimeRange _selectedTimeRange = RevenueTimeRange.year;
-  final currencyFormatter = NumberFormat('#,###', 'vi_VN');
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
-
-  void _showNotice(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
-<<<<<<< HEAD
   void _openNotificationsBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -128,390 +52,25 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     );
   }
 
-  void _showDisbursementDialog(DocumentSnapshot bookingDoc) {
-    final data = BookingUtils.canonical(
-      bookingDoc.data() as Map<String, dynamic>? ?? {},
-    );
-    final bookingId = bookingDoc.id;
-    final orderCode =
-        data['orderCode'] ??
-        '#${bookingId.substring(0, bookingId.length > 6 ? 6 : bookingId.length).toUpperCase()}';
-    final hostName = data['hostName'] ?? 'Chủ trọ';
-    final hostPhone =
-        data['hostPhone'] ?? data['landlordPhone'] ?? 'Đang cập nhật';
-    final hostBank = data['hostBankName'] ?? 'MB Bank';
-    final hostAcc = data['hostAccountNumber'] ?? '---';
-    final roomTitle = data['roomTitle'] ?? 'Phòng trọ';
-    final amount = BookingUtils.amount(data);
-
-=======
-  void _handleNavigateToPosts() {
-    if (widget.onNavigateToPosts != null) {
-      widget.onNavigateToPosts!();
-    } else {
-      _showNotice('Chuyển sang trang Duyệt Bài Đăng');
-    }
-  }
-
-  void _handleNavigateToOrders() {
-    if (widget.onNavigateToOrders != null) {
-      widget.onNavigateToOrders!();
-    } else {
-      _showNotice('Chuyển sang trang Quản Lý Đơn Cọc');
-    }
-  }
-
-  void _handleNavigateToHistory() {
-    if (widget.onNavigateToHistory != null) {
-      widget.onNavigateToHistory!();
-    } else {
-      _showNotice('Chuyển sang trang Lịch Sử');
-    }
-  }
-
-  void _showDisbursementDialog(AdminActionItem item) {
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFECFDF3),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.account_balance_wallet_outlined,
-                    color: Color(0xFF12B76A),
-                    size: 26,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Phê Duyệt Giải Ngân Cọc',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF101828),
-                        ),
-                      ),
-                      Text(
-<<<<<<< HEAD
-                        'Mã đơn: $orderCode',
-=======
-                        'Mã đơn: ${item.highlightCode}',
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: Color(0xFF667085),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-<<<<<<< HEAD
-                color: const Color(0xFFF4F9FF),
-=======
-                color: const Color(0xFFF8FAFC),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Column(
-                children: [
-<<<<<<< HEAD
-                  _buildDetailRow('Tên chủ trọ:', hostName),
-                  const Divider(height: 16),
-                  _buildDetailRow('Số điện thoại:', hostPhone),
-                  const Divider(height: 16),
-                  _buildDetailRow(
-                    'Ngân hàng thụ hưởng:',
-                    '$hostBank ($hostAcc)',
-                  ),
-                  const Divider(height: 16),
-                  _buildDetailRow('Phòng liên kết:', roomTitle),
-                  const Divider(height: 16),
-                  _buildDetailRow(
-                    'Số tiền cọc giải ngân:',
-                    _formatMoney(amount),
-=======
-                  _buildDetailRow('Tên chủ trọ:', item.hostName),
-                  const Divider(height: 16),
-                  _buildDetailRow('Số điện thoại:', item.hostPhone),
-                  const Divider(height: 16),
-                  _buildDetailRow(
-                    'Ngân hàng thụ hưởng:',
-                    '${item.hostBankName} (${item.hostAccountNumber})',
-                  ),
-                  const Divider(height: 16),
-                  _buildDetailRow('Phòng liên kết:', item.roomTitle),
-                  const Divider(height: 16),
-                  _buildDetailRow(
-                    'Số tiền cọc giải ngân:',
-                    '${currencyFormatter.format(item.amount)} đ',
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
-                    isHighlight: true,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: Color(0xFFD0D5DD)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Đóng',
-                      style: TextStyle(
-                        color: Color(0xFF344054),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      Navigator.pop(ctx);
-                      try {
-<<<<<<< HEAD
-                        await FirebaseFirestore.instance
-                            .collection('bookings')
-                            .doc(bookingId)
-                            .update({
-                              'isDisbursed': true,
-                              'disbursedAt': FieldValue.serverTimestamp(),
-                              'updatedAt': FieldValue.serverTimestamp(),
-                            });
-                        _showNotice(
-                          'Đã cập nhật giải ngân đơn $orderCode thành công!',
-                        );
-                      } catch (e) {
-                        _showNotice('Lỗi cập nhật Firestore: $e');
-=======
-                        await ref
-                            .read(adminServiceProvider)
-                            .approveBookingDisbursement(
-                              bookingId: item.id,
-                              orderCode: item.highlightCode.split(' → ').first,
-                              hostName: item.hostName,
-                              amount: item.amount,
-                            );
-                        if (mounted) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => SettlementInvoiceScreen(
-                                hostName: item.hostName,
-                                hostPhone: item.hostPhone,
-                                hostBankName: item.hostBankName,
-                                hostAccountNumber: item.hostAccountNumber,
-                                totalDeposit: item.amount,
-                                platformFee: item.amount * 0.1,
-                                netSettlement: item.amount * 0.9,
-                              ),
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        _showNotice('Không thể giải ngân: $e');
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF12B76A),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Xác nhận Chuyển tiền',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(
-    String label,
-    String value, {
-    bool isHighlight = false,
-  }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12.5, color: Color(0xFF667085)),
-        ),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: isHighlight ? 15 : 13,
-              fontWeight: isHighlight ? FontWeight.w800 : FontWeight.w600,
-              color: isHighlight
-<<<<<<< HEAD
-                  ? const Color(0xFF398FC0)
-=======
-                  ? const Color(0xFF155EEF)
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
-                  : const Color(0xFF101828),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
     return Scaffold(
       backgroundColor: Colors.transparent,
-=======
-    // Lấy dữ liệu an toàn từ Riverpod
-    final profile = ref.watch(userProfileProvider).value;
-    final statsAsync = ref.watch(adminDashboardStatsStreamProvider);
-    final chartDataAsync = ref.watch(adminRevenueChartDataProvider);
-    final actionItemsAsync = ref.watch(adminPendingActionsProvider);
-
-    final stats = statsAsync.value ??
-        const AdminDashboardStats(
-          totalFlow: 1748500000,
-          netRevenue: 168250000,
-          successfulTransactions: 45600,
-          totalUsers: 5880,
-          newHosts: 320,
-          growthYoy: 18.4,
-          monthlyAverage: 14020000,
-        );
-
-    // Xử lý an toàn cho mảng yearlyData — giữ null cho tháng tương lai (dashed bar)
-    final rawChartData = chartDataAsync.value;
-    final List<double?> safeYearlyData = rawChartData?.yearlyData.toList() ??
-        const [6.2, 4.0, 7.5, 9.8, 11.2, 13.5, 15.0, 16.2, 18.5, null, null, null];
-
-    final chartData = rawChartData ??
-        AdminRevenueChartData(
-          weeklyData: const [2.5, 4.2, 3.1, 2.0, 5.8, 12.4, 7.6],
-          monthlyWeeksData: const [28.0, 36.5, 42.0, 48.2],
-          yearlyData: safeYearlyData,
-          peakYearlyMonthIndex: 8,
-          peakYearlyAmount: 18.5,
-          monthlyAverage: 14020000,
-        );
-
-    final actionItems = actionItemsAsync.value ?? [];
-
-    final isYearView = _selectedTimeRange == RevenueTimeRange.year;
-    final displayFlow = isYearView ? stats.totalFlow : (stats.totalFlow / 12);
-    final displayRevenue =
-        isYearView ? stats.netRevenue : (stats.netRevenue / 12);
-    final displayTx = isYearView
-        ? '${currencyFormatter.format(stats.successfulTransactions)} lượt'
-        : '${currencyFormatter.format((stats.successfulTransactions / 12).round())} Giao dịch';
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0.5,
         titleSpacing: 20,
         toolbarHeight: 70,
-<<<<<<< HEAD
         title: AdminBrandedTitle(
           title: 'Tổng quan',
           subtitle: _selectedTimeRange == RevenueTimeRange.year
               ? 'Báo cáo tài chính toàn hệ thống'
               : 'Dữ liệu tổng quan toàn hệ thống',
-=======
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'QUẢN TRỊ ADMIN',
-              style: TextStyle(
-                fontSize: 21,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF101828),
-                letterSpacing: -0.3,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              isYearView
-                  ? 'Dữ liệu tổng quan & Báo cáo tài chính'
-                  : 'Dữ liệu tổng quan toàn hệ thống',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF667085),
-              ),
-            ),
-          ],
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
-<<<<<<< HEAD
             child: StreamBuilder<QuerySnapshot>(
               stream: () {
                 try {
@@ -529,22 +88,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
                 return InkWell(
                   onTap: _openNotificationsBottomSheet,
-=======
-            child: Row(
-              children: [
-                InkWell(
-                  onTap: () => _showNotice('Mở danh sách thông báo hệ thống'),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
                     width: 38,
                     height: 38,
                     decoration: const BoxDecoration(
-<<<<<<< HEAD
                       color: Color(0xFFEAF4FA),
-=======
-                      color: Color(0xFFF2F4F7),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                       shape: BoxShape.circle,
                     ),
                     child: Stack(
@@ -555,22 +104,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                           color: Color(0xFF344054),
                           size: 21,
                         ),
-<<<<<<< HEAD
                         if (unreadCount > 0)
-=======
-                        if (actionItems.isNotEmpty)
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                           Positioned(
                             top: 8,
                             right: 8,
                             child: Container(
-<<<<<<< HEAD
                               width: 8,
                               height: 8,
-=======
-                              width: 7,
-                              height: 7,
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                               decoration: const BoxDecoration(
                                 color: Color(0xFFD92D20),
                                 shape: BoxShape.circle,
@@ -580,7 +120,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                       ],
                     ),
                   ),
-<<<<<<< HEAD
                 );
               },
             ),
@@ -674,8 +213,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               double previousTotalFlow = 0;
               double netRevenue = 0;
               int successfulTxCount = 0;
-              int depositTxCount = 0;
-              int cancellationTxCount = 0;
+              int settledDepositTxCount = 0;
+              int settledFullPaymentTxCount = 0;
+              int settledCancellationTxCount = 0;
 
               List<double> weekChartData = List.filled(7, 0.0);
               List<double> monthChartData = List.filled(4, 0.0);
@@ -705,15 +245,19 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
                 double orderCommission = 0.0;
 
-                // Tổng dòng tiền là tiền cọc đã xác nhận thu vào; số đơn thành
-                // công cũng không phải đợi đến lúc admin giải ngân cho chủ trọ.
+                // Chỉ ghi nhận giao dịch thành công sau khi admin xác nhận
+                // chuyển tiền. Đơn cọc/đã trả hết chờ giải ngân chưa tính.
                 bool contributesToCashFlow = false;
                 if (status == BookingUtils.statusDepositPaid ||
                     status == BookingUtils.statusCompleted) {
-                  depositTxCount++;
-                  successfulTxCount++;
-                  contributesToCashFlow = true;
                   if (isDisbursed) {
+                    successfulTxCount++;
+                    if (status == BookingUtils.statusCompleted) {
+                      settledFullPaymentTxCount++;
+                    } else {
+                      settledDepositTxCount++;
+                    }
+                    contributesToCashFlow = true;
                     final storedFee = data['platformFee'];
                     final storedRate = data['platformFeeRate'];
                     orderCommission = storedFee is num
@@ -733,9 +277,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     rawStatus == 'dahuy') {
                   contributesToCashFlow = isPaid || isRefunded;
                   if (isRefunded) {
-                    cancellationTxCount++;
                     successfulTxCount++;
-                    orderCommission = amount * BookingUtils.cancelPlatformRate;
+                    settledCancellationTxCount++;
+                    final cancellationFee = data['cancellationPlatformFee'];
+                    final cancellationRate = data['cancellationCommissionRate'];
+                    orderCommission = cancellationFee is num
+                        ? cancellationFee.toDouble()
+                        : amount *
+                              (cancellationRate is num
+                                  ? cancellationRate.toDouble() / 100
+                                  : BookingUtils.cancelPlatformRate);
                     netRevenue += orderCommission;
                   }
                 }
@@ -774,6 +325,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               }
 
               final totalUsers = userDocs.length;
+              int hostCount = 0;
+              int renterCount = 0;
               int newHostsCount = 0;
               int newRentersCount = 0;
 
@@ -787,36 +340,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     uTime.toDate().year == now.year;
 
                 if (role == 'host' || role == 'landlord' || role == 'chutro') {
+                  hostCount++;
                   if (isThisMonth) newHostsCount++;
                 } else {
+                  renterCount++;
                   if (isThisMonth) newRentersCount++;
                 }
               }
-
-              final pendingTransferDocs = bookingDocs.where((doc) {
-                final data = doc.data() as Map<String, dynamic>? ?? {};
-                final booking = BookingUtils.canonical(data);
-                final status = BookingUtils.status(booking);
-                final bookingStatus = (booking['status'] ?? '').toString();
-                final isCancellation =
-                    bookingStatus == 'cancelled' || bookingStatus == 'rejected';
-                if (isCancellation) {
-                  // Đơn hủy chưa được admin ghi nhận hoàn tiền/bồi thường.
-                  return booking['isRefunded'] != true &&
-                      BookingUtils.amount(booking) > 0;
-                }
-
-                final bookingId = (booking['bookingId'] ?? '').toString();
-                final orderCode = (booking['orderCode'] ?? '').toString();
-                final hasCheckInRecord =
-                    _checkedInBookingIds.contains(doc.id) ||
-                    _checkedInBookingIds.contains(bookingId) ||
-                    _checkedInBookingIds.contains(orderCode);
-                return (booking['isCheckIn'] == true || hasCheckInRecord) &&
-                    booking['isDisbursed'] != true &&
-                    (status == BookingUtils.statusDepositPaid ||
-                        status == BookingUtils.statusCompleted);
-              }).toList();
 
               final String periodLabel = isWeekView
                   ? 'tuần trước'
@@ -916,7 +446,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                             value: '$successfulTxCount Đơn',
                             valueColor: const Color(0xFFD97706),
                             subtext:
-                                '$depositTxCount đơn cọc • $cancellationTxCount đơn hủy',
+                                '$settledDepositTxCount đơn cọc • $settledFullPaymentTxCount đơn trả hết • $settledCancellationTxCount đơn hủy',
                             subtextColor: const Color(0xFF64748B),
                           ),
                         ),
@@ -928,6 +458,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                 : 'TỔNG USER HỆ THỐNG',
                             value: '$totalUsers Users',
                             valueColor: const Color(0xFF101828),
+                            subtext:
+                                '$hostCount chủ trọ • $renterCount khách thuê',
+                            subtextColor: const Color(0xFF64748B),
                             badgeText: userBadgeText,
                             badgeColor:
                                 (newHostsCount > 0 || newRentersCount > 0)
@@ -1061,244 +594,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 18),
-
-                    // Việc cần xử lý
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Text(
-                              'VIỆC CẦN XỬ LÝ',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF344054),
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEF3F2),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: const Color(0xFFFECDCA),
-                                ),
-                              ),
-                              child: Text(
-                                '${pendingTransferDocs.length} việc chờ chuyển tiền',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFFB42318),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (widget.onNavigateToOrders != null)
-                          TextButton(
-                            onPressed: widget.onNavigateToOrders,
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: const Text(
-                              'Xem tất cả',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF398FC0),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-
-                    if (pendingTransferDocs.isNotEmpty) ...[
-                      for (var pendingDoc in pendingTransferDocs.take(3)) ...[
-                        _buildPendingTransferAlertItem(pendingDoc),
-                        const SizedBox(height: 10),
-                      ],
-                    ] else ...[
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFDCEAF5)),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFECFDF3),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.check_circle_outline_rounded,
-                                  color: Color(0xFF12B76A),
-                                  size: 22,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Tất cả tác vụ đã hoàn tất',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF101828),
-                                    ),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    'Hiện không có đơn nào chờ chuyển tiền',
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      color: Color(0xFF667085),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
                   ],
                 ),
               );
             },
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildPendingTransferAlertItem(DocumentSnapshot doc) {
-    final data = BookingUtils.canonical(
-      doc.data() as Map<String, dynamic>? ?? {},
-    );
-    final status = (data['status'] ?? '').toString();
-    final isCancellation = status == 'cancelled' || status == 'rejected';
-    final orderCode =
-        data['orderCode'] ??
-        '#${doc.id.substring(0, doc.id.length > 6 ? 6 : doc.id.length).toUpperCase()}';
-    final hostName = data['hostName'] ?? 'Chủ trọ';
-    final amount = BookingUtils.amount(data);
-    final cancelSplit = BookingUtils.cancellationSplit(amount);
-    final actionTitle = isCancellation
-        ? 'Quyết toán đơn hủy $orderCode'
-        : 'Giải ngân cọc $orderCode';
-    final actionDetail = isCancellation
-        ? 'Hoàn khách ${_formatMoney(cancelSplit['refundAmount'] ?? 0)} • Bồi thường chủ trọ ${_formatMoney(cancelSplit['hostAmount'] ?? 0)}'
-        : 'Chủ trọ: $hostName • Quyết toán: ${_formatMoney(amount)}';
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFDCEAF5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFEF3F2),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Center(
-              child: Text(
-                '!',
-                style: TextStyle(
-                  color: Color(0xFFF04438),
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  actionTitle,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF101828),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  actionDetail,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: Color(0xFF667085),
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () {
-              if (isCancellation) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        CancellationInvoiceScreen(bookingIds: [doc.id]),
-                  ),
-                );
-              } else {
-                _showDisbursementDialog(doc);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF12B76A),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text(
-              'Xử lý ngay',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1316,7 +617,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     Color borderColor = const Color(0xFFDCEAF5),
   }) {
     return Container(
-      height: 108,
+      constraints: const BoxConstraints(minHeight: 108),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: backgroundColor,
@@ -1391,483 +692,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               overflow: TextOverflow.ellipsis,
             ),
         ],
-=======
-                ),
-                const SizedBox(width: 10),
-                InkWell(
-                  onTap: () => _showNotice('Mở thông tin tài khoản Admin'),
-                  borderRadius: BorderRadius.circular(19),
-                  child: CircleAvatar(
-                    radius: 19,
-                    backgroundColor: const Color(0xFFE0EAFF),
-                    child: Text(
-                      (profile?.displayName.isNotEmpty ?? false)
-                          ? profile!.displayName[0].toUpperCase()
-                          : 'A',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF155EEF),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 1. THẺ THỐNG KÊ 2x2
-            Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _showNotice('Chi tiết Tổng dòng tiền'),
-                    borderRadius: BorderRadius.circular(16),
-                    child: AdminKpiCard(
-                      title: 'TỔNG DÒNG TIỀN',
-                      value: '${currencyFormatter.format(displayFlow)} đ',
-                      valueColor: const Color(0xFF101828),
-                      badgeText: isYearView
-                          ? '+18.4% YOY'
-                          : '+14.3% so với tháng trước',
-                      badgeIcon: Icons.arrow_drop_up,
-                      badgeColor: const Color(0xFFECFDF3),
-                      badgeTextColor: const Color(0xFF027A48),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _showNotice('Chi tiết Doanh thu sàn'),
-                    borderRadius: BorderRadius.circular(16),
-                    child: AdminKpiCard(
-                      title: isYearView
-                          ? 'DOANH THU SÀN'
-                          : 'DOANH THU SÀN (THỰC NHẬN)',
-                      value: '${currencyFormatter.format(displayRevenue)} đ',
-                      valueColor: const Color(0xFF155EEF),
-                      subtext: isYearView
-                          ? 'Hoa hồng cọc & Phí tin'
-                          : 'Hoa hồng & Phí bán gói',
-                      subtextColor: const Color(0xFF2E90FA),
-                      backgroundColor: const Color(0xFFF5F8FF),
-                      borderColor: const Color(0xFFD1E0FF),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _showNotice('Chi tiết Giao dịch thành công'),
-                    borderRadius: BorderRadius.circular(16),
-                    child: AdminKpiCard(
-                      title: 'GIAO DỊCH THÀNH CÔNG',
-                      value: displayTx,
-                      valueColor: const Color(0xFFD97706),
-                      subtext: isYearView ? '99.2% khớp tự động' : null,
-                      subtextColor: const Color(0xFF667085),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _showNotice('Chi tiết Tổng user hệ thống'),
-                    borderRadius: BorderRadius.circular(16),
-                    child: AdminKpiCard(
-                      title: isYearView
-                          ? 'TỔNG USER TOÀN SÀN'
-                          : 'TỔNG USER HỆ THỐNG',
-                      value:
-                          '${currencyFormatter.format(stats.totalUsers)} Users',
-                      valueColor: const Color(0xFF101828),
-                      badgeText: '+${stats.newHosts} chủ trọ mới',
-                      badgeIcon: Icons.arrow_drop_up,
-                      badgeColor: const Color(0xFFECFDF3),
-                      badgeTextColor: const Color(0xFF027A48),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-
-            // 2. BIỂU ĐỒ THỐNG KÊ DOANH THU
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFEAECF0), width: 1.2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'THỐNG KÊ DOANH THU',
-                              style: TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF101828),
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              isYearView
-                                  ? 'Phí hoa hồng cọc & Đẩy tin năm 2026'
-                                  : 'Tổng phí mua gói & Đẩy tin',
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                color: Color(0xFF667085),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF2F4F7),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildPillTab('Tuần', RevenueTimeRange.week),
-                            _buildPillTab('Tháng', RevenueTimeRange.month),
-                            _buildPillTab('Năm', RevenueTimeRange.year),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  ClipRect(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      child: _selectedTimeRange == RevenueTimeRange.year
-                          ? Column(
-                              key: const ValueKey('year_chart_container'),
-                              children: [
-                                RevenueBarChart(
-                                  monthlyData: safeYearlyData,
-                                  peakIndex: chartData.peakYearlyMonthIndex,
-                                  peakTooltipText:
-                                      '● T${chartData.peakYearlyMonthIndex + 1}: ${chartData.peakYearlyAmount.toStringAsFixed(1)}M đ (Cao nhất)',
-                                  averageMonthlyText:
-                                      'TB mỗi tháng: ${currencyFormatter.format(chartData.monthlyAverage)} đ',
-                                ),
-                              ],
-                            )
-                          : RevenueLineChart(
-                              key: ValueKey('line_chart_$_selectedTimeRange'),
-                              weeklyData:
-                                  _selectedTimeRange == RevenueTimeRange.week
-                                      ? chartData.weeklyData
-                                      : chartData.monthlyWeeksData,
-                              labels: _selectedTimeRange == RevenueTimeRange.week
-                                  ? const [
-                                      'T2',
-                                      'T3',
-                                      'T4',
-                                      'T5',
-                                      'T6',
-                                      'T7',
-                                      'CN',
-                                    ]
-                                  : const [
-                                      'Tuần 1',
-                                      'Tuần 2',
-                                      'Tuần 3',
-                                      'Tuần 4',
-                                    ],
-                              activeIndex:
-                                  _selectedTimeRange == RevenueTimeRange.week
-                                      ? 5
-                                      : 3,
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-
-            // 3. VIỆC CẦN XỬ LÝ
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      'VIỆC CẦN XỬ LÝ',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF344054),
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3F2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFFECDCA)),
-                      ),
-                      child: Text(
-                        '${actionItems.isEmpty ? 1 : actionItems.length} việc chờ',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFB42318),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                TextButton(
-                  onPressed: _handleNavigateToOrders,
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text(
-                    'Xem tất cả',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF155EEF),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            if (actionItems.isNotEmpty) ...[
-              for (int i = 0; i < actionItems.length.clamp(0, 3); i++) ...[
-                AdminAlertCard.disbursement(
-                  orderCode: actionItems[i].highlightCode.split(' → ').first,
-                  hostCode: actionItems[i].highlightCode.split(' → ').length > 1
-                      ? actionItems[i].highlightCode.split(' → ').last
-                      : 'CT0089',
-                  hostName: actionItems[i].hostName,
-                  amount:
-                      '${currencyFormatter.format(actionItems[i].amount)} đ',
-                  onProcess: () => _showDisbursementDialog(actionItems[i]),
-                ),
-                if (i < actionItems.length - 1 && i < 2)
-                  const SizedBox(height: 10),
-              ],
-            ] else ...[
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFEAECF0)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3F2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          '!',
-                          style: TextStyle(
-                            color: Color(0xFFF04438),
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text(
-                            'Giải ngân cọc #DH8821 → CT0089',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF101828),
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Chủ trọ: Đặng Thu Hà • Quyết toán...',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: Color(0xFF667085),
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        _showNotice('Vui lòng chọn đơn cọc thực tế để xử lý');
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF12B76A),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text(
-                        'Xử lý ngay',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: 20),
-
-            // 4. LỐI TẮT ĐIỀU HƯỚNG NHANH
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _handleNavigateToPosts,
-                    icon: const Icon(
-                      Icons.apartment_outlined,
-                      size: 16,
-                      color: Color(0xFF155EEF),
-                    ),
-                    label: const Text(
-                      'Duyệt Bài',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF155EEF),
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      side: const BorderSide(color: Color(0xFFD1E0FF)),
-                      backgroundColor: const Color(0xFFF5F8FF),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _handleNavigateToOrders,
-                    icon: const Icon(
-                      Icons.receipt_long_outlined,
-                      size: 16,
-                      color: Color(0xFF027A48),
-                    ),
-                    label: const Text(
-                      'Quản Lý Đơn',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF027A48),
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      side: const BorderSide(color: Color(0xFFA6F4C5)),
-                      backgroundColor: const Color(0xFFECFDF3),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _handleNavigateToHistory,
-                    icon: const Icon(
-                      Icons.history_rounded,
-                      size: 16,
-                      color: Color(0xFF475467),
-                    ),
-                    label: const Text(
-                      'Lịch Sử',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF475467),
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      side: const BorderSide(color: Color(0xFFEAECF0)),
-                      backgroundColor: const Color(0xFFF8FAFC),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       ),
     );
   }
@@ -1885,20 +709,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
         decoration: BoxDecoration(
-<<<<<<< HEAD
           color: isSelected ? const Color(0xFF398FC0) : Colors.transparent,
-=======
-          color: isSelected ? const Color(0xFF1E60FF) : Colors.transparent,
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           borderRadius: BorderRadius.circular(16),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-<<<<<<< HEAD
                     color: const Color(0xFF398FC0).withValues(alpha: 0.25),
-=======
-                    color: const Color(0xFF1E60FF).withValues(alpha: 0.2),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                     blurRadius: 4,
                     offset: const Offset(0, 1),
                   ),
@@ -1916,8 +732,4 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       ),
     );
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62

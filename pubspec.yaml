@@ -43,7 +43,6 @@ dependencies:
   firebase_auth: ^6.7.0
   cloud_firestore: ^6.10.0
   firebase_storage: ^13.6.0
-<<<<<<< HEAD
   cloud_functions: ^6.0.0
   # Nhận thông báo cuộc gọi khi app tắt hoặc ở nền.
   firebase_messaging: ^16.0.0
@@ -59,13 +58,9 @@ dependencies:
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
   url_launcher: ^6.3.3
+  firebase_database: ^12.6.0
   pdf: 3.12.0
   printing: 5.14.3
-=======
-  mobile_scanner: ^7.4.2
-  image_picker: ^1.2.3
-  qr_flutter: ^4.1.0
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
 dev_dependencies:
   flutter_test:
@@ -89,13 +84,10 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-<<<<<<< HEAD
   assets:
     - lib/core/utils/admin_receipt_font.ttf
     - lib/core/utils/admin_receipt_font_bold.ttf
 
-=======
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

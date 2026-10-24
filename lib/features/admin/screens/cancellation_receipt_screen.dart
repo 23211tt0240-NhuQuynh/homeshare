@@ -11,6 +11,8 @@ class CancellationReceiptScreen extends StatelessWidget {
   final String recipientName;
   final String recipientRole;
   final String bankDetails;
+  final bool isFullPayment;
+  final double commissionRate;
   final int amount,
       totalDeposit,
       renterRefund,
@@ -26,6 +28,8 @@ class CancellationReceiptScreen extends StatelessWidget {
     required this.recipientName,
     required this.recipientRole,
     required this.bankDetails,
+    required this.isFullPayment,
+    required this.commissionRate,
     required this.amount,
     required this.totalDeposit,
     required this.renterRefund,
@@ -174,20 +178,31 @@ class CancellationReceiptScreen extends StatelessWidget {
                       const Color(0xFF344054),
                     ),
                     _amountRow(
-                      'Hoàn người thuê (85%)',
-                      renterRefund,
-                      const Color(0xFF398FC0),
+                      isFullPayment
+                          ? 'Hoàn người thuê (50% cọc)'
+                          : 'Tiền cọc chuyển cho chủ trọ',
+                      isFullPayment ? renterRefund : totalDeposit,
+                      isHost
+                          ? const Color(0xFF344054)
+                          : const Color(0xFF398FC0),
                     ),
+                    if (isFullPayment && isHost)
+                      _amountRow(
+                        'Phần chủ trọ trước hoa hồng (50%)',
+                        totalDeposit ~/ 2,
+                        const Color(0xFF344054),
+                      ),
                     _amountRow(
-                      'Phí sàn (5%)',
+                      'Hoa hồng sàn (${commissionRate.toStringAsFixed(commissionRate % 1 == 0 ? 0 : 1)}%)',
                       platformFee,
                       const Color(0xFFD92D20),
                     ),
-                    _amountRow(
-                      'Bồi thường chủ trọ (10%)',
-                      hostCompensation,
-                      const Color(0xFF027A48),
-                    ),
+                    if (isHost)
+                      _amountRow(
+                        'Thực chuyển cho chủ trọ',
+                        hostCompensation,
+                        const Color(0xFF027A48),
+                      ),
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(11),
@@ -242,7 +257,7 @@ class CancellationReceiptScreen extends StatelessWidget {
                         try {
                           final bytes = await AdminReceiptPdf.build(
                             title: isHost
-                                ? 'Biên lai bồi thường đơn hủy'
+                                ? 'Biên lai quyết toán đơn hủy'
                                 : 'Biên lai hoàn tiền đơn hủy',
                             amount: '${fmt.format(amount)} đ',
                             subtitle: isHost
@@ -275,14 +290,25 @@ class CancellationReceiptScreen extends StatelessWidget {
                                 '${fmt.format(totalDeposit)} đ',
                               ],
                               [
-                                'Hoàn người thuê (85%)',
-                                '${fmt.format(renterRefund)} đ',
+                                isFullPayment
+                                    ? 'Hoàn người thuê (50% cọc)'
+                                    : 'Tiền cọc chuyển cho chủ trọ',
+                                '${fmt.format(isFullPayment ? renterRefund : totalDeposit)} đ',
                               ],
-                              ['Phí sàn (5%)', '${fmt.format(platformFee)} đ'],
+                              if (isFullPayment && isHost)
+                                [
+                                  'Phần chủ trọ trước hoa hồng (50%)',
+                                  '${fmt.format(totalDeposit ~/ 2)} đ',
+                                ],
                               [
-                                'Bồi thường chủ trọ (10%)',
-                                '${fmt.format(hostCompensation)} đ',
+                                'Hoa hồng sàn (${commissionRate.toStringAsFixed(commissionRate % 1 == 0 ? 0 : 1)}%)',
+                                '${fmt.format(platformFee)} đ',
                               ],
+                              if (isHost)
+                                [
+                                  'Thực chuyển cho chủ trọ',
+                                  '${fmt.format(hostCompensation)} đ',
+                                ],
                             ],
                             totalLabel: isHost
                                 ? 'THỰC CHUYỂN CHO CHỦ TRỌ'

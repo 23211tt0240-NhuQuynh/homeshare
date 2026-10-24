@@ -1,18 +1,11 @@
-<<<<<<< HEAD
 import 'dart:async';
-=======
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-<<<<<<< HEAD
 import '../utils/booking_utils.dart';
 import '../widgets/admin_branded_title.dart';
 import 'cancellation_invoice_screen.dart';
-=======
-import '../services/admin_service.dart';
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 import 'settlement_invoice_screen.dart';
 
 class AdminOrdersScreen extends ConsumerStatefulWidget {
@@ -24,7 +17,6 @@ class AdminOrdersScreen extends ConsumerStatefulWidget {
 
 class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
-<<<<<<< HEAD
   final FocusNode _searchFocusNode = FocusNode();
 
   // Dùng ValueNotifier cho tìm kiếm: KHÔNG gọi setState khi gõ, tránh đứng hình / mất focus trên Flutter Web
@@ -34,7 +26,6 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
       'deposit_paid'; // 'pending', 'deposit_paid', 'completed', 'cancelled'
   String _selectedHostArea = 'Tất cả chủ trọ';
   DateTime? _selectedDate;
-  DateTime get effectiveSelectedDate => _selectedDate ?? DateTime.now();
 
   final currencyFormatter = NumberFormat('#,###', 'vi_VN');
 
@@ -51,10 +42,20 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
   List<String> _hostDropdownItems = ['Tất cả chủ trọ'];
   bool _isLoading = true;
 
+  Future<void> _pickReconciliationDate() async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: 'Chọn ngày đối soát',
+    );
+    if (selected != null && mounted) setState(() => _selectedDate = selected);
+  }
+
   @override
   void initState() {
     super.initState();
-    _selectedDate = DateTime.now();
     _searchCtrl.addListener(() {
       _searchQuery.value = _searchCtrl.text;
     });
@@ -151,9 +152,15 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
       item['transferNote'],
       item['userCode'],
       item['renterName'],
+      item['renterPhone'],
       item['roomTitle'],
       item['hostName'],
       item['id'],
+      item['deposit'],
+      item['formattedDeposit'],
+      item['note'],
+      item['subTag'],
+      item['deadline'],
     ];
 
     for (final c in candidates) {
@@ -200,8 +207,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
             !userCodeParts.contains(part) &&
             !RegExp(r'^20\d{6}$').hasMatch(part)) {
           final clean = part.replaceAll(RegExp(r'[^A-Z0-9]'), '');
-          if (clean.isNotEmpty)
+          if (clean.isNotEmpty) {
             return '$hostPrefix-${clean.length > 5 ? clean.substring(clean.length - 4) : clean}';
+          }
         }
       }
     }
@@ -426,6 +434,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
         'transferNote': (data['transferNote'] ?? '').toString(),
         'userCode': (data['userCode'] ?? '').toString(),
         'renterId': data['renterId'] ?? '',
+        'renterPhone': (data['renterPhone'] ?? data['phoneNumber'] ?? '')
+            .toString(),
+        'hostId': data['hostId'] ?? data['landlordId'] ?? '',
         'subTag':
             data['subTag']?.toString() ??
             (targetTab == 'cancelled'
@@ -438,6 +449,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
         'renterName': (data['renterName'] ?? 'Khách thuê').toString(),
         'roomTitle': (data['roomTitle'] ?? 'Phòng trọ').toString(),
         'deposit': amount,
+        'formattedDeposit': currencyFormatter.format(amount),
         'status': targetTab,
         'isFullPayment': isFullPayment,
         'paymentOption': paymentOption,
@@ -463,8 +475,22 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
         'isCheckIn': isCheckIn,
         'isDisbursed': isDisbursed,
         'reconciliationDate': _orderReconciliationDate(data, targetTab),
+        'sortDate':
+            asDateTime(data['createdAt']) ??
+            asDateTime(data['ngayTao']) ??
+            asDateTime(data['bookingDate']) ??
+            DateTime.fromMillisecondsSinceEpoch(0),
       });
     }
+
+    orders.sort((a, b) {
+      final aDate = a['sortDate'] as DateTime;
+      final bDate = b['sortDate'] as DateTime;
+      final byDate = bDate.compareTo(aDate);
+      return byDate != 0
+          ? byDate
+          : (b['id'] as String).compareTo(a['id'] as String);
+    });
 
     if (mounted) {
       setState(() {
@@ -477,7 +503,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
     }
   }
 
-  void _navigateToSettlementInvoice(List<Map<String, dynamic>> orders) {
+  Future<void> _navigateToSettlementInvoice(
+    List<Map<String, dynamic>> orders,
+  ) async {
     final checkInOrderIds = orders
         .where(
           (order) => order['isCheckIn'] == true && order['isDisbursed'] != true,
@@ -497,17 +525,83 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            SettlementInvoiceScreen(selectedBookingIds: checkInOrderIds),
-      ),
-    );
+    final groups = <String, List<String>>{};
+    for (final order in orders.where(
+      (o) => checkInOrderIds.contains(o['id']),
+    )) {
+      final hostKey =
+          '${order['rawHostName'] ?? order['hostName']}::${order['hostId'] ?? ''}';
+      groups.putIfAbsent(hostKey, () => []).add(order['id'] as String);
+    }
+    await _chooseInvoiceGroup(groups, cancellation: false);
   }
 
-  void _navigateToCancellationInvoice(List<String> bookingIds) {
-    if (bookingIds.isEmpty) {
+  Future<void> _chooseInvoiceGroup(
+    Map<String, List<String>> groups, {
+    required bool cancellation,
+  }) async {
+    if (groups.isEmpty) return;
+    String? selected;
+    if (groups.length == 1) {
+      selected = groups.keys.first;
+    } else {
+      selected = await showModalBottomSheet<String>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const ListTile(
+                title: Text(
+                  'Chọn nhóm hóa đơn',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              for (final key in groups.keys)
+                ListTile(
+                  leading: const Icon(
+                    Icons.account_balance_outlined,
+                    color: Color(0xFF398FC0),
+                  ),
+                  title: Text(
+                    key.split('::').length > 2
+                        ? '${key.split('::').first} • ${key.split('::').last}'
+                        : key.split('::').first,
+                  ),
+                  subtitle: Text(
+                    '${groups[key]!.length} đơn',
+                  ),
+                  onTap: () => Navigator.pop(ctx, key),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (!mounted || selected == null) return;
+    if (cancellation) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              CancellationInvoiceScreen(bookingIds: groups[selected]!),
+        ),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              SettlementInvoiceScreen(selectedBookingIds: groups[selected]!),
+        ),
+      );
+    }
+  }
+
+  Future<void> _navigateToCancellationInvoice(
+    List<Map<String, dynamic>> orders,
+  ) async {
+    if (orders.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Chưa có đơn hủy nào để tạo hóa đơn!'),
@@ -517,106 +611,18 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CancellationInvoiceScreen(bookingIds: bookingIds),
-=======
-  String _filter = 'all'; // 'all', 'disburse', 'deposit_paid', 'completed'
-  String _selectedHostArea = '1-Chủ trọ A (Khu Bình Thạnh)';
-  final Set<String> _selectedOrderIds = {'1-X92F'}; // Selected for batch invoice
-  final currencyFormatter = NumberFormat('#,###', 'vi_VN');
-
-  // Lưu trạng thái giải ngân tạm thời cho dữ liệu mẫu (Mock Data)
-  final Map<String, String> _localStatusOverrides = {};
-
-  final List<Map<String, dynamic>> _mockOrderList = [
-    {
-      'id': '1-X92F',
-      'orderCode': '1-X92F',
-      'subTag': 'Đã check-in (12/09)',
-      'renterName': 'Lê Hoàng Long',
-      'roomTitle': 'Căn Studio 302',
-      'deposit': 2000000.0,
-      'status': 'deposit_paid',
-      'statusLabel': 'Đã thanh toán',
-      'note': 'Tiền cọc: Thanh toán đủ tháng 9',
-      'hostName': 'Chủ trọ A (Khu Bình Thạnh)',
-    },
-    {
-      'id': '1-7315',
-      'orderCode': '1-7315',
-      'subTag': 'Chờ check-in',
-      'renterName': 'Hoàng Thị Bích Ngọc',
-      'roomTitle': 'Gác lửng 205',
-      'deposit': 800000.0,
-      'status': 'disburse',
-      'statusLabel': 'Chờ nhận phòng',
-      'note': 'Khách chưa check-in nhận phòng',
-      'hostName': 'Chủ trọ A (Khu Bình Thạnh)',
-    },
-    {
-      'id': '1-0482',
-      'orderCode': '1-0482',
-      'subTag': 'Chờ xác nhận',
-      'renterName': 'Nguyễn Văn Nam',
-      'roomTitle': 'Phòng 201 - Bình Thạnh',
-      'deposit': 1000000.0,
-      'status': 'disburse',
-      'statusLabel': 'Xác nhận tiền cọc',
-      'note': 'Tiền cọc: Đặt cọc giữ chỗ',
-      'hostName': 'Chủ trọ A (Khu Bình Thạnh)',
-    },
-    {
-      'id': '1-5821',
-      'orderCode': '1-5821',
-      'subTag': 'Chờ xác nhận',
-      'renterName': 'Trần Thị Mai',
-      'roomTitle': 'Phòng 104 - Bình Thạnh',
-      'deposit': 500000.0,
-      'status': 'deposit_paid',
-      'statusLabel': 'Đã thanh toán',
-      'note': 'Tiền cọc: Cọc bảo đảm nhận phòng',
-      'hostName': 'Chủ trọ A (Khu Bình Thạnh)',
-    },
-    {
-      'id': '1-0490',
-      'orderCode': '1-0490',
-      'subTag': 'Hạn 23:59',
-      'renterName': 'Phạm Minh Tuấn',
-      'roomTitle': 'Phòng 402 - Bình Thạnh',
-      'deposit': 1500000.0,
-      'status': 'disburse',
-      'statusLabel': 'Xác nhận tiền cọc',
-      'note': 'Tiền cọc: Đặt cọc giữ chỗ',
-      'hostName': 'Chủ trọ A (Khu Bình Thạnh)',
-    },
-  ];
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
+    final groups = <String, List<String>>{};
+    for (final order in orders) {
+      final hostKey =
+          '${order['rawHostName'] ?? order['hostName']}::${order['hostId'] ?? ''}';
+      final kind = order['isFullPayment'] == true ? 'Trả hết' : 'Chỉ cọc';
+      groups
+          .putIfAbsent('$hostKey::$kind', () => [])
+          .add(order['id'] as String);
+    }
+    await _chooseInvoiceGroup(groups, cancellation: true);
   }
 
-  void _navigateToSettlementInvoice(double totalAmount) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => SettlementInvoiceScreen(
-          hostName: _selectedHostArea,
-          hostAccountNumber: '0388529900',
-          hostBankName: 'MB Bank',
-          netSettlement: totalAmount > 0 ? (totalAmount * 0.9) : 3750000.0,
-          totalDeposit: totalAmount > 0 ? totalAmount : 4100000.0,
-          platformFee: totalAmount > 0 ? (totalAmount * 0.1) : 350000.0,
-        ),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
-      ),
-    );
-  }
-
-<<<<<<< HEAD
   double _parseToDouble(dynamic val) {
     if (val == null) return 0.0;
     if (val is num) return val.toDouble();
@@ -624,7 +630,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
     return 0.0;
   }
 
-  DateTime? _asDateTime(dynamic value) {
+  DateTime? asDateTime(dynamic value) {
     if (value is Timestamp) return value.toDate();
     if (value is DateTime) return value;
     if (value is String) return DateTime.tryParse(value);
@@ -633,22 +639,22 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
 
   DateTime? _orderReconciliationDate(Map<String, dynamic> data, String status) {
     if (status == 'cancelled') {
-      return _asDateTime(data['refundedAt']) ??
-          _asDateTime(data['cancellationSettledAt']) ??
-          _asDateTime(data['cancelledAt']) ??
-          _asDateTime(data['updatedAt']) ??
-          _asDateTime(data['createdAt']) ??
-          _asDateTime(data['ngayTao']);
+      return asDateTime(data['refundedAt']) ??
+          asDateTime(data['cancellationSettledAt']) ??
+          asDateTime(data['cancelledAt']) ??
+          asDateTime(data['updatedAt']) ??
+          asDateTime(data['createdAt']) ??
+          asDateTime(data['ngayTao']);
     }
     if (data['isDisbursed'] == true) {
-      return _asDateTime(data['disbursedAt']) ??
-          _asDateTime(data['updatedAt']) ??
-          _asDateTime(data['createdAt']) ??
-          _asDateTime(data['ngayTao']);
+      return asDateTime(data['disbursedAt']) ??
+          asDateTime(data['updatedAt']) ??
+          asDateTime(data['createdAt']) ??
+          asDateTime(data['ngayTao']);
     }
-    return _asDateTime(data['createdAt']) ??
-        _asDateTime(data['ngayTao']) ??
-        _asDateTime(data['bookingDate']);
+    return asDateTime(data['createdAt']) ??
+        asDateTime(data['ngayTao']) ??
+        asDateTime(data['bookingDate']);
   }
 
   @override
@@ -657,19 +663,15 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
         ? _allOrders
         : _allOrders.where((e) => e['hostName'] == _selectedHostArea).toList();
 
-    final selectedDay = DateTime(
-      effectiveSelectedDate.year,
-      effectiveSelectedDate.month,
-      effectiveSelectedDate.day,
-    );
-    final visibleByDate = _selectedDate == null
+    final selectedDate = _selectedDate;
+    final visibleByDate = selectedDate == null
         ? visibleByHost
         : visibleByHost.where((item) {
             final date = item['reconciliationDate'] as DateTime?;
             return date != null &&
-                date.year == selectedDay.year &&
-                date.month == selectedDay.month &&
-                date.day == selectedDay.day;
+                date.year == selectedDate.year &&
+                date.month == selectedDate.month &&
+                date.day == selectedDate.day;
           }).toList();
 
     final cPending = visibleByDate
@@ -687,25 +689,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-=======
-  @override
-  Widget build(BuildContext context) {
-    // Calculate total selected amount
-    double totalSelectedAmount = 0.0;
-    for (var item in _mockOrderList) {
-      if (_selectedOrderIds.contains(item['id'])) {
-        totalSelectedAmount += (item['deposit'] as num).toDouble();
-      }
-    }
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0.5,
-<<<<<<< HEAD
         automaticallyImplyLeading: false,
         titleSpacing: 16,
         toolbarHeight: 64,
@@ -799,244 +786,6 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
             ),
           ),
 
-          // ── Khối 2: Ô Tìm Kiếm & Ngày Đối Soát (Gõ mượt mà 100%, không lag/freeze) ──
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-            child: Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 46,
-                    child: TextField(
-                      key: const ValueKey('admin_orders_search_input'),
-                      controller: _searchCtrl,
-                      focusNode: _searchFocusNode,
-                      onChanged: (val) {
-                        _searchQuery.value = val;
-                      },
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF101828),
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Tìm theo Mã HĐ, tên khách, chủ trọ...',
-                        hintStyle: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF98A2B3),
-                        ),
-                        prefixIcon: const Icon(
-                          Icons.search,
-                          size: 20,
-                          color: Color(0xFF667085),
-                        ),
-                        suffixIcon: ValueListenableBuilder<String>(
-                          valueListenable: _searchQuery,
-                          builder: (context, query, _) {
-                            if (query.trim().isEmpty)
-                              return const SizedBox.shrink();
-                            return IconButton(
-                              icon: const Icon(
-                                Icons.cancel,
-                                size: 18,
-                                color: Color(0xFF98A2B3),
-                              ),
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                _searchQuery.value = '';
-                              },
-                            );
-                          },
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFD0D5DD),
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFD0D5DD),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF398FC0),
-                            width: 1.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                InkWell(
-                  onTap: () async {
-                    DateTime pickedDate = effectiveSelectedDate;
-                    final result = await showDialog<bool>(
-                      context: context,
-                      builder: (dialogContext) => StatefulBuilder(
-                        builder: (context, setDialogState) => AlertDialog(
-                          title: const Text('Ngày đối soát'),
-                          contentPadding: const EdgeInsets.fromLTRB(
-                            12,
-                            8,
-                            12,
-                            0,
-                          ),
-                          content: SizedBox(
-                            width: 330,
-                            child: CalendarDatePicker(
-                              initialDate: effectiveSelectedDate,
-                              firstDate: DateTime(2025),
-                              lastDate: DateTime(2028),
-                              onDateChanged: (date) =>
-                                  setDialogState(() => pickedDate = date),
-                            ),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () =>
-                                  Navigator.pop(dialogContext, false),
-                              child: const Text('Bỏ lọc'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(dialogContext),
-                              child: const Text('Hủy'),
-                            ),
-                            TextButton(
-                              onPressed: () =>
-                                  Navigator.pop(dialogContext, true),
-                              child: const Text('Xong'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                    if (result != null) {
-                      setState(
-                        () => _selectedDate = result ? pickedDate : null,
-                      );
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    height: 46,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFD0D5DD)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.calendar_month_outlined,
-                          size: 19,
-                          color: Color(0xFF475467),
-                        ),
-                        const SizedBox(width: 6),
-                        Text.rich(
-                          TextSpan(
-                            text: 'Đối soát: ',
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              color: Color(0xFF475467),
-                            ),
-                            children: [
-                              TextSpan(
-                                text: _selectedDate == null
-                                    ? 'Tất cả ngày'
-                                    : DateFormat(
-                                        'dd/MM/yyyy',
-                                      ).format(effectiveSelectedDate),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF101828),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-=======
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFF101828)),
-          onPressed: () {},
-        ),
-        title: const Text(
-          'QUẢN LÝ ĐƠN',
-          style: TextStyle(
-            fontSize: 16.5,
-            fontWeight: FontWeight.w900,
-            color: Color(0xFF101828),
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: Column(
-        children: [
-          // 1. Host Area Dropdown Selector
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF2F4F7),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFEAECF0)),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  isExpanded: true,
-                  value: _selectedHostArea,
-                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF155EEF)),
-                  items: [
-                    '1-Chủ trọ A (Khu Bình Thạnh)',
-                    '2-Chủ trọ B (Khu Quận 10)',
-                    '3-Chủ trọ C (Khu Cầu Giấy)',
-                  ].map((value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Row(
-                        children: [
-                          const Icon(Icons.home_work_outlined, size: 18, color: Color(0xFF155EEF)),
-                          const SizedBox(width: 8),
-                          Text(
-                            value,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF101828),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() => _selectedHostArea = val);
-                    }
-                  },
-                ),
-              ),
-            ),
-          ),
-
           // 2. Search & Date Filter Row
           Container(
             color: Colors.white,
@@ -1050,11 +799,21 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     style: const TextStyle(fontSize: 12.5),
                     decoration: InputDecoration(
                       hintText: 'Tìm theo Mã HĐ, Tên khách...',
-                      hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF98A2B3)),
-                      prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF667085)),
+                      hintStyle: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF98A2B3),
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        size: 18,
+                        color: Color(0xFF667085),
+                      ),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 0,
+                        horizontal: 10,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -1067,27 +826,41 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                OutlinedButton.icon(
+                  onPressed: _pickReconciliationDate,
+                  icon: const Icon(Icons.calendar_today_outlined, size: 15),
+                  label: Text(
+                    _selectedDate == null
+                        ? 'Tất cả ngày'
+                        : 'Đối soát: ${DateFormat('dd/MM/yyyy').format(_selectedDate!)}',
                   ),
-                  child: Row(
-                    children: const [
-                      Icon(Icons.calendar_today_outlined, size: 14, color: Color(0xFF667085)),
-                      SizedBox(width: 4),
-                      Text('16/09/2026', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF475467))),
-                    ],
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF475467),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    side: const BorderSide(color: Color(0xFFD0D5DD)),
                   ),
                 ),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
+                if (_selectedDate != null)
+                  IconButton(
+                    tooltip: 'Xóa lọc ngày, xem tất cả đơn',
+                    onPressed: () => setState(() => _selectedDate = null),
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: Color(0xFF667085),
+                    ),
+                  ),
               ],
             ),
           ),
 
-<<<<<<< HEAD
           // ── Khối 3: Tab Lọc Trạng Thái (Bao gồm Đơn Hủy) ──
           Container(
             color: Colors.white,
@@ -1121,24 +894,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                   value: 'cancelled',
                   dotColor: const Color(0xFFD92D20),
                 ),
-=======
-          // 3. Tab Filter Chips (Đang xử lý, Đã cọc, Đã trả hết)
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 10),
-            child: Row(
-              children: [
-                _buildStatusPill('Đang xử lý (3)', 'disburse', const Color(0xFFF79009)),
-                const SizedBox(width: 8),
-                _buildStatusPill('Đã cọc (2)', 'deposit_paid', const Color(0xFF155EEF)),
-                const SizedBox(width: 8),
-                _buildStatusPill('Đã trả hết', 'completed', const Color(0xFF027A48)),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               ],
             ),
           ),
 
-<<<<<<< HEAD
           // ── Khối 4: Header Phụ Của Danh Sách ──
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
@@ -1147,21 +906,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
               border: Border(
                 top: BorderSide(color: Color(0xFFDCEAF5)),
                 bottom: BorderSide(color: Color(0xFFDCEAF5)),
-=======
-          // 4. Header Bar (MÃ CỌC / TÊN KHÁCH THUÊ | TRẠNG THÁI)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF2F4F7),
-              border: Border(
-                top: BorderSide(color: Color(0xFFEAECF0)),
-                bottom: BorderSide(color: Color(0xFFEAECF0)),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
               ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-<<<<<<< HEAD
               children: [
                 Text(
                   _filter == 'cancelled'
@@ -1184,22 +932,11 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     color: Color(0xFF475467),
                     letterSpacing: 0.3,
                   ),
-=======
-              children: const [
-                Text(
-                  'MÃ CỌC / KHÁCH CHUYỂN',
-                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF667085), letterSpacing: 0.3),
-                ),
-                Text(
-                  'TRẠNG THÁI',
-                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF667085), letterSpacing: 0.3),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
               ],
             ),
           ),
 
-<<<<<<< HEAD
           // ── Khối 5 & 6: Danh Sách & Bottom Bar lắng nghe từ ValueNotifier mượt mà ──
           Expanded(
             child: ValueListenableBuilder<String>(
@@ -1222,15 +959,13 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                   autoCheckInAmount += _parseToDouble(item['deposit']);
                 }
 
-                // Tính toán cho tab Đơn Hủy
-                double totalCancelDeposit = 0.0;
-                if (_filter == 'cancelled') {
-                  for (final item in filteredList) {
-                    totalCancelDeposit += _parseToDouble(item['deposit']);
-                  }
-                }
-                final int totalRefund = (totalCancelDeposit * 0.85).round();
-                final int totalHostComp = (totalCancelDeposit * 0.10).round();
+                final fullCancelledCount = filteredList
+                    .where(
+                      (item) =>
+                          item['status'] == 'cancelled' &&
+                          item['isFullPayment'] == true,
+                    )
+                    .length;
 
                 if (_isLoading && _allOrders.isEmpty) {
                   return const Center(
@@ -1349,48 +1084,12 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               ),
                             ),
                           ],
-=======
-          // 5. Orders Stream & List View
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('bookings').snapshots(),
-              builder: (context, snapshot) {
-                // Show loading indicator while Firestore initializes (prevents white screen)
-                if (snapshot.connectionState == ConnectionState.waiting &&
-                    !snapshot.hasData) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xFF155EEF),
-                      strokeWidth: 2.5,
-                    ),
-                  );
-                }
-
-                // Show error state if Firestore fails
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.cloud_off_outlined,
-                              size: 40, color: Color(0xFF98A2B3)),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Không thể tải dữ liệu từ máy chủ',
-                            style: TextStyle(
-                                color: Color(0xFF667085), fontSize: 13),
-                            textAlign: TextAlign.center,
-                          ),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                         ],
                       ),
                     ),
                   );
                 }
 
-<<<<<<< HEAD
                 return Column(
                   children: [
                     Expanded(
@@ -1411,6 +1110,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               hostName: item['hostName'],
                               deposit: _parseToDouble(item['deposit']),
                               deadline: item['deadline'],
+                              isFullPayment: item['isFullPayment'] == true,
                             );
                           } else if (_filter == 'pending') {
                             return _buildPendingOrderCard(
@@ -1490,6 +1190,8 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                         const SizedBox(width: 6),
                                         Text(
                                           'Đã tự lọc: ${filteredList.length} đơn hủy',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(
                                             fontSize: 12.5,
                                             fontWeight: FontWeight.w700,
@@ -1500,7 +1202,8 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                     ),
                                     const SizedBox(height: 3),
                                     Text(
-                                      'Hoàn khách 85%: ${currencyFormatter.format(totalRefund)}đ • Bồi thường chủ: ${currencyFormatter.format(totalHostComp)}đ',
+                                      '$fullCancelledCount đơn trả hết • ${filteredList.length - fullCancelledCount} đơn chỉ cọc',
+                                      maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         fontSize: 11.5,
@@ -1514,10 +1217,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               const SizedBox(width: 10),
                               ElevatedButton.icon(
                                 onPressed: () {
-                                  final ids = filteredList
-                                      .map((e) => e['id'] as String)
-                                      .toList();
-                                  _navigateToCancellationInvoice(ids);
+                                  _navigateToCancellationInvoice(filteredList);
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFFD92D20),
@@ -1536,7 +1236,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                   size: 18,
                                 ),
                                 label: Text(
-                                  'HÓA ĐƠN HỦY (${filteredList.length})',
+                                  'TẠO HÓA ĐƠN HỦY',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w900,
                                     fontSize: 12.5,
@@ -1658,152 +1358,15 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                         ),
                       ),
                   ],
-=======
-                final firestoreDocs = snapshot.data?.docs ?? [];
-                final query = _searchCtrl.text.trim().toUpperCase();
-
-                // Merge with Mock Data for full interactive showcase
-                final items = _mockOrderList.where((item) {
-                  final code = (item['orderCode'] as String).toUpperCase();
-                  final name = (item['renterName'] as String).toUpperCase();
-                  final title = (item['roomTitle'] as String).toUpperCase();
-                  final matchesQuery = query.isEmpty || code.contains(query) || name.contains(query) || title.contains(query);
-                  if (!matchesQuery) return false;
-
-                  final status = _localStatusOverrides[item['id']] ?? item['status'];
-                  if (_filter == 'all') return true;
-                  return status == _filter;
-                }).toList();
-
-                if (items.isEmpty && firestoreDocs.isEmpty) {
-                  return const Center(
-                    child: Text('Không có đơn nào phù hợp với bộ lọc', style: TextStyle(color: Color(0xFF667085))),
-                  );
-                }
-
-                return ListView.separated(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: items.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    final id = item['id'] as String;
-                    final isChecked = _selectedOrderIds.contains(id);
-                    final effectiveStatus = _localStatusOverrides[id] ?? item['status'];
-
-                    return _buildOrderItemCard(
-                      id: id,
-                      orderCode: item['orderCode'],
-                      subTag: item['subTag'],
-                      renterName: item['renterName'],
-                      roomTitle: item['roomTitle'],
-                      deposit: item['deposit'],
-                      status: effectiveStatus,
-                      statusLabel: item['statusLabel'],
-                      note: item['note'],
-                      isChecked: isChecked,
-                      onToggleCheck: () {
-                        setState(() {
-                          if (isChecked) {
-                            _selectedOrderIds.remove(id);
-                          } else {
-                            _selectedOrderIds.add(id);
-                          }
-                        });
-                      },
-                      onActionPressed: () {
-                        setState(() {
-                          _localStatusOverrides[id] = 'completed';
-                        });
-                        ref.read(adminServiceProvider).approveBookingDisbursement(
-                              bookingId: id,
-                              orderCode: item['orderCode'],
-                              hostName: item['renterName'],
-                              amount: item['deposit'],
-                            );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            backgroundColor: const Color(0xFF12B76A),
-                            content: Text('Đã xác nhận thanh toán đơn ${item['orderCode']}!'),
-                          ),
-                        );
-                      },
-                    );
-                  },
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 );
               },
             ),
           ),
-<<<<<<< HEAD
-=======
-
-          // 6. Bottom Sticky Invoice Action Bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: const Border(top: BorderSide(color: Color(0xFFEAECF0))),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -3),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Đã chọn: ${_selectedOrderIds.length} đơn',
-                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF667085)),
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Text('Tổng thanh toán: ', style: TextStyle(fontSize: 11, color: Color(0xFF475467))),
-                          Text(
-                            '${currencyFormatter.format(totalSelectedAmount > 0 ? totalSelectedAmount : 2000000)} đ',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF155EEF),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  ElevatedButton(
-                    onPressed: () => _navigateToSettlementInvoice(totalSelectedAmount),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF155EEF),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: const Text(
-                      'TẠO HÓA ĐƠN ➔',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         ],
       ),
     );
   }
 
-<<<<<<< HEAD
   /// Nút Tab lọc hình capsule chuẩn mẫu ảnh
   Widget _buildStatusPill({
     required String label,
@@ -1881,122 +1444,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               ? const Color(0xFFB42318)
                               : const Color(0xFF344054)),
                   ),
-=======
-  Widget _buildStatusPill(String label, String value, Color activeColor) {
-    final isSelected = _filter == value;
-    return Expanded(
-      child: InkWell(
-        onTap: () => setState(() => _filter = isSelected ? 'all' : value),
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          decoration: BoxDecoration(
-            color: isSelected ? activeColor.withValues(alpha: 0.1) : const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isSelected ? activeColor : const Color(0xFFEAECF0),
-              width: isSelected ? 1.5 : 1,
-            ),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-              color: isSelected ? activeColor : const Color(0xFF475467),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOrderItemCard({
-    required String id,
-    required String orderCode,
-    required String subTag,
-    required String renterName,
-    required String roomTitle,
-    required double deposit,
-    required String status,
-    required String statusLabel,
-    required String note,
-    required bool isChecked,
-    required VoidCallback onToggleCheck,
-    required VoidCallback onActionPressed,
-  }) {
-    final isDone = status == 'completed';
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isChecked ? const Color(0xFF155EEF) : const Color(0xFFEAECF0),
-          width: isChecked ? 1.5 : 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              InkWell(
-                onTap: onToggleCheck,
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: isChecked ? const Color(0xFF155EEF) : Colors.white,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: isChecked ? const Color(0xFF155EEF) : const Color(0xFFD0D5DD),
-                    ),
-                  ),
-                  child: isChecked
-                      ? const Icon(Icons.check, size: 14, color: Colors.white)
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF8FF),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  orderCode,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF155EEF)),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFECFDF3),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  subTag,
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF027A48)),
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '${currencyFormatter.format(deposit)} đ',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF101828),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
               ),
             ],
           ),
-<<<<<<< HEAD
         ),
       ),
     );
@@ -2010,11 +1461,8 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
     required String hostName,
     required double deposit,
     required String deadline,
+    required bool isFullPayment,
   }) {
-    final split = BookingUtils.cancellationSplit(deposit);
-    final renterRefund = split['refundAmount'] ?? (deposit * 0.85).round();
-    final hostCompensation = split['hostAmount'] ?? (deposit * 0.10).round();
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -2215,7 +1663,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Hoàn khách 85% (${currencyFormatter.format(renterRefund)}đ) • Bồi thường chủ 10% (${currencyFormatter.format(hostCompensation)}đ)',
+                    isFullPayment
+                        ? 'Hoàn khách 50% cọc • Chủ trọ nhận 50% còn lại sau hoa hồng'
+                        : 'Khách mất cọc • Chủ trọ nhận cọc sau hoa hồng sàn',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -2467,46 +1917,11 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                       fontSize: 11.5,
                       fontWeight: FontWeight.bold,
                     ),
-=======
-          const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.only(left: 28.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      renterName,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF101828)),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      roomTitle,
-                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF667085)),
-                    ),
-                  ],
-                ),
-                ElevatedButton(
-                  onPressed: onActionPressed,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isDone ? const Color(0xFFF2F4F7) : const Color(0xFF155EEF),
-                    foregroundColor: isDone ? const Color(0xFF475467) : Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                  ),
-                  child: Text(
-                    isDone ? 'Đã thanh toán' : statusLabel,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                   ),
                 ),
               ],
             ),
           ),
-<<<<<<< HEAD
         ],
       ),
     );
@@ -2848,21 +2263,12 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                   ),
                 ),
               ],
-=======
-          const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.only(left: 28.0),
-            child: Text(
-              note,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF98A2B3)),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             ),
           ),
         ],
       ),
     );
   }
-<<<<<<< HEAD
 
   Future<void> _confirmOrder(Map<String, dynamic> item) async {
     final id = item['id'] as String;
@@ -2930,6 +2336,3 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
     }
   }
 }
-=======
-}
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62

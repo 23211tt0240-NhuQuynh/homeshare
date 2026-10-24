@@ -26,11 +26,7 @@ class AdminKpiCard extends StatelessWidget {
     this.subtext,
     this.subtextColor,
     this.backgroundColor = Colors.white,
-<<<<<<< HEAD
     this.borderColor = const Color(0xFFDCEAF5),
-=======
-    this.borderColor = const Color(0xFFEAECF0),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
     this.onTap,
   });
 
@@ -63,13 +59,8 @@ class AdminKpiCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w700,
-<<<<<<< HEAD
                 color: valueColor == const Color(0xFF398FC0)
                     ? const Color(0xFF398FC0)
-=======
-                color: valueColor == const Color(0xFF155EEF)
-                    ? const Color(0xFF155EEF)
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                     : const Color(0xFF64748B),
                 letterSpacing: 0.4,
               ),
@@ -132,11 +123,7 @@ class AdminKpiCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
-<<<<<<< HEAD
                   color: subtextColor ?? const Color(0xFF398FC0),
-=======
-                  color: subtextColor ?? const Color(0xFF2E90FA),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

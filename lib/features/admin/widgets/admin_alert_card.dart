@@ -63,11 +63,7 @@ class AdminAlertCard extends StatelessWidget {
       highlightCode: postCode,
       subtitle: 'Chủ trọ: $hostName • $roomTitle',
       actionLabel: 'Duyệt ngay',
-<<<<<<< HEAD
       actionButtonColor: const Color(0xFF398FC0),
-=======
-      actionButtonColor: const Color(0xFF155EEF),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       onProcess: onProcess,
     );
   }
@@ -90,13 +86,8 @@ class AdminAlertCard extends StatelessWidget {
         );
         break;
       case AdminActionType.postReview:
-<<<<<<< HEAD
         iconBgColor = const Color(0xFFE9F5FC);
         iconWidget = const Icon(Icons.apartment_rounded, color: Color(0xFF398FC0), size: 19);
-=======
-        iconBgColor = const Color(0xFFEFF8FF);
-        iconWidget = const Icon(Icons.apartment_rounded, color: Color(0xFF155EEF), size: 19);
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         break;
       case AdminActionType.ekyc:
         iconBgColor = const Color(0xFFFEF0C7);
@@ -113,11 +104,7 @@ class AdminAlertCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-<<<<<<< HEAD
         border: Border.all(color: const Color(0xFFDCEAF5), width: 1.2),
-=======
-        border: Border.all(color: const Color(0xFFEAECF0), width: 1.2),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -159,11 +146,7 @@ class AdminAlertCard extends StatelessWidget {
                       TextSpan(
                         text: highlightCode,
                         style: const TextStyle(
-<<<<<<< HEAD
                           color: Color(0xFF398FC0),
-=======
-                          color: Color(0xFF155EEF),
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
                           fontWeight: FontWeight.bold,
                         ),
                       ),

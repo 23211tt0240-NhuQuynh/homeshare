@@ -262,7 +262,6 @@ class AdminService {
         // 4 tuần trong tháng hiện tại
         List<double> monthWeeksBuckets = List<double>.filled(4, 0.0);
 
-<<<<<<< HEAD
         for (var doc in snapshot.docs) {
           final data = doc.data();
           final rawStatus = (data['status'] ?? data['trangThai'] ?? '').toString().toLowerCase();
@@ -290,24 +289,6 @@ class AdminService {
                       : null));
 
           if (createdAt != null && commission > 0) {
-=======
-        bool hasData = false;
-
-        for (var doc in snapshot.docs) {
-          final data = doc.data();
-          final amount = ((data['deposit'] ?? data['totalAmount'] ?? data['roomPrice'] ?? 0) as num).toDouble();
-          final commission = amount * 0.1; // 10% hoa hồng sàn
-
-          DateTime? createdAt;
-          if (data['createdAt'] is Timestamp) {
-            createdAt = (data['createdAt'] as Timestamp).toDate();
-          } else if (data['ngayTao'] is Timestamp) {
-            createdAt = (data['ngayTao'] as Timestamp).toDate();
-          }
-
-          if (createdAt != null) {
-            hasData = true;
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
             // Phân bổ theo năm hiện tại
             if (createdAt.year == currentYear && createdAt.month <= 12) {
               final mIndex = createdAt.month - 1;
@@ -329,21 +310,6 @@ class AdminService {
           }
         }
 
-<<<<<<< HEAD
-=======
-        // Nếu Firestore chưa có nhiều dữ liệu mẫu, hòa trộn dữ liệu chuẩn giao diện
-        if (!hasData || yearlyBuckets[currentMonth - 1] == 0) {
-          return const AdminRevenueChartData(
-            weeklyData: [2.5, 4.2, 3.1, 2.0, 5.8, 12.4, 7.6],
-            monthlyWeeksData: [28.0, 36.5, 42.0, 48.2],
-            yearlyData: [6.2, 4.0, 7.5, 9.8, 11.2, 13.5, 15.0, 16.2, 18.5, null, null, null],
-            peakYearlyMonthIndex: 8,
-            peakYearlyAmount: 18.5,
-            monthlyAverage: 14020000,
-          );
-        }
-
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         // Tìm tháng có doanh thu cao nhất
         int peakIndex = 0;
         double peakAmount = 0.0;
@@ -362,62 +328,36 @@ class AdminService {
           }
         }
 
-<<<<<<< HEAD
         final avgMonthly = activeMonths > 0 ? (sumYear / activeMonths) : 0.0;
-=======
-        final avgMonthly = activeMonths > 0 ? (sumYear / activeMonths) : 14020000.0;
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
 
         return AdminRevenueChartData(
           weeklyData: weeklyBuckets,
           monthlyWeeksData: monthWeeksBuckets,
           yearlyData: yearlyBuckets,
           peakYearlyMonthIndex: peakIndex,
-<<<<<<< HEAD
           peakYearlyAmount: peakAmount,
-=======
-          peakYearlyAmount: peakAmount > 0 ? peakAmount : 18.5,
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
           monthlyAverage: avgMonthly,
         );
       } catch (e) {
         debugPrint('Error computing revenue chart from Firestore: $e');
         return const AdminRevenueChartData(
-<<<<<<< HEAD
           weeklyData: [0, 0, 0, 0, 0, 0, 0],
           monthlyWeeksData: [0, 0, 0, 0],
           yearlyData: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
           peakYearlyMonthIndex: 0,
           peakYearlyAmount: 0,
           monthlyAverage: 0,
-=======
-          weeklyData: [2.5, 4.2, 3.1, 2.0, 5.8, 12.4, 7.6],
-          monthlyWeeksData: [28.0, 36.5, 42.0, 48.2],
-          yearlyData: [6.2, 4.0, 7.5, 9.8, 11.2, 13.5, 15.0, 16.2, 18.5, null, null, null],
-          peakYearlyMonthIndex: 8,
-          peakYearlyAmount: 18.5,
-          monthlyAverage: 14020000,
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
         );
       }
     }).handleError((error) {
       debugPrint('Error in getRevenueChartDataStream: $error');
       return const AdminRevenueChartData(
-<<<<<<< HEAD
         weeklyData: [0, 0, 0, 0, 0, 0, 0],
         monthlyWeeksData: [0, 0, 0, 0],
         yearlyData: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         peakYearlyMonthIndex: 0,
         peakYearlyAmount: 0,
         monthlyAverage: 0,
-=======
-        weeklyData: [2.5, 4.2, 3.1, 2.0, 5.8, 12.4, 7.6],
-        monthlyWeeksData: [28.0, 36.5, 42.0, 48.2],
-        yearlyData: [6.2, 4.0, 7.5, 9.8, 11.2, 13.5, 15.0, 16.2, 18.5, null, null, null],
-        peakYearlyMonthIndex: 8,
-        peakYearlyAmount: 18.5,
-        monthlyAverage: 14020000,
->>>>>>> abc92fb4245a835e7551085a84e6ad76a154ce62
       );
     });
   }
