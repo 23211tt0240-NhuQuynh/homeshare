@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
+import 'core/constants/vietnam_locations.dart';
 import 'core/services/call_push_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/admin/screens/admin_main_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/providers/user_provider.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/chat/screens/call_screen.dart';
 import 'features/host/screens/host_main_screen.dart';
 import 'features/renter/screens/renter_main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations(const [
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  // Ứng dụng - Nạp địa chỉ - Luồng đi: Đọc cache và cập nhật API trước
+  // khi mở các màn hình dùng chung danh mục tỉnh/thành và cấp xã.
+  await VietnamLocations.initialize();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   // Tạo kênh chuông "Cuộc gọi" và đăng ký handler khi app ở nền hoặc đã tắt.
   await CallPushService.prepare();
@@ -87,6 +87,12 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
+    // Người thuê, chủ trọ và quản trị đều nhận cuộc gọi. Trước đây chỉ màn người thuê nghe chuông.
+    ref.listen(incomingCallProvider, (prev, next) {
+      final call = next.value;
+      if (call == null) return;
+      IncomingCallRouter.show(call);
+    });
 
     return profileAsync.when(
       data: (profile) {

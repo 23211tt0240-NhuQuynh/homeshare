@@ -24,7 +24,11 @@ class RoommateCommunityScreen extends ConsumerStatefulWidget {
   ConsumerState<RoommateCommunityScreen> createState() => _RoommateCommunityScreenState();
 }
 
+enum _RoommateSort { newest, hobby, priceLow }
+
 class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScreen> {
+  _RoommateSort _sort = _RoommateSort.newest;
+
   RoommateFilterParams _currentFilters = const RoommateFilterParams(
     district: 'Tất cả',
     targetGender: 'Tất cả',
@@ -211,7 +215,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                 data: (posts) => RefreshIndicator(
                   color: AppColors.primary,
                   onRefresh: _reloadPosts,
-                  child: _buildPostsList(posts),
+                  child: _buildPostsList(_sortedPosts(posts)),
                 ),
                 loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
                 error: (err, _) => Center(
@@ -264,50 +268,28 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
           ),
           Row(
             children: [
+              PopupMenuButton<_RoommateSort>(
+                tooltip: 'Sắp xếp',
+                initialValue: _sort,
+                offset: const Offset(0, 44),
+                color: Colors.white,
+                elevation: 8,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                onSelected: (value) => setState(() => _sort = value),
+                itemBuilder: (context) => [
+                  _sortMenuItem(_RoommateSort.newest, Icons.article_outlined, 'Bài đăng mới nhất'),
+                  _sortMenuItem(_RoommateSort.hobby, Icons.favorite_border, 'Sở thích phù hợp'),
+                  _sortMenuItem(_RoommateSort.priceLow, Icons.payments_outlined, 'Giá thấp đến cao'),
+                ],
+                child: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(Icons.tune_rounded, color: Color(0xFF334155), size: 24),
+                ),
+              ),
               IconButton(
                 icon: const Icon(Icons.search_rounded, color: Color(0xFF334155), size: 26),
                 onPressed: _openRoommateSearch,
               ),
-              Stack(
-                alignment: Alignment.topRight,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF334155), size: 24),
-                    onPressed: () {},
-                  ),
-                  Positioned(
-                    top: 10,
-                    right: 12,
-                    child: Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEF4444),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 4),
-              // Profile Avatar
-              Builder(builder: (context) {
-                final raw = profile?.avatarUrl.trim() ?? '';
-                final avatar = raw.startsWith('http') ? NetworkImage(raw) : null;
-                return CircleAvatar(
-                  radius: 17,
-                  backgroundColor: const Color(0xFFE2E8F0),
-                  backgroundImage: avatar,
-                  child: avatar == null
-                      ? Text(
-                          (profile?.displayName.trim().isNotEmpty == true)
-                              ? profile!.displayName.trim()[0].toUpperCase()
-                              : 'U',
-                          style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF334155)),
-                        )
-                      : null,
-                );
-              }),
             ],
           ),
         ],
@@ -393,6 +375,50 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
         ),
       ),
     );
+  }
+
+  PopupMenuItem<_RoommateSort> _sortMenuItem(_RoommateSort value, IconData icon, String label) {
+    final selected = _sort == value;
+    final color = selected ? AppColors.primary : const Color(0xFF0F172A);
+    return PopupMenuItem<_RoommateSort>(
+      value: value,
+      height: 48,
+      child: Row(
+        children: [
+          Icon(icon, size: 22, color: color),
+          const SizedBox(width: 12),
+          Text(label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: color)),
+        ],
+      ),
+    );
+  }
+
+  double _sortPrice(RoommatePostModel post) {
+    if (post.pricePerPerson > 0) return post.pricePerPerson;
+    return post.budgetMax;
+  }
+
+  List<RoommatePostModel> _sortedPosts(List<RoommatePostModel> posts) {
+    final list = List<RoommatePostModel>.from(posts);
+    switch (_sort) {
+      case _RoommateSort.newest:
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      case _RoommateSort.hobby:
+        list.sort((a, b) {
+          final left = a.matchRate < 0 ? -1 : a.matchRate;
+          final right = b.matchRate < 0 ? -1 : b.matchRate;
+          final byRate = right.compareTo(left);
+          if (byRate != 0) return byRate;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+      case _RoommateSort.priceLow:
+        list.sort((a, b) {
+          final byPrice = _sortPrice(a).compareTo(_sortPrice(b));
+          if (byPrice != 0) return byPrice;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+    }
+    return list;
   }
 
   /// Danh sách bài đăng

@@ -16,7 +16,7 @@ import '../notifications/screens/host_notifications_screen.dart';
 
 /// Màn hình Bảng tin Chủ trọ (Host Dashboard):
 /// - Lọc khu vực dạng spinner/dropdown xổ xuống danh sách đầy đủ tất cả các tỉnh thành
-///   trên bản đồ Việt Nam (63 tỉnh/thành + Toàn quốc), đối chiếu lọc với Firebase.
+///   trên bản đồ Việt Nam (tỉnh/thành hiện hành + Toàn quốc), đối chiếu lọc với Firebase.
 /// - Khi mở bộ lọc nâng cao, thanh khu vực bên ngoài tự động ẩn đi và tái sử dụng bên trong mục 1.
 /// - Tiện ích lấy trực tiếp từ bảng tiện ích (Firestore 'amenities' qua hostAmenityNamesProvider).
 /// - Sắp xếp kết quả:
@@ -26,10 +26,7 @@ import '../notifications/screens/host_notifications_screen.dart';
 class HostDashboardScreen extends ConsumerStatefulWidget {
   final bool initialLocationExpanded;
 
-  const HostDashboardScreen({
-    super.key,
-    this.initialLocationExpanded = false,
-  });
+  const HostDashboardScreen({super.key, this.initialLocationExpanded = false});
 
   @override
   ConsumerState<HostDashboardScreen> createState() =>
@@ -46,10 +43,11 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
   static const Color _textSecondary = Color(0xFF475569);
   static const Color _textMuted = Color(0xFF94A3B8);
 
-  // Danh sách các khu vực hardcoded theo bản đồ Việt Nam đầy đủ 63 tỉnh/thành
-  static const List<String> _hardcodedLocations = [
+  // Chủ trọ - Khu vực bảng tin - Luồng đi: Ghép lựa chọn toàn quốc với
+  // danh mục tỉnh/thành hiện hành đã nạp từ API, cache hoặc bản dự phòng.
+  static List<String> get _hardcodedLocations => [
     'Tất cả khu vực (Toàn quốc)',
-    ...VietnamLocations.provinces63,
+    ...VietnamLocations.provinces,
   ];
 
   final _searchController = TextEditingController();
@@ -169,7 +167,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
       _isLocationExpanded = false;
     });
 
-    ref.read(hostHomeFilterProvider.notifier).setSelectedLocations(
+    ref
+        .read(hostHomeFilterProvider.notifier)
+        .setSelectedLocations(
           _tempSelectedLocations.contains('Tất cả khu vực (Toàn quốc)')
               ? {}
               : _tempSelectedLocations,
@@ -194,14 +194,19 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
 
     final locationsToApply =
         _tempSelectedLocations.contains('Tất cả khu vực (Toàn quốc)')
-            ? <String>{}
-            : _tempSelectedLocations;
+        ? <String>{}
+        : _tempSelectedLocations;
 
-    ref.read(hostHomeFilterProvider.notifier).applyAllFilters(
+    ref
+        .read(hostHomeFilterProvider.notifier)
+        .applyAllFilters(
           selectedLocations: locationsToApply,
-          minPrice: _priceRangeValues.start > 0 ? _priceRangeValues.start : null,
-          maxPrice:
-              _priceRangeValues.end < 20000000 ? _priceRangeValues.end : null,
+          minPrice: _priceRangeValues.start > 0
+              ? _priceRangeValues.start
+              : null,
+          maxPrice: _priceRangeValues.end < 20000000
+              ? _priceRangeValues.end
+              : null,
           selectedAmenities: _tempSelectedAmenities,
           customRequirements: _tempSelectedCustomRequirements.toList(),
           sortNewest: _tempSortNewest,
@@ -239,10 +244,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
   void _showNotice(String message) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -299,8 +301,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
   }
 
   String _formatCurrency(num value) {
-    final formatted =
-        NumberFormat.decimalPattern('vi').format(value.toInt());
+    final formatted = NumberFormat.decimalPattern('vi').format(value.toInt());
     return '$formattedđ';
   }
 
@@ -363,7 +364,8 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
     final hostName = profile?.displayName.isNotEmpty == true
         ? profile!.displayName
         : 'Chủ trọ';
-    final isVip = profile != null &&
+    final isVip =
+        profile != null &&
         (profile.reputationScore >= 80 || profile.isCccdVerified);
     final avatarUrl = profile?.avatarUrl ?? '';
     final initials = hostName.isNotEmpty
@@ -476,7 +478,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         CircleAvatar(
           radius: 18,
           backgroundColor: _softBlueBg,
-          backgroundImage: avatarUrl.startsWith('http') ? NetworkImage(avatarUrl) : null,
+          backgroundImage: avatarUrl.startsWith('http')
+              ? NetworkImage(avatarUrl)
+              : null,
           child: avatarUrl.startsWith('http')
               ? null
               : Text(
@@ -510,10 +514,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               textAlignVertical: TextAlignVertical.center,
               decoration: InputDecoration(
                 hintText: 'Tìm kiếm bài đăng, chủ trọ, đối tác...',
-                hintStyle: const TextStyle(
-                  fontSize: 12,
-                  color: _textMuted,
-                ),
+                hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
                 prefixIcon: const Icon(
                   Icons.search_rounded,
                   color: Color(0xFF64748B),
@@ -549,11 +550,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             elevation: 0,
           ),
           onPressed: _toggleAdvancedFilterPanel,
-          icon: const Icon(
-            Icons.tune_rounded,
-            size: 17,
-            color: Colors.white,
-          ),
+          icon: const Icon(Icons.tune_rounded, size: 17, color: Colors.white),
           label: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -656,18 +653,15 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
           ),
         ],
       ),
-      child: _buildLocationSelectorWidget(
-        isInsideAdvancedFilter: false,
-      ),
+      child: _buildLocationSelectorWidget(isInsideAdvancedFilter: false),
     );
   }
 
   /// Thành phần lọc khu vực dùng chung cho cả Dropdown ngoài (Ảnh 1)
   /// và Bộ lọc nâng cao (Ảnh 2).
-  /// Hiển thị đầy đủ tất cả 63 tỉnh thành Việt Nam + Toàn quốc.
-  Widget _buildLocationSelectorWidget({
-    required bool isInsideAdvancedFilter,
-  }) {
+  /// Chủ trọ - Chọn khu vực - Luồng đi: Hiển thị tỉnh/thành trong danh mục
+  /// đang sử dụng và lựa chọn toàn quốc; không dùng danh sách 63 tỉnh cũ.
+  Widget _buildLocationSelectorWidget({required bool isInsideAdvancedFilter}) {
     final query = _locationSearchController.text.trim().toLowerCase();
     final filteredLocations = _hardcodedLocations.where((loc) {
       if (query.isEmpty) return true;
@@ -695,10 +689,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             textAlignVertical: TextAlignVertical.center,
             decoration: InputDecoration(
               hintText: 'Tìm nhanh tỉnh/thành phố...',
-              hintStyle: const TextStyle(
-                fontSize: 12,
-                color: _textMuted,
-              ),
+              hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
               prefixIcon: const Icon(
                 Icons.search_rounded,
                 color: Color(0xFF94A3B8),
@@ -746,9 +737,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: isSelected && !isAll
-                          ? _softBlueBg
-                          : Colors.white,
+                      color: isSelected && !isAll ? _softBlueBg : Colors.white,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: isSelected && !isAll
@@ -940,9 +929,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
           const SizedBox(height: 10),
 
           // Tái sử dụng chính widget lọc khu vực (nút áp dụng sẽ áp dụng toàn bộ ở cuối)
-          _buildLocationSelectorWidget(
-            isInsideAdvancedFilter: true,
-          ),
+          _buildLocationSelectorWidget(isInsideAdvancedFilter: true),
           const Divider(height: 24),
 
           // ================= MỤC 2. GIÁ THUÊ / THÁNG =================
@@ -1098,11 +1085,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.menu_rounded,
-                      size: 18,
-                      color: _primaryBlue,
-                    ),
+                    Icon(Icons.menu_rounded, size: 18, color: _primaryBlue),
                     SizedBox(width: 8),
                     Flexible(
                       child: Text(
@@ -1155,10 +1138,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                     textAlignVertical: TextAlignVertical.center,
                     decoration: const InputDecoration(
                       hintText: 'Thêm tiện ích, yêu cầu riêng...',
-                      hintStyle: TextStyle(
-                        fontSize: 12,
-                        color: _textMuted,
-                      ),
+                      hintStyle: TextStyle(fontSize: 12, color: _textMuted),
                       prefixIcon: Icon(
                         Icons.add_circle_outline_rounded,
                         color: Color(0xFF94A3B8),
@@ -1168,7 +1148,8 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(horizontal: 10),
                     ),
-                    onSubmitted: (_) => _handleAddCustomRequirement(amenityNames),
+                    onSubmitted: (_) =>
+                        _handleAddCustomRequirement(amenityNames),
                   ),
                 ),
               ),
@@ -1221,7 +1202,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               for (final customReq in _tempCustomRequirements)
                 _buildAmenityCard(
                   name: customReq,
-                  isSelected: _tempSelectedCustomRequirements.contains(customReq),
+                  isSelected: _tempSelectedCustomRequirements.contains(
+                    customReq,
+                  ),
                   isCustom: true,
                   onToggle: () {
                     setState(() {
@@ -1314,8 +1297,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   'Được quan tâm nhất',
                   isSelected: _tempSortMostInterested,
                   onToggle: () {
-                    setState(() =>
-                        _tempSortMostInterested = !_tempSortMostInterested);
+                    setState(
+                      () => _tempSortMostInterested = !_tempSortMostInterested,
+                    );
                   },
                 ),
               ),
@@ -1440,9 +1424,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   color: isSelected ? _primaryBlue : Colors.white,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: isSelected
-                        ? _primaryBlue
-                        : const Color(0xFFCBD5E1),
+                    color: isSelected ? _primaryBlue : const Color(0xFFCBD5E1),
                     width: 1.5,
                   ),
                 ),
@@ -1693,20 +1675,22 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
       error: (error, stack) => _buildErrorState(error),
       data: (posts) {
         if (posts.isEmpty) {
-          final hasSpecificLocation = filterState.selectedLocations.isNotEmpty &&
-              !filterState.selectedLocations.any((l) =>
-                  l.toLowerCase().contains('toàn quốc') ||
-                  l.toLowerCase().contains('tất cả'));
-          final isFiltering = filterState.searchQuery.isNotEmpty ||
+          final hasSpecificLocation =
+              filterState.selectedLocations.isNotEmpty &&
+              !filterState.selectedLocations.any(
+                (l) =>
+                    l.toLowerCase().contains('toàn quốc') ||
+                    l.toLowerCase().contains('tất cả'),
+              );
+          final isFiltering =
+              filterState.searchQuery.isNotEmpty ||
               hasSpecificLocation ||
               filterState.minPrice != null ||
               filterState.maxPrice != null ||
               filterState.selectedAmenities.isNotEmpty ||
               filterState.customRequirements.isNotEmpty;
 
-          return isFiltering
-              ? _buildNoFilterResultState()
-              : _buildEmptyState();
+          return isFiltering ? _buildNoFilterResultState() : _buildEmptyState();
         }
 
         return Column(
@@ -1751,7 +1735,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               HostPostCard(
                 key: ValueKey(post.id),
                 post: post,
-                isOwnPost: ref.watch(userProfileProvider).value?.uid.isNotEmpty == true &&
+                isOwnPost:
+                    ref.watch(userProfileProvider).value?.uid.isNotEmpty ==
+                        true &&
                     ref.watch(userProfileProvider).value!.uid == post.chuNhaId,
                 onInterestPressed: () async {
                   final profile = ref.read(userProfileProvider).value;
@@ -1761,7 +1747,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                     return;
                   }
                   await ref
-                       .read(hostPostRepositoryProvider)
+                      .read(hostPostRepositoryProvider)
                       .toggleInterest(postId: post.id, userId: uid);
                 },
                 onChatPressed: () {
@@ -1770,7 +1756,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   final myName = profile?.displayName.isNotEmpty == true
                       ? profile!.displayName
                       : 'Chủ trọ';
-                  ref.read(hostPostRepositoryProvider).openChatWithHost(
+                  ref
+                      .read(hostPostRepositoryProvider)
+                      .openChatWithHost(
                         context,
                         post,
                         currentUserId: myUid,
@@ -1790,10 +1778,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         padding: EdgeInsets.all(40),
         child: Column(
           children: [
-            CircularProgressIndicator(
-              strokeWidth: 2.5,
-              color: _primaryBlue,
-            ),
+            CircularProgressIndicator(strokeWidth: 2.5, color: _primaryBlue),
             SizedBox(height: 16),
             Text(
               'Đang tải bảng tin đối tác...',
@@ -1818,7 +1803,8 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
       } else if (error.code == 'unavailable' ||
           error.code == 'network-request-failed') {
         isNetworkError = true;
-        errorMessage = 'Lỗi kết nối mạng đến Firebase. Vui lòng kiểm tra internet.';
+        errorMessage =
+            'Lỗi kết nối mạng đến Firebase. Vui lòng kiểm tra internet.';
       }
     }
 
@@ -1837,8 +1823,8 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               isPermissionError
                   ? Icons.lock_outline
                   : (isNetworkError
-                      ? Icons.wifi_off_outlined
-                      : Icons.error_outline),
+                        ? Icons.wifi_off_outlined
+                        : Icons.error_outline),
               size: 48,
               color: const Color(0xFFEF4444),
             ),
@@ -1862,9 +1848,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: () => ref.invalidate(hostHomePostsProvider),
-              style: FilledButton.styleFrom(
-                backgroundColor: _primaryBlue,
-              ),
+              style: FilledButton.styleFrom(backgroundColor: _primaryBlue),
               icon: const Icon(Icons.refresh, size: 18),
               label: const Text('Thử lại'),
             ),

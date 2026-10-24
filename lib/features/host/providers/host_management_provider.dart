@@ -215,14 +215,18 @@ class HostRepository {
     return urls;
   }
 
-  // Chủ trọ - Tạo nhà - Luồng đi: Upload ảnh và giấy tờ tùy chọn, rồi
-  // ghi cơ sở bằng ID giữ cố định khi thử lại; không tự tạo phòng giả.
+  // Chủ trọ - Tạo cơ sở - Luồng đi: Kiểm tra cấp xã hiện hành, tải ảnh rồi
+  // ghi địa chỉ hai cấp bằng ID giữ cố định khi thử lại. Form hiện gửi proof
+  // bằng null; tham số giấy tờ chỉ giữ để tương thích lời gọi cũ.
   Future<String> createProperty(
     HostProperty property,
     List<HostUpload> images,
     HostUpload? proof,
   ) async {
     await _requireHost(property.hostId);
+    if (!VietnamLocations.getWards(property.city).contains(property.ward)) {
+      throw StateError('Vui lòng chọn phường/xã/đặc khu hiện hành.');
+    }
     final document = _db
         .collection(FirestoreCollections.hostProperties)
         .doc(property.id);
@@ -294,7 +298,6 @@ class HostRepository {
       'name',
       'address',
       'city',
-      'district',
       'ward',
       'plannedRooms',
       'floors',
@@ -311,7 +314,6 @@ class HostRepository {
     }
     final name = (patch['name'] as String).trim();
     final address = (patch['address'] as String).trim();
-    final district = (patch['district'] as String).trim();
     final ward = (patch['ward'] as String).trim();
     final plannedRooms = (patch['plannedRooms'] as num).toInt();
     final floors = (patch['floors'] as num).toInt();
@@ -319,12 +321,7 @@ class HostRepository {
     final maxRent = (patch['maxRent'] as num).toDouble();
     if (name.isEmpty ||
         address.isEmpty ||
-        district.isEmpty ||
-        (ward.isEmpty &&
-            VietnamLocations.getWards(
-              patch['city'] as String,
-              district,
-            ).isNotEmpty) ||
+        !VietnamLocations.getWards(patch['city'] as String).contains(ward) ||
         plannedRooms < 1 ||
         plannedRooms > 1000 ||
         floors < 1 ||
@@ -385,7 +382,11 @@ class HostRepository {
         ...patch,
         'name': name,
         'address': address,
-        'district': district,
+        // Chủ trọ - Bỏ cấp huyện - Luồng đi: Xóa cả trường district và các
+        // tên trường cũ khi lưu chỉnh sửa, thay vì ghi lại chuỗi rỗng.
+        'district': FieldValue.delete(),
+        'quan_huyen': FieldValue.delete(),
+        'quanHuyen': FieldValue.delete(),
         'ward': ward,
         'plannedRooms': plannedRooms,
         'floors': floors,

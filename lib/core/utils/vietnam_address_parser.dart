@@ -15,9 +15,9 @@ class VietnamAddressParts {
   final String specificAddress;
 }
 
-/// Tách chuỗi địa chỉ phòng thành các giá trị hợp lệ của ba dropdown hành
-/// chính. Bộ phân tích dùng chính danh mục địa điểm của ứng dụng, vì vậy giá
-/// trị trả về luôn có trong danh sách tương ứng.
+/// Địa chỉ - Tách địa chỉ có sẵn - Luồng đi: Đối chiếu tỉnh/thành và cấp xã
+/// với danh mục hiện hành; không khớp phường/xã thì để trống để chọn lại.
+/// Phần địa chỉ chưa nhận diện được giữ trong địa chỉ chi tiết để đối chiếu.
 abstract final class VietnamAddressParser {
   static VietnamAddressParts resolve(
     String rawAddress, {
@@ -27,48 +27,24 @@ abstract final class VietnamAddressParser {
   }) {
     final address = rawAddress.trim();
     var province = _bestMatchingLabel(address, VietnamLocations.provinces);
-    var district = '';
-
-    if (province.isNotEmpty) {
-      district = _bestMatchingLabel(
-        address,
-        VietnamLocations.getAdministrativeDistricts(province),
-      );
-    } else {
-      var bestDistrictScore = 0;
-      for (final candidateProvince in VietnamLocations.provinces) {
-        final candidateDistrict = _bestMatchingLabel(
-          address,
-          VietnamLocations.getAdministrativeDistricts(candidateProvince),
-        );
-        final score = _matchScore(address, candidateDistrict);
-        if (score > bestDistrictScore) {
-          bestDistrictScore = score;
-          province = candidateProvince;
-          district = candidateDistrict;
-        }
+    if (province.isEmpty &&
+        VietnamLocations.provinces.contains(fallbackProvince)) {
+      province = fallbackProvince;
+    }
+    const district = '';
+    final wards = VietnamLocations.getWards(province);
+    // Địa chỉ - Nhận diện cấp xã - Luồng đi: Khớp trọn một phần ngăn bởi
+    // dấu phẩy, tránh nhầm tên đường chứa tên phường thành phường đã chọn.
+    var ward = '';
+    for (final segment in address.split(',')) {
+      final normalized = _normalize(segment);
+      final matches = wards
+          .where((label) => _aliases(label).contains(normalized))
+          .toList();
+      if (matches.length == 1) {
+        ward = matches.single;
+        break;
       }
-    }
-
-    if (province.isEmpty || !VietnamLocations.provinces.contains(province)) {
-      province = VietnamLocations.provinces.contains(fallbackProvince)
-          ? fallbackProvince
-          : VietnamLocations.provinces.first;
-    }
-
-    final districts = VietnamLocations.getAdministrativeDistricts(province);
-    if (district.isEmpty || !districts.contains(district)) {
-      district = districts.contains(fallbackDistrict)
-          ? fallbackDistrict
-          : (districts.isNotEmpty ? districts.first : '');
-    }
-
-    final wards = VietnamLocations.getWards(province, district);
-    var ward = _bestMatchingLabel(address, wards);
-    if (ward.isEmpty || !wards.contains(ward)) {
-      ward = wards.contains(fallbackWard)
-          ? fallbackWard
-          : (wards.isNotEmpty ? wards.first : '');
     }
 
     final administrativeLabels = [
@@ -143,6 +119,7 @@ abstract final class VietnamAddressParser {
       'p ',
       'xa ',
       'thi tran ',
+      'dac khu ',
     ];
     for (final prefix in prefixes) {
       if (normalized.startsWith(prefix)) {

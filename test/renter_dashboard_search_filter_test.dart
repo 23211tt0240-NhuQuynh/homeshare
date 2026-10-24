@@ -72,6 +72,27 @@ void main() {
     createdAt: DateTime(2026, 10, 21),
   );
 
+  testWidgets('Chọn phường trực tiếp theo tỉnh, không qua quận', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(_searchFilterTestApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Chọn Phường / Xã / Đặc khu'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Chọn Phường / Xã / Đặc khu (TP. Hồ Chí Minh)'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Chọn Quận'), findsNothing);
+    await tester.enterText(find.byType(TextField).last, 'Sài Gòn');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Phường Sài Gòn'));
+    await tester.pumpAndSettle();
+    expect(find.text('Phường Sài Gòn'), findsOneWidget);
+  });
+
   testWidgets('thanh trên bộ lọc không hiển thị chuông và avatar', (
     tester,
   ) async {

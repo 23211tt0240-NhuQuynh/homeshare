@@ -195,10 +195,20 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('TP. Hồ Chí Minh'), findsOneWidget);
-        expect(find.text('Thành phố Thủ Đức'), findsOneWidget);
-        expect(find.text('Phường Phước Long A'), findsOneWidget);
+        expect(find.text('Quận / Huyện *'), findsNothing);
+        final wardDropdown = tester.widget<DropdownButtonFormField<String>>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is DropdownButtonFormField<String> &&
+                widget.key.toString().contains('ward_'),
+          ),
+        );
+        expect(wardDropdown.initialValue, isNull);
         expect(
-          find.widgetWithText(TextFormField, '66 Lê Văn Tăng'),
+          find.widgetWithText(
+            TextFormField,
+            '66 Lê Văn Tăng, Phường Phước Long A, TP. Thủ Đức',
+          ),
           findsOneWidget,
         );
       },

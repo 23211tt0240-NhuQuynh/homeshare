@@ -88,8 +88,8 @@ void main() {
       print('LAYOUT ERROR:\n${error.toString()}');
     }
 
-    final list = find.byType(SingleChildScrollView);
-    expect(list, findsOneWidget, reason: errors.join('\n----\n'));
+    final list = find.byType(Scrollable);
+    expect(list, findsWidgets, reason: errors.join('\n----\n'));
 
     for (var i = 0; i < 15; i++) {
       await tester.drag(list, const Offset(0, -700));

@@ -491,24 +491,31 @@ class HomeScreen extends ConsumerWidget {
                             const SizedBox(height: 4),
                             Row(
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(5),
-                                    border: Border.all(color: const Color(0xFFCBD5E1)),
-                                  ),
-                                  child: Text(
-                                    'ID: ${profile?.userCode ?? "---"}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textDark,
-                                      letterSpacing: 0.5,
+                                if (profile?.isHost == true ||
+                                    profile?.role == 'host' ||
+                                    profile?.role == 'landlord' ||
+                                    profile?.role == 'chutro' ||
+                                    profile?.isAdmin == true ||
+                                    profile?.role == 'admin') ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(5),
+                                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                                    ),
+                                    child: Text(
+                                      'ID: ${profile?.userCode ?? "---"}',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textDark,
+                                        letterSpacing: 0.5,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
+                                  const SizedBox(width: 8),
+                                ],
                                 Expanded(
                                   child: Text(
                                     profile?.email ?? 'user@homeshare.vn',

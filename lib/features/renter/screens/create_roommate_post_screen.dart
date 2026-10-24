@@ -49,8 +49,8 @@ class _CreateRoommatePostScreenState
   final _priceController = TextEditingController();
   final _addressController = TextEditingController();
   String _selectedProvince = 'TP. Hồ Chí Minh';
-  String _selectedDistrict = 'TP. Thủ Đức';
-  String _selectedWard = 'Linh Trung';
+  String _selectedDistrict = '';
+  String _selectedWard = '';
   String _selectedPropertyType = 'Căn hộ chung cư';
   String _targetGender = 'Nữ';
 
@@ -285,8 +285,17 @@ class _CreateRoommatePostScreenState
     return true;
   }
 
+  // Người thuê - Kiểm tra địa chỉ - Luồng đi: Chỉ cho đăng khi cấp xã đã
+  // chọn thuộc tỉnh/thành trong danh mục hiện hành, tránh lưu lại tên cũ.
   bool _validateStep2() {
-    // Cho phép đăng linh hoạt, không chặn người dùng
+    if (!VietnamLocations.getWards(_selectedProvince).contains(_selectedWard)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng chọn phường/xã/đặc khu hiện hành.'),
+        ),
+      );
+      return false;
+    }
     return true;
   }
 
@@ -368,8 +377,13 @@ class _CreateRoommatePostScreenState
           .read(imageStorageServiceProvider)
           .uploadRoommateImages(localPaths: _selectedImages, postId: postId);
 
-      final fullAddress =
-          '$specificAddress, $_selectedWard, $_selectedDistrict, $_selectedProvince';
+      // Người thuê - Ghép địa chỉ - Luồng đi: Lưu địa chỉ chi tiết, cấp xã
+      // và tỉnh/thành; không chèn quận/huyện vào địa chỉ bài đăng mới.
+      final fullAddress = [
+        specificAddress,
+        _selectedWard,
+        _selectedProvince,
+      ].where((part) => part.isNotEmpty).join(', ');
 
       final post = RoommatePostModel(
         id: postId,
@@ -751,9 +765,6 @@ class _CreateRoommatePostScreenState
     List<BookingRequestModel> activeBookings = const [],
   }) {
     final provinces = VietnamLocations.provinces;
-    final districts = VietnamLocations.getAdministrativeDistricts(
-      _selectedProvince,
-    );
     final wards = VietnamLocations.getWards(
       _selectedProvince,
       _selectedDistrict,
@@ -974,11 +985,22 @@ class _CreateRoommatePostScreenState
                       .map(
                         (p) => DropdownMenuItem(
                           value: p,
+                          child: Text(p, style: const TextStyle(fontSize: 13)),
+                        ),
+                      )
+                      .toList(),
+                  selectedItemBuilder: (context) => provinces
+                      .map(
+                        (p) => Align(
+                          alignment: Alignment.centerLeft,
                           child: Text(
                             p,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textPrimary,
+                            ),
                             maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12.5),
+                            softWrap: false,
                           ),
                         ),
                       )
@@ -987,20 +1009,8 @@ class _CreateRoommatePostScreenState
                     if (val != null) {
                       setState(() {
                         _selectedProvince = val;
-                        final newDistricts =
-                            VietnamLocations.getAdministrativeDistricts(
-                              _selectedProvince,
-                            );
-                        _selectedDistrict = newDistricts.isNotEmpty
-                            ? newDistricts.first
-                            : '';
-                        final newWards = VietnamLocations.getWards(
-                          _selectedProvince,
-                          _selectedDistrict,
-                        );
-                        _selectedWard = newWards.isNotEmpty
-                            ? newWards.first
-                            : '';
+                        _selectedDistrict = '';
+                        _selectedWard = '';
                       });
                     }
                   },
@@ -1009,176 +1019,131 @@ class _CreateRoommatePostScreenState
               ],
             ),
             const SizedBox(height: 12),
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Quận / Huyện *',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        key: ValueKey(
-                          'district_${_selectedProvince}_$_selectedDistrict',
-                        ),
-                        initialValue: districts.contains(_selectedDistrict)
-                            ? _selectedDistrict
-                            : (districts.isNotEmpty ? districts.first : null),
-                        items: districts
-                            .map(
-                              (d) => DropdownMenuItem(
-                                value: d,
-                                child: Text(
-                                  d,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 12.5),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (val) {
-                          setState(() {
-                            _selectedDistrict = val ?? districts.first;
-                            final newWards = VietnamLocations.getWards(
-                              _selectedProvince,
-                              _selectedDistrict,
-                            );
-                            _selectedWard = newWards.isNotEmpty
-                                ? newWards.first
-                                : 'Linh Trung';
-                          });
-                        },
-                        decoration: _inputDecoration(),
-                      ),
-                    ],
-                  ),
+                const Text(
+                  'Phường / Xã / Đặc khu *',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Phường / Xã',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  key: ValueKey('ward_${_selectedDistrict}_$_selectedWard'),
+                  initialValue: wards.contains(_selectedWard)
+                      ? _selectedWard
+                      : null,
+                  items: wards
+                      .map(
+                        (w) => DropdownMenuItem(
+                          value: w,
+                          child: Text(w, style: const TextStyle(fontSize: 13)),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        key: ValueKey(
-                          'ward_${_selectedDistrict}_$_selectedWard',
+                      )
+                      .toList(),
+                  selectedItemBuilder: (context) => wards
+                      .map(
+                        (w) => Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            w,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textPrimary,
+                            ),
+                            maxLines: 1,
+                            softWrap: false,
+                          ),
                         ),
-                        initialValue: wards.contains(_selectedWard)
-                            ? _selectedWard
-                            : (wards.isNotEmpty ? wards.first : 'Linh Trung'),
-                        items: wards
-                            .map(
-                              (w) => DropdownMenuItem(
-                                value: w,
-                                child: Text(
-                                  w,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 12.5),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (val) =>
-                            setState(() => _selectedWard = val ?? 'Linh Trung'),
-                        decoration: _inputDecoration(),
-                      ),
-                    ],
-                  ),
+                      )
+                      .toList(),
+                  onChanged: (val) => setState(() => _selectedWard = val ?? ''),
+                  decoration: _inputDecoration(),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Loại hình nhà ở *',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: _selectedPropertyType,
-                        items: _propertyTypes
-                            .map(
-                              (t) => DropdownMenuItem(
-                                value: t,
-                                child: Text(
-                                  t,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 12.5),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (val) => setState(
-                          () => _selectedPropertyType =
-                              val ?? _propertyTypes.first,
-                        ),
-                        decoration: _inputDecoration(),
-                      ),
-                    ],
-                  ),
+                const Text(
+                  'Loại hình nhà ở *',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Giới tính tìm kiếm *',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  initialValue: _selectedPropertyType,
+                  items: _propertyTypes
+                      .map(
+                        (t) => DropdownMenuItem(
+                          value: t,
+                          child: Text(t, style: const TextStyle(fontSize: 13)),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: _targetGender,
-                        items: ['Nữ', 'Nam', 'Tất cả']
-                            .map(
-                              (g) => DropdownMenuItem(
-                                value: g,
-                                child: Text(
-                                  g,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 12.5),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (val) =>
-                            setState(() => _targetGender = val ?? 'Nữ'),
-                        decoration: _inputDecoration(),
-                      ),
-                    ],
+                      )
+                      .toList(),
+                  selectedItemBuilder: (context) => _propertyTypes
+                      .map(
+                        (t) => Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            t,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textPrimary,
+                            ),
+                            maxLines: 1,
+                            softWrap: false,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (val) => setState(
+                    () => _selectedPropertyType = val ?? _propertyTypes.first,
                   ),
+                  decoration: _inputDecoration(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Giới tính tìm kiếm *',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  initialValue: _targetGender,
+                  items: ['Nữ', 'Nam', 'Tất cả']
+                      .map(
+                        (g) => DropdownMenuItem(
+                          value: g,
+                          child: Text(g, style: const TextStyle(fontSize: 13)),
+                        ),
+                      )
+                      .toList(),
+                  selectedItemBuilder: (context) => ['Nữ', 'Nam', 'Tất cả']
+                      .map(
+                        (g) => Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            g,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textPrimary,
+                            ),
+                            maxLines: 1,
+                            softWrap: false,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (val) =>
+                      setState(() => _targetGender = val ?? 'Nữ'),
+                  decoration: _inputDecoration(),
                 ),
               ],
             ),

@@ -53,6 +53,117 @@ class HostNotificationRepository {
     return unique.values.toList();
   }
 
+  /// Đồng bộ và giải quyết trạng thái thông báo với bảng bookings để đảm bảo
+  /// khi đơn đã được duyệt cọc/thanh toán, thẻ thông báo lập tức chuyển từ "Đang xử lý"
+  /// sang "Đã cọc" hoặc "Đã thanh toán hết" và tự động chuẩn hóa bản ghi Firestore.
+  Future<List<HostNotificationModel>> _resolveNotifications(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+    String hostId,
+  ) async {
+    final bookingIds = <String>{};
+    for (final doc in snapshot.docs) {
+      final bId = (doc.data()[NotificationFields.bookingId] ??
+              doc.data()['bookingId'] ??
+              doc.data()['donDatPhongId'] ??
+              '')
+          .toString()
+          .trim();
+      if (bId.isNotEmpty) bookingIds.add(bId);
+    }
+
+    final Map<String, Map<String, dynamic>> bookingDataMap = {};
+    if (bookingIds.isNotEmpty && _bookingsCol != null) {
+      try {
+        final bSnap = await _bookingsCol!
+            .where('hostId', isEqualTo: hostId)
+            .get();
+        for (final bDoc in bSnap.docs) {
+          bookingDataMap[bDoc.id] = bDoc.data();
+        }
+      } catch (_) {}
+
+      // Dự phòng trường hợp bookingId chưa có trong kết quả lọc theo hostId
+      final missingIds = bookingIds
+          .where((id) => !bookingDataMap.containsKey(id))
+          .take(15);
+      for (final id in missingIds) {
+        try {
+          final doc = await _bookingsCol!.doc(id).get();
+          if (doc.exists && doc.data() != null) {
+            bookingDataMap[id] = doc.data()!;
+          }
+        } catch (_) {}
+      }
+    }
+
+    final list = <HostNotificationModel>[];
+    for (final doc in snapshot.docs) {
+      final data = Map<String, dynamic>.from(doc.data());
+      final bId = (data[NotificationFields.bookingId] ??
+              data['bookingId'] ??
+              data['donDatPhongId'] ??
+              '')
+          .toString()
+          .trim();
+
+      if (bId.isNotEmpty && bookingDataMap.containsKey(bId)) {
+        final bData = bookingDataMap[bId]!;
+        final bStatus = (bData['status'] ?? '').toString().toLowerCase();
+        final isPaid = bData['isPaid'] == true;
+        final paymentOption = (bData['paymentOption'] ?? '').toString().toLowerCase();
+        final isFull = paymentOption == 'full' ||
+            paymentOption == 'toanbo' ||
+            bData['isFullPayment'] == true ||
+            bStatus == 'paid';
+
+        if (bStatus == 'dango' || bStatus == 'active' || bStatus == 'danhanphong') {
+          data['statusId'] = 'approved';
+          data['status'] = 'dango';
+          data[NotificationFields.notificationType] = HostNotificationType.staying.code;
+        } else if (bStatus == 'approved' ||
+            bStatus == 'daduyet' ||
+            bStatus == 'dacoc' ||
+            bStatus == 'deposit_paid' ||
+            bStatus == 'paid' ||
+            bStatus == 'completed' ||
+            isPaid) {
+          final targetType = isFull
+              ? HostNotificationType.paymentCompleted
+              : HostNotificationType.deposit;
+          final targetStatus = isFull ? 'completed' : 'deposited';
+
+          data['statusId'] = targetStatus;
+          data['status'] = bStatus;
+          data['isPaid'] = true;
+          data['isFullPayment'] = isFull;
+          data[NotificationFields.notificationType] = targetType.code;
+
+          // Tự động chuẩn hóa bản ghi trên Firestore nếu còn sót 'pendingAction' hoặc 'booking'
+          final curNotifType = (doc.data()[NotificationFields.notificationType] ??
+                  doc.data()['type'] ??
+                  '')
+              .toString();
+          if (curNotifType == 'pendingAction' || curNotifType == 'booking') {
+            doc.reference.set({
+              NotificationFields.notificationType: targetType.code,
+              NotificationFields.statusId: targetStatus,
+              'status': bStatus,
+              'title': isFull
+                  ? 'Khách đã thanh toán đủ toàn bộ'
+                  : 'Đã duyệt tiền cọc thành công',
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true)).catchError((_) {});
+          }
+        }
+      }
+
+      list.add(HostNotificationModel.fromMap(data, doc.id));
+    }
+
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
+
   /// Lắng nghe danh sách thông báo theo loại thông báo và ID chủ trọ (Realtime)
   Stream<List<HostNotificationModel>> watchByType({
     required String hostId,
@@ -66,15 +177,10 @@ class HostNotificationRepository {
       return _notificationsCol!
           .where(NotificationFields.receiverId, isEqualTo: hostId)
           .snapshots()
-          .map((snapshot) {
-            final list = snapshot.docs
-                .map((doc) => HostNotificationModel.fromFirestore(doc))
-                .where((item) => item.type == type)
-                .toList();
-
-            // Sắp xếp thông báo mới nhất lên trên
-            list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-            return _normalizePaymentNotifications(list, type);
+          .asyncMap((snapshot) async {
+            final all = await _resolveNotifications(snapshot, hostId);
+            final filtered = all.where((item) => item.type == type).toList();
+            return _normalizePaymentNotifications(filtered, type);
           })
           .handleError((_) {
             return <HostNotificationModel>[];
@@ -109,10 +215,8 @@ class HostNotificationRepository {
       return _notificationsCol!
           .where(NotificationFields.receiverId, isEqualTo: hostId)
           .snapshots()
-          .map((snapshot) {
-            final list = snapshot.docs
-                .map((doc) => HostNotificationModel.fromFirestore(doc))
-                .toList();
+          .asyncMap((snapshot) async {
+            final list = await _resolveNotifications(snapshot, hostId);
             final normalized = <HostNotificationModel>[
               ...list.where(
                 (item) =>
@@ -122,8 +226,7 @@ class HostNotificationRepository {
               ..._normalizePaymentNotifications(
                 list
                     .where((item) => item.type == HostNotificationType.deposit)
-                    .toList()
-                  ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+                    .toList(),
                 HostNotificationType.deposit,
               ),
               ..._normalizePaymentNotifications(
@@ -132,8 +235,7 @@ class HostNotificationRepository {
                       (item) =>
                           item.type == HostNotificationType.paymentCompleted,
                     )
-                    .toList()
-                  ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+                    .toList(),
                 HostNotificationType.paymentCompleted,
               ),
             ];

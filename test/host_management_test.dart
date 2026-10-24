@@ -108,7 +108,7 @@ class TestRepository extends HostRepository {
       name: patch['name'] as String,
       address: patch['address'] as String,
       city: patch['city'] as String,
-      district: patch['district'] as String,
+      district: '',
       ward: patch['ward'] as String,
       hostId: base.hostId,
       plannedRooms: patch['plannedRooms'] as int,
@@ -211,6 +211,20 @@ Future<void> enter(WidgetTester tester, String key, String text) async {
 // Chủ trọ - Kiểm thử quản lý và tạo - Luồng đi: Kiểm tra stream thay
 // đổi, ràng buộc form, lưu thành công/lỗi và chế độ chưa đăng nhập.
 void main() {
+  test('Property Firestore writes omit district, including legacy records', () {
+    final legacy = HostProperty.fromMap('legacy', {
+      ...house.toFirestore(),
+      'district': 'Thành phố Thủ Đức',
+    });
+    expect(legacy.district, 'Thành phố Thủ Đức');
+    expect(legacy.toFirestore().containsKey('district'), isFalse);
+    expect(legacy.toMap().containsKey('district'), isFalse);
+    final current = HostProperty.fromMap('current', house.toFirestore());
+    expect(current.district, isEmpty);
+    expect(current.ward, house.ward);
+    expect(current.city, house.city);
+  });
+
   test('Duplicate room message survives wrapped transaction errors', () {
     expect(hostErrorMessage(StateError('Trùng ID phòng.')), 'Trùng ID phòng.');
     expect(
@@ -224,7 +238,7 @@ void main() {
       'Không thể hoàn tất thao tác. Vui lòng thử lại.',
     );
   });
-  testWidgets('House saves without ward when district has no ward data', (
+  testWidgets('House requires a current ward and saves a special zone', (
     tester,
   ) async {
     phone(tester);
@@ -236,39 +250,40 @@ void main() {
     await tester.pumpAndSettle();
     await enter(tester, 'name', 'Nhà Côn Đảo');
     await enter(tester, 'address', '123 đường thử nghiệm');
-    final district = tester.widget<DropdownButtonFormField<String>>(
-      find.byKey(const ValueKey('host_district_TP. Hồ Chí Minh')),
-    );
-    district.onChanged!('Huyện Côn Đảo');
-    await tester.pumpAndSettle();
-    expect(
-      VietnamLocations.getWards('TP. Hồ Chí Minh', 'Huyện Côn Đảo'),
-      isEmpty,
-    );
     await enter(tester, 'planned', '3');
     await tester.tap(find.text('Lưu & tạo phòng'));
     await tester.pumpAndSettle();
+    expect(repo.houseWrites, 0);
+    final province = tester
+        .widgetList<DropdownButtonFormField<String>>(
+          find.byType(DropdownButtonFormField<String>),
+        )
+        .first;
+    province.onChanged!('TP. Hồ Chí Minh');
+    await tester.pumpAndSettle();
+    final ward = tester.widget<DropdownButtonFormField<String>>(
+      find.byKey(const ValueKey('host_ward_TP. Hồ Chí Minh_none')),
+    );
+    ward.onChanged!('Đặc khu Côn Đảo');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Lưu & tạo phòng'));
+    await tester.pumpAndSettle();
     expect(repo.houseWrites, 1);
-    expect(repo.savedHouse!.ward, isEmpty);
-    expect(repo.savedHouse!.district, 'Huyện Côn Đảo');
-    expect(find.text('Vui lòng chọn phường/xã'), findsNothing);
+    expect(repo.savedHouse!.ward, 'Đặc khu Côn Đảo');
+    expect(repo.savedHouse!.district, isEmpty);
     expect(tester.takeException(), isNull);
   });
 
-  test('District and ward options follow their parent selection', () {
-    final districts = VietnamLocations.getAdministrativeDistricts(
-      'TP. Hồ Chí Minh',
-    );
-    expect(districts, contains('Thành phố Thủ Đức'));
-    final wards = VietnamLocations.getWards(
-      'TP. Hồ Chí Minh',
-      'Thành phố Thủ Đức',
-    );
-    expect(wards, contains('Phường Hiệp Bình Chánh'));
+  test('Wards follow province directly', () {
     expect(
-      VietnamLocations.getWards('Hà Nội', 'Quận Cầu Giấy'),
-      contains('Phường Dịch Vọng'),
+      VietnamLocations.getAdministrativeDistricts('TP. Hồ Chí Minh'),
+      isEmpty,
     );
+    expect(
+      VietnamLocations.getWards('TP. Hồ Chí Minh'),
+      contains('Phường Hiệp Bình'),
+    );
+    expect(VietnamLocations.getWards('Hà Nội'), contains('Phường Cầu Giấy'));
   });
 
   test('Summary counts real linked rooms and separates other statuses', () {
@@ -357,17 +372,10 @@ void main() {
       await tester.pumpAndSettle();
       await enter(tester, 'name', 'Nhà thử nghiệm');
       await enter(tester, 'address', '48 Đặng Văn Bi');
-      final district = tester.widget<DropdownButtonFormField<String>>(
-        find.byKey(const ValueKey('host_district_TP. Hồ Chí Minh')),
-      );
-      district.onChanged!('Thành phố Thủ Đức');
-      await tester.pumpAndSettle();
       final ward = tester.widget<DropdownButtonFormField<String>>(
-        find.byKey(
-          const ValueKey('host_ward_TP. Hồ Chí Minh_Thành phố Thủ Đức'),
-        ),
+        find.byKey(const ValueKey('host_ward_TP. Hồ Chí Minh_none')),
       );
-      ward.onChanged!('Phường Hiệp Bình Chánh');
+      ward.onChanged!('Phường Hiệp Bình');
       await tester.pumpAndSettle();
       await enter(tester, 'planned', '3');
       await tester.tap(find.text('Lưu & tạo phòng'));
@@ -375,8 +383,8 @@ void main() {
       expect(repo.houseWrites, 1);
       expect(repo.savedHouse!.name, 'Nhà thử nghiệm');
       expect(repo.savedHouse!.plannedRooms, 3);
-      expect(repo.savedHouse!.district, 'Thành phố Thủ Đức');
-      expect(repo.savedHouse!.ward, 'Phường Hiệp Bình Chánh');
+      expect(repo.savedHouse!.district, isEmpty);
+      expect(repo.savedHouse!.ward, 'Phường Hiệp Bình');
       expect(find.text('Lưu phòng'), findsOneWidget);
       final photos = find.text('Thêm ảnh');
       await tester.ensureVisible(photos);
@@ -436,6 +444,14 @@ void main() {
     await tester.tap(find.text('Thêm ảnh'));
     await tester.pumpAndSettle();
     await enter(tester, 'name', 'Nhà trọ đã sửa');
+    expect(find.textContaining('Địa chỉ cũ cần được chọn lại'), findsOneWidget);
+    final currentWard = tester
+        .widgetList<DropdownButtonFormField<String>>(
+          find.byType(DropdownButtonFormField<String>),
+        )
+        .last;
+    currentWard.onChanged!('Phường Linh Xuân');
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Lưu thay đổi'));
     await tester.pumpAndSettle();
     expect(repo.propertyEdits, 1);
