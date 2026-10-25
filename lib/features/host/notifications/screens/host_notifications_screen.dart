@@ -33,11 +33,14 @@ class _HostNotificationsScreenState
   Widget build(BuildContext context) {
     final selectedType = ref.watch(selectedHostNotificationTypeProvider);
     final countsAsync = ref.watch(hostNotificationCountsProvider);
-    final counts = countsAsync.asData?.value ?? {
-      HostNotificationType.pendingAction: 3,
-      HostNotificationType.deposit: 5,
-      HostNotificationType.paymentCompleted: 2,
-    };
+    final counts =
+        countsAsync.asData?.value ??
+        {
+          HostNotificationType.pendingAction: 0,
+          HostNotificationType.staying: 0,
+          HostNotificationType.deposit: 0,
+          HostNotificationType.paymentCompleted: 0,
+        };
 
     final notificationsAsync = ref.watch(filteredHostNotificationsProvider);
 
@@ -118,12 +121,16 @@ class _HostNotificationsScreenState
                                 color: Color(0xFF98A2B3),
                               ),
                               border: InputBorder.none,
-                              contentPadding:
-                                  EdgeInsets.symmetric(vertical: 12),
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 12,
+                              ),
                             ),
                             onChanged: (val) {
                               ref
-                                  .read(hostNotificationSearchQueryProvider.notifier)
+                                  .read(
+                                    hostNotificationSearchQueryProvider
+                                        .notifier,
+                                  )
                                   .setQuery(val);
                             },
                           ),
@@ -133,7 +140,10 @@ class _HostNotificationsScreenState
                             onTap: () {
                               _searchController.clear();
                               ref
-                                  .read(hostNotificationSearchQueryProvider.notifier)
+                                  .read(
+                                    hostNotificationSearchQueryProvider
+                                        .notifier,
+                                  )
                                   .setQuery('');
                             },
                             child: const Padding(
@@ -166,30 +176,48 @@ class _HostNotificationsScreenState
                         _buildFilterChip(
                           type: HostNotificationType.pendingAction,
                           label: 'Đang xử lý',
-                          count: counts[HostNotificationType.pendingAction] ?? 0,
+                          count:
+                              counts[HostNotificationType.pendingAction] ?? 0,
                           isSelected:
-                              selectedType == HostNotificationType.pendingAction,
-                          badgeColor: const Color(0xFFFDB022), // Vàng cam nổi bật
+                              selectedType ==
+                              HostNotificationType.pendingAction,
+                          badgeColor: const Color(
+                            0xFFFDB022,
+                          ), // Vàng cam nổi bật
                         ),
                         const SizedBox(width: 8),
 
-                        // Tab 2: Đã cọc
+                        // Tab 2: Đang ở
+                        _buildFilterChip(
+                          type: HostNotificationType.staying,
+                          label: 'Đang ở',
+                          count: counts[HostNotificationType.staying] ?? 0,
+                          isSelected:
+                              selectedType == HostNotificationType.staying,
+                          badgeColor: const Color(0xFF12B76A), // Xanh lá
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Tab 3: Đã cọc
                         _buildFilterChip(
                           type: HostNotificationType.deposit,
                           label: 'Đã cọc',
                           count: counts[HostNotificationType.deposit] ?? 0,
-                          isSelected: selectedType == HostNotificationType.deposit,
+                          isSelected:
+                              selectedType == HostNotificationType.deposit,
                           badgeColor: const Color(0xFF2E90FA), // Xanh phụ trợ
                         ),
                         const SizedBox(width: 8),
 
-                        // Tab 3: Đã thanh toán hết
+                        // Tab 4: Đã thanh toán hết
                         _buildFilterChip(
                           type: HostNotificationType.paymentCompleted,
                           label: 'Đã thanh toán hết',
                           count:
-                              counts[HostNotificationType.paymentCompleted] ?? 0,
-                          isSelected: selectedType ==
+                              counts[HostNotificationType.paymentCompleted] ??
+                              0,
+                          isSelected:
+                              selectedType ==
                               HostNotificationType.paymentCompleted,
                           badgeColor: const Color(0xFF12B76A),
                         ),
@@ -206,7 +234,10 @@ class _HostNotificationsScreenState
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Text(
-                _getSubheaderText(selectedType, notificationsAsync.asData?.value),
+                _getSubheaderText(
+                  selectedType,
+                  notificationsAsync.asData?.value,
+                ),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -300,10 +331,10 @@ class _HostNotificationsScreenState
                               ),
                             ),
                             const SizedBox(height: 6),
-                            const Text(
-                              'Khi có yêu cầu đặt cọc hoặc thanh toán mới, thông báo sẽ hiển thị ở đây.',
+                            Text(
+                              _getEmptySubtitle(selectedType),
                               textAlign: TextAlign.center,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 13,
                                 color: Color(0xFF667085),
                               ),
@@ -393,8 +424,8 @@ class _HostNotificationsScreenState
                 decoration: BoxDecoration(
                   color: isSelected
                       ? (type == HostNotificationType.pendingAction
-                          ? const Color(0xFFFDB022)
-                          : const Color(0x33FFFFFF))
+                            ? const Color(0xFFFDB022)
+                            : const Color(0x33FFFFFF))
                       : const Color(0xFFE4E7EC),
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -405,8 +436,8 @@ class _HostNotificationsScreenState
                     fontWeight: FontWeight.bold,
                     color: isSelected
                         ? (type == HostNotificationType.pendingAction
-                            ? const Color(0xFF101828)
-                            : Colors.white)
+                              ? const Color(0xFF101828)
+                              : Colors.white)
                         : const Color(0xFF344054),
                   ),
                 ),
@@ -426,10 +457,25 @@ class _HostNotificationsScreenState
     switch (type) {
       case HostNotificationType.pendingAction:
         return 'Hiển thị $count yêu cầu đang chờ xử lý';
+      case HostNotificationType.staying:
+        return 'Hiển thị $count người thuê đang ở';
       case HostNotificationType.deposit:
         return 'Hiển thị $count yêu cầu đã đặt cọc giữ chỗ';
       case HostNotificationType.paymentCompleted:
         return 'Hiển thị $count giao dịch đã thanh toán hết';
+    }
+  }
+
+  String _getEmptySubtitle(HostNotificationType type) {
+    switch (type) {
+      case HostNotificationType.pendingAction:
+        return 'Hiện không có yêu cầu nào cần bạn xử lý.';
+      case HostNotificationType.staying:
+        return 'Chưa có thông báo người thuê hoặc người ở ghép đang ở.';
+      case HostNotificationType.deposit:
+        return 'Khi có yêu cầu đặt cọc giữ chỗ mới, thông báo sẽ hiển thị ở đây.';
+      case HostNotificationType.paymentCompleted:
+        return 'Khi khách thanh toán tiền thuê hoàn tất, thông báo sẽ hiển thị ở đây.';
     }
   }
 }

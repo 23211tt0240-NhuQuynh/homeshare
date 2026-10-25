@@ -22,7 +22,8 @@ class CheckinCheckoutItem {
   final double totalAmount;
   final String paymentOption;
   final String roomTitle;
-  final DateTime expectedDate; // Ngày vào (check-in) hoặc Ngày dự kiến trả (check-out)
+  final DateTime
+  expectedDate; // Ngày vào (check-in) hoặc Ngày dự kiến trả (check-out)
   final String status; // 'choNhanPhong', 'dangO', 'daCheckout', 'daNhanPhong'
   final bool isCompleted;
   final DateTime? completedTime;
@@ -56,7 +57,7 @@ class CheckinCheckoutRepository {
   final FirebaseFirestore _firestore;
 
   CheckinCheckoutRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   /// Lắng nghe danh sách phòng cần Check-in của chủ trọ
   Stream<List<CheckinCheckoutItem>> watchCheckinItems(String hostId) {
@@ -91,7 +92,8 @@ class CheckinCheckoutRepository {
             final room = roomMap[booking.roomId];
             if (room == null) continue;
 
-            final isPending = booking.status == 'pending' ||
+            final isPending =
+                booking.status == 'pending' ||
                 booking.status == 'choDuyet' ||
                 booking.status == 'approved' ||
                 booking.status == 'daDuyet' ||
@@ -101,60 +103,75 @@ class CheckinCheckoutRepository {
                 booking.status == 'completed' ||
                 booking.status == 'daThanhToan';
 
-            final isDone = booking.status == 'dangO' ||
-                booking.status == 'active';
+            final isDone =
+                booking.status == 'dangO' || booking.status == 'active';
 
-            final propName = propertyNames[room.propertyId] ??
+            final propName =
+                propertyNames[room.propertyId] ??
                 (room.address.isNotEmpty ? room.address : 'Nhà trọ');
 
-            final calculatedPrice = booking.roomPrice > 0 ? booking.roomPrice : room.price;
-            final isFull = booking.paymentOption == 'full' || booking.paymentOption == 'toanbo';
+            final calculatedPrice = booking.roomPrice > 0
+                ? booking.roomPrice
+                : room.price;
+            final isFull =
+                booking.paymentOption == 'full' ||
+                booking.paymentOption == 'toanbo';
             final calculatedTotal = booking.totalAmount > 0
                 ? booking.totalAmount
-                : (isFull ? calculatedPrice : (booking.deposit > 0 ? booking.deposit : room.deposit));
+                : (isFull
+                      ? calculatedPrice
+                      : (booking.deposit > 0 ? booking.deposit : room.deposit));
 
             if (isPending) {
-              items.add(CheckinCheckoutItem(
-                id: booking.id,
-                bookingId: booking.id,
-                roomId: room.id,
-                roomCode: room.roomCode.isNotEmpty ? room.roomCode : room.title,
-                renterId: booking.renterId,
-                renterName: booking.renterName,
-                renterPhone: booking.renterPhone,
-                propertyName: propName,
-                floor: room.floor > 0 ? room.floor : 1,
-                deposit: booking.deposit > 0 ? booking.deposit : room.deposit,
-                roomPrice: calculatedPrice,
-                totalAmount: calculatedTotal,
-                paymentOption: booking.paymentOption,
-                roomTitle: room.title.isNotEmpty ? room.title : propName,
-                expectedDate: booking.moveInDate,
-                status: 'Chờ nhận phòng',
-                isCompleted: false,
-              ));
+              items.add(
+                CheckinCheckoutItem(
+                  id: booking.id,
+                  bookingId: booking.id,
+                  roomId: room.id,
+                  roomCode: room.roomCode.isNotEmpty
+                      ? room.roomCode
+                      : room.title,
+                  renterId: booking.renterId,
+                  renterName: booking.renterName,
+                  renterPhone: booking.renterPhone,
+                  propertyName: propName,
+                  floor: room.floor > 0 ? room.floor : 1,
+                  deposit: booking.deposit > 0 ? booking.deposit : room.deposit,
+                  roomPrice: calculatedPrice,
+                  totalAmount: calculatedTotal,
+                  paymentOption: booking.paymentOption,
+                  roomTitle: room.title.isNotEmpty ? room.title : propName,
+                  expectedDate: booking.moveInDate,
+                  status: 'Chờ nhận phòng',
+                  isCompleted: false,
+                ),
+              );
             } else if (isDone) {
-              items.add(CheckinCheckoutItem(
-                id: booking.id,
-                bookingId: booking.id,
-                roomId: room.id,
-                roomCode: room.roomCode.isNotEmpty ? room.roomCode : room.title,
-                renterId: booking.renterId,
-                renterName: booking.renterName,
-                renterPhone: booking.renterPhone,
-                propertyName: propName,
-                floor: room.floor > 0 ? room.floor : 1,
-                deposit: booking.deposit > 0 ? booking.deposit : room.deposit,
-                roomPrice: calculatedPrice,
-                totalAmount: calculatedTotal,
-                paymentOption: booking.paymentOption,
-                roomTitle: room.title.isNotEmpty ? room.title : propName,
-                expectedDate: booking.moveInDate,
-                status: 'Đã nhận phòng',
-                isCompleted: true,
-                completedTime: booking.acceptedDate ?? booking.createdAt,
-                refundedDeposit: booking.deposit,
-              ));
+              items.add(
+                CheckinCheckoutItem(
+                  id: booking.id,
+                  bookingId: booking.id,
+                  roomId: room.id,
+                  roomCode: room.roomCode.isNotEmpty
+                      ? room.roomCode
+                      : room.title,
+                  renterId: booking.renterId,
+                  renterName: booking.renterName,
+                  renterPhone: booking.renterPhone,
+                  propertyName: propName,
+                  floor: room.floor > 0 ? room.floor : 1,
+                  deposit: booking.deposit > 0 ? booking.deposit : room.deposit,
+                  roomPrice: calculatedPrice,
+                  totalAmount: calculatedTotal,
+                  paymentOption: booking.paymentOption,
+                  roomTitle: room.title.isNotEmpty ? room.title : propName,
+                  expectedDate: booking.moveInDate,
+                  status: 'Đã nhận phòng',
+                  isCompleted: true,
+                  completedTime: booking.acceptedDate ?? booking.createdAt,
+                  refundedDeposit: booking.deposit,
+                ),
+              );
             }
           }
 
@@ -193,32 +210,36 @@ class CheckinCheckoutRepository {
             final room = roomMap[period.roomId];
             if (room == null) continue;
 
-            final propName = propertyNames[room.propertyId] ??
+            final propName =
+                propertyNames[room.propertyId] ??
                 (room.address.isNotEmpty ? room.address : 'Nhà trọ');
 
             // Tính ngày dự kiến trả phòng (1 năm sau ngày bắt đầu hoặc contractEnd)
-            final expectedOut = room.contractEnd ??
+            final expectedOut =
+                room.contractEnd ??
                 period.endDate ??
                 period.startDate.add(const Duration(days: 365));
 
-            items.add(CheckinCheckoutItem(
-              id: period.id,
-              bookingId: period.bookingId,
-              periodId: period.id,
-              roomId: room.id,
-              roomCode: room.roomCode.isNotEmpty ? room.roomCode : room.title,
-              renterId: period.renterId,
-              renterName: room.tenantName.isNotEmpty
-                  ? room.tenantName
-                  : 'Khách thuê',
-              renterPhone: room.tenantPhone,
-              propertyName: propName,
-              floor: room.floor > 0 ? room.floor : 1,
-              deposit: room.deposit > 0 ? room.deposit : 4800000.0,
-              expectedDate: expectedOut,
-              status: 'Đang ở',
-              isCompleted: false,
-            ));
+            items.add(
+              CheckinCheckoutItem(
+                id: period.id,
+                bookingId: period.bookingId,
+                periodId: period.id,
+                roomId: room.id,
+                roomCode: room.roomCode.isNotEmpty ? room.roomCode : room.title,
+                renterId: period.renterId,
+                renterName: room.tenantName.isNotEmpty
+                    ? room.tenantName
+                    : 'Khách thuê',
+                renterPhone: room.tenantPhone,
+                propertyName: propName,
+                floor: room.floor > 0 ? room.floor : 1,
+                deposit: room.deposit,
+                expectedDate: expectedOut,
+                status: 'Đang ở',
+                isCompleted: false,
+              ),
+            );
           }
 
           // 2. Các phòng có trạng thái occupied nhưng chưa có period
@@ -229,28 +250,34 @@ class CheckinCheckoutRepository {
                 (room.status == 'occupied' ||
                     room.status == 'daThue' ||
                     room.status == 'dangO')) {
-              final propName = propertyNames[room.propertyId] ??
+              final propName =
+                  propertyNames[room.propertyId] ??
                   (room.address.isNotEmpty ? room.address : 'Nhà trọ');
 
-              final expectedOut = room.contractEnd ??
+              final expectedOut =
+                  room.contractEnd ??
                   (room.contractStart?.add(const Duration(days: 365)) ??
                       DateTime.now().add(const Duration(days: 30)));
 
-              items.add(CheckinCheckoutItem(
-                id: 'room_${room.id}',
-                bookingId: room.contractId,
-                roomId: room.id,
-                roomCode: room.roomCode.isNotEmpty ? room.roomCode : room.title,
-                renterId: '',
-                renterName: room.tenantName,
-                renterPhone: room.tenantPhone,
-                propertyName: propName,
-                floor: room.floor > 0 ? room.floor : 1,
-                deposit: room.deposit > 0 ? room.deposit : 4800000.0,
-                expectedDate: expectedOut,
-                status: 'Đang ở',
-                isCompleted: false,
-              ));
+              items.add(
+                CheckinCheckoutItem(
+                  id: 'room_${room.id}',
+                  bookingId: room.contractId,
+                  roomId: room.id,
+                  roomCode: room.roomCode.isNotEmpty
+                      ? room.roomCode
+                      : room.title,
+                  renterId: '',
+                  renterName: room.tenantName,
+                  renterPhone: room.tenantPhone,
+                  propertyName: propName,
+                  floor: room.floor > 0 ? room.floor : 1,
+                  deposit: room.deposit,
+                  expectedDate: expectedOut,
+                  status: 'Đang ở',
+                  isCompleted: false,
+                ),
+              );
             }
           }
 
@@ -264,26 +291,33 @@ class CheckinCheckoutRepository {
             final room = roomMap[record.roomId];
             // Hiển thị nếu thuộc phòng của chủ nhà này
             if (room != null) {
-              final propName = propertyNames[room.propertyId] ??
+              final propName =
+                  propertyNames[room.propertyId] ??
                   (room.address.isNotEmpty ? room.address : 'Nhà trọ');
 
-              items.add(CheckinCheckoutItem(
-                id: record.id,
-                bookingId: '',
-                periodId: record.periodId,
-                roomId: record.roomId,
-                roomCode: room.roomCode.isNotEmpty ? room.roomCode : room.title,
-                renterId: record.renterId,
-                renterName: 'Trần Thị Mai', // Hoặc đọc profile
-                propertyName: propName,
-                floor: room.floor > 0 ? room.floor : 1,
-                deposit: record.depositAmount,
-                expectedDate: record.checkoutTime,
-                status: 'Đã Check-out',
-                isCompleted: true,
-                completedTime: record.checkoutTime,
-                refundedDeposit: record.refundAmount,
-              ));
+              items.add(
+                CheckinCheckoutItem(
+                  id: record.id,
+                  bookingId: '',
+                  periodId: record.periodId,
+                  roomId: record.roomId,
+                  roomCode: room.roomCode.isNotEmpty
+                      ? room.roomCode
+                      : room.title,
+                  renterId: record.renterId,
+                  renterName: room.tenantName.isNotEmpty
+                      ? room.tenantName
+                      : 'Khách thuê',
+                  propertyName: propName,
+                  floor: room.floor > 0 ? room.floor : 1,
+                  deposit: record.depositAmount,
+                  expectedDate: record.checkoutTime,
+                  status: 'Đã Check-out',
+                  isCompleted: true,
+                  completedTime: record.checkoutTime,
+                  refundedDeposit: record.refundAmount,
+                ),
+              );
             }
           }
 
@@ -301,11 +335,15 @@ class CheckinCheckoutRepository {
     required String note,
   }) async {
     final batch = _firestore.batch();
-    final refundAmount = (initialDeposit - deductionAmount).clamp(0.0, double.infinity);
+    final refundAmount = (initialDeposit - deductionAmount).clamp(
+      0.0,
+      double.infinity,
+    );
 
     // 1. Tạo checkout_record
-    final recordRef =
-        _firestore.collection(FirestoreCollections.checkoutRecords).doc();
+    final recordRef = _firestore
+        .collection(FirestoreCollections.checkoutRecords)
+        .doc();
     final record = CheckoutRecordModel(
       id: recordRef.id,
       periodId: periodId,
@@ -322,8 +360,9 @@ class CheckinCheckoutRepository {
 
     // 2. Cập nhật period sang daKetThuc
     if (periodId.isNotEmpty && !periodId.startsWith('room_')) {
-      final periodRef =
-          _firestore.collection(FirestoreCollections.periods).doc(periodId);
+      final periodRef = _firestore
+          .collection(FirestoreCollections.periods)
+          .doc(periodId);
       batch.update(periodRef, {
         'status': 'daKetThuc',
         'endDate': FieldValue.serverTimestamp(),
@@ -349,8 +388,9 @@ class CheckinCheckoutRepository {
     }
 
     // 3. Cập nhật phòng host_rooms sang available / còn phòng
-    final roomRef =
-        _firestore.collection(FirestoreCollections.hostRooms).doc(roomId);
+    final roomRef = _firestore
+        .collection(FirestoreCollections.hostRooms)
+        .doc(roomId);
     batch.update(roomRef, {
       'status': 'available',
       'tenantName': '',
@@ -380,7 +420,8 @@ class CheckinCheckoutRepository {
             .get();
         if (doc.exists) {
           final data = doc.data();
-          map[pid] = data?['name'] ?? data?['tenNha'] ?? data?['title'] ?? 'Nhà trọ';
+          map[pid] =
+              data?['name'] ?? data?['tenNha'] ?? data?['title'] ?? 'Nhà trọ';
         }
       } catch (_) {}
     }

@@ -191,6 +191,45 @@ service cloud.firestore {
       allow read: if admin() || (signedIn() && resource.data.reporterId == request.auth.uid);
       allow update, delete: if admin();
     }
+
+    // Đánh giá chủ trọ. Document ID = bookingId. Client không ghi điểm trung bình.
+    // Không sửa/xóa từ app; Admin có thể xóa khi xử lý vi phạm.
+    match /host_reviews/{bookingId} {
+      function hostReviewKeys() {
+        return ['hostId', 'reviewerId', 'reviewerName', 'rating', 'comment', 'bookingId', 'createdAt'];
+      }
+      function hostReviewBooking() {
+        return get(/databases/$(database)/documents/bookings/$(bookingId)).data;
+      }
+      function hostReviewableStatus(status) {
+        return status in [
+          'approved', 'deposit_paid', 'paid', 'completed', 'dacoc', 'chonhanphong',
+          'daduyet', 'da_duyet', 'active', 'dango', 'dang_o', 'danhanphong'
+        ];
+      }
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(hostReviewKeys())
+        && request.resource.data.reviewerId == request.auth.uid
+        && request.resource.data.hostId is string
+        && request.resource.data.hostId.size() > 0
+        && request.resource.data.hostId != request.auth.uid
+        && request.resource.data.reviewerName is string
+        && request.resource.data.bookingId == bookingId
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() <= 500
+        && request.resource.data.createdAt is timestamp
+        && exists(/databases/$(database)/documents/bookings/$(bookingId))
+        && hostReviewBooking().renterId == request.auth.uid
+        && hostReviewBooking().hostId == request.resource.data.hostId
+        && hostReviewableStatus(hostReviewBooking().status);
+      allow update: if false;
+      allow delete: if admin();
+    }
+
     // Collection ngoài danh sách phải được đối chiếu với dự án Admin.
     match /{document=**} { allow read, write: if false; }
   }

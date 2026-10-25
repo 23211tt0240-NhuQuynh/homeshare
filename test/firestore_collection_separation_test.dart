@@ -10,4 +10,15 @@ void main() {
       isNot(FirestoreCollections.publicRooms),
     );
   });
+
+  test('ảnh tin ở ghép lưu riêng, không nhúng vào roommate_posts', () {
+    expect(FirestoreCollections.roommatePosts, 'roommate_posts');
+    expect(FirestoreCollections.roommatePostImages, 'roommate_post_images');
+    expect(
+      FirestoreCollections.roommatePostImages,
+      isNot(FirestoreCollections.roommatePosts),
+    );
+    expect(RoommatePostImageFields.postId, 'postId');
+    expect(RoommatePostImageFields.imageUrl, 'imageUrl');
+  });
 }

@@ -120,6 +120,12 @@ class IdGenerator {
     return 'TB_${DateTime.now().millisecondsSinceEpoch}';
   }
 
+  /// Sinh Document ID báo cáo chủ trọ (reports):
+  /// BC_1729053891000
+  static String hostReport() {
+    return 'BC_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
   /// Sinh Document ID Nhật ký kiểm toán (audit_logs):
   /// LOG_1729053891000
   static String auditLog() {

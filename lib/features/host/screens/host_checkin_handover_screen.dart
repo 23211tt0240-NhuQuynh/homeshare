@@ -17,7 +17,7 @@ class HostCheckinHandoverScreen extends ConsumerStatefulWidget {
     super.key,
     required this.bookingId,
     required this.roomId,
-    this.roomCode = '204',
+    this.roomCode = '',
   });
 
   @override
@@ -27,8 +27,8 @@ class HostCheckinHandoverScreen extends ConsumerStatefulWidget {
 
 class _HostCheckinHandoverScreenState
     extends ConsumerState<HostCheckinHandoverScreen> {
-  final _electricityController = TextEditingController(text: '1428');
-  final _waterController = TextEditingController(text: '84');
+  final _electricityController = TextEditingController();
+  final _waterController = TextEditingController();
   final _noteController = TextEditingController();
 
   bool _isKeyHandedOver = true;
@@ -50,8 +50,9 @@ class _HostCheckinHandoverScreenState
   void _onToggleItem(int index, bool value) {
     setState(() {
       if (_currentItems != null && index < _currentItems!.length) {
-        _currentItems![index] =
-            _currentItems![index].copyWith(isChecked: value);
+        _currentItems![index] = _currentItems![index].copyWith(
+          isChecked: value,
+        );
       }
     });
   }
@@ -87,7 +88,9 @@ class _HostCheckinHandoverScreenState
     final hostId = ref.read(hostSessionProvider).value ?? '';
 
     try {
-      await ref.read(handoverRepositoryProvider).confirmHandover(
+      await ref
+          .read(handoverRepositoryProvider)
+          .confirmHandover(
             bookingId: ctx.bookingId,
             roomId: ctx.roomId,
             renterId: ctx.renterId,
@@ -114,9 +117,9 @@ class _HostCheckinHandoverScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi bàn giao phòng: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi bàn giao phòng: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -256,9 +259,13 @@ class _HostCheckinHandoverScreenState
                                 CircleAvatar(
                                   radius: 22,
                                   backgroundColor: const Color(0xFFDBEAFE),
-                                  child: const Text(
-                                    'HL',
-                                    style: TextStyle(
+                                  child: Text(
+                                    handoverCtx.renterName.isNotEmpty
+                                        ? handoverCtx.renterName
+                                              .substring(0, 1)
+                                              .toUpperCase()
+                                        : 'K',
+                                    style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w800,
                                       color: Color(0xFF1D4ED8),
@@ -431,8 +438,7 @@ class _HostCheckinHandoverScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Row(
                                   children: [
@@ -492,8 +498,7 @@ class _HostCheckinHandoverScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Row(
                                   children: [
@@ -555,8 +560,7 @@ class _HostCheckinHandoverScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Row(
                                   children: [
@@ -691,9 +695,7 @@ class _HostCheckinHandoverScreenState
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   decoration: const BoxDecoration(
                     color: Colors.white,
-                    border: Border(
-                      top: BorderSide(color: Color(0xFFE2E8F0)),
-                    ),
+                    border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
                   ),
                   child: SizedBox(
                     width: double.infinity,

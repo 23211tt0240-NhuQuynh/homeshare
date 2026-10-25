@@ -10,7 +10,7 @@ import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
-import '../../profile/screens/personal_profile_screen.dart';
+import '../../profile/screens/role_aware_profile_screen.dart';
 import 'create_roommate_post_screen.dart';
 import 'roommate_room_detail_screen.dart';
 import 'roommate_search_screen.dart';
@@ -156,7 +156,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
     if (authorId.isEmpty) return;
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => PersonalProfileScreen(userId: authorId)),
+      MaterialPageRoute(builder: (_) => RoleAwareProfileScreen(userId: authorId)),
     );
   }
 

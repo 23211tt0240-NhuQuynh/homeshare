@@ -6,7 +6,11 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/vietnam_banks.dart';
 import '../../../core/services/user_profile_service.dart';
+import '../../../core/utils/host_reputation.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
+import '../../renter/screens/report_host_screen.dart';
+import '../widgets/host_reviews_section.dart';
 import '../widgets/user_avatar.dart';
 import 'cccd_verification_screen.dart';
 
@@ -39,7 +43,6 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   final _picker = ImagePicker();
 
   final _emailController = TextEditingController();
-  String _userCode = '';
   String _avatarUrl = '';
   String _role = 'renter';
   String _gender = '';
@@ -53,6 +56,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   bool _saving = false;
   bool _viewOnly = false;
   bool _loadingUser = false;
+  int _reputationScore = 100;
   String? _loadError;
   Uint8List? _pickedAvatar;
   DateTime? _birthDate;
@@ -123,6 +127,39 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     super.dispose();
   }
 
+  bool get _isHostProfile => HostReputation.isHostRole(_role);
+
+  String get _hostProfileId {
+    final requested = widget.userId?.trim() ?? '';
+    if (requested.isNotEmpty) return requested;
+    return ref.read(userProfileProvider).value?.uid ?? '';
+  }
+
+  void _openHostReport() {
+    final user = ref.read(currentUserProvider);
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng đăng nhập để báo cáo.')),
+      );
+      return;
+    }
+    if (user.uid == _hostProfileId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bạn không thể báo cáo chính mình.')),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReportHostScreen(
+          hostId: _hostProfileId,
+          hostName: _nameController.text.trim(),
+        ),
+      ),
+    );
+  }
+
   void _hydrate(UserProfile profile) {
     _nameController.text = profile.displayName;
     _phoneController.text = _normalizePhone(profile.phoneNumber);
@@ -131,11 +168,11 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     _workplaceController.text = profile.workplace;
     _bioController.text = profile.bio;
     _emailController.text = profile.email;
-    _userCode = profile.userCode;
     _avatarUrl = profile.avatarUrl;
     _role = profile.role.isEmpty ? 'renter' : profile.role;
     _gender = _normalizeGender(profile.gender);
     _verified = profile.isCccdVerified;
+    _reputationScore = profile.reputationScore;
     _birthDate = profile.birthDate;
     if (profile.birthDate != null) {
       _yearController.text = profile.birthDate!.year.toString();
@@ -434,6 +471,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     final viewingOther = requested.isNotEmpty && requested != profile?.uid;
     if (profile != null && !viewingOther) {
       _verified = profile.isCccdVerified;
+      _reputationScore = profile.reputationScore;
       if (!_hydrated) {
         _hydrated = true;
         _hydrate(profile);
@@ -468,6 +506,37 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                           children: [
                             _buildHeader(),
+                            if (_isHostProfile) ...[
+                              const SizedBox(height: 18),
+                              HostReviewsSection(
+                                hostId: _hostProfileId,
+                                hostName: _nameController.text.trim(),
+                                reputationScore: _reputationScore,
+                                showReviewButton: _viewOnly,
+                              ),
+                              if (_viewOnly) ...[
+                                const SizedBox(height: 12),
+                                OutlinedButton.icon(
+                                  onPressed: _openHostReport,
+                                  icon: const Icon(Icons.flag_outlined, size: 18, color: Color(0xFFDC2626)),
+                                  label: const Text(
+                                    'Báo cáo chủ trọ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFFDC2626),
+                                    ),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size.fromHeight(44),
+                                    side: const BorderSide(color: Color(0xFFFCA5A5)),
+                                    backgroundColor: const Color(0xFFFEF2F2),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                             const SizedBox(height: 18),
                             _buildSection(
                               icon: Icons.badge_outlined,

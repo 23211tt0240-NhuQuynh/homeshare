@@ -271,7 +271,8 @@ void main() {
 
         // Phải có thông tin thật
         expect(find.text('Nguyễn Hoàng Long'), findsOneWidget);
-        expect(find.text('ID: 829AB'), findsOneWidget);
+        // ID ẩn với người thuê theo nghiệp vụ Phase 2.56
+        expect(find.text('ID: 829AB'), findsNothing);
         expect(find.text('hoanglong@test.vn'), findsOneWidget);
         expect(find.text('SĐT: 0912345678'), findsOneWidget);
         expect(find.text('Người thuê'), findsOneWidget);

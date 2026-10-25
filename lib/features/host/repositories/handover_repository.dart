@@ -52,7 +52,7 @@ class HandoverRepository {
   final FirebaseFirestore _firestore;
 
   HandoverRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   /// Tải thông tin phòng, đơn đặt phòng và danh mục thiết bị bàn giao
   Future<HandoverRoomContext> getHandoverContext({
@@ -95,7 +95,8 @@ class HandoverRepository {
         if (propDoc.exists) {
           final data = propDoc.data();
           propertyName = data?['name'] ?? data?['tenNha'] ?? propertyName;
-          propertyAddress = data?['address'] ?? data?['diaChi'] ?? propertyAddress;
+          propertyAddress =
+              data?['address'] ?? data?['diaChi'] ?? propertyAddress;
         }
       } catch (_) {}
     }
@@ -153,19 +154,21 @@ class HandoverRepository {
 
     final roomCode = room?.roomCode.isNotEmpty == true
         ? room!.roomCode
-        : (room?.title.isNotEmpty == true ? room!.title : '204');
+        : (room?.title.isNotEmpty == true ? room!.title : '');
 
     final renterName = booking?.renterName.isNotEmpty == true
         ? booking!.renterName
-        : (room?.tenantName.isNotEmpty == true ? room!.tenantName : 'Đỗ Hoàng Long');
+        : (room?.tenantName.isNotEmpty == true
+              ? room!.tenantName
+              : 'Khách thuê');
 
     final renterPhone = booking?.renterPhone.isNotEmpty == true
         ? booking!.renterPhone
-        : (room?.tenantPhone.isNotEmpty == true ? room!.tenantPhone : '0912 345 678');
+        : (room?.tenantPhone.isNotEmpty == true ? room!.tenantPhone : '');
 
     final deposit = (booking != null && booking.deposit > 0)
         ? booking.deposit
-        : ((room != null && room.deposit > 0) ? room.deposit : 4800000.0);
+        : ((room != null && room.deposit > 0) ? room.deposit : 0.0);
 
     return HandoverRoomContext(
       bookingId: bookingId,
@@ -173,7 +176,7 @@ class HandoverRepository {
       roomCode: roomCode,
       propertyName: propertyName,
       address: propertyAddress,
-      renterId: booking?.renterId ?? 'renter_hl',
+      renterId: booking?.renterId ?? '',
       renterName: renterName,
       renterPhone: renterPhone,
       renterAvatar: room?.tenantAvatar ?? '',
@@ -182,8 +185,8 @@ class HandoverRepository {
       rentalMonths: booking?.rentalMonths ?? 12,
       electricityRate: room?.electricityRate ?? 0.0,
       waterRate: room?.waterRate ?? 0.0,
-      initialElectricityMeter: 1428.0,
-      initialWaterMeter: 84.0,
+      initialElectricityMeter: 0.0,
+      initialWaterMeter: 0.0,
       items: items,
     );
   }
@@ -227,8 +230,9 @@ class HandoverRepository {
     batch.set(periodRef, period.toMap());
 
     // 2. Tạo Phiếu nhận phòng (checkin)
-    final checkinRef =
-        _firestore.collection(FirestoreCollections.checkins).doc();
+    final checkinRef = _firestore
+        .collection(FirestoreCollections.checkins)
+        .doc();
     final checkin = CheckinModel(
       id: checkinRef.id,
       bookingId: bookingId,
@@ -247,8 +251,9 @@ class HandoverRepository {
     batch.set(checkinRef, checkin.toMap());
 
     // 3. Tạo cư dân (resident)
-    final residentRef =
-        _firestore.collection(FirestoreCollections.residents).doc();
+    final residentRef = _firestore
+        .collection(FirestoreCollections.residents)
+        .doc();
     final resident = ResidentModel(
       id: residentRef.id,
       periodId: periodId,
@@ -263,8 +268,9 @@ class HandoverRepository {
 
     // 4. Lưu từng hạng mục bàn giao (handover_items)
     for (final item in items) {
-      final itemRef =
-          _firestore.collection(FirestoreCollections.handoverItems).doc();
+      final itemRef = _firestore
+          .collection(FirestoreCollections.handoverItems)
+          .doc();
       final itemData = item
           .copyWith(id: itemRef.id, periodId: periodId)
           .toMap();
@@ -274,8 +280,9 @@ class HandoverRepository {
 
     // 5. Cập nhật booking sang trạng thái dangO/active nếu có
     if (bookingId.isNotEmpty) {
-      final bookingRef =
-          _firestore.collection(FirestoreCollections.bookings).doc(bookingId);
+      final bookingRef = _firestore
+          .collection(FirestoreCollections.bookings)
+          .doc(bookingId);
       batch.update(bookingRef, {
         'status': 'active',
         'trangThai': 'dangO',
@@ -287,8 +294,9 @@ class HandoverRepository {
 
     // 6. Cập nhật host_rooms sang occupied
     if (roomId.isNotEmpty) {
-      final roomRef =
-          _firestore.collection(FirestoreCollections.hostRooms).doc(roomId);
+      final roomRef = _firestore
+          .collection(FirestoreCollections.hostRooms)
+          .doc(roomId);
       batch.update(roomRef, {
         'status': 'occupied',
         'tenantName': renterName,

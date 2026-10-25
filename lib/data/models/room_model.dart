@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/firestore_collections.dart';
+import '../../core/utils/vietnam_address_parser.dart';
 
 /// Model Phòng trọ & Bài đăng chuẩn hóa theo Database homeShare
 /// Bảng: Nhà trọ, Phòng, ẢnhPhong, Tiện ích, Bài đăng
@@ -89,8 +90,10 @@ class RoomModel {
     if (match != null && match.group(0)!.toUpperCase() != 'P001') {
       return match.group(0)!.toUpperCase();
     }
-    final titleMatch =
-        RegExp(r'P\d{3,}|\b\d{3}\b', caseSensitive: false).firstMatch(title);
+    final titleMatch = RegExp(
+      r'P\d{3,}|\b\d{3}\b',
+      caseSensitive: false,
+    ).firstMatch(title);
     if (titleMatch != null) {
       final val = titleMatch.group(0)!.toUpperCase();
       final formatted = val.startsWith('P') ? val : 'P$val';
@@ -98,8 +101,94 @@ class RoomModel {
     }
     return id.isNotEmpty ? id.trim().toUpperCase() : '';
   }
+
   String get soPhong => maPhong;
   String get maNhaTro => propertyId;
+
+  bool get isApproved {
+    final s = status.toLowerCase().trim();
+    return s == 'active' ||
+        s == 'approved' ||
+        s == 'danghien' ||
+        s == 'danghienthi' ||
+        s == 'available' ||
+        s == 'conphong' ||
+        s == 'dangmo';
+  }
+
+  bool get isPending {
+    final s = status.toLowerCase().trim();
+    return s == 'pending' || s == 'choduyet' || s == 'cho_duyet';
+  }
+
+  bool get isDeleted {
+    final s = status.toLowerCase().trim();
+    return s == 'deleted' || s == 'daxoa' || s == 'da_xoa' || s == 'đã xóa';
+  }
+
+  bool get isHiddenOrRejected {
+    final s = status.toLowerCase().trim();
+    return s == 'rejected' ||
+        s == 'tuchoi' ||
+        s == 'tu_choi' ||
+        s == 'hidden' ||
+        s == 'daan' ||
+        s == 'da_an' ||
+        s == 'an' ||
+        s == 'ẩn' ||
+        s == 'bị ẩn' ||
+        s == 'bi_an' ||
+        s == 'go' ||
+        s == 'gỡ' ||
+        s == 'bị gỡ' ||
+        s == 'bi_go' ||
+        s == 'closed' ||
+        s == 'dong' ||
+        s == 'đóng' ||
+        s == 'khoa' ||
+        s == 'khóa' ||
+        isDeleted ||
+        s == 'unavailable';
+  }
+
+  /// Kiểm tra xem bài đăng có phải bài mẫu hardcode (sample) không
+  bool get isSampleOrHardcode {
+    if (id.toLowerCase().startsWith('sample')) return true;
+    if (roomCode.toLowerCase().startsWith('sample')) return true;
+    final hId = hostId.toLowerCase().trim();
+    if (hId == 'host_chu_ba_101' ||
+        hId == 'host_minh_gv' ||
+        hId == 'host_linhtrung_99' ||
+        hId == 'host_saigon_luxury' ||
+        hId.startsWith('host_sample')) {
+      return true;
+    }
+    final t = title.toLowerCase().trim();
+    if (t == 'phòng trọ máy lạnh gần đh nông lâm' ||
+        t == 'studio ban công thoáng mát nguyễn văn lượng' ||
+        t == 'phòng trọ duplex cao cấp d2 hutech' ||
+        t == 'căn hộ dịch vụ 1pn mai chí thọ có hồ bơi') {
+      return true;
+    }
+    return false;
+  }
+
+  /// Chỉ các bài ĐANG HIỂN THỊ (đã duyệt, còn mở, không bị ẩn/gỡ/từ chối/chờ duyệt, không phải bài mẫu hardcode)
+  bool get isDisplayable {
+    return isApproved &&
+        !isPending &&
+        !isHiddenOrRejected &&
+        isAvailable &&
+        !isSampleOrHardcode;
+  }
+
+  String get statusDisplayLabel {
+    if (isPending) return 'Chờ duyệt';
+    if (isHiddenOrRejected) return 'Đã ẩn';
+    final s = status.toLowerCase().trim();
+    if (s == 'occupied' || s == 'dathue') return 'Đã thuê';
+    return 'Đã duyệt';
+  }
 
   RoomModel({
     required this.id,
@@ -152,9 +241,26 @@ class RoomModel {
       id: id,
       minArea: (data['minArea'] as num?)?.toDouble(),
       maxArea: (data['maxArea'] as num?)?.toDouble(),
-      electricityRate: (data['electricityRate'] as num?)?.toDouble(),
-      waterRate: (data['waterRate'] as num?)?.toDouble(),
-      serviceFee: (data['serviceFee'] as num?)?.toDouble(),
+      electricityRate: _readPositiveDouble(
+        data['electricityRate'] ??
+            data['electricity_rate'] ??
+            data['giaDien'] ??
+            data['gia_dien'],
+      ),
+      waterRate: _readPositiveDouble(
+        data['waterRate'] ??
+            data['water_rate'] ??
+            data['giaNuoc'] ??
+            data['gia_nuoc'],
+      ),
+      serviceFee: _readPositiveDouble(
+        data['serviceFee'] ??
+            data['service_fee'] ??
+            data['wifiRate'] ??
+            data['wifi_rate'] ??
+            data['giaWifi'] ??
+            data['gia_wifi'],
+      ),
       tenantName: data['tenantName'] ?? '',
       tenantPhone: data['tenantPhone'] ?? '',
       tenantAvatar: data['tenantAvatar'] ?? '',
@@ -165,13 +271,15 @@ class RoomModel {
       hasRentDebt: data['hasRentDebt'] == true,
       propertyId:
           data['propertyId'] ??
+          data['property_id'] ??
           data[PhongTroSqlFields.batDongSanId] ??
           data['bat_dong_san_id'] ??
           data['nhaTroId'] ??
           data['maNhaTro'] ??
           '',
       roomCode: () {
-        final explicit = data['roomCode'] ??
+        final explicit =
+            data['roomCode'] ??
             data['maPhong'] ??
             data[PhongTroSqlFields.maPhong] ??
             data['ma_phong'] ??
@@ -188,19 +296,22 @@ class RoomModel {
         if (id.isNotEmpty) return id.trim().toUpperCase();
         return '';
       }(),
-      status:
-          data['status'] ??
-          ((data['isAvailable'] ??
-                  (data['trangThai'] == 'conPhong' ||
-                      data['trangThai'] == 'TRONG' ||
-                      data['trangThai'] == 'dangMo' ||
-                      data['trangThai'] == null))
-              ? 'available'
-              : 'unavailable'),
+      status: () {
+        final explicit =
+            data['status'] ??
+            data['statusId'] ??
+            data['trangThai'] ??
+            data['trangThai_id'];
+        if (explicit != null && explicit.toString().trim().isNotEmpty) {
+          return explicit.toString().trim();
+        }
+        return (data['isAvailable'] == false) ? 'unavailable' : 'available';
+      }(),
       title: data['title'] ?? data['tieuDe'] ?? '',
       description: data['description'] ?? data['noiDung'] ?? data['moTa'] ?? '',
       price: () {
-        final val = data['price'] ??
+        final val =
+            data['price'] ??
             data['gia'] ??
             data['giaThue'] ??
             data['rentalPrice'] ??
@@ -215,7 +326,8 @@ class RoomModel {
       }(),
       depositPercentage: (data['depositPercentage'] as num?)?.toInt(),
       deposit: () {
-        final val = data['deposit'] ??
+        final val =
+            data['deposit'] ??
             data['tienCoc'] ??
             data['tien_coc'] ??
             data['depositAmount'] ??
@@ -230,7 +342,8 @@ class RoomModel {
         }
         final percent = data['phanTramTienCoc'] ?? data['phan_tram_tien_coc'];
         if (percent is num && percent > 0) {
-          final priceRaw = data['price'] ??
+          final priceRaw =
+              data['price'] ??
               data['gia'] ??
               data['giaThue'] ??
               data['giaThueThang'] ??
@@ -246,18 +359,29 @@ class RoomModel {
         }
         return 0.0;
       }(),
-      address: data['address'] ?? data['diaChi'] ?? '',
-      district: data['district'] ?? data['quanHuyen'] ?? data['khuVuc'] ?? data['diaDiemId'] ?? '',
+      address:
+          data['address'] ?? data['diaChi'] ?? data['dia_chi_chi_tiet'] ?? '',
+      district:
+          data['district'] ??
+          data['quanHuyen'] ??
+          data['khuVuc'] ??
+          data['diaDiemId'] ??
+          '',
       city: data['city'] ?? data['thanhPho'] ?? 'TP. Hồ Chí Minh',
       area: () {
-        final val = data['area'] ?? data['dienTich'] ?? data['dienTichM2'] ?? data['roomArea'] ?? data['dien_tich'];
+        final val =
+            data['area'] ??
+            data['dienTich'] ??
+            data['dienTichM2'] ??
+            data['roomArea'] ??
+            data['dien_tich'];
         if (val is num) return val.toDouble();
         if (val is String && val.trim().isNotEmpty) {
           final cleaned = val.trim().replaceAll(',', '.');
           final parsed = double.tryParse(cleaned);
           if (parsed != null) return parsed;
         }
-        return 20.0;
+        return 0.0;
       }(),
       roomType: data['roomType'] ?? data['loaiPhong'] ?? 'Phòng trọ',
       amenities: () {
@@ -356,15 +480,35 @@ class RoomModel {
         }
         return <String>[];
       }(),
-      hostId: data['hostId'] ?? data['chuNhaId'] ?? data['userId'] ?? data['nguoiDangId'] ?? '',
-      hostName: data['hostName'] ?? data['tenChuNha'] ?? data['authorName'] ?? 'Chủ nhà',
+      hostId:
+          data['hostId'] ??
+          data['host_id'] ??
+          data['chuNhaId'] ??
+          data['chu_tro_id'] ??
+          data['userId'] ??
+          data['nguoiDangId'] ??
+          '',
+      hostName:
+          data['hostName'] ??
+          data['host_name'] ??
+          data['tenChuNha'] ??
+          data['authorName'] ??
+          'Chủ nhà',
       hostPhone:
           data['hostPhone'] ??
+          data['host_phone'] ??
           data['soDienThoai'] ??
+          data['so_dien_thoai'] ??
           data['soDienThoaiLienHe'] ??
           data['contactPhone'] ??
           '',
-      hostAvatar: data['hostAvatar'] ?? data['anhDaiDien'] ?? data['authorAvatar'] ?? '',
+      hostAvatar:
+          data['hostAvatar'] ??
+          data['host_avatar'] ??
+          data['avatarUrl'] ??
+          data['anhDaiDien'] ??
+          data['authorAvatar'] ??
+          '',
       rating:
           ((data['rating'] ?? data['soSao'] ?? data['soSaoTrungBinh']) as num?)
               ?.toDouble() ??
@@ -372,22 +516,28 @@ class RoomModel {
       reviewCount:
           ((data['reviewCount'] ?? data['soLuotDanhGia']) as num?)?.toInt() ??
           0,
-      isAvailable:
-          data['isAvailable'] ??
-          (data['trangThai'] == 'conPhong' ||
-              data['trangThai'] == 'dangMo' ||
-              data['trangThai_id'] == 'dangHienThi' ||
-              data['statusId'] == 'dangHienThi' ||
-              data['status'] == 'dangHienThi' ||
-              data['status'] == 'available' ||
-              (data['trangThai'] == null &&
-                  data['trangThai_id'] != 'daAn' &&
-                  data['statusId'] != 'daAn' &&
-                  data['status'] != 'daAn' &&
-                  data['trangThai_id'] != 'deleted' &&
-                  data['status'] != 'deleted' &&
-                  data['trangThai_id'] != 'closed' &&
-                  data['trangThai_id'] != 'hidden')),
+      isAvailable: () {
+        if (data['isAvailable'] is bool) return data['isAvailable'] as bool;
+        final raw =
+            (data['status'] ??
+                    data['statusId'] ??
+                    data['trangThai'] ??
+                    data['trangThai_id'])
+                ?.toString()
+                .toLowerCase()
+                .trim();
+        if (raw == 'rejected' ||
+            raw == 'tuchoi' ||
+            raw == 'hidden' ||
+            raw == 'daan' ||
+            raw == 'closed' ||
+            raw == 'deleted' ||
+            raw == 'daxoa' ||
+            raw == 'unavailable') {
+          return false;
+        }
+        return true;
+      }(),
       capacity: ((data['capacity'] ?? data['sucChua']) as num?)?.toInt() ?? 2,
       floor: ((data['floor'] ?? data['tang']) as num?)?.toInt() ?? 1,
       createdAt: (data['createdAt'] is Timestamp)
@@ -480,6 +630,127 @@ class RoomModel {
     return RoomModel.fromMap(data, id);
   }
 
+  /// Bổ sung các trường hiển thị còn thiếu của một bài đăng từ các tài liệu
+  /// được tham chiếu bởi roomId, propertyId và hostId. Dữ liệu có sẵn trong
+  /// `posts` luôn được ưu tiên, tránh ghi đè nội dung bài đăng.
+  RoomModel enrichWithRelatedData({
+    RoomModel? room,
+    Map<String, dynamic>? propertyData,
+    Map<String, dynamic>? hostData,
+    Map<String, dynamic>? locationData,
+  }) {
+    String readString(Map<String, dynamic>? data, List<String> keys) {
+      if (data == null) return '';
+      for (final key in keys) {
+        final value = data[key]?.toString().trim() ?? '';
+        if (value.isNotEmpty) return value;
+      }
+      return '';
+    }
+
+    String joinAddress(Map<String, dynamic>? data) {
+      if (data == null) return '';
+      final parts = <String>[
+        readString(data, const ['address', 'diaChi', 'dia_chi_chi_tiet']),
+        readString(data, const ['ward', 'phuongXa', 'phuong_xa']),
+        readString(data, const ['district', 'quanHuyen', 'quan_huyen']),
+        readString(data, const ['city', 'province', 'thanhPho', 'tinh_thanh']),
+      ];
+      return parts.where((part) => part.isNotEmpty).toSet().join(', ');
+    }
+
+    final currentName = hostName.trim();
+    final normalizedName = currentName.toLowerCase();
+    final shouldResolveHostName =
+        currentName.isEmpty ||
+        normalizedName == 'chủ nhà' ||
+        normalizedName == 'chủ trọ';
+    final relatedHostName = readString(hostData, const [
+      'displayName',
+      'ho_ten',
+      'hoTen',
+      'name',
+      'cccdFullName',
+      'ho_ten_cccd',
+    ]);
+    final roomAddress = room?.address.trim() ?? '';
+    final propertyAddress = joinAddress(propertyData);
+    final locationAddress = joinAddress(locationData);
+    final resolvedAddress = VietnamAddressParser.pickBest([
+      address.trim(),
+      roomAddress,
+      propertyAddress,
+      locationAddress,
+    ]);
+    final resolvedHostId = hostId.trim().isNotEmpty
+        ? hostId.trim()
+        : (room?.hostId.trim() ?? '').isNotEmpty
+        ? room!.hostId.trim()
+        : readString(hostData, const [
+            'userId',
+            'uid',
+            'id',
+            'nguoiDungId',
+            'nguoi_dung_id',
+          ]);
+    final resolvedPropertyId = propertyId.trim().isNotEmpty
+        ? propertyId.trim()
+        : (room?.propertyId.trim() ?? '');
+
+    return copyWith(
+      propertyId: resolvedPropertyId,
+      area: (room?.area ?? 0) > 0 && area <= 0 ? room!.area : area,
+      capacity: (room?.capacity ?? 0) > 0 && capacity <= 0
+          ? room!.capacity
+          : capacity,
+      amenities: amenities.isNotEmpty
+          ? amenities
+          : (room?.amenities ?? amenities),
+      electricityRate: electricityRate ?? room?.electricityRate,
+      waterRate: waterRate ?? room?.waterRate,
+      serviceFee: serviceFee ?? room?.serviceFee,
+      address: resolvedAddress,
+      district: district.trim().isNotEmpty
+          ? district.trim()
+          : (room?.district.trim() ?? '').isNotEmpty
+          ? room!.district.trim()
+          : readString(propertyData, const [
+              'district',
+              'quanHuyen',
+              'quan_huyen',
+            ]),
+      city: city.trim().isNotEmpty
+          ? city.trim()
+          : (room?.city.trim() ?? '').isNotEmpty
+          ? room!.city.trim()
+          : readString(propertyData, const [
+              'city',
+              'province',
+              'thanhPho',
+              'tinh_thanh',
+            ]),
+      hostId: resolvedHostId,
+      hostName: shouldResolveHostName && relatedHostName.isNotEmpty
+          ? relatedHostName
+          : currentName,
+      hostPhone: hostPhone.trim().isNotEmpty
+          ? hostPhone.trim()
+          : readString(hostData, const [
+              'phoneNumber',
+              'so_dien_thoai',
+              'soDienThoai',
+              'phone',
+            ]),
+      hostAvatar: hostAvatar.trim().isNotEmpty
+          ? hostAvatar.trim()
+          : readString(hostData, const [
+              'avatarUrl',
+              'anhDaiDien',
+              'anh_dai_dien',
+            ]),
+    );
+  }
+
   RoomModel copyWith({
     String? id,
     String? propertyId,
@@ -563,4 +834,15 @@ class RoomModel {
       serviceFee: serviceFee ?? this.serviceFee,
     );
   }
+}
+
+double? _readPositiveDouble(dynamic raw) {
+  if (raw == null) return null;
+  if (raw is num) return raw.toDouble();
+  if (raw is String) {
+    final text = raw.trim().replaceAll(' ', '').replaceAll(',', '');
+    if (text.isEmpty) return null;
+    return double.tryParse(text);
+  }
+  return null;
 }

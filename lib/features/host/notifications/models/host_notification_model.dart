@@ -124,7 +124,9 @@ class HostNotificationModel {
     }
     if (bookingId.isNotEmpty) {
       final clean = bookingId.replaceAll('#', '');
-      final sub = clean.length > 5 ? clean.substring(0, 5).toUpperCase() : clean.toUpperCase();
+      final sub = clean.length > 5
+          ? clean.substring(0, 5).toUpperCase()
+          : clean.toUpperCase();
       return '#BK$sub';
     }
     return '#BK12345';
@@ -236,55 +238,153 @@ class HostNotificationModel {
       return null;
     }
 
-    final rawType = data[NotificationFields.notificationType] ??
+    final rawType =
+        data[NotificationFields.notificationType] ??
         data[NotificationFields.legacyNotificationType] ??
         data['type'];
 
-    final amtVal = data[NotificationFields.amount] ??
+    final statusId =
+        (data[NotificationFields.statusId] ??
+                data[NotificationFields.legacyStatusId] ??
+                data['status'] ??
+                'pending')
+            .toString()
+            .trim()
+            .toLowerCase();
+
+    final actionType =
+        data['actionType']?.toString() ??
+        (rawType == 'roommate_approval' ? 'roommate_approval' : '');
+    final newRoommateId = data['newRoommateId']?.toString() ?? '';
+    final title =
+        (data[NotificationFields.title] ??
+                data[NotificationFields.legacyTitle] ??
+                'Thông báo hệ thống')
+            .toString();
+    final message =
+        (data[NotificationFields.message] ??
+                data[NotificationFields.legacyMessage] ??
+                '')
+            .toString();
+
+    final isRoommate =
+        actionType == 'roommate_approval' ||
+        newRoommateId.isNotEmpty ||
+        title.contains('ở ghép') ||
+        message.contains('ở ghép');
+
+    final paymentOption = (data['paymentOption'] ?? data['paymentType'] ?? '')
+        .toString()
+        .toLowerCase();
+    final isFullPayment = paymentOption == 'full' ||
+        paymentOption == 'toanbo' ||
+        paymentOption == 'trahet' ||
+        data['isFullPayment'] == true;
+
+    final baseType = HostNotificationTypeX.fromString(rawType?.toString());
+    HostNotificationType parsedType;
+    if (baseType == HostNotificationType.staying) {
+      parsedType = HostNotificationType.staying;
+    } else if (isRoommate) {
+      // Khi đã duyệt xong -> Lưu / hiển thị ở tab "Đang ở"
+      // Chưa duyệt -> Nằm ở tab "Đang xử lý"
+      if (statusId == 'approved' || statusId == 'accepted') {
+        parsedType = HostNotificationType.staying;
+      } else {
+        parsedType = HostNotificationType.pendingAction;
+      }
+    } else {
+      // Thông báo đặt phòng / đặt cọc thông thường:
+      final isStaying = statusId == 'dango' ||
+          statusId == 'active' ||
+          statusId == 'danhanphong' ||
+          statusId == 'living' ||
+          baseType == HostNotificationType.staying;
+
+      final isApproved = statusId == 'approved' ||
+          statusId == 'accepted' ||
+          statusId == 'deposited' ||
+          statusId == 'dacoc' ||
+          statusId == 'da_coc' ||
+          statusId == 'deposit_paid' ||
+          statusId == 'daduyet' ||
+          statusId == 'da_duyet' ||
+          statusId == 'paid' ||
+          statusId == 'completed' ||
+          statusId == 'dathanhtoan' ||
+          statusId == 'dathanhtoanhet' ||
+          statusId == 'da_thanh_toan_het' ||
+          data['adminVerified'] == true ||
+          data['isPaid'] == true;
+
+      if (isStaying) {
+        parsedType = HostNotificationType.staying;
+      } else if (isApproved) {
+        if (isFullPayment ||
+            statusId == 'paid' ||
+            statusId == 'completed' ||
+            statusId == 'dathanhtoanhet' ||
+            statusId == 'da_thanh_toan_het' ||
+            baseType == HostNotificationType.paymentCompleted) {
+          parsedType = HostNotificationType.paymentCompleted;
+        } else {
+          parsedType = HostNotificationType.deposit;
+        }
+      } else {
+        parsedType = baseType;
+      }
+    }
+
+    final amtVal =
+        data[NotificationFields.amount] ??
         data[NotificationFields.legacyAmount] ??
         data['tienCoc'] ??
         data['depositAmount'];
 
     return HostNotificationModel(
       id: id,
-      receiverId: data[NotificationFields.receiverId] ??
+      receiverId:
+          data[NotificationFields.receiverId] ??
           data[NotificationFields.legacyReceiverId] ??
           data['chuNhaId'] ??
           data['hostId'] ??
           '',
-      senderId: data[NotificationFields.senderId] ??
+      senderId:
+          data[NotificationFields.senderId] ??
           data[NotificationFields.legacySenderId] ??
           data['nguoiDungId'] ??
           data['renterId'] ??
           '',
-      type: HostNotificationTypeX.fromString(rawType?.toString()),
-      title: data[NotificationFields.title] ??
-          data[NotificationFields.legacyTitle] ??
-          'Thông báo hệ thống',
-      message: data[NotificationFields.message] ??
-          data[NotificationFields.legacyMessage] ??
-          '',
-      bookingId: data[NotificationFields.bookingId] ??
+      type: parsedType,
+      title: title,
+      message: message,
+      bookingId:
+          data[NotificationFields.bookingId] ??
           data[NotificationFields.legacyBookingId] ??
           data['donDatPhongId'] ??
           '',
-      paymentId: data[NotificationFields.paymentId] ??
+      paymentId:
+          data[NotificationFields.paymentId] ??
           data[NotificationFields.legacyPaymentId] ??
           '',
-      roomId: data[NotificationFields.roomId] ??
+      roomId:
+          data[NotificationFields.roomId] ??
           data[NotificationFields.legacyRoomId] ??
           '',
-      propertyId: data[NotificationFields.propertyId] ??
+      propertyId:
+          data[NotificationFields.propertyId] ??
           data[NotificationFields.legacyPropertyId] ??
           '',
       amount: (amtVal is num)
           ? amtVal.toDouble()
           : (double.tryParse(amtVal?.toString() ?? '') ?? 0.0),
-      statusId: data[NotificationFields.statusId] ??
+      statusId:
+          data[NotificationFields.statusId] ??
           data[NotificationFields.legacyStatusId] ??
           data['status'] ??
           'pending',
-      isRead: (data[NotificationFields.isRead] ??
+      isRead:
+          (data[NotificationFields.isRead] ??
               data[NotificationFields.legacyIsRead] ??
               false) ==
           true,
@@ -299,19 +399,23 @@ class HostNotificationModel {
       ),
       bookingCode: data[NotificationFields.bookingCode] ?? '',
       roomCode: data[NotificationFields.roomCode] ?? '',
-      roomTitle: data[NotificationFields.roomTitle] ??
+      roomTitle:
+          data[NotificationFields.roomTitle] ??
           data['tieuDePhong'] ??
           data['tenPhong'] ??
           '',
-      roomFloorInfo: data['roomFloorInfo'] ??
+      roomFloorInfo:
+          data['roomFloorInfo'] ??
           data['thongTinTang'] ??
           data['tang']?.toString() ??
           '',
-      renterName: data[NotificationFields.renterName] ??
+      renterName:
+          data[NotificationFields.renterName] ??
           data['tenNguoiO'] ??
           data['tenKhach'] ??
           '',
-      renterAvatarUrl: data['renterAvatarUrl'] ??
+      renterAvatarUrl:
+          data['renterAvatarUrl'] ??
           data['anhKhach'] ??
           data['anhDaiDien'] ??
           '',
@@ -320,22 +424,31 @@ class HostNotificationModel {
             data['ngayVao'] ??
             data['ngayCheckIn'],
       ),
-      paymentMethod: data[NotificationFields.paymentMethod] ??
+      paymentMethod:
+          data[NotificationFields.paymentMethod] ??
           data['phuongThucThanhToan'] ??
           'Chuyển khoản QR',
       oldRoomId: data[NotificationFields.oldRoomId],
       newRoomId: data[NotificationFields.newRoomId],
       oldRoomTitle: data['oldRoomTitle'],
       newRoomTitle: data['newRoomTitle'],
-      oldCheckInDate: parseNullableDate(data[NotificationFields.oldCheckInDate]),
-      newCheckInDate: parseNullableDate(data[NotificationFields.newCheckInDate]),
-      adjustmentReason: data[NotificationFields.adjustmentReason] ??
-          data['lyDoDieuChinh'],
+      oldCheckInDate: parseNullableDate(
+        data[NotificationFields.oldCheckInDate],
+      ),
+      newCheckInDate: parseNullableDate(
+        data[NotificationFields.newCheckInDate],
+      ),
+      adjustmentReason:
+          data[NotificationFields.adjustmentReason] ?? data['lyDoDieuChinh'],
       primaryTenantId: data['primaryTenantId']?.toString() ?? '',
       primaryTenantName: data['primaryTenantName']?.toString() ?? '',
       newRoommateId: data['newRoommateId']?.toString() ?? '',
       newRoommateName: data['newRoommateName']?.toString() ?? '',
-      actionType: data['actionType']?.toString() ?? (data['notificationType'] == 'roommate_approval' ? 'roommate_approval' : ''),
+      actionType:
+          data['actionType']?.toString() ??
+          (data['notificationType'] == 'roommate_approval'
+              ? 'roommate_approval'
+              : ''),
       userNotificationId: data['userNotificationId']?.toString() ?? '',
     );
   }
@@ -386,7 +499,8 @@ class HostNotificationModel {
       if (newRoommateId.isNotEmpty) 'newRoommateId': newRoommateId,
       if (newRoommateName.isNotEmpty) 'newRoommateName': newRoommateName,
       if (actionType.isNotEmpty) 'actionType': actionType,
-      if (userNotificationId.isNotEmpty) 'userNotificationId': userNotificationId,
+      if (userNotificationId.isNotEmpty)
+        'userNotificationId': userNotificationId,
     };
   }
 }

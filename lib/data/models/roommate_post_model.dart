@@ -1,5 +1,70 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'room_model.dart';
+
+/// Phí phát sinh lấy từ phòng trên Firebase, dùng để ước tính chia đều.
+class RoommateExtraFee {
+  final String name;
+  final double amount;
+  final String unit;
+  final bool isMonthly;
+
+  const RoommateExtraFee({
+    required this.name,
+    required this.amount,
+    required this.unit,
+    this.isMonthly = false,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'name': name,
+        'amount': amount,
+        'unit': unit,
+        'isMonthly': isMonthly,
+      };
+
+  factory RoommateExtraFee.fromMap(Map<String, dynamic> data) {
+    return RoommateExtraFee(
+      name: (data['name'] ?? data['ten'] ?? '').toString().trim(),
+      amount: ((data['amount'] ?? data['soTien']) as num?)?.toDouble() ?? 0,
+      unit: (data['unit'] ?? data['donVi'] ?? 'đ').toString(),
+      isMonthly: data['isMonthly'] == true || data['chiaTheoThang'] == true,
+    );
+  }
+
+  static List<RoommateExtraFee> fromRoom(RoomModel room) {
+    final fees = <RoommateExtraFee>[];
+    final electricity = room.electricityRate ?? 0;
+    if (electricity > 0) {
+      fees.add(RoommateExtraFee(
+        name: 'Tiền điện',
+        amount: electricity,
+        unit: 'đ/kWh',
+      ));
+    }
+    final water = room.waterRate ?? 0;
+    if (water > 0) {
+      final monthly = water >= 50000;
+      fees.add(RoommateExtraFee(
+        name: 'Tiền nước',
+        amount: water,
+        unit: monthly ? 'đ/tháng' : 'đ/m³',
+        isMonthly: monthly,
+      ));
+    }
+    final service = room.serviceFee ?? 0;
+    if (service > 0) {
+      fees.add(RoommateExtraFee(
+        name: 'Wifi, rác & dịch vụ',
+        amount: service,
+        unit: 'đ/tháng',
+        isMonthly: true,
+      ));
+    }
+    return fees;
+  }
+}
+
 /// Model Tin ở ghép chuẩn hóa theo Database homeShare (DrawIO pkg_4: Ở ghép)
 /// Bảng: Tin ở ghép, Ảnh tin ở ghép, Yêu cầu trao đổi ở ghép
 class RoommatePostModel {
@@ -23,13 +88,22 @@ class RoommatePostModel {
   final String district; // khuVuc / quanHuyen (diaDiemId)
   final String targetGender; // gioiTinhMongMuon: nu | nam | tatCa
   final List<String> habits; // thoiQuen / soThich
-  final List<String> images; // anhTinOGhep (duongDan)
-  final List<String> imageCaptions; // ghiChuAnh
+  /// Ảnh chỉ dùng trên UI. Firestore lưu từng ảnh ở `roommate_post_images`.
+  final List<String> images;
+  final List<String> imageCaptions;
   final bool isVerified; // daXacThuc
   final int matchRate; // doTuongThich (AI Match Rate 0-100%)
   final bool hasRoom; // true = daCoPhong (timNguoiOGhep), false = dangTimPhong
   final String status; // trangThai: dangMo | daDong
   final String contactPhone; // soDienThoai / sdtLienHe
+  final String roomId;
+  final String bookingId;
+  final double deposit;
+  final DateTime? moveInDate;
+  final List<RoommateExtraFee> extraFees;
+  final double area;
+  final int capacity;
+  final List<String> amenities;
   final DateTime createdAt; // ngayTao
   final DateTime updatedAt; // ngayCapNhat
 
@@ -82,6 +156,14 @@ class RoommatePostModel {
     required this.hasRoom,
     this.status = 'dangMo',
     required this.contactPhone,
+    this.roomId = '',
+    this.bookingId = '',
+    this.deposit = 0,
+    this.moveInDate,
+    this.extraFees = const [],
+    this.area = 0,
+    this.capacity = 0,
+    this.amenities = const [],
     required this.createdAt,
     DateTime? updatedAt,
   }) : updatedAt = updatedAt ?? createdAt;
@@ -114,6 +196,14 @@ class RoommatePostModel {
     bool? hasRoom,
     String? status,
     String? contactPhone,
+    String? roomId,
+    String? bookingId,
+    double? deposit,
+    DateTime? moveInDate,
+    List<RoommateExtraFee>? extraFees,
+    double? area,
+    int? capacity,
+    List<String>? amenities,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -145,6 +235,14 @@ class RoommatePostModel {
       hasRoom: hasRoom ?? this.hasRoom,
       status: status ?? this.status,
       contactPhone: contactPhone ?? this.contactPhone,
+      roomId: roomId ?? this.roomId,
+      bookingId: bookingId ?? this.bookingId,
+      deposit: deposit ?? this.deposit,
+      moveInDate: moveInDate ?? this.moveInDate,
+      extraFees: extraFees ?? this.extraFees,
+      area: area ?? this.area,
+      capacity: capacity ?? this.capacity,
+      amenities: amenities ?? this.amenities,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -209,6 +307,25 @@ class RoommatePostModel {
       hasRoom: hasRoomVal,
       status: data['status'] ?? data['trangThai'] ?? 'dangMo',
       contactPhone: data['contactPhone'] ?? data['soDienThoai'] ?? data['sdtLienHe'] ?? '',
+      roomId: (data['roomId'] ?? data['phongTroId'] ?? data['phong_tro_id'] ?? data['phongId'] ?? '').toString(),
+      bookingId: (data['bookingId'] ?? data['donDatPhongId'] ?? '').toString(),
+      deposit: ((data['deposit'] ?? data['tienCoc'] ?? data['depositAmount']) as num?)?.toDouble() ?? 0,
+      moveInDate: (data['moveInDate'] is Timestamp)
+          ? (data['moveInDate'] as Timestamp).toDate()
+          : (data['ngayVao'] is Timestamp)
+              ? (data['ngayVao'] as Timestamp).toDate()
+              : null,
+      extraFees: _readExtraFees(data['extraFees'] ?? data['phiPhatSinh']),
+      area: ((data['area'] ?? data['dienTich'] ?? data['dienTichM2']) as num?)?.toDouble() ?? 0,
+      capacity: ((data['capacity'] ?? data['sucChua']) as num?)?.toInt() ?? 0,
+      amenities: () {
+        final raw = data['amenities'] ?? data['tienIch'];
+        if (raw is! List) return <String>[];
+        return raw
+            .map((e) => e?.toString().trim() ?? '')
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }(),
       createdAt: (data['createdAt'] is Timestamp)
           ? (data['createdAt'] as Timestamp).toDate()
           : (data['ngayTao'] is Timestamp)
@@ -243,15 +360,31 @@ class RoommatePostModel {
       'district': district,
       'targetGender': targetGender,
       'habits': habits,
-      'images': images,
-      'imageCaptions': imageCaptions,
       'isVerified': isVerified,
       'matchRate': matchRate,
       'hasRoom': hasRoom,
       'status': status,
       'contactPhone': contactPhone,
+      if (roomId.isNotEmpty) 'roomId': roomId,
+      if (bookingId.isNotEmpty) 'bookingId': bookingId,
+      if (deposit > 0) 'deposit': deposit,
+      if (moveInDate != null) 'moveInDate': Timestamp.fromDate(moveInDate!),
+      if (extraFees.isNotEmpty)
+        'extraFees': extraFees.map((fee) => fee.toMap()).toList(),
+      if (area > 0) 'area': area,
+      if (capacity > 0) 'capacity': capacity,
+      if (amenities.isNotEmpty) 'amenities': amenities,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
   }
+}
+
+List<RoommateExtraFee> _readExtraFees(dynamic raw) {
+  if (raw is! List) return const [];
+  return raw
+      .whereType<Map>()
+      .map((item) => RoommateExtraFee.fromMap(Map<String, dynamic>.from(item)))
+      .where((fee) => fee.name.isNotEmpty && fee.amount > 0)
+      .toList();
 }

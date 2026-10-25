@@ -227,10 +227,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           AuthTextField(
                             controller: _emailController,
                             label: 'Email *',
-                            hint: 'an.nguyen@gmail.com',
+                            hint: 'an.nguyen@email.com',
                             icon: Icons.email_outlined,
                             keyboardType: TextInputType.emailAddress,
-                            validator: _validateGmailLocal,
+                            validator: _validateEmail,
                           ),
                           const SizedBox(height: 16),
 
@@ -417,11 +417,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     );
   }
 
-  String? _validateGmailLocal(String? val) {
+  String? _validateEmail(String? val) {
     final email = (val ?? '').trim().toLowerCase();
-    if (email.isEmpty) return 'Vui lòng nhập đủ email';
-    if (!RegExp(r'^[A-Za-z0-9._+-]+@gmail\.com$').hasMatch(email)) {
-      return 'Nhập đủ địa chỉ, ví dụ ten@gmail.com';
+    if (email.isEmpty) return 'Vui lòng nhập email';
+    final emailRegex = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$');
+    if (!emailRegex.hasMatch(email)) {
+      return 'Email không đúng định dạng';
     }
     return null;
   }

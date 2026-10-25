@@ -88,21 +88,7 @@ class AuthTextField extends StatelessWidget {
               minWidth: 50,
               minHeight: 58,
             ),
-            suffixIcon: suffixIcon == null
-                ? null
-                : SizedBox(
-                    height: 58,
-                    child: Align(
-                      alignment: Alignment.center,
-                      widthFactor: 1,
-                      child: suffixIcon,
-                    ),
-                  ),
-            suffixIconConstraints: const BoxConstraints(
-              minWidth: 0,
-              minHeight: 58,
-              maxHeight: 58,
-            ),
+            suffixIcon: suffixIcon,
             filled: true,
             fillColor: PhongSangColors.priceSoft,
             isDense: false,

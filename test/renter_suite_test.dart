@@ -107,12 +107,16 @@ void main() {
         district: 'Bình Thạnh',
         targetGender: 'Nam',
         habits: ['Không hút thuốc', 'Ngủ trước 12h'],
+        images: const ['https://storage.example/room.jpg'],
+        imageCaptions: const ['Ảnh phòng'],
         hasRoom: true,
         contactPhone: '0901234567',
         createdAt: DateTime.now(),
       );
 
       final map = post.toMap();
+      expect(map.containsKey('images'), isFalse);
+      expect(map.containsKey('imageCaptions'), isFalse);
       expect(map['authorName'], equals('Lê Văn An'));
       expect(map['tieuDe'], equals('Tìm bạn nam ở ghép phòng gần HUTECH'));
       expect(map['gioiTinhMongMuon'], equals('Nam'));
@@ -157,6 +161,25 @@ void main() {
       expect(post.hasRoom, isTrue);
       expect(post.habits.length, equals(2));
       expect(post.contactPhone, equals('0912345678'));
+    });
+
+    test('ảnh tin ở ghép ghi document riêng roommate_post_images', () {
+      final createdAt = DateTime(2026, 10, 23, 16);
+      final data = roommatePostImageDocument(
+        id: 'post_01_img_0',
+        postId: 'post_01',
+        imageUrl: 'https://storage.example/room.jpg',
+        caption: 'Ảnh phòng',
+        sortOrder: 0,
+        createdAt: createdAt,
+      );
+
+      expect(data['postId'], 'post_01');
+      expect(data['imageUrl'], 'https://storage.example/room.jpg');
+      expect(data['duongDan'], 'https://storage.example/room.jpg');
+      expect(data['sortOrder'], 0);
+      expect(data['isCover'], isTrue);
+      expect(data.containsKey('images'), isFalse);
     });
   });
 

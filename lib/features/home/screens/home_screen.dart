@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
-import '../../profile/screens/personal_profile_screen.dart';
+import '../../profile/screens/role_aware_profile_screen.dart';
 import '../../profile/screens/cccd_verification_screen.dart';
 import '../../renter/screens/favorite_rooms_screen.dart';
 import '../../renter/screens/renter_bookings_screen.dart';
@@ -395,7 +395,7 @@ class HomeScreen extends ConsumerWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const PersonalProfileScreen(),
+                  builder: (_) => const RoleAwareProfileScreen(),
                 ),
               );
             },
@@ -420,7 +420,7 @@ class HomeScreen extends ConsumerWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const PersonalProfileScreen(),
+                      builder: (_) => const RoleAwareProfileScreen(),
                     ),
                   );
                 },

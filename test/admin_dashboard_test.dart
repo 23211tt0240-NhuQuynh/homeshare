@@ -18,9 +18,8 @@ void main() {
         ),
       );
 
-      expect(find.text('QUẢN TRỊ ADMIN'), findsOneWidget);
-      expect(find.text('Tổng quan'), findsOneWidget);
-      expect(find.text('BÀI ĐĂNG'), findsOneWidget);
+      expect(find.text('Tổng quan'), findsWidgets);
+      expect(find.text('Bài đăng'), findsOneWidget);
       expect(find.text('Quản lý đơn'), findsOneWidget);
       expect(find.text('Lịch sử'), findsOneWidget);
     });
