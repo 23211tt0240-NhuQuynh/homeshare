@@ -245,7 +245,7 @@ class _RoomBookingDetailScreenState
       // Lưu booking vào Firestore và thu nhận Document ID
       final createdBookingId = await ref
           .read(bookingServiceProvider)
-          .createBooking(booking);
+          .createBooking(booking, propertyId: widget.room.propertyId);
       final finalBooking = booking.copyWith(id: createdBookingId);
 
       if (mounted) {

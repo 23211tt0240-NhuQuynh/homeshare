@@ -1117,6 +1117,8 @@ class HostRepository {
     final postRef = _db.collection(FirestoreCollections.posts).doc();
     final postPayload = {
       'id': postRef.id,
+      // Chủ trọ - Giữ liên kết cơ sở của phòng có sẵn trên bài đăng.
+      'propertyId': sourceData['propertyId'] ?? room.propertyId,
       'roomId': targetRoomId,
       'roomCode': sourceData['roomCode'] ?? targetRoomId,
       'hostId': chuNhaId,

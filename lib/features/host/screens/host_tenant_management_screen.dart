@@ -1,3 +1,6 @@
+import '../../auth/providers/auth_provider.dart';
+import '../../auth/providers/user_provider.dart';
+import '../../chat/screens/chat_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -22,6 +25,39 @@ class _HostTenantManagementScreenState
     extends ConsumerState<HostTenantManagementScreen> {
   String _search = '';
   String? _propertyId;
+  String? _roomId;
+
+  void _openTenantChat(TenantItem tenant) {
+    final user = ref.read(currentUserProvider);
+    final receiverId = tenant.renterId.trim();
+    if (user == null ||
+        receiverId.isEmpty ||
+        receiverId == 'guest' ||
+        receiverId.startsWith('manual_') ||
+        receiverId == user.uid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Chưa thể mở trò chuyện với tài khoản người thuê này.'),
+        ),
+      );
+      return;
+    }
+    final profile = ref.read(userProfileProvider).value;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChatDetailScreen(
+          receiverId: receiverId,
+          receiverName: tenant.primaryName,
+          receiverAvatar: tenant.avatar,
+          receiverPhone: tenant.phone,
+          isLandlord: false,
+          currentUserId: user.uid,
+          currentUserName:
+              profile?.displayName ?? user.displayName ?? 'Chủ trọ',
+        ),
+      ),
+    );
+  }
 
   void _showTenantDetails(TenantItem selected) {
     showModalBottomSheet<void>(
@@ -194,6 +230,11 @@ class _HostTenantManagementScreenState
     final tenantsAsync = ref.watch(hostTenantsProvider);
     final statsAsync = ref.watch(hostTenantStatsProvider);
     final properties = ref.watch(hostPropertiesProvider).value ?? [];
+    final rooms = <String, TenantItem>{
+      for (final tenant in tenantsAsync.value ?? <TenantItem>[])
+        if (_propertyId == null || tenant.propertyId == _propertyId)
+          tenant.roomId: tenant,
+    };
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -244,9 +285,33 @@ class _HostTenantManagementScreenState
                       (p) => DropdownMenuItem(value: p.id, child: Text(p.name)),
                     ),
                   ],
-                  onChanged: (value) => setState(
-                    () => _propertyId = value == 'all' ? null : value,
+                  onChanged: (value) => setState(() {
+                    _propertyId = value == 'all' ? null : value;
+                    _roomId = null;
+                  }),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  key: ValueKey(
+                    'tenant-room-${_propertyId ?? 'all'}-${rooms.keys.join(',')}',
                   ),
+                  initialValue: rooms.containsKey(_roomId) ? _roomId : 'all',
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Phòng'),
+                  items: [
+                    const DropdownMenuItem(
+                      value: 'all',
+                      child: Text('Tất cả phòng'),
+                    ),
+                    ...rooms.values.map(
+                      (tenant) => DropdownMenuItem(
+                        value: tenant.roomId,
+                        child: Text(tenant.roomName),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => _roomId = value == 'all' ? null : value),
                 ),
               ],
             ),
@@ -260,6 +325,9 @@ class _HostTenantManagementScreenState
                           t.matches(_search) &&
                           (_propertyId == null ||
                               t.propertyId == _propertyId) &&
+                          (_roomId == null ||
+                              !rooms.containsKey(_roomId) ||
+                              t.roomId == _roomId) &&
                           t.isActive,
                     )
                     .toList();
@@ -294,6 +362,7 @@ class _HostTenantManagementScreenState
                           TenantCard(
                             tenant: tenant,
                             onTap: () => _showTenantDetails(tenant),
+                            onMessage: () => _openTenantChat(tenant),
                           ),
                         ],
                       ),

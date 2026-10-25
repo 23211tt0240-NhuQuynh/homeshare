@@ -10,6 +10,7 @@ import '../../../data/models/room_model.dart';
 class TenantItem {
   final String id;
   final String primaryName;
+  final String renterId;
   final String phone;
   final String avatar;
   final String roomId;
@@ -58,6 +59,7 @@ class TenantItem {
   const TenantItem({
     required this.id,
     required this.primaryName,
+    this.renterId = '',
     required this.phone,
     this.avatar = '',
     required this.roomId,
@@ -146,8 +148,9 @@ class TenantRepository {
   }) => TenantItem(
     id: booking.id,
     primaryName: booking.renterName,
+    renterId: booking.renterId,
     phone: booking.renterPhone,
-    roomId: booking.roomId,
+    roomId: room?.id ?? booking.roomId,
     roomName: room != null
         ? (room.roomCode.isNotEmpty ? 'P.${room.roomCode}' : room.title)
         : (booking.roomCode.isNotEmpty
@@ -162,6 +165,44 @@ class TenantRepository {
     deposit: booking.deposit,
     status: 'active',
   );
+
+  /// Booking roomId can be a listing ID. Resolve its FK, never its title.
+  static RoomModel? resolveTenantRoom(
+    String reference,
+    Map<String, RoomModel> hostRooms,
+    Map<String, Map<String, dynamic>> posts,
+  ) {
+    final post = posts[reference];
+    if (post != null) {
+      for (final key in ['roomId', 'room_id', 'phongId', 'phong_tro_id']) {
+        final id = (post[key] ?? '').toString().trim();
+        if (id.isNotEmpty && hostRooms.containsKey(id)) return hostRooms[id];
+      }
+    }
+    return hostRooms[reference];
+  }
+
+  /// Roommate approval after quick check-in can create a period without
+  /// bookingId. Only attach it to a checked-in booking for the same tenant/room.
+  static BookingRequestModel? bookingForPeriod(
+    PeriodModel period,
+    List<BookingRequestModel> bookings,
+    Map<String, RoomModel> rooms,
+  ) {
+    final roomId = rooms[period.roomId]?.id ?? period.roomId;
+    for (final booking in bookings) {
+      if (!booking.isActive) continue;
+      final bookingRoomId = rooms[booking.roomId]?.id ?? booking.roomId;
+      if (bookingRoomId != roomId) continue;
+      if (period.bookingId.isNotEmpty) {
+        if (booking.id == period.bookingId) return booking;
+      } else if (period.renterId.isNotEmpty &&
+          booking.renterId == period.renterId) {
+        return booking;
+      }
+    }
+    return null;
+  }
 
   /// Lắng nghe danh sách người thuê của chủ trọ hiện tại
   Stream<List<TenantItem>> watchHostTenants(String hostId) {
@@ -206,13 +247,28 @@ class TenantRepository {
           .map((doc) => bookingForTenant(doc.data(), doc.id))
           .toList();
 
+      // Older bookings saved the listing ID as roomId. Alias it to the
+      // operational room so property filters and room grouping use real IDs.
+      final postData = <String, Map<String, dynamic>>{};
+      for (final booking in activeBookings) {
+        final existing = roomMap[booking.roomId];
+        if (existing != null && existing.propertyId.isNotEmpty) continue;
+        final post = await _firestore
+            .collection(FirestoreCollections.posts)
+            .doc(booking.roomId)
+            .get();
+        if (post.exists) postData[booking.roomId] = post.data()!;
+        final resolved = resolveTenantRoom(booking.roomId, roomMap, postData);
+        if (resolved != null) roomMap[booking.roomId] = resolved;
+      }
+
       // 3. Tìm các kỳ ở (periods) đang hoạt động
       final hostPeriods = <PeriodModel>[];
-      for (final room in hostRooms) {
+      for (final reference in roomMap.keys) {
         for (final field in ['roomId', 'phongId']) {
           final snapshot = await _firestore
               .collection(FirestoreCollections.periods)
-              .where(field, isEqualTo: room.id)
+              .where(field, isEqualTo: reference)
               .get();
           for (final doc in snapshot.docs) {
             final period = PeriodModel.fromFirestore(doc);
@@ -267,17 +323,13 @@ class TenantRepository {
       // Tổng hợp từ periods trước
       for (final period in hostPeriods) {
         final room = roomMap[period.roomId];
+        final booking = bookingForPeriod(period, activeBookings, roomMap);
         if (room == null ||
             processedRoomIds.contains(room.id) ||
-            !activeBookings.any((b) => b.id == period.bookingId)) {
+            booking == null) {
           continue;
         }
-
         final periodResidents = residentsByPeriod[period.id] ?? [];
-        final booking = activeBookings.cast<BookingRequestModel?>().firstWhere(
-          (b) => b?.id == period.bookingId,
-          orElse: () => null,
-        );
 
         final propName =
             propertyNameMap[room.propertyId] ??
@@ -285,21 +337,24 @@ class TenantRepository {
 
         final primaryName = periodResidents.isNotEmpty
             ? periodResidents.first.fullName
-            : (booking?.renterName.isNotEmpty == true
-                  ? booking!.renterName
+            : (booking.renterName.isNotEmpty
+                  ? booking.renterName
                   : (room.tenantName.isNotEmpty ? room.tenantName : 'Cư dân'));
 
         final phone =
             periodResidents.isNotEmpty && periodResidents.first.phone.isNotEmpty
             ? periodResidents.first.phone
-            : (booking?.renterPhone.isNotEmpty == true
-                  ? booking!.renterPhone
+            : (booking.renterPhone.isNotEmpty
+                  ? booking.renterPhone
                   : room.tenantPhone);
 
         items.add(
           TenantItem(
             id: period.id,
             primaryName: primaryName,
+            renterId: booking.renterId.isNotEmpty
+                ? booking.renterId
+                : period.renterId,
             phone: phone,
             avatar: periodResidents.isNotEmpty
                 ? periodResidents.first.avatar
@@ -313,9 +368,9 @@ class TenantRepository {
             floor: room.floor > 0 ? room.floor : 1,
             roommates: periodResidents,
             periodId: period.id,
-            bookingId: period.bookingId,
+            bookingId: booking.id,
             moveInDate: period.startDate,
-            deposit: booking?.deposit ?? room.deposit,
+            deposit: booking.deposit,
             status: period.status,
           ),
         );
@@ -329,7 +384,10 @@ class TenantRepository {
       });
       for (final booking in activeBookings) {
         if (hostPeriods.any((period) => period.bookingId == booking.id) ||
-            (booking.isActive && processedRoomIds.contains(booking.roomId))) {
+            (booking.isActive &&
+                processedRoomIds.contains(
+                  roomMap[booking.roomId]?.id ?? booking.roomId,
+                ))) {
           continue;
         }
         final item = tenantFromBooking(
@@ -387,6 +445,12 @@ class TenantRepository {
           'bookings',
           _firestore
               .collection(FirestoreCollections.bookings)
+              .where('hostId', isEqualTo: hostId),
+        );
+        listen(
+          'posts',
+          _firestore
+              .collection(FirestoreCollections.posts)
               .where('hostId', isEqualTo: hostId),
         );
         listen(

@@ -8,7 +8,10 @@ class BookingService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Gửi yêu cầu đặt thuê / hẹn xem phòng (Đơn đặt phòng, sinh Document ID chuẩn DP_...)
-  Future<String> createBooking(BookingRequestModel booking) async {
+  Future<String> createBooking(
+    BookingRequestModel booking, {
+    String? propertyId,
+  }) async {
     final bookingId = booking.id.isNotEmpty
         ? booking.id
         : IdGenerator.booking(
@@ -21,6 +24,8 @@ class BookingService {
         : now.add(const Duration(hours: 6));
     await _firestore.collection('bookings').doc(bookingId).set({
       ...booking.toMap(),
+      // Chủ trọ - Liên kết đơn thuê với cơ sở để lọc hóa đơn tiền cọc và trả hết.
+      if (propertyId != null && propertyId.isNotEmpty) 'propertyId': propertyId,
       'id': bookingId,
       'bookingCode': bookingId,
       'expiresAt': Timestamp.fromDate(expiresAt),
@@ -56,12 +61,17 @@ class BookingService {
     if (bookingId.isEmpty) return;
     final now = DateTime.now();
 
-    final docSnap = await _firestore.collection('bookings').doc(bookingId).get();
+    final docSnap = await _firestore
+        .collection('bookings')
+        .doc(bookingId)
+        .get();
     final data = docSnap.data() ?? {};
     final renterId = (data['renterId'] ?? data['nguoiDungId'] ?? '').toString();
     final hostId = (data['hostId'] ?? data['chuNhaId'] ?? '').toString();
-    final roomTitle = (data['roomTitle'] ?? data['tieuDePhong'] ?? 'Phòng trọ').toString();
-    final renterName = (data['renterName'] ?? data['tenNguoiO'] ?? 'Khách thuê').toString();
+    final roomTitle = (data['roomTitle'] ?? data['tieuDePhong'] ?? 'Phòng trọ')
+        .toString();
+    final renterName = (data['renterName'] ?? data['tenNguoiO'] ?? 'Khách thuê')
+        .toString();
 
     await _firestore.collection('bookings').doc(bookingId).set({
       'status': 'approved',
@@ -82,7 +92,8 @@ class BookingService {
         'recipientId': renterId,
         'recipientRole': 'renter',
         'title': 'Đơn thuê phòng đã được duyệt ✓',
-        'message': 'Đơn đặt phòng "$roomTitle" đã được duyệt thành công! Bạn có thể mở mã QR nhận phòng để chuẩn bị dọn vào.',
+        'message':
+            'Đơn đặt phòng "$roomTitle" đã được duyệt thành công! Bạn có thể mở mã QR nhận phòng để chuẩn bị dọn vào.',
         'notificationType': 'booking',
         'bookingId': bookingId,
         'isRead': false,
@@ -102,7 +113,9 @@ class BookingService {
         final dData = doc.data();
         final rRole = (dData['recipientRole'] ?? '').toString().toLowerCase();
         final recId = (dData['receiverId'] ?? '').toString();
-        if (rRole == 'host' || recId == hostId || dData.containsKey('roomFloorInfo')) {
+        if (rRole == 'host' ||
+            recId == hostId ||
+            dData.containsKey('roomFloorInfo')) {
           await doc.reference.set({
             'notificationType': 'deposit',
             'type': 'deposit',
@@ -145,7 +158,8 @@ class BookingService {
       'actor': 'Hệ thống / Admin',
       'category': 'quanLyDon',
       'target': 'Đơn $bookingId',
-      'details': 'Đã duyệt đơn $bookingId cho phòng $roomTitle của khách $renterName',
+      'details':
+          'Đã duyệt đơn $bookingId cho phòng $roomTitle của khách $renterName',
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -160,13 +174,20 @@ class BookingService {
     if (bookingId.isEmpty) return;
     final now = DateTime.now();
 
-    final docSnap = await _firestore.collection('bookings').doc(bookingId).get();
+    final docSnap = await _firestore
+        .collection('bookings')
+        .doc(bookingId)
+        .get();
     final data = docSnap.data() ?? {};
-    final finalRoomId = roomId ?? (data['roomId'] ?? data['phongId'] ?? '').toString();
+    final finalRoomId =
+        roomId ?? (data['roomId'] ?? data['phongId'] ?? '').toString();
     final renterId = (data['renterId'] ?? data['nguoiDungId'] ?? '').toString();
-    final renterName = (data['renterName'] ?? data['tenNguoiO'] ?? 'Khách thuê').toString();
-    final renterPhone = (data['renterPhone'] ?? data['sdtNguoiO'] ?? '').toString();
-    final roomTitle = (data['roomTitle'] ?? data['tieuDePhong'] ?? 'Phòng trọ').toString();
+    final renterName = (data['renterName'] ?? data['tenNguoiO'] ?? 'Khách thuê')
+        .toString();
+    final renterPhone = (data['renterPhone'] ?? data['sdtNguoiO'] ?? '')
+        .toString();
+    final roomTitle = (data['roomTitle'] ?? data['tieuDePhong'] ?? 'Phòng trọ')
+        .toString();
 
     // Cập nhật booking sang trạng thái 'dangO'
     await _firestore.collection('bookings').doc(bookingId).set({
@@ -201,7 +222,8 @@ class BookingService {
         'recipientId': renterId,
         'recipientRole': 'renter',
         'title': 'Nhận phòng thành công! 🎉',
-        'message': 'Chủ trọ đã xác nhận bàn giao phòng "$roomTitle". Chúc bạn có khoảng thời gian sinh sống tiện nghi và thoải mái!',
+        'message':
+            'Chủ trọ đã xác nhận bàn giao phòng "$roomTitle". Chúc bạn có khoảng thời gian sinh sống tiện nghi và thoải mái!',
         'notificationType': 'booking',
         'bookingId': bookingId,
         'isRead': false,
@@ -215,7 +237,8 @@ class BookingService {
       'actor': hostId ?? 'Chủ trọ',
       'category': 'nhanPhong',
       'target': 'Đơn $bookingId',
-      'details': 'Khách $renterName đã nhận phòng $roomTitle thành công qua mã QR',
+      'details':
+          'Khách $renterName đã nhận phòng $roomTitle thành công qua mã QR',
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -225,12 +248,16 @@ class BookingService {
     if (bookingId.isEmpty) return;
     final now = DateTime.now();
 
-    final docSnap = await _firestore.collection('bookings').doc(bookingId).get();
+    final docSnap = await _firestore
+        .collection('bookings')
+        .doc(bookingId)
+        .get();
     final data = docSnap.data() ?? {};
     final renterId = (data['renterId'] ?? data['nguoiDungId'] ?? '').toString();
     final hostId = (data['hostId'] ?? data['chuNhaId'] ?? '').toString();
     final roomId = (data['roomId'] ?? data['phongId'] ?? '').toString();
-    final roomTitle = (data['roomTitle'] ?? data['tieuDePhong'] ?? 'Phòng trọ').toString();
+    final roomTitle = (data['roomTitle'] ?? data['tieuDePhong'] ?? 'Phòng trọ')
+        .toString();
 
     await _firestore.collection('bookings').doc(bookingId).set({
       'status': 'cancelled',
@@ -259,7 +286,8 @@ class BookingService {
         'recipientId': renterId,
         'recipientRole': 'renter',
         'title': 'Đơn thuê phòng đã bị hủy',
-        'message': 'Đơn đặt phòng "$roomTitle" đã được hủy.${reason != null && reason.isNotEmpty ? " Lý do: $reason" : ""}',
+        'message':
+            'Đơn đặt phòng "$roomTitle" đã được hủy.${reason != null && reason.isNotEmpty ? " Lý do: $reason" : ""}',
         'notificationType': 'booking',
         'bookingId': bookingId,
         'isRead': false,
@@ -274,7 +302,8 @@ class BookingService {
         'receiverId': hostId,
         'recipientRole': 'host',
         'title': 'Đơn đặt phòng đã bị hủy',
-        'message': 'Đơn phòng "$roomTitle" đã chuyển sang trạng thái đã hủy.${reason != null && reason.isNotEmpty ? " Lý do: $reason" : ""}',
+        'message':
+            'Đơn phòng "$roomTitle" đã chuyển sang trạng thái đã hủy.${reason != null && reason.isNotEmpty ? " Lý do: $reason" : ""}',
         'notificationType': 'booking',
         'bookingId': bookingId,
         'isRead': false,
@@ -295,7 +324,12 @@ class BookingService {
     if (s == 'daduyet' || s == 'approved' || s == 'deposit_paid') {
       await approveBooking(bookingId, note: reason);
     } else if (s == 'dango' || s == 'active' || s == 'danhanphong') {
-      await checkinBooking(bookingId, roomId: roomId, hostId: hostId, note: reason);
+      await checkinBooking(
+        bookingId,
+        roomId: roomId,
+        hostId: hostId,
+        note: reason,
+      );
     } else if (s == 'dahuy' || s == 'cancelled' || s == 'rejected') {
       await cancelBooking(bookingId, reason: reason);
     } else {
@@ -317,21 +351,25 @@ class BookingService {
     }
 
     return _firestore.collection('bookings').snapshots().map((snapshot) {
-      final list = snapshot.docs.map((doc) {
-        try {
-          final data = doc.data();
-          final docRenterId = data['nguoiDungId'] ??
-              data['nguoiDung_Id'] ??
-              data['renterId'] ??
-              data['khachXemId'] ??
-              '';
-          if (docRenterId != renterId) return null;
-          return BookingRequestModel.fromFirestore(doc);
-        } catch (e) {
-          debugPrint('Error parsing booking ${doc.id}: $e');
-          return null;
-        }
-      }).whereType<BookingRequestModel>().toList();
+      final list = snapshot.docs
+          .map((doc) {
+            try {
+              final data = doc.data();
+              final docRenterId =
+                  data['nguoiDungId'] ??
+                  data['nguoiDung_Id'] ??
+                  data['renterId'] ??
+                  data['khachXemId'] ??
+                  '';
+              if (docRenterId != renterId) return null;
+              return BookingRequestModel.fromFirestore(doc);
+            } catch (e) {
+              debugPrint('Error parsing booking ${doc.id}: $e');
+              return null;
+            }
+          })
+          .whereType<BookingRequestModel>()
+          .toList();
 
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return list;
@@ -345,17 +383,20 @@ class BookingService {
     }
 
     return _firestore.collection('bookings').snapshots().map((snapshot) {
-      final list = snapshot.docs.map((doc) {
-        try {
-          final data = doc.data();
-          final docHostId = data['hostId'] ?? data['chuNhaId'] ?? '';
-          if (docHostId != hostId) return null;
-          return BookingRequestModel.fromFirestore(doc);
-        } catch (e) {
-          debugPrint('Error parsing host booking ${doc.id}: $e');
-          return null;
-        }
-      }).whereType<BookingRequestModel>().toList();
+      final list = snapshot.docs
+          .map((doc) {
+            try {
+              final data = doc.data();
+              final docHostId = data['hostId'] ?? data['chuNhaId'] ?? '';
+              if (docHostId != hostId) return null;
+              return BookingRequestModel.fromFirestore(doc);
+            } catch (e) {
+              debugPrint('Error parsing host booking ${doc.id}: $e');
+              return null;
+            }
+          })
+          .whereType<BookingRequestModel>()
+          .toList();
 
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return list;
@@ -363,14 +404,18 @@ class BookingService {
   }
 }
 
-final bookingServiceProvider = Provider<BookingService>((ref) => BookingService());
+final bookingServiceProvider = Provider<BookingService>(
+  (ref) => BookingService(),
+);
 
-final renterBookingsStreamProvider = StreamProvider.autoDispose.family<List<BookingRequestModel>, String>((ref, renterId) {
-  final service = ref.watch(bookingServiceProvider);
-  return service.getRenterBookingsStream(renterId);
-});
+final renterBookingsStreamProvider = StreamProvider.autoDispose
+    .family<List<BookingRequestModel>, String>((ref, renterId) {
+      final service = ref.watch(bookingServiceProvider);
+      return service.getRenterBookingsStream(renterId);
+    });
 
-final hostBookingsStreamProvider = StreamProvider.autoDispose.family<List<BookingRequestModel>, String>((ref, hostId) {
-  final service = ref.watch(bookingServiceProvider);
-  return service.getHostBookingsStream(hostId);
-});
+final hostBookingsStreamProvider = StreamProvider.autoDispose
+    .family<List<BookingRequestModel>, String>((ref, hostId) {
+      final service = ref.watch(bookingServiceProvider);
+      return service.getHostBookingsStream(hostId);
+    });
