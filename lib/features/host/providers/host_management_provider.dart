@@ -579,40 +579,9 @@ class HostRepository {
       transaction.update(propertyRef, {'roomCount': count + 1});
     });
 
-    // Bảng ảnh phòng riêng biệt (room_images - tiếng Anh chuẩn)
-    for (var i = 0; i < urls.length; i++) {
-      try {
-        final imgDoc = _db.collection(FirestoreCollections.roomImages).doc();
-        final imgData = {
-          'id': imgDoc.id,
-          'roomId': roomRef.id,
-          'url': urls[i],
-          'isCover': i == 0,
-          'sortOrder': i,
-          'createdAt': FieldValue.serverTimestamp(),
-        };
-        await imgDoc.set(imgData);
-      } catch (_) {}
-    }
 
-    // Bảng liên kết tiện ích phòng riêng biệt (room_amenities - tiếng Anh chuẩn)
-    for (final amName in room.amenities) {
-      final name = amName.trim();
-      if (name.isEmpty) continue;
-      try {
-        final linkDoc = _db
-            .collection(FirestoreCollections.roomAmenities)
-            .doc();
-        final linkData = {
-          'id': linkDoc.id,
-          'roomId': roomRef.id,
-          'amenityId': name,
-          'amenityName': name,
-          'createdAt': FieldValue.serverTimestamp(),
-        };
-        await linkDoc.set(linkData);
-      } catch (_) {}
-    }
+
+
   }
 
   // Chủ trọ - Lưu chỉnh sửa phòng - Luồng đi: Upload ảnh mới, kiểm
@@ -762,27 +731,34 @@ class HostRepository {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // Đồng bộ thông tin phòng và mã phòng sang collection rooms & subcollection properties/{id}/rooms
+      // Chỉ cập nhật vào rooms nếu document này đã từng tồn tại (phục vụ booking cũ), tuyệt đối không tự sinh mới
       final publicRef = _db.collection(FirestoreCollections.rooms).doc(base.id);
-      transaction.set(publicRef, {
-        'id': base.id,
-        'propertyId': base.propertyId,
-        if (patch['roomCode'] != null) 'roomCode': patch['roomCode'],
-        'title': title,
-        'price': patch['price'],
-        'deposit': patch['deposit'],
-        'area': patch['area'],
-        'capacity': patch['capacity'],
-        'floor': patch['floor'],
-        'amenities': patch['amenities'],
-        'description': patch['description'],
-        'images': images,
-        'maPhong': FieldValue.delete(),
-        'maphong': FieldValue.delete(),
-        'trangThai': FieldValue.delete(),
-        'trangthai': FieldValue.delete(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      final publicDoc = await transaction.get(publicRef);
+      if (publicDoc.exists) {
+        transaction.set(publicRef, {
+          'id': base.id,
+          'propertyId': base.propertyId,
+          if (patch['roomCode'] != null) 'roomCode': patch['roomCode'],
+          'title': title,
+          'price': patch['price'],
+          'deposit': patch['deposit'],
+          'area': patch['area'],
+          'capacity': patch['capacity'],
+          'floor': patch['floor'],
+          'amenities': patch['amenities'],
+          'description': patch['description'],
+          'images': images,
+          if (patch['electricityRate'] != null)
+            'electricityRate': patch['electricityRate'],
+          if (patch['waterRate'] != null) 'waterRate': patch['waterRate'],
+          if (patch['serviceFee'] != null) 'serviceFee': patch['serviceFee'],
+          'maPhong': FieldValue.delete(),
+          'maphong': FieldValue.delete(),
+          'trangThai': FieldValue.delete(),
+          'trangthai': FieldValue.delete(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
 
       final subRef = _db
           .collection(FirestoreCollections.properties)
@@ -796,6 +772,10 @@ class HostRepository {
         'title': title,
         'price': patch['price'],
         'deposit': patch['deposit'],
+        if (patch['electricityRate'] != null)
+          'electricityRate': patch['electricityRate'],
+        if (patch['waterRate'] != null) 'waterRate': patch['waterRate'],
+        if (patch['serviceFee'] != null) 'serviceFee': patch['serviceFee'],
         'area': patch['area'],
         'capacity': patch['capacity'],
         'floor': patch['floor'],
@@ -810,39 +790,9 @@ class HostRepository {
       }, SetOptions(merge: true));
     });
 
-    // Cập nhật bảng ảnh phòng riêng biệt (room_images - tiếng Anh chuẩn)
-    for (int i = 0; i < images.length; i++) {
-      final imgUrl = images[i];
-      final imgDocId = '${base.id}_img_$i';
-      await _db.collection(FirestoreCollections.roomImages).doc(imgDocId).set({
-        'id': imgDocId,
-        'roomId': base.id,
-        'url': imgUrl,
-        'isCover': i == 0,
-        'sortOrder': i,
-        'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    }
 
-    // Cập nhật bảng tiện ích phòng riêng biệt (room_amenities - tiếng Anh chuẩn)
-    final rawAmenities = patch['amenities'];
-    if (rawAmenities is Iterable) {
-      for (final am in rawAmenities) {
-        final amName = am.toString().trim();
-        if (amName.isEmpty) continue;
-        final amDocId = '${base.id}_${amName.replaceAll(RegExp(r'\s+'), '_')}';
-        await _db
-            .collection(FirestoreCollections.roomAmenities)
-            .doc(amDocId)
-            .set({
-              'id': amDocId,
-              'roomId': base.id,
-              'amenityId': amDocId,
-              'amenityName': amName,
-              'createdAt': FieldValue.serverTimestamp(),
-            }, SetOptions(merge: true));
-      }
-    }
+
+
   }
 
   // Chủ trọ - Xóa phòng khỏi quản lý - Luồng đi: Sau xác nhận, đánh
@@ -1179,97 +1129,36 @@ class HostRepository {
 
     final batch = _db.batch();
 
-    // 1. Lưu danh mục tiện ích vào collection amenities
-    final amenityNameToId = <String, String>{};
-    for (final name in selectedAmenities) {
-      final key = name.trim().toLowerCase();
-      if (catalogAmenitiesMap.containsKey(key)) {
-        amenityNameToId[name] = catalogAmenitiesMap[key]!;
-      } else {
-        final amRef = _db.collection(FirestoreCollections.amenities).doc();
-        final amData = {
-          'id': amRef.id,
-          'name': name,
-          'icon': '',
-          'source': 'host_custom',
-          'createdAt': FieldValue.serverTimestamp(),
-        };
-        batch.set(amRef, amData);
-        amenityNameToId[name] = amRef.id;
+
+
+    var existingElectricity = room.electricityRate ?? 0.0;
+    var existingWater = room.waterRate ?? 0.0;
+    var existingService = room.serviceFee ?? 0.0;
+    try {
+      final existing = await _db
+          .collection(FirestoreCollections.hostRooms)
+          .doc(targetRoomId)
+          .get();
+      final data = existing.data();
+      if (data != null) {
+        if (existingElectricity <= 0) {
+          existingElectricity =
+              (data['electricityRate'] as num?)?.toDouble() ?? 0;
+        }
+        if (existingWater <= 0) {
+          existingWater = (data['waterRate'] as num?)?.toDouble() ?? 0;
+        }
+        if (existingService <= 0) {
+          existingService = (data['serviceFee'] as num?)?.toDouble() ?? 0;
+        }
       }
-    }
-
-    // 2. Lưu liên kết tiện ích phòng vào collection room_amenities (tiếng Anh chuẩn, không lặp)
-    for (final entry in amenityNameToId.entries) {
-      final linkRef = _db.collection(FirestoreCollections.roomAmenities).doc();
-      final linkData = {
-        'id': linkRef.id,
-        'roomId': targetRoomId,
-        'amenityId': entry.value,
-        'amenityName': entry.key,
-        'createdAt': FieldValue.serverTimestamp(),
-      };
-      batch.set(linkRef, linkData);
-    }
-
-    // 3. Lưu ảnh phòng vào collection room_images (tiếng Anh chuẩn, không lặp)
-    for (var i = 0; i < finalUrls.length; i++) {
-      final imgRef = _db.collection(FirestoreCollections.roomImages).doc();
-      final imgData = {
-        'id': imgRef.id,
-        'roomId': targetRoomId,
-        'url': finalUrls[i],
-        'isCover': i == 0,
-        'sortOrder': i,
-        'createdAt': FieldValue.serverTimestamp(),
-      };
-      batch.set(imgRef, imgData);
-    }
+    } catch (_) {}
 
     // 4. Lưu bài đăng vào collection posts (100% tiếng Anh, không lặp key)
-    double finalElecRate = room.electricityRate ?? 0.0;
-    double finalWaterRate = room.waterRate ?? 0.0;
-    double finalServiceFee = room.serviceFee ?? 0.0;
-
-    if (targetRoomId.isNotEmpty &&
-        (finalElecRate <= 0 || finalWaterRate <= 0 || finalServiceFee <= 0)) {
-      try {
-        final existingSnap = await _db
-            .collection(FirestoreCollections.hostRooms)
-            .doc(targetRoomId)
-            .get();
-        if (existingSnap.exists) {
-          final ed = existingSnap.data() ?? {};
-          if (finalElecRate <= 0) {
-            final e = ed['electricityRate'] ??
-                ed['donGiaDien'] ??
-                ed['giaDien'] ??
-                ed['tienDien'] ??
-                ed['electricity_rate'];
-            if (e is num && e > 0) finalElecRate = e.toDouble();
-          }
-          if (finalWaterRate <= 0) {
-            final w = ed['waterRate'] ??
-                ed['donGiaNuoc'] ??
-                ed['giaNuoc'] ??
-                ed['tienNuoc'] ??
-                ed['water_rate'];
-            if (w is num && w > 0) finalWaterRate = w.toDouble();
-          }
-          if (finalServiceFee <= 0) {
-            final s = ed['serviceFee'] ??
-                ed['phiDichVu'] ??
-                ed['tienDichVu'] ??
-                ed['service_fee'];
-            if (s is num && s > 0) finalServiceFee = s.toDouble();
-          }
-        }
-      } catch (_) {}
-    }
-
     final postRef = _db.collection(FirestoreCollections.posts).doc();
     final postPayload = {
       'id': postRef.id,
+      'propertyId': room.propertyId,
       'roomId': targetRoomId,
       'roomCode': room.roomCode.isNotEmpty ? room.roomCode : 'P001',
       'hostId': chuNhaId,
@@ -1278,9 +1167,14 @@ class HostRepository {
       'rentalPrice': giaThue,
       'depositAmount': calculatedDeposit,
       'depositPercentage': phanTramTienCoc,
-      'electricityRate': finalElecRate,
-      'waterRate': finalWaterRate,
-      'serviceFee': finalServiceFee,
+      'area': room.area > 0 ? room.area : 25.0,
+      'capacity': room.capacity > 0 ? room.capacity : 2,
+      'address': room.address,
+      'district': room.district.isNotEmpty ? room.district : diaDiemId,
+      'city': room.city.isNotEmpty ? room.city : 'TP. Hồ Chí Minh',
+      if (existingElectricity > 0) 'electricityRate': existingElectricity,
+      if (existingWater > 0) 'waterRate': existingWater,
+      if (existingService > 0) 'serviceFee': existingService,
       'images': finalUrls,
       'amenities': selectedAmenities.toList(),
       'status': status.isNotEmpty ? status : 'pending',
@@ -1299,9 +1193,9 @@ class HostRepository {
       'price': giaThue,
       'deposit': calculatedDeposit,
       'depositPercentage': phanTramTienCoc,
-      'electricityRate': finalElecRate,
-      'waterRate': finalWaterRate,
-      'serviceFee': finalServiceFee,
+      if (existingElectricity > 0) 'electricityRate': existingElectricity,
+      if (existingWater > 0) 'waterRate': existingWater,
+      if (existingService > 0) 'serviceFee': existingService,
       'title': tieuDe,
       'description': moTa,
       'address': room.address,
@@ -1340,11 +1234,6 @@ class HostRepository {
     };
     batch.set(
       _db.collection(FirestoreCollections.hostRooms).doc(targetRoomId),
-      roomPayload,
-      SetOptions(merge: true),
-    );
-    batch.set(
-      _db.collection(FirestoreCollections.rooms).doc(targetRoomId),
       roomPayload,
       SetOptions(merge: true),
     );

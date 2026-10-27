@@ -10,6 +10,7 @@ import 'host_tenant_management_screen.dart';
 import 'host_checkin_checkout_screen.dart';
 import 'host_violation_management_screen.dart';
 import 'host_management_menu.dart';
+import 'host_finance_screen.dart';
 
 // Chủ trọ - Khung điều hướng - Luồng đi: Mở Dashboard và giữ trạng thái
 // của 5 tab; các tab chưa triển khai hiển thị màn hình tạm.
@@ -241,10 +242,7 @@ class _HostMainScreenState extends State<HostMainScreen> {
                   title: 'Thêm mới',
                   icon: Icons.add_home_outlined,
                 ),
-                const _HostPlaceholderScreen(
-                  title: 'Tiền tệ',
-                  icon: Icons.credit_card,
-                ),
+                const HostFinanceScreen(),
               ],
             ),
             const HomeScreen(),

@@ -177,25 +177,29 @@ class NotificationCard extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     // Tag mã booking #BK12345
-                    Container(
-                      constraints: const BoxConstraints(maxWidth: 110),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF8FF),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        notif.displayBookingCode,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 120),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF8FF),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          notif.displayBookingCode,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
                   ],

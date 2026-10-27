@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/host_post_model.dart';
+import '../../renter/screens/room_detail_screen.dart';
 
 /// Thẻ hiển thị bài đăng của chủ trọ đối tác theo thiết kế Figma
 class HostPostCard extends StatelessWidget {
@@ -18,6 +19,17 @@ class HostPostCard extends StatelessWidget {
     this.onInterestPressed,
     this.isOwnPost = false,
   });
+
+  void _openDetail(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RoomDetailScreen(
+          room: post.toRoomModel(),
+          isHostView: isOwnPost,
+        ),
+      ),
+    );
+  }
 
   String _formatCurrency(double price) {
     if (price <= 0) return 'Thoả thuận';
@@ -55,9 +67,11 @@ class HostPostCard extends StatelessWidget {
         side: const BorderSide(color: Color(0xFFE2E8F0)),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      child: InkWell(
+        onTap: () => _openDetail(context),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           // 1. Header chủ trọ: Avatar, Tên, Xác minh, VIP, Khu vực, Thời gian
           Padding(
             padding: const EdgeInsets.all(14),
@@ -537,8 +551,9 @@ class HostPostCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildAvatar() {
     final avatarUrl = post.authorAvatar.trim();
@@ -582,9 +597,16 @@ class HostPostCard extends StatelessWidget {
 
   String _cleanUrl(String raw) {
     var s = raw.trim();
+    if (s.startsWith('"') && s.endsWith('"') && s.length > 2) {
+      s = s.substring(1, s.length - 1).trim();
+    }
+    if (s.startsWith("'") && s.endsWith("'") && s.length > 2) {
+      s = s.substring(1, s.length - 1).trim();
+    }
     if (s.startsWith('{') && s.endsWith('}')) {
-      final match =
-          RegExp(r'(?:duongDan|url|image):\s*([^,}]+)').firstMatch(s);
+      final match = RegExp(
+        r'(?:duongDan|url|image|imageUrl|link):\s*([^,}]+)',
+      ).firstMatch(s);
       if (match != null) {
         s = match.group(1)!.trim().replaceAll('"', '').replaceAll("'", "");
       }

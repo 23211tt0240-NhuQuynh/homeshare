@@ -7,7 +7,7 @@ final tenantRepositoryProvider = Provider<TenantRepository>((ref) {
 });
 
 /// Stream danh sách người thuê của chủ trọ hiện tại
-final hostTenantsProvider = StreamProvider<List<TenantItem>>((ref) {
+final hostTenantsProvider = StreamProvider.autoDispose<List<TenantItem>>((ref) {
   final uid = ref.watch(hostSessionProvider).value;
   if (uid == null || uid.isEmpty) {
     return Stream.value([]);
@@ -16,10 +16,26 @@ final hostTenantsProvider = StreamProvider<List<TenantItem>>((ref) {
 });
 
 /// Stream số liệu thống kê: số cơ sở, số người đang thuê, số phòng đang sử dụng
-final hostTenantStatsProvider = StreamProvider<TenantStats>((ref) {
-  final uid = ref.watch(hostSessionProvider).value;
-  if (uid == null || uid.isEmpty) {
-    return Stream.value(const TenantStats());
-  }
-  return ref.watch(tenantRepositoryProvider).watchTenantStats(uid);
+final hostTenantStatsProvider = Provider.autoDispose<AsyncValue<TenantStats>>((
+  ref,
+) {
+  final tenants = ref.watch(hostTenantsProvider);
+  final properties = ref.watch(hostPropertiesProvider);
+  return properties
+      .whenData((facilities) => facilities.length)
+      .when(
+        data: (count) => tenants.whenData((items) {
+          final active = items.where((item) => item.isActive).toList();
+          return TenantStats(
+            facilityCount: count,
+            activeTenantCount: active.fold<int>(
+              0,
+              (sum, item) => sum + item.memberCount,
+            ),
+            occupiedRoomCount: active.map((item) => item.roomId).toSet().length,
+          );
+        }),
+        loading: () => const AsyncLoading<TenantStats>(),
+        error: (error, stack) => AsyncError<TenantStats>(error, stack),
+      );
 });

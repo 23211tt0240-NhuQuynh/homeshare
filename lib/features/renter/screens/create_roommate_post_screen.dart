@@ -8,8 +8,10 @@ import '../../../core/services/image_storage_service.dart';
 import '../../../core/services/roommate_service.dart';
 import '../../../core/services/user_profile_service.dart';
 import '../../../core/services/booking_service.dart';
+import '../../../core/services/room_service.dart';
 import '../../../core/utils/vietnam_address_parser.dart';
 import '../../../data/models/booking_model.dart';
+import '../../../data/models/room_model.dart';
 import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
@@ -61,6 +63,9 @@ class _CreateRoommatePostScreenState
   final List<String> _selectedImages = [];
   final ImagePicker _imagePicker = ImagePicker();
   bool _isSubmitting = false;
+  BookingRequestModel? _linkedBooking;
+  RoomModel? _linkedRoom;
+  bool _didFillFromRoom = false;
 
   final List<String> _commonHabits = [
     'Yên tĩnh sau 23h',
@@ -174,6 +179,71 @@ class _CreateRoommatePostScreenState
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  Future<void> _applyActiveRoom(
+    BookingRequestModel booking, {
+    bool showSnackBar = false,
+  }) async {
+    RoomModel? room;
+    if (booking.roomId.trim().isNotEmpty || booking.hostId.trim().isNotEmpty) {
+      room = await ref.read(roomServiceProvider).resolveRentedRoom(
+            roomId: booking.roomId.trim(),
+            hostId: booking.hostId.trim(),
+            roomCode: booking.roomCode.trim(),
+            title: booking.roomTitle.trim(),
+            price: booking.roomPrice,
+          );
+    }
+    if (!mounted) return;
+
+    final addressRaw = VietnamAddressParser.pickBest([
+      room?.address.trim() ?? '',
+      VietnamAddressParser.composeParts(
+        street: room?.address ?? '',
+        district: room?.district ?? '',
+        city: room?.city ?? '',
+      ),
+      booking.roomAddress.trim(),
+    ]);
+
+    setState(() {
+      _linkedBooking = booking;
+      _linkedRoom = room;
+      _didFillFromRoom = true;
+      _hasRoom = true;
+      if (booking.roomTitle.isNotEmpty && _titleController.text.trim().isEmpty) {
+        _titleController.text = 'Tìm bạn ở ghép - ${booking.roomTitle}';
+      } else if (booking.roomTitle.isNotEmpty && showSnackBar) {
+        _titleController.text = 'Tìm bạn ở ghép - ${booking.roomTitle}';
+      }
+      if (addressRaw.isNotEmpty) {
+        final address = VietnamAddressParser.resolve(
+          addressRaw,
+          fallbackProvince: _selectedProvince,
+          fallbackDistrict: _selectedDistrict,
+          fallbackWard: _selectedWard,
+        );
+        _selectedProvince = address.province;
+        _selectedDistrict = address.district;
+        _selectedWard = address.ward;
+        _addressController.text = address.specificAddress.isNotEmpty
+            ? address.specificAddress
+            : addressRaw;
+      }
+      final rent = (room?.price ?? 0) > 0 ? room!.price : booking.roomPrice;
+      if (rent > 0 && (_priceController.text.trim().isEmpty || showSnackBar)) {
+        _priceController.text = (rent / 2).round().toString();
+      }
+    });
+
+    if (showSnackBar && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã điền thông tin từ phòng đang thuê của bạn!'),
+        ),
+      );
+    }
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -368,8 +438,53 @@ class _CreateRoommatePostScreenState
           .read(imageStorageServiceProvider)
           .uploadRoommateImages(localPaths: _selectedImages, postId: postId);
 
-      final fullAddress =
-          '$specificAddress, $_selectedWard, $_selectedDistrict, $_selectedProvince';
+      BookingRequestModel? linkedBooking = _hasRoom ? _linkedBooking : null;
+      if (_hasRoom && linkedBooking == null) {
+        for (final booking in bookings) {
+          if (booking.isActive) {
+            linkedBooking = booking;
+            break;
+          }
+          if (linkedBooking == null && booking.isApproved) {
+            linkedBooking = booking;
+          }
+        }
+      }
+      RoomModel? linkedRoom = _hasRoom ? _linkedRoom : null;
+      if (_hasRoom &&
+          linkedRoom == null &&
+          ((linkedBooking?.roomId.trim().isNotEmpty ?? false) ||
+              (linkedBooking?.hostId.trim().isNotEmpty ?? false))) {
+        linkedRoom = await ref.read(roomServiceProvider).resolveRentedRoom(
+              roomId: linkedBooking!.roomId.trim(),
+              hostId: linkedBooking.hostId.trim(),
+              roomCode: linkedBooking.roomCode.trim(),
+              title: linkedBooking.roomTitle.trim(),
+              price: linkedBooking.roomPrice,
+            );
+      }
+
+      final fullAddress = VietnamAddressParser.pickBest([
+        VietnamAddressParser.composeParts(
+          street: specificAddress,
+          ward: _selectedWard,
+          district: _selectedDistrict,
+          city: _selectedProvince,
+        ),
+        linkedRoom?.address.trim() ?? '',
+        VietnamAddressParser.composeParts(
+          street: linkedRoom?.address ?? '',
+          district: linkedRoom?.district ?? '',
+          city: linkedRoom?.city ?? '',
+        ),
+        linkedBooking?.roomAddress.trim() ?? '',
+      ]);
+      final deposit = (linkedRoom?.deposit ?? 0) > 0
+          ? linkedRoom!.deposit
+          : (linkedBooking?.deposit ?? 0);
+      final extraFees = linkedRoom == null
+          ? const <RoommateExtraFee>[]
+          : RoommateExtraFee.fromRoom(linkedRoom);
 
       final post = RoommatePostModel(
         id: postId,
@@ -377,7 +492,7 @@ class _CreateRoommatePostScreenState
         authorName: authorName,
         authorAge: authorAge,
         authorGender: _authorGender,
-        authorOccupation: '',
+        authorOccupation: profile?.occupation.trim() ?? '',
         authorAvatar: profile?.avatarUrl ?? user.photoURL ?? '',
         title: title,
         description: _descController.text.trim(),
@@ -387,11 +502,11 @@ class _CreateRoommatePostScreenState
         budgetMin: price > 500000 ? price - 500000 : price,
         budgetMax: price + 500000,
         address: fullAddress,
-        district: _selectedDistrict,
+        district: linkedRoom?.district.trim().isNotEmpty == true
+            ? linkedRoom!.district.trim()
+            : _selectedDistrict,
         targetGender: _targetGender,
-        habits: _selectedHabits.isNotEmpty
-            ? _selectedHabits
-            : ['Sạch sẽ', 'Hòa đồng'],
+        habits: _selectedHabits,
         images: uploadedUrls,
         imageCaptions: uploadedUrls.map((_) => 'Ảnh phòng').toList(),
         isVerified: profile?.isCccdVerified ?? false,
@@ -400,6 +515,14 @@ class _CreateRoommatePostScreenState
         contactPhone: _phoneController.text.trim().isNotEmpty
             ? _phoneController.text.trim()
             : (profile?.phoneNumber ?? ''),
+        roomId: linkedRoom?.id ?? linkedBooking?.roomId ?? '',
+        bookingId: linkedBooking?.id ?? '',
+        deposit: deposit,
+        moveInDate: linkedBooking?.moveInDate,
+        extraFees: extraFees,
+        area: linkedRoom?.area ?? 0,
+        capacity: linkedRoom?.capacity ?? 0,
+        amenities: linkedRoom?.amenities ?? const [],
         createdAt: DateTime.now(),
       );
 
@@ -501,8 +624,12 @@ class _CreateRoommatePostScreenState
     } else if (!_hasRoomInitChecked && hasRealRoom) {
       _hasRoomInitChecked = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_hasRoom) {
+        if (!mounted) return;
+        if (!_hasRoom) {
           setState(() => _hasRoom = true);
+        }
+        if (!_didFillFromRoom && activeBookings.isNotEmpty) {
+          _applyActiveRoom(activeBookings.first);
         }
       });
     }
@@ -793,6 +920,9 @@ class _CreateRoommatePostScreenState
                         return;
                       }
                       setState(() => _hasRoom = true);
+                      if (activeBookings.isNotEmpty) {
+                        _applyActiveRoom(activeBookings.first);
+                      }
                     },
                   ),
                 ),
@@ -872,36 +1002,9 @@ class _CreateRoommatePostScreenState
                     ),
                     InkWell(
                       onTap: () {
-                        final b = activeBookings.first;
-                        setState(() {
-                          if (b.roomTitle.isNotEmpty) {
-                            _titleController.text =
-                                'Tìm bạn ở ghép - ${b.roomTitle}';
-                          }
-                          if (b.roomAddress.isNotEmpty) {
-                            final address = VietnamAddressParser.resolve(
-                              b.roomAddress,
-                              fallbackProvince: _selectedProvince,
-                              fallbackDistrict: _selectedDistrict,
-                              fallbackWard: _selectedWard,
-                            );
-                            _selectedProvince = address.province;
-                            _selectedDistrict = address.district;
-                            _selectedWard = address.ward;
-                            _addressController.text = address.specificAddress;
-                          }
-                          if (b.roomPrice > 0) {
-                            _priceController.text = (b.roomPrice / 2)
-                                .round()
-                                .toString();
-                          }
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Đã điền nhanh thông tin từ phòng đang thuê của bạn!',
-                            ),
-                          ),
+                        _applyActiveRoom(
+                          activeBookings.first,
+                          showSnackBar: true,
                         );
                       },
                       child: const Padding(

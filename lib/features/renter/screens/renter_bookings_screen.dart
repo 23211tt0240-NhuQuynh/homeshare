@@ -7,7 +7,10 @@ import '../../../core/constants/app_colors.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/room_model.dart';
 import '../../../core/services/booking_service.dart';
+import '../../../core/services/host_review_service.dart';
+import '../../../core/utils/host_review_policy.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../profile/widgets/host_review_sheet.dart';
 import 'booking_payment_screen.dart';
 import 'create_roommate_post_screen.dart';
 import '../widgets/checkin_qr_bottom_sheet.dart';
@@ -172,6 +175,30 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
             paymentAmount: amount,
             paymentType: b.paymentOption.isNotEmpty ? b.paymentOption : 'deposit',
           ),
+        ),
+      );
+    }
+  }
+
+  bool _canReviewHost(BookingRequestModel booking) {
+    if (!HostReviewPolicy.isReviewableBooking(booking)) return false;
+    return !(ref.watch(hostReviewExistsProvider(booking.id)).value ?? false);
+  }
+
+  Future<void> _openHostReview(BookingRequestModel booking) async {
+    final ok = await showHostReviewSheet(
+      context,
+      hostId: booking.hostId,
+      hostName: booking.hostName,
+      bookingId: booking.id,
+    );
+    if (!mounted) return;
+    if (ok) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã gửi đánh giá thành công.'),
+          backgroundColor: AppColors.success,
         ),
       );
     }
@@ -904,6 +931,35 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                       backgroundColor: const Color(0xFF155EEF),
                                       foregroundColor: Colors.white,
                                       elevation: 0,
+                                      minimumSize: const Size.fromHeight(42),
+                                      textStyle: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              if (_canReviewHost(b)) ...[
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => _openHostReview(b),
+                                    icon: const Icon(
+                                      Icons.rate_review_outlined,
+                                      size: 18,
+                                    ),
+                                    label: const Text('Đánh giá chủ trọ'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppColors.primary,
+                                      side: const BorderSide(
+                                        color: AppColors.primary,
+                                      ),
                                       minimumSize: const Size.fromHeight(42),
                                       textStyle: const TextStyle(
                                         fontSize: 13,

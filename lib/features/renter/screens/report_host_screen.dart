@@ -1,145 +1,191 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/host_report_service.dart';
+import '../../../core/utils/host_report_policy.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 
-/// Màn hình Báo cáo chủ nhà & phòng trọ vi phạm tiêu chuẩn cộng đồng
+/// Người thuê gửi báo cáo chủ trọ tới Admin. Không gồm bước Admin xử lý.
 class ReportHostScreen extends ConsumerStatefulWidget {
-  final RoomModel room;
+  final String hostId;
+  final String hostName;
+  final String hostPhone;
+  final RoomModel? room;
 
-  const ReportHostScreen({super.key, required this.room});
+  const ReportHostScreen({
+    super.key,
+    required this.hostId,
+    required this.hostName,
+    this.hostPhone = '',
+    this.room,
+  });
+
+  factory ReportHostScreen.fromRoom(RoomModel room) {
+    return ReportHostScreen(
+      hostId: room.hostId,
+      hostName: room.hostName,
+      hostPhone: room.hostPhone,
+      room: room,
+    );
+  }
 
   @override
   ConsumerState<ReportHostScreen> createState() => _ReportHostScreenState();
 }
 
 class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
-  final List<String> _reportReasons = [
-    'Thông tin phòng sai sự thật hoặc hình ảnh giả mạo',
-    'Giá thuê / tiền cọc thực tế khác xa giá đăng trên ứng dụng',
-    'Chủ nhà có dấu hiệu lừa đảo, yêu cầu chuyển cọc bất thường',
-    'Phòng đã có người thuê nhưng không gỡ bài đăng',
-    'Thái độ ứng xử thiếu văn minh, quấy rối hoặc đe dọa',
-    'Nhà trọ không đảm bảo PCCC hoặc điều kiện sống tối thiểu',
-    'Lý do khác',
-  ];
-
-  late String _selectedReason;
-  final TextEditingController _detailController = TextEditingController();
+  final Set<String> _selectedReasons = {};
+  final TextEditingController _otherController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
-  XFile? _evidenceImage;
+  final List<XFile> _evidenceImages = [];
   bool _isSubmitting = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _selectedReason = _reportReasons.first;
-  }
+  bool get _showOtherField =>
+      HostReportPolicy.includesOther(_selectedReasons);
 
   @override
   void dispose() {
-    _detailController.dispose();
+    _otherController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickEvidence() async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (picked != null) {
-      setState(() => _evidenceImage = picked);
-    }
+  void _toggleReason(String reason, bool checked) {
+    setState(() {
+      if (checked) {
+        _selectedReasons.add(reason);
+      } else {
+        _selectedReasons.remove(reason);
+        if (reason == HostReportPolicy.otherReason) {
+          _otherController.clear();
+        }
+      }
+    });
   }
 
-  Future<void> _submitReport() async {
-    final detail = _detailController.text.trim();
-    if (detail.isEmpty && _selectedReason == 'Lý do khác') {
+  Future<void> _pickEvidence() async {
+    if (_evidenceImages.length >= HostReportPolicy.maxEvidenceImages) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng nhập mô tả chi tiết lý do báo cáo'),
+        SnackBar(
+          content: Text('Tối đa ${HostReportPolicy.maxEvidenceImages} ảnh minh chứng.'),
           backgroundColor: AppColors.danger,
         ),
       );
       return;
     }
+    final picked = await _picker.pickMultiImage(imageQuality: 80);
+    if (picked.isEmpty) return;
+    final remaining = HostReportPolicy.maxEvidenceImages - _evidenceImages.length;
+    setState(() => _evidenceImages.addAll(picked.take(remaining)));
+  }
+
+  Future<void> _submitReport() async {
+    final user = ref.read(currentUserProvider);
+    final profile = ref.read(userProfileProvider).value;
+    final otherText = _otherController.text.trim();
+
+    final error = HostReportPolicy.validate(
+      reporterId: user?.uid ?? '',
+      hostId: widget.hostId,
+      selectedReasons: _selectedReasons,
+      otherText: otherText,
+      evidenceCount: _evidenceImages.length,
+    );
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error), backgroundColor: AppColors.danger),
+      );
+      return;
+    }
 
     setState(() => _isSubmitting = true);
-
     try {
-      final user = ref.read(currentUserProvider);
-      final profile = ref.read(userProfileProvider).value;
-
-      final reportData = {
-        'roomId': widget.room.id,
-        'roomTitle': widget.room.title,
-        'hostId': widget.room.hostId,
-        'hostName': widget.room.hostName,
-        'hostPhone': widget.room.hostPhone,
-        'reporterId': user?.uid ?? 'guest',
-        'reporterName': profile?.displayName ?? user?.displayName ?? 'Khách thuê',
-        'reason': _selectedReason,
-        'detail': detail,
-        'hasEvidenceImage': _evidenceImage != null,
-        'status': 'pending', // pending, reviewed, resolved
-        'createdAt': FieldValue.serverTimestamp(),
-      };
-
-      await FirebaseFirestore.instance.collection('reports').add(reportData);
-
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
-              children: [
-                Icon(Icons.shield_outlined, color: AppColors.primary, size: 26),
-                SizedBox(width: 8),
-                Text('Đã Tiếp Nhận Báo Cáo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              ],
-            ),
-            content: const Text(
-              'Cảm ơn bạn đã phản ánh! Ban quản trị HomeShare sẽ nhanh chóng xác minh và xử lý nghiêm các hành vi vi phạm trong vòng 24 giờ để đảm bảo môi trường an toàn.',
-              style: TextStyle(fontSize: 13, height: 1.4),
-            ),
-            actions: [
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
+      await ref.read(hostReportServiceProvider).submitHostReport(
+            hostId: widget.hostId,
+            hostName: widget.hostName,
+            hostPhone: widget.hostPhone,
+            hostAvatar: widget.room?.hostAvatar ?? '',
+            roomId: widget.room?.id ?? '',
+            roomTitle: widget.room?.title ?? '',
+            roomPrice: widget.room?.price ?? 0,
+            roomAddress: widget.room?.address ?? '',
+            roomImages: widget.room?.images ?? const [],
+            reporterId: user!.uid,
+            reporterName: profile?.displayName ?? user.displayName ?? '',
+            reporterPhone: profile?.phoneNumber ?? '',
+            selectedReasons: _selectedReasons.toList(),
+            otherText: otherText,
+            evidencePaths: _evidenceImages.map((file) => file.path).toList(),
+          );
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.shield_outlined, color: AppColors.primary, size: 26),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Đã gửi cho Admin',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  Navigator.pop(context);
-                },
-                child: const Text('Đã Hiểu'),
               ),
             ],
           ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Có lỗi xảy ra: $e'), backgroundColor: AppColors.danger),
-        );
-      }
+          content: const Text(
+            'Báo cáo đã được gửi tới ban quản trị HomeShare. Admin sẽ tiếp nhận và xử lý. Bạn không cần làm thêm bước nào.',
+            style: TextStyle(fontSize: 13, height: 1.4),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.pop(context);
+              },
+              child: const Text('Đã hiểu'),
+            ),
+          ],
+        ),
+      );
+    } on HostReportException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message), backgroundColor: AppColors.danger),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Gửi báo cáo thất bại. Vui lòng thử lại.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
     } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final hostName = widget.hostName.trim().isEmpty ? 'Chủ trọ' : widget.hostName.trim();
+    final roomTitle = widget.room?.title.trim() ?? '';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
-        title: const Text('Báo Cáo Chủ Nhà / Phòng'),
+        title: const Text('Báo cáo chủ trọ'),
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -147,7 +193,6 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Thẻ tóm tắt phòng bị báo cáo
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -157,15 +202,15 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
               ),
               child: Row(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: 50,
-                      height: 50,
-                      color: Colors.grey.shade200,
-                      child: widget.room.images.isNotEmpty
-                          ? Image.network(widget.room.images.first, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => const Icon(Icons.home))
-                          : const Icon(Icons.home, color: AppColors.primary),
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: AppColors.primaryContainer,
+                    child: Text(
+                      hostName[0].toUpperCase(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -174,14 +219,18 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.room.title,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          hostName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: AppColors.textDark,
+                          ),
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          'Chủ nhà: ${widget.room.hostName}',
+                          roomTitle.isEmpty
+                              ? 'Báo cáo sẽ được gửi tới Admin'
+                              : roomTitle,
                           style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                         ),
                       ],
@@ -190,123 +239,152 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 18),
-
             const Text(
-              'LÝ DO BÁO CÁO VI PHẠM (*)',
+              'LÝ DO BÁO CÁO (*)',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
             ),
+            const SizedBox(height: 4),
+            const Text(
+              'Có thể chọn nhiều lý do',
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+            ),
             const SizedBox(height: 8),
-
-            // Danh sách các lý do
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: Colors.grey.shade200),
               ),
-              child: RadioGroup<String>(
-                groupValue: _selectedReason,
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedReason = val);
-                },
-                child: Column(
-                  children: _reportReasons.map((reason) {
-                    return RadioListTile<String>(
-                      value: reason,
+              child: Column(
+                children: [
+                  for (var i = 0; i < HostReportPolicy.reasons.length; i++) ...[
+                    if (i > 0) Divider(height: 1, color: Colors.grey.shade200),
+                    CheckboxListTile(
+                      value: _selectedReasons.contains(HostReportPolicy.reasons[i]),
+                      onChanged: _isSubmitting
+                          ? null
+                          : (checked) => _toggleReason(
+                                HostReportPolicy.reasons[i],
+                                checked ?? false,
+                              ),
                       title: Text(
-                        reason,
+                        HostReportPolicy.reasons[i],
                         style: TextStyle(
                           fontSize: 13,
-                          fontWeight: _selectedReason == reason ? FontWeight.bold : FontWeight.normal,
-                          color: _selectedReason == reason ? AppColors.textDark : AppColors.textSecondary,
+                          fontWeight: _selectedReasons.contains(HostReportPolicy.reasons[i])
+                              ? FontWeight.w700
+                              : FontWeight.normal,
+                          color: _selectedReasons.contains(HostReportPolicy.reasons[i])
+                              ? AppColors.textDark
+                              : AppColors.textSecondary,
                         ),
                       ),
+                      controlAffinity: ListTileControlAffinity.leading,
                       activeColor: AppColors.primary,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                      checkboxShape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      side: BorderSide(color: Colors.grey.shade400, width: 1.4),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                       visualDensity: VisualDensity.compact,
-                    );
-                  }).toList(),
-                ),
+                    ),
+                  ],
+                ],
               ),
             ),
-
-            const SizedBox(height: 18),
-
-            const Text(
-              'MÔ TẢ CHI TIẾT NỘI DUNG VI PHẠM',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
-            ),
-            const SizedBox(height: 8),
-
-            TextField(
-              controller: _detailController,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText: 'Cung cấp thêm chi tiết cụ thể (thời gian, hành vi, tin nhắn...) để HomeShare xử lý nhanh nhất...',
-                hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF6B7280)),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+            if (_showOtherField) ...[
+              const SizedBox(height: 14),
+              const Text(
+                'LÝ DO KHÁC (*)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _otherController,
+                enabled: !_isSubmitting,
+                maxLines: 4,
+                maxLength: HostReportPolicy.maxDetailLength,
+                decoration: InputDecoration(
+                  hintText: 'Nhập lý do khác của bạn...',
+                  hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF6B7280)),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
                 ),
               ),
-            ),
-
-            const SizedBox(height: 18),
-
-            // Đính kèm bằng chứng
+            ],
+            const SizedBox(height: 14),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'HÌNH ẢNH BẰNG CHỨNG (TÙY CHỌN)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
+                const Expanded(
+                  child: Text(
+                    'ẢNH MINH CHỨNG (*)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: AppColors.textDark,
+                    ),
+                  ),
                 ),
                 TextButton.icon(
-                  onPressed: _pickEvidence,
-                  icon: const Icon(Icons.add_photo_alternate, size: 16),
-                  label: const Text('Thêm ảnh', style: TextStyle(fontSize: 12)),
+                  onPressed: _isSubmitting ? null : _pickEvidence,
+                  icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
+                  label: const Text('Thêm ảnh', style: TextStyle(fontSize: 12.5)),
                 ),
               ],
             ),
-
-            if (_evidenceImage != null)
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.image, color: AppColors.primary),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _evidenceImage!.name,
-                        style: const TextStyle(fontSize: 12),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+            Text(
+              'Bắt buộc ít nhất 1 ảnh, tối đa ${HostReportPolicy.maxEvidenceImages} ảnh.',
+              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+            ),
+            if (_evidenceImages.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (var i = 0; i < _evidenceImages.length; i++)
+                    Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.file(
+                            File(_evidenceImages[i].path),
+                            width: 84,
+                            height: 84,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Positioned(
+                          top: 2,
+                          right: 2,
+                          child: InkWell(
+                            onTap: _isSubmitting
+                                ? null
+                                : () => setState(() => _evidenceImages.removeAt(i)),
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                color: Colors.black54,
+                                shape: BoxShape.circle,
+                              ),
+                              padding: const EdgeInsets.all(2),
+                              child: const Icon(Icons.close, size: 14, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      tooltip: 'Xóa ảnh bằng chứng',
-                      icon: const Icon(Icons.close, size: 18, color: Colors.red),
-                      onPressed: () => setState(() => _evidenceImage = null),
-                    ),
-                  ],
-                ),
+                ],
               ),
-
+            ],
             const SizedBox(height: 24),
           ],
         ),
@@ -334,7 +412,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                     children: [
                       Icon(Icons.report_problem_outlined, size: 18),
                       SizedBox(width: 8),
-                      Text('Gửi Báo Cáo Vi Phạm', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      Text('Gửi báo cáo tới Admin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     ],
                   ),
           ),

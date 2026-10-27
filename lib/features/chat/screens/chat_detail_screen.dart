@@ -64,7 +64,6 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   bool _isRecordingAudio = false;
   String? _senderRole;
   String? _receiverRole;
-  RoomModel? _activeRentedRoom;
   late final RoommateInvitationEligibilityService _invitationEligibilityService;
   final Set<String> _deletedForMeIds = {};
   final Set<String> _revokedIds = {};
@@ -78,8 +77,6 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       hasActiveRoom: true,
     );
   }
-
-  bool get _canSendRoommateInvitation => _isUserToUser && _activeRentedRoom != null;
 
   bool get _receiverIsHost => _receiverRole == 'host';
 
@@ -108,7 +105,6 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       setState(() {
         _senderRole = eligibility.senderRole;
         _receiverRole = eligibility.receiverRole;
-        _activeRentedRoom = eligibility.activeRoom;
       });
     }
     return eligibility;
@@ -594,12 +590,18 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   // Menu đính kèm phương tiện (+) (Tc_CHAT_29)
   void _showAttachmentMenu() {
+    _focusNode.unfocus();
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final bottomPad = MediaQuery.viewPaddingOf(ctx).bottom;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(12, 12, 12, 16 + bottomPad),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -607,10 +609,15 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 width: 40,
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-              const Text('Đính kèm phương tiện & hành động', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              const SizedBox(height: 16),
+              const Text(
+                'Đính kèm phương tiện & hành động',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -664,8 +671,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               const SizedBox(height: 12),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -675,32 +682,31 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 26,
-              backgroundColor: color.withValues(alpha: 0.12),
-              child: Icon(icon, color: color, size: 26),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                height: 1.2,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: color.withValues(alpha: 0.12),
+                child: Icon(icon, color: color, size: 26),
               ),
-            ),
-          ],
+              const SizedBox(height: 6),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, height: 1.2),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -946,22 +952,15 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   Future<void> _acceptRoommateInvite(ChatMessageModel msg) async {
     try {
-      final roomId = msg.extraData['roomId']?.toString().trim() ?? '';
-      if (roomId.isEmpty) {
-        throw StateError('Lời mời không liên kết với phòng hợp lệ.');
-      }
-
-      RoomModel? verifiedRoom;
-      for (final collection in const ['rooms', 'host_rooms']) {
-        final roomDoc = await FirebaseFirestore.instance.collection(collection).doc(roomId).get();
-        if (roomDoc.exists && roomDoc.data() != null) {
-          final candidate = RoomModel.fromMap(roomDoc.data()!, roomDoc.id);
-          if (candidate.hostId.trim().isNotEmpty) {
-            verifiedRoom = candidate;
-            break;
-          }
-        }
-      }
+      final extra = msg.extraData;
+      final roomId = extra['roomId']?.toString().trim() ?? '';
+      final verifiedRoom = await _invitationEligibilityService.resolveInvitationRoom(
+        roomId: roomId,
+        hostId: extra['hostId']?.toString() ?? '',
+        roomTitle: extra['roomTitle']?.toString() ?? '',
+        roomCode: extra['roomCode']?.toString() ?? '',
+        hostName: extra['hostName']?.toString() ?? '',
+      );
       if (verifiedRoom == null || verifiedRoom.hostId.trim().isEmpty) {
         throw StateError('Không xác minh được phòng hoặc chủ trọ của lời mời.');
       }
@@ -1799,7 +1798,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             'Chào bạn, bạn đã tìm được phòng chưa?',
             'Ngân sách phòng trọ bạn dự kiến bao nhiêu?',
             'Thói quen sinh hoạt của bạn như thế nào?',
-            if (_canSendRoommateInvitation) '+ Mời vào ở ghép',
+            '+ Mời vào ở ghép',
           ]
         : (widget.isLandlord || _receiverIsHost)
             ? [

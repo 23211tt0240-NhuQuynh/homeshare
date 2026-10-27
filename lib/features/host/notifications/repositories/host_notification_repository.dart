@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/constants/firestore_collections.dart';
 import '../../repositories/tenant_repository.dart';
 import '../models/host_notification_model.dart';
@@ -315,8 +316,19 @@ class HostNotificationRepository {
     final batch = fs.batch();
 
     // 1. Cập nhật booking gốc
+    String renterId = '';
+    String currentRoomCode = '';
     if (bookingId.isNotEmpty) {
       final bookingRef = bCol.doc(bookingId);
+      try {
+        final bDoc = await bookingRef.get();
+        if (bDoc.exists && bDoc.data() != null) {
+          final bData = bDoc.data()!;
+          renterId = (bData['userId'] ?? bData['renterId'] ?? bData['nguoiThueId'] ?? '').toString();
+          currentRoomCode = (bData['roomCode'] ?? bData['maPhong'] ?? '').toString();
+        }
+      } catch (_) {}
+
       batch.set(bookingRef, {
         'newRoomId': newRoomId,
         'newRoomTitle': newRoomTitle,
@@ -338,6 +350,31 @@ class HostNotificationRepository {
         NotificationFields.statusId: 'choXacNhanThayDoi',
         NotificationFields.updatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+    }
+
+    // 3. Gửi thông báo đến chuông người thuê (Renter) để người thuê có thể Đồng ý hoặc Từ chối
+    if (renterId.isNotEmpty) {
+      final dateStr = DateFormat('dd/MM/yyyy').format(newCheckInDate);
+      final renterNotifRef = nCol.doc();
+      batch.set(renterNotifRef, {
+        'id': renterNotifRef.id,
+        'receiverId': renterId,
+        'recipientRole': 'renter',
+        'title': 'Chủ trọ yêu cầu đổi lịch dọn vào',
+        'message': 'Chủ trọ đề xuất chuyển ngày nhận phòng sang $dateStr.${adjustmentReason.isNotEmpty ? " Lý do: $adjustmentReason" : ""}',
+        'notificationType': 'booking_adjustment',
+        'type': 'booking_adjustment',
+        'bookingId': bookingId,
+        'hostNotificationId': notificationId,
+        'roomId': newRoomId,
+        'roomTitle': newRoomTitle,
+        'roomCode': currentRoomCode,
+        'newCheckInDate': Timestamp.fromDate(newCheckInDate),
+        'adjustmentReason': adjustmentReason,
+        'status': 'pending',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
     }
 
     await batch.commit();
@@ -581,6 +618,7 @@ class HostNotificationRepository {
 
     await batch.commit();
   }
+
 
   /// Xác nhận đồng ý thay đổi đặt chỗ (Màn hình Figma: Xác nhận thay đổi)
   Future<void> confirmBookingChange({

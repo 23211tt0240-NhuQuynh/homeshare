@@ -118,20 +118,28 @@ class RoommateInvitationEligibilityService {
       value: userId,
     );
 
-    for (final doc in bookingDocs) {
+    final activeBookings = bookingDocs.where((doc) {
       final data = doc.data();
       final status =
           data['status'] ?? data['trangThai'] ?? data['trangThai_id'];
-      if (!RoommateInvitationPolicy.isActiveBookingStatus(status)) continue;
+      return RoommateInvitationPolicy.isActiveBookingStatus(status);
+    }).toList()
+      ..sort((a, b) {
+        final aTime = _bookingTime(a.data());
+        final bTime = _bookingTime(b.data());
+        return bTime.compareTo(aTime);
+      });
 
+    for (final doc in activeBookings) {
+      final data = doc.data();
       final roomId = _firstNonEmpty(data, const [
         'roomId',
         'phongId',
         'phongTroId',
         'baiDangId',
       ]);
-      final room = await _loadRoom(roomId);
-      if (room != null) return room;
+      final room = await _loadRoom(roomId) ?? roomFromActiveBooking(data, doc.id);
+      if (room != null && room.hostId.trim().isNotEmpty) return room;
     }
 
     final residentDocs = await _queryAliases(
@@ -164,28 +172,6 @@ class RoommateInvitationEligibilityService {
       if (room != null) return room;
     }
 
-    final periodDocs = await _queryAliases(
-      collection: 'periods',
-      fields: const ['renterId', 'userId', 'nguoiDungId', 'nguoi_dung_id'],
-      value: userId,
-    );
-
-    for (final doc in periodDocs) {
-      final data = doc.data();
-      final status =
-          data['status'] ?? data['trangThai'] ?? data['trangThai_id'];
-      if (!RoommateInvitationPolicy.isActiveResidentStatus(status)) continue;
-
-      final roomId = _firstNonEmpty(data, const [
-        'roomId',
-        'phongId',
-        'phongTroId',
-        'phong_tro_id',
-      ]);
-      final room = await _loadRoom(roomId);
-      if (room != null) return room;
-    }
-
     return null;
   }
 
@@ -199,9 +185,45 @@ class RoommateInvitationEligibilityService {
     return _firstNonEmpty(data, const ['roomId', 'phongId', 'phongTroId']);
   }
 
+  DateTime _bookingTime(Map<String, dynamic> data) {
+    for (final key in const [
+      'checkedInAt',
+      'acceptedDate',
+      'updatedAt',
+      'approvedAt',
+      'createdAt',
+    ]) {
+      final value = data[key];
+      if (value is Timestamp) return value.toDate();
+      if (value is DateTime) return value;
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  /// Xác minh phòng khi người kia chấp nhận lời mời.
+  /// `roomId` thường là document `posts`; nếu thiếu thì dùng hostId đã gắn lúc gửi.
+  Future<RoomModel?> resolveInvitationRoom({
+    required String roomId,
+    String hostId = '',
+    String roomTitle = '',
+    String roomCode = '',
+    String hostName = '',
+  }) async {
+    final loaded = await _loadRoom(roomId);
+    if (loaded != null && loaded.hostId.trim().isNotEmpty) return loaded;
+    return roomFromInvitationPayload(
+      roomId: roomId,
+      hostId: hostId,
+      roomTitle: roomTitle,
+      roomCode: roomCode,
+      hostName: hostName,
+    );
+  }
+
   Future<RoomModel?> _loadRoom(String roomId) async {
     if (roomId.trim().isEmpty) return null;
-    for (final collection in const ['rooms', 'host_rooms']) {
+    // Đơn thuê thường lưu roomId = document `posts`, không phải `rooms`.
+    for (final collection in const ['posts', 'rooms', 'host_rooms']) {
       final doc = await _firestore.collection(collection).doc(roomId).get();
       final data = doc.data();
       if (doc.exists && data != null) {
@@ -242,4 +264,51 @@ class RoommateInvitationEligibilityService {
     }
     return '';
   }
+}
+
+/// Phòng mời ở ghép lấy từ đơn đang ở khi document `rooms`/`posts` thiếu.
+RoomModel? roomFromActiveBooking(Map<String, dynamic> booking, String bookingId) {
+  final hostId = [
+    booking['hostId'],
+    booking['chuNhaId'],
+    booking['chu_tro_id'],
+  ].map((value) => value?.toString().trim() ?? '').firstWhere(
+        (value) => value.isNotEmpty,
+        orElse: () => '',
+      );
+  if (hostId.isEmpty) return null;
+  final roomId = [
+    booking['roomId'],
+    booking['phongId'],
+    booking['phongTroId'],
+    booking['baiDangId'],
+    bookingId,
+  ].map((value) => value?.toString().trim() ?? '').firstWhere((value) => value.isNotEmpty);
+  return RoomModel.fromMap({
+    'hostId': hostId,
+    'hostName': booking['hostName'] ?? booking['tenChuNha'] ?? '',
+    'hostPhone': booking['hostPhone'] ?? '',
+    'title': booking['roomTitle'] ?? booking['title'] ?? '',
+    'price': booking['rentalPrice'] ?? booking['price'] ?? booking['totalAmount'] ?? 0,
+    'rentalPrice': booking['rentalPrice'] ?? booking['price'] ?? 0,
+    'deposit': booking['depositAmount'] ?? booking['deposit'] ?? 0,
+    'address': booking['roomAddress'] ?? booking['address'] ?? '',
+    'roomCode': booking['roomCode'] ?? booking['maPhong'] ?? '',
+  }, roomId);
+}
+
+RoomModel? roomFromInvitationPayload({
+  required String roomId,
+  required String hostId,
+  String roomTitle = '',
+  String roomCode = '',
+  String hostName = '',
+}) {
+  if (hostId.trim().isEmpty) return null;
+  return RoomModel.fromMap({
+    'hostId': hostId.trim(),
+    'hostName': hostName,
+    'title': roomTitle,
+    'roomCode': roomCode,
+  }, roomId.trim().isNotEmpty ? roomId.trim() : hostId.trim());
 }

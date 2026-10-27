@@ -249,6 +249,100 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
     );
   }
 
+  Future<void> _respondToBookingAdjustment({
+    required BuildContext context,
+    required DocumentSnapshot doc,
+    required Map<String, dynamic> data,
+    required bool accept,
+  }) async {
+    final bookingId = (data['bookingId'] ?? '').toString();
+    final hostNotifId = (data['hostNotificationId'] ?? '').toString();
+    final newCheckInDate = data['newCheckInDate'] as Timestamp?;
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final batch = FirebaseFirestore.instance.batch();
+
+      // 1. Cập nhật thông báo người thuê
+      batch.set(doc.reference, {
+        'status': accept ? 'accepted' : 'rejected',
+        'isRead': true,
+        'daDoc': true,
+        'respondedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // 2. Cập nhật booking gốc
+      if (bookingId.isNotEmpty) {
+        final bRef = FirebaseFirestore.instance.collection('bookings').doc(bookingId);
+        final bookingUpdates = <String, dynamic>{
+          'status': 'daCoc',
+          'statusId': 'deposited',
+          'adjustmentStatus': accept ? 'accepted' : 'rejected',
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        if (accept) {
+          if (newCheckInDate != null) {
+            bookingUpdates['checkInDate'] = newCheckInDate;
+          }
+          final newRoomId = data['roomId']?.toString();
+          if (newRoomId != null && newRoomId.isNotEmpty) {
+            bookingUpdates['roomId'] = newRoomId;
+          }
+          final newRoomTitle = data['roomTitle']?.toString();
+          if (newRoomTitle != null && newRoomTitle.isNotEmpty) {
+            bookingUpdates['roomTitle'] = newRoomTitle;
+          }
+        }
+        batch.set(bRef, bookingUpdates, SetOptions(merge: true));
+      }
+
+      // 3. Cập nhật thông báo của chủ trọ
+      if (hostNotifId.isNotEmpty) {
+        final hRef = FirebaseFirestore.instance.collection('notifications').doc(hostNotifId);
+        final hostUpdates = <String, dynamic>{
+          'status': accept ? 'approved' : 'rejected',
+          'statusId': accept ? 'deposited' : 'rejected',
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        if (accept && newCheckInDate != null) {
+          hostUpdates['checkInDate'] = newCheckInDate;
+        }
+        batch.set(hRef, hostUpdates, SetOptions(merge: true));
+      }
+
+      await batch.commit();
+
+      if (context.mounted) {
+        Navigator.pop(context); // Tắt loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: accept ? const Color(0xFF027A48) : const Color(0xFFD92D20),
+            content: Text(
+              accept
+                  ? 'Bạn đã đồng ý đổi lịch dọn vào thành công!'
+                  : 'Bạn đã từ chối yêu cầu đổi lịch dọn vào.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFD92D20),
+            content: Text('Có lỗi xảy ra: $e'),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final notifsAsync = ref.watch(userNotificationsStreamProvider);
@@ -344,6 +438,13 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
 
     if (type == 'roommate_invitation') {
       return _buildRoommateInviteCard(context, doc, data, isRead, timeStr);
+    }
+
+    if (type == 'booking_adjustment' ||
+        type == 'change_move_in_date' ||
+        type == 'booking_date_change' ||
+        data['newCheckInDate'] != null) {
+      return _buildBookingAdjustmentCard(context, doc, data, isRead, timeStr);
     }
 
     // Thẻ thông báo thông thường (đặt phòng, thanh toán, hệ thống...)
@@ -694,6 +795,338 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
                 ],
               ],
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBookingAdjustmentCard(
+    BuildContext context,
+    DocumentSnapshot doc,
+    Map<String, dynamic> data,
+    bool isRead,
+    String timeStr,
+  ) {
+    final status = (data['status'] ?? 'pending').toString();
+    final isPending = status == 'pending';
+    final isAccepted = status == 'accepted' || status == 'approved';
+    final isRejected = status == 'rejected';
+
+    final title = (data['title'] ?? 'Chủ trọ yêu cầu đổi lịch dọn vào').toString();
+    final message = (data['message'] ?? '').toString();
+    final roomCode = (data['roomCode'] ?? '').toString();
+    final roomTitle = (data['roomTitle'] ?? '').toString();
+    final reason = (data['adjustmentReason'] ?? '').toString();
+
+    final newDateTs = data['newCheckInDate'] as Timestamp?;
+    final newDateStr = newDateTs != null
+        ? DateFormat('dd/MM/yyyy').format(newDateTs.toDate())
+        : '';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isRead ? Colors.white : const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isPending
+              ? const Color(0xFFFDB022)
+              : (isRead
+                  ? const Color(0xFFE2E8F0)
+                  : AppColors.primary.withValues(alpha: 0.3)),
+          width: isPending ? 1.5 : (isRead ? 1 : 1.5),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF0C7),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.edit_calendar_rounded,
+                  color: Color(0xFFB54708),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight:
+                                  isRead ? FontWeight.w600 : FontWeight.bold,
+                              color: const Color(0xFF0F172A),
+                            ),
+                          ),
+                        ),
+                        if (!isRead)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      timeStr,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Khối chi tiết lịch dọn vào mới
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (roomCode.isNotEmpty || roomTitle.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.meeting_room_outlined,
+                        size: 15,
+                        color: Color(0xFF64748B),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          roomCode.isNotEmpty
+                              ? 'Phòng $roomCode • $roomTitle'
+                              : roomTitle,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1E293B),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                ],
+                if (newDateStr.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_today_rounded,
+                        size: 15,
+                        color: Color(0xFF1E60F2),
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Ngày dọn vào đề xuất: ',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      Text(
+                        newDateStr,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E60F2),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                ],
+                if (reason.isNotEmpty) ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.info_outline_rounded,
+                        size: 15,
+                        color: Color(0xFF64748B),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Lý do: $reason',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF475569),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else if (message.isNotEmpty) ...[
+                  Text(
+                    message,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Nút Đồng ý / Từ chối hoặc Trạng thái đã xử lý
+          if (isPending) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _respondToBookingAdjustment(
+                      context: context,
+                      doc: doc,
+                      data: data,
+                      accept: false,
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFD92D20),
+                      side: const BorderSide(color: Color(0xFFFDA29B)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      'Từ chối',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _respondToBookingAdjustment(
+                      context: context,
+                      doc: doc,
+                      data: data,
+                      accept: true,
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Đồng ý',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (isAccepted) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFECFDF3),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFA6F4C5)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: 14,
+                    color: Color(0xFF027A48),
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Bạn đã đồng ý đổi lịch dọn vào',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF027A48),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else if (isRejected) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3F2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFECDCA)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.cancel_rounded,
+                    size: 14,
+                    color: Color(0xFFD92D20),
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Bạn đã từ chối đổi lịch dọn vào',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFD92D20),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

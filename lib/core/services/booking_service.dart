@@ -8,7 +8,10 @@ class BookingService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Gửi yêu cầu đặt thuê / hẹn xem phòng (Đơn đặt phòng, sinh Document ID chuẩn DP_...)
-  Future<String> createBooking(BookingRequestModel booking) async {
+  Future<String> createBooking(
+    BookingRequestModel booking, {
+    String? propertyId,
+  }) async {
     final bookingId = booking.id.isNotEmpty
         ? booking.id
         : IdGenerator.booking(
@@ -21,6 +24,7 @@ class BookingService {
         : now.add(const Duration(hours: 6));
     await _firestore.collection('bookings').doc(bookingId).set({
       ...booking.toMap(),
+      if (propertyId != null && propertyId.isNotEmpty) 'propertyId': propertyId,
       'id': bookingId,
       'bookingCode': bookingId,
       'expiresAt': Timestamp.fromDate(expiresAt),
@@ -360,6 +364,31 @@ class BookingService {
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return list;
     });
+  }
+
+  /// Đơn thuê đang ở hoặc đã duyệt của khách, dùng khi đăng tin ở ghép đã có phòng.
+  Future<BookingRequestModel?> findActiveBookingForRenter(String renterId) async {
+    if (renterId.isEmpty || renterId == 'guest') return null;
+    try {
+      final snapshot = await _firestore.collection('bookings').get();
+      BookingRequestModel? approved;
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final docRenterId = data['nguoiDungId'] ??
+            data['nguoiDung_Id'] ??
+            data['renterId'] ??
+            data['khachXemId'] ??
+            '';
+        if (docRenterId != renterId) continue;
+        final booking = BookingRequestModel.fromFirestore(doc);
+        if (booking.isActive) return booking;
+        if (approved == null && booking.isApproved) approved = booking;
+      }
+      return approved;
+    } catch (e) {
+      debugPrint('Error finding active booking for $renterId: $e');
+      return null;
+    }
   }
 }
 

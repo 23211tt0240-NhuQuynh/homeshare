@@ -15,7 +15,30 @@ class AdminPostsScreen extends ConsumerStatefulWidget {
 
 class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
   String _filter = 'all'; // 'all', 'pending', 'active', 'rejected'
+  DateTimeRange? _dateRange;
   final Map<String, Future<Map<String, dynamic>?>> _hostProfiles = {};
+
+  Future<void> _chooseDateRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 2),
+      lastDate: DateTime(now.year + 2),
+      initialDateRange: _dateRange,
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: Theme.of(context).colorScheme.copyWith(
+            primary: const Color(0xFF398FC0),
+            onPrimary: Colors.white,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() => _dateRange = picked);
+    }
+  }
 
   Future<Map<String, dynamic>?> _hostProfile(String hostId) {
     return _hostProfiles.putIfAbsent(hostId, () async {
@@ -157,6 +180,10 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
     }
     if (!mounted) return;
     final posts = _docToRoomModel(doc, hostProfile: hostProfile);
+    final status =
+        (data['status'] ?? data['trangThai'] ?? '').toString().toLowerCase();
+    final isRejected = status == 'rejected' || status == 'tuchoi';
+    final canReviewAgain = !isRejected || data['hostResubmittedAt'] != null;
 
     Navigator.push(
       context,
@@ -164,6 +191,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
         builder: (_) => AdminPostReviewDetailScreen(
           room: posts,
           docId: doc.id,
+          canApprove: canReviewAgain,
           onApproved: () async {
             try {
               await PostReviewService.approve(doc.id);
@@ -270,22 +298,63 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
           Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildFilterPill('Tất cả', 'all', const Color(0xFF398FC0)),
-                const SizedBox(width: 8),
-                _buildFilterPill(
-                  'Chờ duyệt',
-                  'pending',
-                  const Color(0xFF398FC0),
+                Row(
+                  children: [
+                    _buildFilterPill('Tất cả', 'all', const Color(0xFF398FC0)),
+                    const SizedBox(width: 8),
+                    _buildFilterPill(
+                      'Chờ duyệt',
+                      'pending',
+                      const Color(0xFF398FC0),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildFilterPill('Đã duyệt', 'active', const Color(0xFF398FC0)),
+                    const SizedBox(width: 8),
+                    _buildFilterPill(
+                      'Từ chối',
+                      'rejected',
+                      const Color(0xFF398FC0),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                _buildFilterPill('Đã duyệt', 'active', const Color(0xFF398FC0)),
-                const SizedBox(width: 8),
-                _buildFilterPill(
-                  'Từ chối',
-                  'rejected',
-                  const Color(0xFF398FC0),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF344054),
+                          side: const BorderSide(color: Color(0xFFD0D5DD)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          alignment: Alignment.centerLeft,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: _chooseDateRange,
+                        icon: const Icon(Icons.calendar_month_outlined, size: 17),
+                        label: Text(
+                          _dateRange == null
+                              ? 'Ngày đăng: Tất cả ngày'
+                              : '${_dateRange!.start.day.toString().padLeft(2, '0')}/${_dateRange!.start.month.toString().padLeft(2, '0')}/${_dateRange!.start.year} – ${_dateRange!.end.day.toString().padLeft(2, '0')}/${_dateRange!.end.month.toString().padLeft(2, '0')}/${_dateRange!.end.year}',
+                        ),
+                      ),
+                    ),
+                    if (_dateRange != null) ...[
+                      const SizedBox(width: 8),
+                      IconButton(
+                        tooltip: 'Bỏ lọc ngày',
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () => setState(() => _dateRange = null),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -323,6 +392,31 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                     return false;
                   }
 
+                  final created = data['createdAt'] is Timestamp
+                      ? (data['createdAt'] as Timestamp).toDate()
+                      : null;
+                  if (_dateRange != null &&
+                      (created == null ||
+                          created.isBefore(
+                            DateTime(
+                              _dateRange!.start.year,
+                              _dateRange!.start.month,
+                              _dateRange!.start.day,
+                            ),
+                          ) ||
+                          created.isAfter(
+                            DateTime(
+                              _dateRange!.end.year,
+                              _dateRange!.end.month,
+                              _dateRange!.end.day,
+                              23,
+                              59,
+                              59,
+                            ),
+                          ))) {
+                    return false;
+                  }
+
                   // Lấy status và ép chữ thường
                   String status =
                       data['status']?.toString().toLowerCase() ?? 'pending';
@@ -350,6 +444,37 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                   }
                   return true;
                 }).toList();
+
+                DateTime postDate(DocumentSnapshot doc) {
+                  final value =
+                      (doc.data() as Map<String, dynamic>?)?['createdAt'];
+                  return value is Timestamp
+                      ? value.toDate()
+                      : DateTime.fromMillisecondsSinceEpoch(0);
+                }
+
+                filteredDocs.sort((a, b) {
+                  final da = a.data() as Map<String, dynamic>? ?? {};
+                  final db = b.data() as Map<String, dynamic>? ?? {};
+                  final handledA = [
+                    'active',
+                    'approved',
+                    'danghien',
+                    'rejected',
+                    'tuchoi',
+                  ].contains((da['status'] ?? '').toString().toLowerCase());
+                  final handledB = [
+                    'active',
+                    'approved',
+                    'danghien',
+                    'rejected',
+                    'tuchoi',
+                  ].contains((db['status'] ?? '').toString().toLowerCase());
+                  if (_filter == 'all' && handledA != handledB) {
+                    return handledA ? 1 : -1;
+                  }
+                  return postDate(b).compareTo(postDate(a));
+                });
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -469,6 +594,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
     final isActive =
         status == 'active' || status == 'approved' || status == 'danghien';
     final isRejected = status == 'rejected' || status == 'tuchoi';
+    final canReviewAgain = isRejected && data['hostResubmittedAt'] != null;
 
     return InkWell(
       onTap: () => _openDetailPreview(doc),
@@ -744,12 +870,12 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () => _rejectPost(id),
                       icon: const Icon(
-                        Icons.visibility_off_outlined,
+                        Icons.remove_circle_outline,
                         size: 14,
                         color: Color(0xFFD92D20),
                       ),
                       label: const Text(
-                        'Ẩn bài / Gỡ tin',
+                        'Hạ Tin / Gỡ Bài',
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.bold,
@@ -768,10 +894,9 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                 ],
               ),
             ] else if (isRejected) ...[
-              const SizedBox(height: 8),
               if (rejectReason != null && rejectReason.isNotEmpty) ...[
+                const SizedBox(height: 8),
                 Container(
-                  margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFEF3F2),
@@ -798,31 +923,28 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                   ),
                 ),
               ],
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _approvePost(id),
-                      icon: const Icon(Icons.check_circle_outline, size: 14),
-                      label: const Text(
-                        '✓ Duyệt lại / Hiện bài',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF12B76A),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: canReviewAgain ? () => _approvePost(id) : null,
+                  icon: const Icon(Icons.check_circle_outline, size: 16),
+                  label: Text(
+                    canReviewAgain
+                        ? 'Duyệt lại / Hiện bài'
+                        : 'Chờ chủ trọ chỉnh sửa bài',
                   ),
-                ],
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: canReviewAgain
+                        ? const Color(0xFF12B76A)
+                        : const Color(0xFFE4E7EC),
+                    foregroundColor: canReviewAgain
+                        ? Colors.white
+                        : const Color(0xFF667085),
+                    disabledBackgroundColor: const Color(0xFFE4E7EC),
+                    disabledForegroundColor: const Color(0xFF667085),
+                  ),
+                ),
               ),
             ],
           ],

@@ -8,13 +8,52 @@ import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
+import '../../profile/screens/host_profile_screen.dart';
 import 'report_host_screen.dart';
 import 'room_booking_detail_screen.dart';
 
 class RoomDetailScreen extends ConsumerStatefulWidget {
   final RoomModel room;
+  final bool isHostView;
 
-  const RoomDetailScreen({super.key, required this.room});
+  const RoomDetailScreen({
+    super.key,
+    required this.room,
+    this.isHostView = false,
+  });
+
+  /// Làm sạch định dạng URL ảnh, loại bỏ triệt để lỗi crash hình ảnh khi Firestore trả về
+  /// chuỗi {url: ...} hoặc dấu ngoặc kép thừa
+  static String cleanImageUrl(dynamic raw) {
+    if (raw == null) return '';
+    if (raw is Map) {
+      final u = (raw['url'] ??
+              raw['duongDan'] ??
+              raw['image'] ??
+              raw['imageUrl'] ??
+              raw['link'] ??
+              '')
+          .toString()
+          .trim();
+      return cleanImageUrl(u);
+    }
+    var s = raw.toString().trim();
+    if (s.startsWith('"') && s.endsWith('"') && s.length > 2) {
+      s = s.substring(1, s.length - 1).trim();
+    }
+    if (s.startsWith("'") && s.endsWith("'") && s.length > 2) {
+      s = s.substring(1, s.length - 1).trim();
+    }
+    if (s.startsWith('{') && s.endsWith('}')) {
+      final match = RegExp(
+        r'(?:duongDan|url|image|imageUrl|link):\s*([^,}]+)',
+      ).firstMatch(s);
+      if (match != null) {
+        s = match.group(1)!.trim().replaceAll('"', '').replaceAll("'", "");
+      }
+    }
+    return s;
+  }
 
   @override
   ConsumerState<RoomDetailScreen> createState() => _RoomDetailScreenState();
@@ -28,6 +67,21 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
   void initState() {
     super.initState();
     _room = widget.room;
+  }
+
+  List<String> get _cleanedImages {
+    final list = <String>[];
+    for (final raw in _room.images) {
+      final cleaned = RoomDetailScreen.cleanImageUrl(raw);
+      if (cleaned.isNotEmpty &&
+          (cleaned.startsWith('http://') ||
+              cleaned.startsWith('https://') ||
+              cleaned.startsWith('blob:') ||
+              cleaned.startsWith('data:'))) {
+        list.add(cleaned);
+      }
+    }
+    return list;
   }
 
   void _onQuickBookingPressed() {
@@ -78,7 +132,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ReportHostScreen(room: _room),
+        builder: (_) => ReportHostScreen.fromRoom(_room),
       ),
     );
   }
@@ -114,6 +168,17 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
           currentUserName: profile?.displayName ?? currentUser.displayName ?? 'Khách thuê',
           pinnedRoom: _room,
         ),
+      ),
+    );
+  }
+
+  void _openHostProfile() {
+    final hostId = _room.hostId.trim();
+    if (hostId.isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HostProfileScreen(userId: hostId),
       ),
     );
   }
@@ -233,18 +298,18 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              background: _room.images.isNotEmpty
+              background: _cleanedImages.isNotEmpty
                   ? Stack(
                       children: [
                         PageView.builder(
-                          itemCount: _room.images.length,
+                          itemCount: _cleanedImages.length,
                           onPageChanged: (idx) => setState(() => _currentImageIndex = idx),
                           itemBuilder: (context, index) {
                             return Semantics(
                               image: true,
-                              label: 'Ảnh phòng trọ ${index + 1} trên ${_room.images.length}',
+                              label: 'Ảnh phòng trọ ${index + 1} trên ${_cleanedImages.length}',
                               child: Image.network(
-                                _room.images[index],
+                                _cleanedImages[index],
                                 fit: BoxFit.cover,
                                 width: double.infinity,
                                 errorBuilder: (context, error, stackTrace) => Container(
@@ -266,7 +331,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Text(
-                              '${_currentImageIndex + 1}/${_room.images.length}',
+                              '${_currentImageIndex + 1}/${_cleanedImages.length}',
                               style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                           ),
@@ -482,51 +547,55 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   // Thông tin chủ nhà
                   const Text('Thông tin chủ trọ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
                   const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
+                  Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    child: InkWell(
                       borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 24,
-                          backgroundColor: AppColors.primaryContainer,
-                          child: Text(
-                            _room.hostName.isNotEmpty ? _room.hostName[0] : 'H',
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 18),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                      onTap: _openHostProfile,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 24,
+                              backgroundColor: AppColors.primaryContainer,
+                              child: Text(
+                                _room.hostName.isNotEmpty ? _room.hostName[0] : 'H',
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 18),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    _room.hostName,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        _room.hostName,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.verified, size: 14, color: AppColors.primary),
+                                    ],
                                   ),
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.verified, size: 14, color: AppColors.primary),
+                                  const SizedBox(height: 2),
+                                  const Text(
+                                    'Chủ nhà đã xác minh • Nhấn để xem hồ sơ',
+                                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                  ),
                                 ],
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Chủ nhà đã xác minh • Phản hồi 100%',
-                                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                              ),
-                            ],
-                          ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.phone_in_talk, color: AppColors.primary),
+                              tooltip: 'Gọi điện chủ trọ',
+                              onPressed: _onCallHostPressed,
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.phone_in_talk, color: AppColors.primary),
-                          tooltip: 'Gọi điện chủ trọ',
-                          onPressed: _onCallHostPressed,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -653,53 +722,81 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
               ),
               const SizedBox(width: 8),
 
-              // 3. Nút Đặt phòng nhanh
-              Expanded(
-                child: Semantics(
-                  label: _room.isHiddenOrRejected
-                      ? 'Bài đăng đã bị ẩn'
-                      : _room.isPending
-                          ? 'Đang chờ duyệt'
-                          : 'Đặt phòng nhanh',
-                  button: true,
-                  excludeSemantics: true,
-                  child: ElevatedButton.icon(
-                    onPressed: _onQuickBookingPressed,
-                    icon: Icon(
-                      _room.isHiddenOrRejected
-                          ? Icons.visibility_off_outlined
-                          : _room.isPending
-                              ? Icons.schedule_outlined
-                              : Icons.bolt,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    label: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
+              // 3. Nút Đặt phòng nhanh (Ẩn nếu là Chủ trọ xem bài của chính mình)
+              if (!widget.isHostView)
+                Expanded(
+                  child: Semantics(
+                    label: _room.isHiddenOrRejected
+                        ? 'Bài đăng đã bị ẩn'
+                        : _room.isPending
+                            ? 'Đang chờ duyệt'
+                            : 'Đặt phòng nhanh',
+                    button: true,
+                    excludeSemantics: true,
+                    child: ElevatedButton.icon(
+                      onPressed: _onQuickBookingPressed,
+                      icon: Icon(
                         _room.isHiddenOrRejected
-                            ? 'Bài đăng đã bị ẩn'
+                            ? Icons.visibility_off_outlined
                             : _room.isPending
-                                ? 'Đang chờ duyệt'
-                                : 'Đặt phòng nhanh',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-                        maxLines: 1,
+                                ? Icons.schedule_outlined
+                                : Icons.bolt,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          _room.isHiddenOrRejected
+                              ? 'Bài đăng đã bị ẩn'
+                              : _room.isPending
+                                  ? 'Đang chờ duyệt'
+                                  : 'Đặt phòng nhanh',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                          maxLines: 1,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _room.isHiddenOrRejected
+                            ? const Color(0xFF98A2B3)
+                            : _room.isPending
+                                ? const Color(0xFFF79009)
+                                : AppColors.primary,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(120, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _room.isHiddenOrRejected
-                          ? const Color(0xFF98A2B3)
-                          : _room.isPending
-                              ? const Color(0xFFF79009)
-                              : AppColors.primary,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(120, 48),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                )
+              else
+                Expanded(
+                  child: Container(
+                    height: 48,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_circle_outline, size: 18, color: Color(0xFF1E60F2)),
+                        SizedBox(width: 8),
+                        Text(
+                          'Bài đăng của bạn',
+                          style: TextStyle(
+                            color: Color(0xFF1E60F2),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),

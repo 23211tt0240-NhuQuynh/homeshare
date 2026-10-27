@@ -89,12 +89,20 @@ class PostReviewService {
       }
     }
 
+    final currentStatus = (data['status'] ?? 'pending').toString().toLowerCase();
+    if (approved &&
+        (currentStatus == 'rejected' || currentStatus == 'tuchoi') &&
+        data['hostResubmittedAt'] == null) {
+      throw StateError('Chủ trọ cần chỉnh sửa và gửi lại bài trước khi duyệt.');
+    }
+
     final statusValue = approved ? 'active' : 'rejected';
 
     // 1) Cập nhật bài đăng (chủ trọ và dashboard đọc các field này ngay trên post)
     batch.update(postRef, {
       'status': statusValue,
       'isAvailable': approved,
+      if (!approved) 'hostResubmittedAt': FieldValue.delete(),
       'rejectReason': approved ? FieldValue.delete() : cleanReason,
       'reviewedBy': performer,
       'reviewedAt': FieldValue.serverTimestamp(),

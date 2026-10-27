@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../data/models/room_model.dart';
 import '../widgets/admin_page_backdrop.dart';
 import '../widgets/admin_branded_title.dart';
@@ -10,16 +11,22 @@ class AdminPostReviewDetailScreen extends StatefulWidget {
   final RoomModel room;
   final String? docId;
   final String postPurpose;
+  final int? viewCount;
+  final int? favoriteCount;
   final VoidCallback? onApproved;
   final VoidCallback? onRejected;
+  final bool canApprove;
 
   const AdminPostReviewDetailScreen({
     super.key,
     required this.room,
     this.docId,
     this.postPurpose = '',
+    this.viewCount,
+    this.favoriteCount,
     this.onApproved,
     this.onRejected,
+    this.canApprove = true,
   });
 
   @override
@@ -63,7 +70,7 @@ class _AdminPostReviewDetailScreenState
           ? WebHtmlElementStrategy.prefer
           : WebHtmlElementStrategy.fallback,
       errorBuilder: (context, error, stackTrace) {
-        debugPrint('Không tải được ảnh chi tiết bài đăng.');
+        debugPrint('Không tải được ảnh chi tiết bài đăng ($url): $error');
         return fallback;
       },
     );
@@ -167,6 +174,28 @@ class _AdminPostReviewDetailScreenState
                     ),
                   ),
                   Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        '${images.isEmpty ? 0 : _currentImageIndex + 1}/${images.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
                     bottom: 12,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -189,13 +218,54 @@ class _AdminPostReviewDetailScreenState
                 ],
               ),
 
+              // Lượt xem, yêu thích và ngày đăng nếu dữ liệu có sẵn.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF6FC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFD6EDF9)),
+                  ),
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 12,
+                    runSpacing: 6,
+                    children: [
+                      if (widget.viewCount != null)
+                        _buildPostStat(
+                          Icons.visibility_outlined,
+                          '${widget.viewCount} lượt xem',
+                        ),
+                      if (widget.favoriteCount != null)
+                        _buildPostStat(
+                          Icons.favorite_border_rounded,
+                          '${widget.favoriteCount} yêu thích',
+                        ),
+                      _buildPostStat(
+                        Icons.calendar_today_outlined,
+                        DateFormat('dd/MM/yyyy').format(room.createdAt),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
               // 2. Chi tiết phòng
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 6,
                       children: [
                         Text(
                           _formatMoney(room.price),
@@ -212,15 +282,14 @@ class _AdminPostReviewDetailScreenState
                             color: Color(0xFF667085),
                           ),
                         ),
-                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
+                            horizontal: 7,
+                            vertical: 4,
                           ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFECFDF3),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             'Cọc ${_formatMoney(room.deposit)}',
@@ -308,8 +377,17 @@ class _AdminPostReviewDetailScreenState
                         ),
                       ),
                     ],
-                    if (room.amenities.isNotEmpty) ...[
-                      const SizedBox(height: 10),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Tiện ích phòng trọ',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF101828),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (room.amenities.isNotEmpty)
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
@@ -320,8 +398,11 @@ class _AdminPostReviewDetailScreenState
                               vertical: 5,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(7),
+                              color: const Color(0xFFEAF4FA),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0xFFDCEAF5),
+                              ),
                             ),
                             child: Text(
                               amenity,
@@ -334,7 +415,14 @@ class _AdminPostReviewDetailScreenState
                           );
                         }).toList(),
                       ),
-                    ],
+                    if (room.amenities.isEmpty)
+                      const Text(
+                        'Chủ trọ chưa cập nhật tiện ích cho phòng này.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF667085),
+                        ),
+                      ),
                     const SizedBox(height: 16),
                     const Divider(height: 1),
                     const SizedBox(height: 14),
@@ -352,15 +440,20 @@ class _AdminPostReviewDetailScreenState
                           CircleAvatar(
                             radius: 22,
                             backgroundColor: const Color(0xFFCDEBFA),
-                            child: Text(
-                              room.hostName.isNotEmpty
-                                  ? room.hostName[0].toUpperCase()
-                                  : 'C',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF398FC0),
-                              ),
-                            ),
+                            backgroundImage: room.hostAvatar.trim().isNotEmpty
+                                ? NetworkImage(room.hostAvatar)
+                                : null,
+                            child: room.hostAvatar.trim().isEmpty
+                                ? Text(
+                                    room.hostName.isNotEmpty
+                                        ? room.hostName[0].toUpperCase()
+                                        : 'C',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF398FC0),
+                                    ),
+                                  )
+                                : null,
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -375,9 +468,8 @@ class _AdminPostReviewDetailScreenState
                                     color: Color(0xFF101828),
                                   ),
                                 ),
-                                const SizedBox(height: 2),
                                 Text(
-                                  'SĐT: ${room.hostPhone}',
+                                  'Chủ trọ đăng bài',
                                   style: const TextStyle(
                                     fontSize: 11.5,
                                     color: Color(0xFF667085),
@@ -401,11 +493,23 @@ class _AdminPostReviewDetailScreenState
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      room.description,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        color: Color(0xFF475467),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Text(
+                        room.description.trim().isNotEmpty
+                            ? room.description.trim()
+                            : 'Chủ trọ chưa thêm mô tả cho phòng này.',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFF475467),
+                          height: 1.45,
+                        ),
                       ),
                     ),
                   ],
@@ -433,19 +537,28 @@ class _AdminPostReviewDetailScreenState
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: _showRejectBottomSheet,
+                  onPressed: widget.canApprove ? _showRejectBottomSheet : null,
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(color: Color(0xFFFDA29B)),
+                    side: BorderSide(
+                      color: widget.canApprove
+                          ? const Color(0xFFFDA29B)
+                          : const Color(0xFFD0D5DD),
+                    ),
+                    foregroundColor: widget.canApprove
+                        ? const Color(0xFFD92D20)
+                        : const Color(0xFF667085),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Từ chối / Hạ bài',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFFD92D20),
+                      color: widget.canApprove
+                          ? const Color(0xFFD92D20)
+                          : const Color(0xFF667085),
                     ),
                   ),
                 ),
@@ -453,22 +566,32 @@ class _AdminPostReviewDetailScreenState
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
-                    if (widget.onApproved != null) {
-                      widget.onApproved!();
-                    }
-                    Navigator.pop(context);
-                  },
+                  onPressed: widget.canApprove
+                      ? () {
+                          if (widget.onApproved != null) {
+                            widget.onApproved!();
+                          }
+                          Navigator.pop(context);
+                        }
+                      : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF12B76A),
-                    foregroundColor: Colors.white,
+                    backgroundColor: widget.canApprove
+                        ? const Color(0xFF12B76A)
+                        : const Color(0xFFE4E7EC),
+                    foregroundColor: widget.canApprove
+                        ? Colors.white
+                        : const Color(0xFF667085),
+                    disabledBackgroundColor: const Color(0xFFE4E7EC),
+                    disabledForegroundColor: const Color(0xFF667085),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Phê duyệt bài',
+                  child: Text(
+                    widget.canApprove
+                        ? 'Phê duyệt bài'
+                        : 'Chờ chủ trọ chỉnh sửa',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -504,6 +627,24 @@ class _AdminPostReviewDetailScreenState
       ),
     );
   }
+
+  Widget _buildPostStat(IconData icon, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: const Color(0xFF398FC0)),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF475467),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _RejectBottomSheet extends StatefulWidget {
@@ -527,6 +668,16 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
     'Giá thuê bất thường / Khác với giá mô tả',
     'Sai địa chỉ / Tọa độ vị trí phòng trọ',
     'Nội dung chứa từ khóa cấm / Quảng cáo rác',
+    'Thông tin phòng thiếu hoặc sai sự thật',
+    'Nội dung xúc phạm, phân biệt đối xử hoặc đe dọa',
+    'Thông tin liên hệ sai / Không liên lạc được',
+    'Đăng trùng lặp hoặc spam nhiều lần',
+    'Hình ảnh không đúng phòng / Không có quyền sử dụng',
+    'Giá, tiền cọc hoặc phụ phí không minh bạch',
+    'Địa chỉ hoặc loại hình phòng không phù hợp',
+    'Nội dung dẫn dụ giao dịch ngoài nền tảng',
+    'Bài đăng có dấu hiệu lừa đảo / yêu cầu thanh toán đáng ngờ',
+    'Phòng đã cho thuê / Không còn khả dụng',
   ];
   final TextEditingController _noteCtrl = TextEditingController();
   final Set<String> _selectedViolations = {};
@@ -817,11 +968,7 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
                           if (mounted) {
                             setState(() => _submitting = false);
                             messenger.showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Không thể cập nhật bài đăng. Vui lòng thử lại.',
-                                ),
-                              ),
+                              SnackBar(content: Text('Lỗi cập nhật: $e')),
                             );
                           }
                         }

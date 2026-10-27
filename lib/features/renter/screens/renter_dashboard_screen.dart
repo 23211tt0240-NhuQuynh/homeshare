@@ -144,6 +144,14 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
               );
             },
           ),
+          IconButton(
+            icon: const Badge(
+              smallSize: 8,
+              backgroundColor: AppColors.danger,
+              child: Icon(Icons.notifications_none_outlined),
+            ),
+            onPressed: () {},
+          ),
         ],
       ),
       body: RefreshIndicator(

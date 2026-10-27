@@ -87,12 +87,88 @@ abstract final class VietnamAddressParser {
         )
         .toList();
 
+    final street = streetParts.isEmpty ? address : streetParts.join(', ');
     return VietnamAddressParts(
       province: province,
       district: district,
       ward: ward,
-      specificAddress: streetParts.isEmpty ? address : streetParts.join(', '),
+      specificAddress: isCityOrProvinceOnly(street) ? '' : street,
     );
+  }
+
+  /// Ghép số nhà/đường với phường, quận, tỉnh; bỏ phần trùng.
+  static String composeParts({
+    String street = '',
+    String ward = '',
+    String district = '',
+    String city = '',
+  }) {
+    final parts = <String>[];
+    void add(String value) {
+      final part = value.trim().replaceAll(RegExp(r'^,+|,+$'), '').trim();
+      if (part.isEmpty) return;
+      final current = parts.join(', ').toLowerCase();
+      if (current.contains(part.toLowerCase())) return;
+      parts.add(part);
+    }
+
+    add(street);
+    add(ward);
+    add(district);
+    add(city);
+    return parts.join(', ');
+  }
+
+  static bool isCityOrProvinceOnly(String value) {
+    final normalized = _normalize(value);
+    if (normalized.isEmpty) return true;
+    const cities = {
+      'tp ho chi minh',
+      'ho chi minh',
+      'tp hcm',
+      'tphcm',
+      'sai gon',
+      'ha noi',
+      'tp ha noi',
+      'thanh pho ha noi',
+      'da nang',
+      'tp da nang',
+      'thanh pho da nang',
+    };
+    if (cities.contains(normalized)) return true;
+    return VietnamLocations.provinces.any((province) => _normalize(province) == normalized);
+  }
+
+  /// Chọn chuỗi địa chỉ cụ thể nhất: có số nhà/đường hơn là chỉ tỉnh/thành.
+  static String pickBest(Iterable<String> candidates) {
+    var best = '';
+    var bestScore = 0;
+    for (final raw in candidates) {
+      final value = raw.trim();
+      if (value.isEmpty) continue;
+      final score = _specificity(value);
+      if (score > bestScore) {
+        best = value;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+
+  static int _specificity(String value) {
+    if (isCityOrProvinceOnly(value)) return 1;
+    var score = value.length;
+    if (RegExp(r'\d').hasMatch(value)) score += 80;
+    if (value.contains(',')) score += 25;
+    final lower = _normalize(value);
+    if (lower.contains('duong') ||
+        lower.contains('pho') ||
+        lower.contains('ap') ||
+        lower.contains('khu') ||
+        lower.contains('to ')) {
+      score += 20;
+    }
+    return score;
   }
 
   static String _bestMatchingLabel(String address, Iterable<String> labels) {

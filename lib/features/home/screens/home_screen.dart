@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/providers/app_settings_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
-import '../../profile/screens/personal_profile_screen.dart';
+import '../../profile/screens/role_aware_profile_screen.dart';
 import '../../profile/screens/cccd_verification_screen.dart';
+import '../../profile/screens/help_faq_screen.dart';
+import '../../profile/screens/terms_privacy_screen.dart';
+import '../../profile/widgets/contact_hotline_sheet.dart';
 import '../../renter/screens/favorite_rooms_screen.dart';
 import '../../renter/screens/renter_bookings_screen.dart';
 import '../../host/screens/host_main_screen.dart';
@@ -116,7 +120,9 @@ class HomeScreen extends ConsumerWidget {
     }
   }
 
-  void _showLanguageDialog(BuildContext context) {
+  void _showLanguageDialog(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.read(appLanguageProvider);
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -128,24 +134,62 @@ class HomeScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Row(
+              children: [
+                Icon(Icons.language_rounded, color: AppColors.primary),
+                SizedBox(width: 8),
+                Text(
+                  'Chọn ngôn ngữ',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
             const Text(
-              'Chọn ngôn ngữ',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              'Lựa chọn ngôn ngữ hiển thị trên giao diện HomeShare',
+              style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
             ),
             const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.check, color: AppColors.primary),
-              title: const Text('Tiếng Việt', style: TextStyle(fontWeight: FontWeight.w600)),
-              trailing: const Text('Mặc định', style: TextStyle(color: AppColors.primary)),
-              onTap: () => Navigator.pop(ctx),
-            ),
-            ListTile(
-              leading: const SizedBox(width: 24),
-              title: const Text('English (US)'),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              tileColor: currentLang == 'vi'
+                  ? AppColors.primary.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              leading: const Text('🇻🇳', style: TextStyle(fontSize: 24)),
+              title: const Text('Tiếng Việt (Mặc định)', style: TextStyle(fontWeight: FontWeight.w600)),
+              trailing: currentLang == 'vi'
+                  ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
+                  : null,
               onTap: () {
+                ref.read(appLanguageProvider.notifier).setLanguage('vi');
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Ngôn ngữ tiếng Anh sẽ sớm được hỗ trợ!')),
+                  const SnackBar(
+                    content: Text('Đã thiết lập ngôn ngữ hiển thị: Tiếng Việt'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 6),
+            ListTile(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              tileColor: currentLang == 'en'
+                  ? AppColors.primary.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              leading: const Text('🇺🇸', style: TextStyle(fontSize: 24)),
+              title: const Text('English (US)', style: TextStyle(fontWeight: FontWeight.w600)),
+              trailing: currentLang == 'en'
+                  ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
+                  : null,
+              onTap: () {
+                ref.read(appLanguageProvider.notifier).setLanguage('en');
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Display language set to English'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
                 );
               },
             ),
@@ -155,7 +199,9 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  void _showThemeDialog(BuildContext context) {
+  void _showThemeDialog(BuildContext context, WidgetRef ref) {
+    final currentMode = ref.read(appThemeModeProvider);
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -167,31 +213,86 @@ class HomeScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Row(
+              children: [
+                Icon(Icons.palette_outlined, color: AppColors.primary),
+                SizedBox(width: 8),
+                Text(
+                  'Tùy chỉnh giao diện',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
             const Text(
-              'Tùy chỉnh giao diện',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              'Chọn chủ đề sáng hoặc tối phù hợp với mắt bạn',
+              style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
             ),
             const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.wb_sunny_outlined, color: AppColors.primary),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              tileColor: currentMode == ThemeMode.light
+                  ? AppColors.primary.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              leading: const Icon(Icons.wb_sunny_rounded, color: Color(0xFFF59E0B)),
               title: const Text('Giao diện sáng (Mặc định)', style: TextStyle(fontWeight: FontWeight.w600)),
-              trailing: const Icon(Icons.check, color: AppColors.primary),
-              onTap: () => Navigator.pop(ctx),
-            ),
-            ListTile(
-              leading: const Icon(Icons.nightlight_round_outlined),
-              title: const Text('Giao diện tối (Dark mode)'),
+              trailing: currentMode == ThemeMode.light
+                  ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
+                  : null,
               onTap: () {
+                ref.read(appThemeModeProvider.notifier).setThemeMode(ThemeMode.light);
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Chế độ Dark mode đang được phát triển.')),
+                  const SnackBar(
+                    content: Text('Đã chuyển sang giao diện sáng'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
                 );
               },
             ),
+            const SizedBox(height: 6),
             ListTile(
-              leading: const Icon(Icons.settings_system_daydream_outlined),
-              title: const Text('Theo hệ thống thiết bị'),
-              onTap: () => Navigator.pop(ctx),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              tileColor: currentMode == ThemeMode.dark
+                  ? AppColors.primary.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              leading: const Icon(Icons.nightlight_round, color: Color(0xFF818CF8)),
+              title: const Text('Giao diện tối (Dark mode)', style: TextStyle(fontWeight: FontWeight.w600)),
+              trailing: currentMode == ThemeMode.dark
+                  ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
+                  : null,
+              onTap: () {
+                ref.read(appThemeModeProvider.notifier).setThemeMode(ThemeMode.dark);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Đã kích hoạt giao diện tối (Dark mode)'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 6),
+            ListTile(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              tileColor: currentMode == ThemeMode.system
+                  ? AppColors.primary.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              leading: const Icon(Icons.settings_system_daydream_rounded, color: Color(0xFF64748B)),
+              title: const Text('Theo hệ thống thiết bị', style: TextStyle(fontWeight: FontWeight.w600)),
+              trailing: currentMode == ThemeMode.system
+                  ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
+                  : null,
+              onTap: () {
+                ref.read(appThemeModeProvider.notifier).setThemeMode(ThemeMode.system);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Giao diện sẽ tự động đổi theo cài đặt hệ thống'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -200,188 +301,28 @@ class HomeScreen extends ConsumerWidget {
   }
 
   void _showHelpFaqDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        maxChildSize: 0.85,
-        minChildSize: 0.4,
-        expand: false,
-        builder: (_, scrollController) => ListView(
-          controller: scrollController,
-          padding: const EdgeInsets.all(20),
-          children: const [
-            Center(
-              child: SizedBox(
-                width: 40,
-                child: Divider(thickness: 4, height: 4),
-              ),
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Trung tâm trợ giúp & FAQ',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 16),
-            ExpansionTile(
-              title: Text('Làm thế nào để tìm phòng trọ phù hợp?'),
-              children: [
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text('Bạn có thể vào tab Khám phá, sử dụng bộ lọc khu vực, mức giá, tiện ích hoặc tìm kiếm quanh các trường đại học.'),
-                ),
-              ],
-            ),
-            ExpansionTile(
-              title: Text('Đặt cọc phòng trực tuyến có an toàn không?'),
-              children: [
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text('Toàn bộ khoản cọc qua HomeShare được giữ an toàn trên hệ thống và chỉ giải ngân cho chủ trọ sau khi bạn nhận phòng thành công.'),
-                ),
-              ],
-            ),
-            ExpansionTile(
-              title: Text('Quy trình xác thực CCCD (eKYC) là gì?'),
-              children: [
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text('Xác thực CCCD gắn chip giúp tăng độ tin cậy của tài khoản, bảo vệ quyền lợi khi ký hợp đồng thuê trọ điện tử.'),
-                ),
-              ],
-            ),
-            ExpansionTile(
-              title: Text('Làm thế nào để đăng ký làm Chủ trọ?'),
-              children: [
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text('Bạn có thể liên hệ quản trị viên hoặc vào mục Quản lý Chủ trọ để đăng ký cơ sở và phòng cho thuê.'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const HelpFaqScreen()),
     );
   }
 
   void _showHotlineDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Liên hệ hỗ trợ & Hotline',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.phone_in_talk, color: AppColors.primary),
-              title: const Text('Tổng đài hỗ trợ 24/7'),
-              subtitle: const Text('1900 1234 (Miễn phí cước)'),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Đang kết nối tới tổng đài 1900 1234...')),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.email_outlined, color: AppColors.primary),
-              title: const Text('Email hỗ trợ'),
-              subtitle: const Text('cskh@homeshare.vn'),
-              onTap: () => Navigator.pop(ctx),
-            ),
-            ListTile(
-              leading: const Icon(Icons.chat_bubble_outline, color: AppColors.primary),
-              title: const Text('Zalo / Hỗ trợ trực tuyến'),
-              subtitle: const Text('0981 234 567 (8:00 - 22:00)'),
-              onTap: () => Navigator.pop(ctx),
-            ),
-          ],
-        ),
-      ),
-    );
+    showContactHotlineSheet(context);
   }
 
   void _showTermsDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.65,
-        maxChildSize: 0.9,
-        minChildSize: 0.4,
-        expand: false,
-        builder: (_, scrollController) => ListView(
-          controller: scrollController,
-          padding: const EdgeInsets.all(20),
-          children: const [
-            Center(
-              child: SizedBox(
-                width: 40,
-                child: Divider(thickness: 4, height: 4),
-              ),
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Điều khoản & Chính sách bảo mật',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 12),
-            Text(
-              '1. Điều khoản dịch vụ',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-            SizedBox(height: 6),
-            Text(
-              'HomeShare là nền tảng kết nối người thuê trọ, người tìm bạn ở ghép và chủ nhà trọ. Người dùng có trách nhiệm cung cấp thông tin trung thực, tuân thủ pháp luật và nội quy phòng trọ khi ký kết hợp đồng.',
-              style: TextStyle(color: AppColors.textMuted, height: 1.4),
-            ),
-            SizedBox(height: 14),
-            Text(
-              '2. Chính sách bảo mật thông tin',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-            SizedBox(height: 6),
-            Text(
-              'Chúng tôi cam kết bảo vệ dữ liệu cá nhân, thông tin CCCD gắn chip và lịch sử giao dịch của bạn theo tiêu chuẩn an toàn bảo mật cao nhất. Dữ liệu chỉ được dùng cho mục đích định danh và xác thực hợp đồng.',
-              style: TextStyle(color: AppColors.textMuted, height: 1.4),
-            ),
-            SizedBox(height: 14),
-            Text(
-              '3. Quy định thanh toán & đặt cọc',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-            SizedBox(height: 6),
-            Text(
-              'Các khoản đặt cọc giữ phòng được đảm bảo bởi HomeShare Escrow, bảo vệ tối đa quyền lợi của cả người thuê và chủ nhà.',
-              style: TextStyle(color: AppColors.textMuted, height: 1.4),
-            ),
-          ],
-        ),
-      ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const TermsPrivacyScreen()),
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(userProfileProvider).value;
+    final currentLang = ref.watch(appLanguageProvider);
+    final currentThemeMode = ref.watch(appThemeModeProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -395,7 +336,7 @@ class HomeScreen extends ConsumerWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const PersonalProfileScreen(),
+                  builder: (_) => const RoleAwareProfileScreen(),
                 ),
               );
             },
@@ -420,7 +361,7 @@ class HomeScreen extends ConsumerWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const PersonalProfileScreen(),
+                      builder: (_) => const RoleAwareProfileScreen(),
                     ),
                   );
                 },
@@ -793,15 +734,17 @@ class HomeScreen extends ConsumerWidget {
                   _buildSettingsItem(
                     icon: Icons.language_outlined,
                     title: 'Ngôn ngữ',
-                    trailingText: 'Tiếng Việt',
-                    onTap: () => _showLanguageDialog(context),
+                    trailingText: currentLang == 'en' ? 'English' : 'Tiếng Việt',
+                    onTap: () => _showLanguageDialog(context, ref),
                   ),
                   _buildMenuDivider(),
                   _buildSettingsItem(
                     icon: Icons.wb_sunny_outlined,
                     title: 'Giao diện',
-                    trailingText: 'Sáng',
-                    onTap: () => _showThemeDialog(context),
+                    trailingText: currentThemeMode == ThemeMode.dark
+                        ? 'Tối'
+                        : (currentThemeMode == ThemeMode.system ? 'Hệ thống' : 'Sáng'),
+                    onTap: () => _showThemeDialog(context, ref),
                   ),
                   _buildMenuDivider(),
                   _buildSettingsItem(

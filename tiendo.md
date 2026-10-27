@@ -20,10 +20,158 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 ---
 
 ## 2. Current Status
-* **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core) & Phase 2 (Toàn bộ Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma)
+* **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
-* **Progress:** 98%
-* **Chất lượng mã nguồn & Tiến độ mới nhất:**
+* **Progress:** 100%
+  * **Phase 2.69 - Quản Lý Khung Phạt Lưu Trữ Firestore & Cơ Chế Xử Lý Lỗi Vi Phạm Khác (Admin):**
+    - **Lưu trữ động khung phạt trên Firebase Firestore ([violation_rules_service.dart](file:///d:/App/homeshare-dev-THE/lib/core/services/violation_rules_service.dart) & [violation_rule_model.dart](file:///d:/App/homeshare-dev-THE/lib/data/models/violation_rule_model.dart)):**
+      + Quản lý toàn bộ danh mục lỗi vi phạm và số điểm trừ mặc định tại document `system_configs/violation_rules` trên Firestore.
+      + Khởi tạo tự động (auto seed) bộ 7 quy định chuẩn nếu Firestore chưa có dữ liệu.
+      + Hỗ trợ các hàm CRUD: lấy danh sách, stream realtime, thêm lỗi mới, cập nhật điểm, bật/tắt kích hoạt và khôi phục mặc định.
+    - **Giao diện Quản lý Khung phạt cho Admin ([ViolationRulesSheet](file:///d:/App/homeshare-dev-THE/lib/features/admin/widgets/violation_rules_sheet.dart)):**
+      + Bổ sung nút **"Khung phạt"** trên thanh AppBar của [AdminUsersScreen](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_users_screen.dart).
+      + BottomSheet hiển thị danh sách quy định realtime: cho phép bật/tắt (Switch), chỉnh sửa tên/mô tả/điểm trừ hoặc xóa quy định.
+      + Hỗ trợ nút **"+ Thêm lỗi vi phạm mới vào khung phạt"** và tính năng khôi phục mặc định.
+    - **Cơ chế xử lý báo cáo Lỗi khác & Tùy biến theo tình huống (`_WarningDialog`):**
+      + **Lỗi theo phản ánh người thuê:** Tự động trích xuất lý do/mô tả từ báo cáo thành mục riêng kèm checkbox áp dụng và ô điều chỉnh điểm trừ riêng biệt.
+      + **Lỗi khác tự nhập:** Cho phép Admin tự gõ tên lỗi vi phạm phát sinh kèm số điểm phạt tương ứng ngay trong dialog cảnh cáo.
+      + **Tùy chọn lưu vĩnh viễn:** Checkbox *"Lưu lỗi này vào khung phạt hệ thống Firebase"* giúp tự động thêm lỗi mới vào `system_configs/violation_rules` để tái sử dụng cho các báo cáo sau mà không cần cấu hình lại.
+    - **Kiểm định mã nguồn:** `flutter analyze lib/` đạt chuẩn tuyệt đối **No issues found!** (0 errors, 0 warnings).
+  * **Phase 2.68 - Hoàn Thiện Quy Trình Cảnh Cáo Báo Cáo Vi Phạm & Trừ Điểm Uy Tín Chủ Trọ (Admin):**
+    - **Cơ chế phân loại lỗi vi phạm & Trừ điểm uy tín (`reputationScore` / `diemUyTin`) ([AdminUsersScreen](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_users_screen.dart)):**
+      + Tích hợp modal cảnh cáo thông minh `_WarningDialog` khi Admin nhấn **Cảnh cáo** trên thẻ báo cáo vi phạm.
+      + Hệ thống tự động phân tích từ khóa trong `reason` và `description` của báo cáo để đề xuất lỗi phù hợp:
+        * Lừa đảo / Yêu cầu đặt cọc bất thường (Mặc định trừ 20 điểm)
+        * Thông tin phòng sai sự thật / Ảnh giả mạo (Mặc định trừ 15 điểm)
+        * Thái độ khiếm nhã / Quấy rối hoặc đe dọa (Mặc định trừ 15 điểm)
+        * Giá thuê / Tiền cọc chênh lệch thực tế (Mặc định trừ 10 điểm)
+        * Không đảm bảo PCCC / Điều kiện vệ sinh tệ (Mặc định trừ 10 điểm)
+        * Phòng đã cho thuê nhưng không gỡ bài (Mặc định trừ 5 điểm)
+        * Vi phạm quy tắc ứng xử / Điều khoản khác (Mặc định trừ 5 điểm)
+      + Hỗ trợ Admin tùy chỉnh số điểm trừ trực quan: Stepper tăng/giảm +/- 5 điểm, chip chọn nhanh (0đ, -5đ, -10đ, -15đ, -20đ, -30đ), và ô nhập lời nhắn/yêu cầu khắc phục gửi đến chủ trọ.
+      + Thẻ xem trước điểm uy tín trực quan thời gian thực (`Điểm hiện tại` - `Trừ điểm` ➔ `Còn lại / 100đ`), cảnh báo đỏ nếu uy tín tụt xuống dưới 50 điểm.
+    - **Đồng bộ cơ sở dữ liệu Firestore:**
+      + Cập nhật đồng bộ cả hai trường `reputationScore` và `diemUyTin` trong document `users/{uid}` theo công thức `(currentScore - penalty).clamp(0, 100)`.
+      + Tăng `warningCount`, ghi vết `lastWarningAt`, `lastWarningReason`.
+      + Cập nhật báo cáo trong `reports/{reportId}` (`status: 'resolved'`, `resolution: 'warned'`, `penaltyPoints`, `violations`, `previousScore`, `newScore`, `adminNote`).
+      + Ghi nhận vết lịch sử trong collection `violations/VP_{timestamp}`.
+      + Tự động gửi thông báo hệ thống chi tiết lỗi và điểm trừ đến tài khoản chủ trọ trong collection `notifications/TB_{timestamp}`.
+      + Ghi nhật ký quản trị viên `audit_logs`.
+    - **Giao diện hiển thị trực quan:**
+      + Hiển thị huy hiệu điểm uy tín `UT: X/100` trực tiếp trên danh sách người dùng và thẻ báo cáo.
+      + Các báo cáo đã xử lý cảnh cáo hiển thị chi tiết số điểm bị trừ, quá trình biến động điểm (`60 ➔ 45/100 đ`), danh sách thẻ tag lỗi vi phạm và lời nhắn của Admin.
+    - **Kiểm định mã nguồn:** `flutter analyze lib/` đạt chuẩn **No issues found!** (0 errors, 0 warnings).
+  * **Phase 2.67 - Hợp nhất Toàn diện Chức năng Tối ưu Đăng bài & Điều hướng Chi tiết & Thông báo Realtime từ `homeshare-dev-T.ANH` vào `homeshare-dev-THE`:**
+    - **Tối ưu đăng bài cho thuê ([HostCreatePostScreen](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_create_post_screen.dart) & [host_management_provider.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/providers/host_management_provider.dart)):**
+      + Bắt buộc chọn phòng từ danh sách phòng thuộc cơ sở của chủ trọ, loại bỏ hoàn toàn việc tự sinh phòng rác khi đăng bài.
+      + Tự động điền tiền cọc (định dạng VNĐ với `VndInputFormatter`), tiện ích và ảnh thực tế từ kho phòng `host_rooms`.
+      + Tách bạch dứt điểm giữa thao tác Tạo phòng nội bộ và Đăng bài lên bảng tin.
+      + **Triệt tiêu toàn bộ ghi trùng lặp sang `rooms`, `amenities`, `room_amenities` và `room_images`:**
+        * Xóa bỏ hoàn toàn lệnh ghi bản sao sang collection `rooms` trong `createPostWithAmenities` và `updateRoom`.
+        * Xóa bỏ hoàn toàn các vòng lặp ghi document lẻ vào collection `room_amenities` và `room_images` trong cả `createRoom`, `updateRoom` và `createPostWithAmenities`.
+        * Mọi tiện ích (cả danh mục lẫn tự nhập như "Giờ giấc tự do") và hình ảnh được **lưu trọn vẹn trong các mảng `amenities: [...]` và `images: [...]` của document bài đăng `posts`** và phòng `host_rooms`. Tuyệt đối không sinh thêm bất kỳ document rác nào ra các bảng phụ bên ngoài.
+    - **Điều hướng chi tiết phòng & Sửa lỗi hiển thị ảnh ([host_post_card.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/widgets/host_post_card.dart), [host_post_model.dart](file:///d:/App/homeshare-dev-THE/lib/data/models/host_post_model.dart), [room_detail_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/room_detail_screen.dart)):**
+      + Chạm vào thẻ bài đăng chủ trọ sẽ mở trực tiếp màn hình chi tiết `RoomDetailScreen` qua hàm chuyển đổi `post.toRoomModel()`.
+      + Bổ sung cờ `isHostView`: Chủ trọ xem chi tiết bài đăng của chính mình sẽ không hiển thị nút đặt cọc của khách thuê, thay bằng nhãn "Bài đăng của bạn".
+      + Xử lý làm sạch định dạng URL ảnh (`cleanImageUrl`), loại bỏ triệt để lỗi crash hình ảnh khi Firestore trả về chuỗi `{url: ...}` hoặc dấu ngoặc kép thừa.
+    - **Tối ưu hóa nạp dữ liệu liên kết phòng ([room_service.dart](file:///d:/App/homeshare-dev-THE/lib/core/services/room_service.dart) & [room_model.dart](file:///d:/App/homeshare-dev-THE/lib/data/models/room_model.dart)):**
+      + Tự động nạp bổ sung ảnh và tiện ích liên kết nếu bài đăng bị rỗng thông qua `enrichWithRelatedData`.
+    - **Xử lý Thông báo & Yêu cầu đổi lịch dọn vào ([host_notification_repository.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/notifications/repositories/host_notification_repository.dart), [user_notifications_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/user_notifications_screen.dart), [notification_card.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/notifications/widgets/notification_card.dart)):**
+      + Khi chủ trọ đổi ngày/phòng dọn vào từ modal thao tác, tự động gửi notification `booking_adjustment` đến người thuê.
+      + Người thuê nhận thông báo đổi ngày dọn vào có thể bấm **Đồng ý** hoặc **Từ chối** trực tiếp ngay trên thẻ thông báo `_buildBookingAdjustmentCard` (tự động cập nhật `bookings` và `notifications`).
+      + Khắc phục triệt để lỗi vỡ layout ép chữ thành cột dọc trên thẻ thông báo của chủ trọ khi mã đơn `#DP_...` quá dài bằng cách bọc `Flexible` với `softWrap: false`.
+      + Gắn badge chuông đếm số thông báo chưa đọc realtime trên màn hình Tìm ở ghép [RoommateCommunityScreen](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/roommate_community_screen.dart) sử dụng `ref.watch(userUnreadNotificationCountProvider)`.
+    - **Tuân thủ tiêu chuẩn chất lượng:**
+      + Tuyệt đối không copy file test thừa từ nhánh ngoài; mã nguồn sạch sẽ, không chứa warning hay lỗi.
+      + Phân tích mã nguồn `flutter analyze`: **No issues found!** (0 errors, 0 warnings).
+  * **Phase 2.66 - Ghép và Hợp nhất Toàn diện Code từ `homeshare-dev-MAN` vào `homeshare-dev-THE`:**
+    - **Module Quản lý tài chính & Hóa đơn chủ trọ ([HostFinanceScreen](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_finance_screen.dart) & [host_finance_invoices.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_finance_invoices.dart)):**
+      + Tích hợp toàn diện màn hình Quản lý tài chính vào tab Tiền tệ trong [HostMainScreen](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_main_screen.dart) thay thế màn hình tạm (placeholder).
+      + Theo dõi dòng tiền doanh thu, tiền cọc, số dư thực nhận sau chiết khấu sàn, quản lý và đối soát hóa đơn theo từng cơ sở bất động sản và phòng.
+      + Tiện ích đối soát [finance_property_utils.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/utils/finance_property_utils.dart) hỗ trợ bóc tách ID cơ sở từ bài đăng cũ và phòng vận hành.
+    - **Module Quản lý người thuê sau Check-in ([HostTenantManagementScreen](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_tenant_management_screen.dart) & [TenantRepository](file:///d:/App/homeshare-dev-THE/lib/features/host/repositories/tenant_repository.dart)):**
+      + Bổ sung trường `renterId` vào `TenantItem`, hỗ trợ mở trực tiếp màn hình chat nội bộ `ChatDetailScreen` với người thuê thông qua nút tin nhắn trên thẻ [TenantCard](file:///d:/App/homeshare-dev-THE/lib/features/host/widgets/tenant_card.dart) (thay thế nút SMS ứng dụng ngoài).
+      + Phân giải linh hoạt phòng thực tế (`resolveTenantRoom`) và gắn kết kỳ ở không có bookingId (`bookingForPeriod`) cho người ở ghép sau khi được duyệt.
+      + Bộ lọc phòng `DropdownButtonFormField` theo từng cơ sở; tính toán thống kê phản ứng (reactive derived provider `hostTenantStatsProvider`) chính xác số người đang ở và phòng đang sử dụng.
+    - **Widget Nhập diện tích phòng chuẩn hóa ([HostAreaInput](file:///d:/App/homeshare-dev-THE/lib/features/host/widgets/host_area_input.dart)):**
+      + Thanh trượt Slider và ô nhập diện tích TextFormField đồng bộ 2 chiều với validation nghiêm ngặt.
+    - **Liên kết cơ sở phòng khi đăng bài và đặt phòng:**
+      + Bảo toàn `propertyId` khi chủ trọ tạo bài đăng từ phòng có sẵn trong `host_management_provider.dart`.
+      + Hỗ trợ `propertyId` trong `BookingService.createBooking` và truyền trực tiếp từ `room_booking_detail_screen.dart`.
+    - **Kiểm định chất lượng & Bộ test tự động:**
+      + Bổ sung 4 bộ kiểm thử: [finance_property_utils_test.dart](file:///d:/App/homeshare-dev-THE/test/finance_property_utils_test.dart), [host_finance_invoices_test.dart](file:///d:/App/homeshare-dev-THE/test/host_finance_invoices_test.dart), [host_tenant_management_test.dart](file:///d:/App/homeshare-dev-THE/test/host_tenant_management_test.dart), [host_area_input_test.dart](file:///d:/App/homeshare-dev-THE/test/host_area_input_test.dart). Toàn bộ 15/15 test cases chạy passed 100%.
+      + Chạy tổng hợp 54/54 test cases toàn hệ thống: **Passed 100%**.
+      + Phân tích mã nguồn `flutter analyze`: **No issues found** (0 errors, 0 warnings).
+  * **Phase 2.65 - Hoàn thiện 100% Các Chức Năng Trong Mục 'Cài Đặt Chung & Hỗ Trợ' (Profile):**
+    - **Ngôn ngữ (Language Switcher):**
+      + Tạo [app_settings_provider.dart](file:///d:/App/homeshare-dev-THE/lib/core/providers/app_settings_provider.dart) quản lý `appLanguageProvider` ('vi' / 'en'), tự động lưu/khôi phục qua `SharedPreferences`.
+      + Bottom sheet chọn ngôn ngữ trực quan hiển thị cờ 🇻🇳 Tiếng Việt (Mặc định) và 🇺🇸 English (US), cập nhật nhãn động trên menu.
+    - **Giao diện (Theme Mode: Sáng / Tối / Hệ thống):**
+      + Bổ sung `AppTheme.darkTheme` chuẩn Material 3 trong [app_theme.dart](file:///d:/App/homeshare-dev-THE/lib/core/theme/app_theme.dart) với bảng màu dark chuyên nghiệp (slate-900, slate-800, text slate-50).
+      + Quản lý `appThemeModeProvider` trong [app_settings_provider.dart](file:///d:/App/homeshare-dev-THE/lib/core/providers/app_settings_provider.dart), đồng bộ vào `MyApp` trong [main.dart](file:///d:/App/homeshare-dev-THE/lib/main.dart). Cho phép chuyển đổi tức thì giữa Sáng, Tối (Dark mode) và Theo hệ thống.
+    - **Trung tâm trợ giúp & FAQ ([HelpFaqScreen](file:///d:/App/homeshare-dev-THE/lib/features/profile/screens/help_faq_screen.dart)):**
+      + Màn hình hỏi đáp chuyên sâu với thanh tìm kiếm thời gian thực và 6 danh mục câu hỏi (Thuê phòng & Xem trọ, Đặt cọc & Thanh toán, Tìm bạn ở ghép, Xác thực CCCD / eKYC, Dành cho Chủ trọ).
+      + Trả lời cặn kẽ mọi nghiệp vụ thực tế: hoàn cọc escrow, eKYC an toàn, duyệt bài repost, đánh giá uy tín...
+    - **Liên hệ hỗ trợ / Hotline ([contact_hotline_sheet.dart](file:///d:/App/homeshare-dev-THE/lib/features/profile/widgets/contact_hotline_sheet.dart)):**
+      + Modal tương tác hành động: Gọi ngay tổng đài 1900 1234 (`tel:`), mở Zalo CSKH 0981 234 567, gửi Email `cskh@homeshare.vn`, sao chép địa chỉ văn phòng trực tiếp kèm thông báo SnackBar.
+    - **Điều khoản & Chính sách bảo mật ([TermsPrivacyScreen](file:///d:/App/homeshare-dev-THE/lib/features/profile/screens/terms_privacy_screen.dart)):**
+      + Giao diện 2 Tab chuẩn pháp lý: Điều khoản dịch vụ và Chính sách bảo mật dữ liệu tuân thủ Nghị định 13/2023/NĐ-CP.
+    - **Kiểm thử tự động:**
+      + Tạo [profile_settings_support_test.dart](file:///d:/App/homeshare-dev-THE/test/profile_settings_support_test.dart) bao phủ 6/6 test cases, chạy passed 100%. Phân tích tĩnh 0 errors.
+  * **Phase 2.60 - Tích hợp Dữ liệu Bảng 'repost' Firebase vào Màn hình Quản lý Người dùng & Báo cáo Vi phạm để Admin Duyệt Bài Viết:**
+    - **Lắng nghe dữ liệu bảng 'repost' trực tiếp từ Firebase Firestore:**
+      + Bổ sung hằng số collection chuẩn `repost = 'repost'` và `reposts = 'reposts'` trong [firestore_collections.dart](file:///d:/App/homeshare-dev-THE/lib/core/constants/firestore_collections.dart).
+      + Trong [AdminUsersScreen](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_users_screen.dart), lắng nghe song song cả hai collection `repost` và `reposts` qua `StreamSubscription` theo thời gian thực (realtime).
+      + Tự động chuẩn hóa dữ liệu từ doc repost: `postId`, `title`, `price`, `deposit`, `address`, `userId`, `userName`, `userPhone`, `rejectReason`, `userNote`, `images`, `status`, `createdAtDate`.
+    - **Tab thứ 4 "Duyệt Repost" trong Quản lý người dùng & Báo cáo vi phạm:**
+      + Bổ sung enum `_UsersView.reposts`, hiển thị tab thứ 4 `Duyệt Repost` với màu tím chuyên biệt (`#7C3AED`) kèm huy hiệu badge đếm realtime số lượng bài đăng repost đang chờ duyệt.
+      + Tìm kiếm không dấu tiếng Việt linh hoạt hỗ trợ tìm kiếm theo tiêu đề bài viết, tên người đăng, số điện thoại, địa chỉ phòng, lý do từ chối trước đó, ghi chú sửa đổi của người dùng.
+    - **Thẻ Card & Hộp thoại xem chi tiết bài đăng Repost:**
+      + Thẻ `_repostCard` hiển thị hình ảnh phòng trọ thực tế, tiêu đề, giá thuê định dạng VNĐ, địa chỉ, người đăng và số điện thoại liên hệ.
+      + Container cảnh báo màu đỏ nhạt hiển thị lý do bài đăng từng bị cảnh cáo/từ chối trước đó.
+      + Container màu xanh lá nhạt hiển thị nội dung/ghi chú người dùng đã sửa đổi sau cảnh cáo.
+      + Nút **Xem chi tiết** (`_showRepostDetailDialog`) cho phép Admin soi kỹ toàn bộ thông tin bài đăng, ảnh phòng full, so sánh trước và sau chỉnh sửa.
+    - **Hành động Duyệt / Từ chối bài repost:**
+      + **Nút Phê duyệt (`_approveRepost`):** Cập nhật trạng thái doc repost thành `approved`, tự động kích hoạt bài viết trong `posts` (`status: 'active'`, `isAvailable: true`) và phòng trong `rooms` & `host_rooms` (`status: 'available'`). Gửi thông báo chúc mừng tới người dùng và ghi nhật ký hệ thống `audit_logs`.
+      + **Nút Từ chối (`_rejectRepost`):** Hộp thoại yêu cầu Admin nhập lý do từ chối cụ thể; cập nhật doc repost thành `rejected`; nếu chủ trọ tái phạm thì tự động trừ 1 điểm uy tín (`reputationScore - 1`); gửi thông báo chi tiết lý do từ chối tới người dùng.
+    - **Kiểm thử tự động & Phân tích tĩnh:**
+      + `test/admin_users_screen_test.dart` được cập nhật thêm test case `Tc_ADMIN_USERS_03: Switch view to Duyệt Repost tab`, chạy passed 3/3 (100%).
+      + `test/admin_dashboard_test.dart` passed 4/4 (100%).
+      + Phân tích mã nguồn `flutter analyze`: **0 issues found** (sạch hoàn toàn).
+  * **Phase 2.59 - Ghép và Hợp nhất Toàn diện Module Quản trị viên (Admin) từ `homeshare-dev-QUYNH` vào `homeshare-dev-THE`:**
+    - **Quản lý người dùng & Báo cáo vi phạm ([AdminUsersScreen](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_users_screen.dart)):**
+      + Tích hợp màn hình quản lý người dùng với 3 chế độ xem: `Chờ xử lý` (Báo cáo vi phạm đang chờ admin duyệt), `Đã xử lý` (Lịch sử các báo cáo đã cảnh cáo, khóa tài khoản hoặc bỏ qua), và `Người dùng` (Toàn bộ danh sách người dùng trong hệ thống: Admin, Chủ trọ, Người thuê).
+      + Tìm kiếm không dấu tiếng Việt linh hoạt (`_removeAccents`) theo tên, email, SĐT, lý do vi phạm.
+      + Các hành động xử lý trực tiếp: Khóa / Mở khóa tài khoản (cập nhật `isBanned`, `bannedAt`, `banReason`), Cảnh cáo người dùng (gửi thông báo vi phạm vào `notifications`), Bỏ qua báo cáo; ghi nhận chi tiết vào `audit_logs`.
+      + Tăng cường khả năng chịu lỗi (Hardened Fault Tolerance): Bọc bắt lỗi Firestore trong `initState` tránh crash khi môi trường test chưa khởi tạo Firebase App.
+    - **Nâng cấp Điều hướng Quản trị 5 Tab ([AdminMainScreen](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_main_screen.dart)):**
+      + Cập nhật cả `NavigationRail` (Tablet / Web / Màn hình rộng) và `bottomNavigationBar` (Mobile) thành 5 tab chuẩn:
+        0: `Tổng quan` (Dashboard KPI, Dòng tiền & Biểu đồ doanh thu)
+        1: `Bài đăng` (Kiểm duyệt tin đăng phòng trọ)
+        2: `Quản lý đơn` (Đơn đặt phòng, cọc & giải ngân)
+        3: `Người dùng` (Quản lý tài khoản & báo cáo vi phạm, kèm Huy hiệu đỏ đếm realtime số báo cáo pending từ Firestore `reports`)
+        4: `Lịch sử` (Lịch sử giao dịch, giải ngân & quyết toán)
+    - **Nâng cấp Quản lý Bài đăng ([AdminPostsScreen](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_posts_screen.dart)):**
+      + Thêm bộ lọc khoảng thời gian ngày đăng (`_dateRange`, `_chooseDateRange`) cho phép admin lọc bài đăng theo ngày tạo `createdAt`.
+      + Sắp xếp thông minh: Bài chưa duyệt được ưu tiên đẩy lên đầu danh sách ở tab "Tất cả", bài đăng mới nhất xếp trước.
+      + Bảo vệ vòng đời duyệt lại: Kiểm tra `canReviewAgain = isRejected && data['hostResubmittedAt'] != null;`. Nếu bài bị từ chối mà chủ trọ chưa chỉnh sửa gửi lại, nút duyệt sẽ bị vô hiệu hóa kèm nhãn "Chờ chủ trọ chỉnh sửa bài".
+      + Đổi nhãn nút từ chối thành "Hạ Tin / Gỡ Bài" với icon `Icons.remove_circle_outline`.
+    - **Nâng cấp Chi tiết Duyệt Bài ([AdminPostReviewDetailScreen](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_post_review_detail_screen.dart)):**
+      + Bổ sung 10 lý do vi phạm chi tiết chuẩn ngành (spam, lừa đảo, sai thông tin, giá/cọc không minh bạch, xúc phạm, dẫn dụ ngoài sàn...).
+      + Khung mô tả phòng dạng container viền mềm dễ đọc.
+      + Tham số `canApprove` bảo đảm admin không duyệt nhầm bài chưa được chủ trọ cập nhật lại sau khi bị từ chối.
+    - **Bảo vệ Nghiệp vụ Dịch vụ Duyệt bài ([PostReviewService](file:///d:/App/homeshare-dev-THE/lib/features/admin/services/post_review_service.dart)):**
+      + Kiểm tra ràng buộc: Ném lỗi `StateError` nếu duyệt bài bị từ chối mà thiếu `hostResubmittedAt`.
+      + Tự động xóa cờ `hostResubmittedAt` khi admin từ chối bài (`FieldValue.delete()`).
+    - **Tối ưu Hóa đơn Hủy cọc ([CancellationInvoiceScreen](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/cancellation_invoice_screen.dart)):**
+      + Chống tràn viền chữ (`Expanded`, `Flexible`, `maxLines: 2`, `overflow: TextOverflow.ellipsis`).
+      + Hiển thị trạng thái "ĐÃ GHI NHẬN CHUYỂN" và "ĐÃ GHI NHẬN HOÀN TIỀN" khi các bên đã được thanh toán cọc hủy.
+    - **Bổ sung Font License & Bộ Kiểm thử Hoàn chỉnh:**
+      + Thêm license font `lib/core/utils/admin_receipt_roboto_license.txt`.
+      + Cập nhật test `test/admin_dashboard_test.dart` (5 tabs).
+      + Thêm mới bộ test [admin_users_screen_test.dart](file:///d:/App/homeshare-dev-THE/test/admin_users_screen_test.dart).
+      + Toàn bộ 10/10 test admin (`admin_booking_utils_test.dart`, `admin_dashboard_test.dart`, `admin_receipt_pdf_test.dart`, `admin_users_screen_test.dart`) đều passed 100%.
+      + `flutter analyze` đạt chuẩn tuyệt đối: **0 errors, 0 warnings** (No issues found).
   * **Loại bỏ triệt để Hardcode:** Toàn bộ dữ liệu hồ sơ cá nhân, ảnh đính kèm, danh mục địa giới hành chính toàn quốc (Tỉnh/Thành, Quận/Huyện, Phường/Xã) và bộ lọc kết quả được nạp động 100% từ Firestore, Firebase Storage và `VietnamLocations`.
   * **Sửa lỗi crash BoxConstraints toàn cục:** Đã chuẩn hóa `minimumSize: const Size(64, 44)` trong `phong_sang_theme.dart`, loại bỏ hoàn toàn lỗi vỡ layout Flex / `BoxConstraints forces an infinite width`.
   * **Viết lại sạch (Clean Rewrite) `search_filter_screen.dart`:** Chuẩn 3 trạng thái Figma, hỗ trợ mở rộng dropdown nâng cao `#006948`, thanh lọc thu gọn và kết quả thời gian thực.
@@ -2157,5 +2305,99 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
      - `flutter analyze`: **0 errors, 0 warnings (No issues found!)**.
      - `flutter test test/roommate_invitation_policy_test.dart`: **PASSED (100%)**.
 * **Git:** Commit và push lên nhánh `dev-TOAN` (`https://github.com/23211tt0240-NhuQuynh/homeshare/tree/dev-TOAN`).
+
+---
+
+### Phase 2.62: Ghép Phân Hệ Quản Trị Viên (Admin) Từ `homeshare-dev-QUYNH` & Duyệt Bài Viết Repost Tại Tab Quản Lý Người Dùng & Báo Cáo Vi Phạm
+* **Ngày hoàn thành:** 24/10/2026 - 25/10/2026
+* **Yêu cầu người dùng:**
+  1. "homeshare-dev-QUYNH ghép project vào project này phần admin"
+  2. "sau khi người dùng repost bài viết thì vào phần Quản lý người dùng & Báo cáo vi phạm để admin duyệt xem có đúng k"
+* **Phân tích yêu cầu & Định hướng triển khai:**
+  1. **Ghép trọn vẹn phân hệ Admin từ `homeshare-dev-QUYNH`:**
+     - Tích hợp màn hình [admin_users_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_users_screen.dart) ("Quản lý người dùng & Báo cáo vi phạm").
+     - Mở rộng [admin_main_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_main_screen.dart) thành 5 tab chức năng điều hướng tiêu chuẩn:
+       * Tab 0: **Tổng quan** ([admin_dashboard_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_dashboard_screen.dart))
+       * Tab 1: **Bài đăng** ([admin_posts_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_posts_screen.dart))
+       * Tab 2: **Hủy & Cọc** ([cancellation_invoice_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/cancellation_invoice_screen.dart))
+       * Tab 3: **Người dùng & Báo cáo** ([admin_users_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_users_screen.dart))
+       * Tab 4: **Tài khoản**
+     - Đồng bộ các dịch vụ xử lý hóa đơn hủy, xử lý cọc giữ chỗ và duyệt bài vi phạm.
+  2. **Quy trình duyệt bài viết sau khi người dùng Repost:**
+     - Khi một bài viết bị Admin từ chối vì vi phạm (`rejected`), chủ bài đăng sửa nội dung vi phạm và gửi lại yêu cầu duyệt (repost/resubmit) -> trạng thái bài viết chuyển thành `pending_review` (hoặc `choDuyet`) kèm cờ `isRepost: true` / `resubmittedAt`.
+     - Tại Tab 3 **Quản lý người dùng & Báo cáo vi phạm** ([admin_users_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_users_screen.dart)):
+       * Bổ sung sub-tab **"Bài đăng chờ duyệt repost"** bên cạnh 2 tab hiện hữu ("Người dùng" và "Báo cáo vi phạm").
+       * Hiển thị danh sách các bài đăng vừa được repost, làm nổi bật lý do từng bị cảnh cáo/từ chối trước đó và nội dung mới sửa đổi.
+       * Admin có thể trực tiếp: Phê duyệt bài đăng (`approved`), hoặc Tiếp tục từ chối/khóa bài viết và trừ điểm uy tín nếu tiếp tục vi phạm.
+* **Kiểm thử tự động:**
+  - `flutter test test/admin_dashboard_test.dart test/admin_users_screen_test.dart test/admin_orders_screen_test.dart`: **PASSED 100%**.
+
+---
+
+### Phase 2.63: Đánh Giá Chủ Trọ (`host_reviews`) & Thanh Uy Tín 0–100 Chỉ Cho Host (Đồng bộ từ `D:\TaiLieu\homeshare-dev-THE`)
+* **Ngày hoàn thành:** 24/10/2026 - 25/10/2026
+* **Phạm vi:** Người thuê đánh giá chủ trọ theo từng đơn thuê. Hồ sơ chủ trọ hiện thanh uy tín 0–100. Người thuê **không** có thanh uy tín. Admin **chưa** có UI trừ điểm. Không cho sửa/xóa đánh giá phía client.
+* **Nguyên tắc đã chốt:**
+  1. Collection mới: `host_reviews`. Document ID = `bookingId` (một đơn thuê chỉ đánh giá 1 lần).
+  2. Sao trung bình **tính lúc đọc** từ danh sách review; client **không** ghi field trung bình lên document đánh giá.
+  3. Thanh uy tín **chỉ hiện khi vai trò là chủ trọ** (`host` / `landlord` / `chutro` / `chu_tro`). Renter và Admin không hiện thanh này.
+  4. Công thức thống nhất: `diemUyTin = max(0, 20 * R - P)` với `R` = sao trung bình 1–5, `P` = tổng phạt Admin. Hiện tại P = 0.
+  5. Chưa có review hợp lệ thì giữ mặc định **100**.
+  6. Tách rule riêng cho `host_reviews` trong [firestore.rules](file:///d:/App/homeshare-dev-THE/firestore.rules).
+* **Chi tiết kỹ thuật:**
+  1. Collection `host_reviews`: document ID `bookingId`, trường: `hostId`, `reviewerId`, `reviewerName`, `rating` (1–5), `comment` (≤ 500 ký tự), `bookingId`, `createdAt`.
+  2. Đồng bộ uy tín lên `users/{hostId}` sau mỗi review qua [host_review_service.dart](file:///d:/App/homeshare-dev-THE/lib/core/services/host_review_service.dart): ghi merge cả `reputationScore` và `diemUyTin` = `round(20 * R - P)`.
+  3. Các file triển khai:
+     - [firestore_collections.dart](file:///d:/App/homeshare-dev-THE/lib/core/constants/firestore_collections.dart): `hostReviews = 'host_reviews'`, `HostReviewFields`.
+     - [host_review_model.dart](file:///d:/App/homeshare-dev-THE/lib/data/models/host_review_model.dart): model + `HostReviewStats.fromReviews`.
+     - [host_review_policy.dart](file:///d:/App/homeshare-dev-THE/lib/core/utils/host_review_policy.dart): điều kiện đơn, không tự review.
+     - [host_reputation.dart](file:///d:/App/homeshare-dev-THE/lib/core/utils/host_reputation.dart): host-only, công thức `20*R-P`, màu thanh (≥80 xanh, ≥50 vàng, <50 đỏ).
+     - [host_review_service.dart](file:///d:/App/homeshare-dev-THE/lib/core/services/host_review_service.dart): `watchHostReviews`, `submitReview`, `syncHostReputationScore`.
+     - Widgets: [host_reputation_bar.dart](file:///d:/App/homeshare-dev-THE/lib/features/profile/widgets/host_reputation_bar.dart), [host_review_sheet.dart](file:///d:/App/homeshare-dev-THE/lib/features/profile/widgets/host_review_sheet.dart), [host_reviews_section.dart](file:///d:/App/homeshare-dev-THE/lib/features/profile/widgets/host_reviews_section.dart).
+  4. Test: [host_review_test.dart](file:///d:/App/homeshare-dev-THE/test/host_review_test.dart) — **PASSED (100%)**.
+
+---
+
+### Phase 2.64: Báo Cáo Chủ Trọ Gửi Admin (Đồng bộ từ `D:\TaiLieu\homeshare-dev-THE`)
+* **Ngày hoàn thành:** 25/10/2026
+* **Phạm vi đã chốt:** Người thuê gửi báo cáo → Admin **nhận chuông thông báo**. Chưa làm màn Admin duyệt/từ chối, chưa trừ uy tín, chưa khóa tài khoản.
+* **Điểm vào UI:**
+  - Chi tiết phòng: nút **Báo cáo** → [report_host_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/report_host_screen.dart) (`ReportHostScreen.fromRoom`).
+  - Hồ sơ chủ trọ (view-only): **Báo cáo chủ trọ**. Cấm tự báo cáo chính mình, bắt đăng nhập.
+* **Chi tiết kỹ thuật:**
+  1. Form gồm 7 lý do (checkbox vuông, chọn nhiều lý do). Khi tick "Lý do khác", hiển thị ô nhập văn bản (tối đa 500 ký tự).
+  2. Khối **Ảnh minh chứng (*)** bắt buộc ≥ 1 ảnh, tối đa 5 ảnh đối với mọi lý do.
+  3. Ghi Firebase khi gửi báo cáo:
+     - Collection `reports`: Document ID `BC_{timestamp}` (`IdGenerator.hostReport()`), `targetType: 'host'`, `hostId`, `reasons`, `reason`, `detail`, `evidenceUrls`, `status: 'pending'`, `createdAt`.
+     - Collection `notifications`: Document ID `TB_{timestamp}`, `recipientRole: 'admin'`, `notificationType: 'report'`, `targetId: BC_...`.
+     - Collection `audit_logs`: Document ID `LOG_{timestamp}`, `action: 'Người thuê báo cáo chủ trọ'`.
+  4. Chuông thông báo Admin nhận thông báo icon `report`.
+  5. Các file triển khai:
+     - [host_report_policy.dart](file:///d:/App/homeshare-dev-THE/lib/core/utils/host_report_policy.dart)
+     - [host_report_service.dart](file:///d:/App/homeshare-dev-THE/lib/core/services/host_report_service.dart)
+     - [report_host_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/report_host_screen.dart)
+     - [id_generator.dart](file:///d:/App/homeshare-dev-THE/lib/core/utils/id_generator.dart) (`hostReport()` -> `BC_...`)
+  6. Test: [host_report_test.dart](file:///d:/App/homeshare-dev-THE/test/host_report_test.dart) — **PASSED (100%)**.
+
+---
+
+### Phase 2.65: Tách Hồ Sơ Chủ Trọ Khỏi Hồ Sơ Người Thuê & Hợp Nhất Toàn Diện Từ `D:\TaiLieu\homeshare-dev-THE` Vào `homeshare-dev-THE`
+* **Ngày hoàn thành:** 25/10/2026
+* **Yêu cầu & Thực hiện:**
+  1. **Tách hồ sơ theo vai trò:**
+     - Người thuê: giữ nguyên [personal_profile_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/profile/screens/personal_profile_screen.dart) (nghề nghiệp, giới thiệu, sở thích, ngân hàng).
+     - Chủ trọ: màn hình riêng biệt [host_profile_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/profile/screens/host_profile_screen.dart) (thanh uy tín, đánh giá, báo cáo chủ trọ, thông tin cơ bản & liên hệ, tài khoản ngân hàng khi chủ tự sửa; gỡ bỏ nghề nghiệp, công tác, giới thiệu, sở thích).
+     - Điều hướng thông minh theo vai trò người dùng qua [role_aware_profile_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/profile/screens/role_aware_profile_screen.dart).
+  2. **Ghi Firebase phân hệ hồ sơ:**
+     - `saveHostProfile` trong [user_profile_service.dart](file:///d:/App/homeshare-dev-THE/lib/core/services/user_profile_service.dart): ghi đúng `users` (`displayName`, `phoneNumber`, `gender`, `hometown`, `birthDate`, `avatarUrl`) và `bank_accounts` (`accountNumber`, `accountHolder`, `bankName`).
+  3. **Hợp nhất mã nguồn toàn diện giữa `D:\TaiLieu\homeshare-dev-THE` và `d:\App\homeshare-dev-THE`:**
+     - Sao chép toàn bộ 156 tệp mã nguồn non-admin từ `D:\TaiLieu\homeshare-dev-THE\lib` sang `d:\App\homeshare-dev-THE\lib`.
+     - Sao chép toàn bộ 41 tệp kiểm thử non-admin từ `D:\TaiLieu\homeshare-dev-THE\test` sang `d:\App\homeshare-dev-THE\test`.
+     - Sao chép cấu hình Firebase: [firestore.rules](file:///d:/App/homeshare-dev-THE/firestore.rules), [firestore.indexes.json](file:///d:/App/homeshare-dev-THE/firestore.indexes.json), [firebase.json](file:///d:/App/homeshare-dev-THE/firebase.json).
+     - **Bảo toàn 100% phân hệ Quản trị viên (Admin)** vừa phát triển tại `lib/features/admin/` ([admin_users_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_users_screen.dart), [admin_main_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_main_screen.dart) 5 tab, [cancellation_invoice_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/cancellation_invoice_screen.dart), [post_review_service.dart](file:///d:/App/homeshare-dev-THE/lib/features/admin/services/post_review_service.dart)) và các test Admin tương ứng.
+  4. **Kiểm tra chất lượng & Test:**
+     - `flutter test test/host_review_test.dart test/host_report_test.dart test/host_profile_test.dart test/profile_screen_test.dart test/role_routing_test.dart test/id_generator_test.dart test/admin_dashboard_test.dart test/admin_users_screen_test.dart`: **81/81 PASSED (100%)**.
+     - `flutter analyze`: **0 errors, 0 warnings (No issues found!)**.
+
 
 
