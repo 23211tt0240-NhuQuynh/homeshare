@@ -208,6 +208,17 @@ void main() {
       ProviderScope(
         overrides: [
           hostTenantsProvider.overrideWith((ref) => Stream.value(rooms)),
+          hostRoomsProvider.overrideWith(
+            (ref) => Stream.value([
+              for (final tenant in rooms)
+                RoomModel.fromMap({
+                  'propertyId': tenant.propertyId,
+                  'roomCode': tenant.roomName.replaceFirst('P.', ''),
+                  'status': 'occupied',
+                  'hostId': 'host',
+                }, tenant.roomId),
+            ]),
+          ),
           hostPropertiesProvider.overrideWith(
             (ref) => Stream.value([
               const HostProperty(
@@ -293,6 +304,72 @@ void main() {
         TenantRepository.bookingForPeriod(period('primary'), [], rooms),
         isNull,
       );
+    },
+  );
+
+  testWidgets(
+    'QM room filter includes its two empty rooms even without residents',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            hostTenantsProvider.overrideWith((ref) => Stream.value([])),
+            hostPropertiesProvider.overrideWith(
+              (ref) => Stream.value([
+                const HostProperty(
+                  id: 'qm',
+                  name: 'Chung cư QM',
+                  address: '',
+                  city: '',
+                  ward: '',
+                  hostId: 'host',
+                  plannedRooms: 20,
+                ),
+              ]),
+            ),
+            hostRoomsProvider.overrideWith(
+              (ref) => Stream.value([
+                RoomModel.fromMap({
+                  'propertyId': 'qm',
+                  'roomCode': 'QM01',
+                  'status': 'available',
+                }, 'qm1'),
+                RoomModel.fromMap({
+                  'propertyId': 'qm',
+                  'roomCode': 'QM02',
+                  'status': 'available',
+                }, 'qm2'),
+                RoomModel.fromMap({
+                  'propertyId': 'qm',
+                  'roomCode': 'DELETED',
+                  'status': 'deleted',
+                }, 'deleted'),
+                RoomModel.fromMap({
+                  'propertyId': 'bel',
+                  'roomCode': 'TB01',
+                  'status': 'available',
+                }, 'other'),
+              ]),
+            ),
+          ],
+          child: const MaterialApp(home: HostTenantManagementScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Chung cư QM').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Cơ sở này chưa có người thuê đang ở.'), findsOneWidget);
+      await tester.tap(find.byType(DropdownButtonFormField<String>).last);
+      await tester.pumpAndSettle();
+      expect(find.text('P.QM01'), findsOneWidget);
+      expect(find.text('P.QM02'), findsOneWidget);
+      expect(find.text('P.DELETED'), findsNothing);
+      expect(find.text('P.TB01'), findsNothing);
+      await tester.tap(find.text('P.QM02'));
+      await tester.pumpAndSettle();
+      expect(find.text('Phòng này chưa có người thuê đang ở.'), findsOneWidget);
     },
   );
 

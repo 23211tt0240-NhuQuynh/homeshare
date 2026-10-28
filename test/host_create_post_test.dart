@@ -263,6 +263,40 @@ void main() {
   );
 
   group('Màn Tạo bài đăng - Role Chủ trọ', () {
+    testWidgets('Phòng đã cọc và đang thuê không xuất hiện trong lựa chọn', (
+      tester,
+    ) async {
+      setScreenSize(tester);
+      final repo = CreatePostTestRepository()
+        ..properties.add(defaultProperty)
+        ..rooms.addAll([
+          defaultRoom,
+          defaultRoom.copyWith(
+            id: 'reserved-room',
+            roomCode: 'P102',
+            status: 'reserved',
+          ),
+          defaultRoom.copyWith(
+            id: 'occupied-room',
+            roomCode: 'P103',
+            status: 'occupied',
+          ),
+        ]);
+      await tester.pumpWidget(
+        createTestApp(const HostCreatePostScreen(), repo),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('property_select')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nhà trọ Hoa Sen').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('room_select')));
+      await tester.pumpAndSettle();
+      expect(find.text('P101 - Phòng studio full nội thất'), findsWidgets);
+      expect(find.text('P102 - Phòng studio full nội thất'), findsNothing);
+      expect(find.text('P103 - Phòng studio full nội thất'), findsNothing);
+    });
+
     testWidgets('1. Giá lấy từ phòng và không cho người dùng chỉnh sửa', (
       tester,
     ) async {

@@ -313,6 +313,34 @@ void main() {
     );
   });
 
+  for (final entry in {'QL người thuê': 1, 'QL Tiền tệ': 3}.entries) {
+    testWidgets('Room navigation opens management tab ${entry.key}', (
+      tester,
+    ) async {
+      phone(tester);
+      final repo = TestRepository()..properties.add(house);
+      addTearDown(repo.close);
+      int? selectedTab;
+      await tester.pumpWidget(
+        app(
+          HostPropertyManagementScreen(
+            onManagementSelected: (index) => selectedTab = index,
+          ),
+          repo,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Quản lý phòng'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(entry.key));
+      await tester.pumpAndSettle();
+      expect(selectedTab, entry.value);
+      expect(find.text('Danh sách cơ sở (1)'), findsOneWidget);
+      expect(find.textContaining('sẽ được bổ sung sau'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('Management responds to property and room stream changes', (
     tester,
   ) async {

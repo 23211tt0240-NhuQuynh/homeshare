@@ -600,7 +600,9 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
 
     // Lọc danh sách phòng theo nhaTroId đã chọn
     final propertyRooms = _property != null
-        ? allRooms.where((r) => r.propertyId == _property!.id).toList()
+        ? allRooms
+              .where((r) => r.propertyId == _property!.id && r.canBeListed)
+              .toList()
         : <RoomModel>[];
 
     return PopScope(

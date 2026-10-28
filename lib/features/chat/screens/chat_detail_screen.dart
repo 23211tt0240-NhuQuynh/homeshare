@@ -954,16 +954,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       updatedExtraData['acceptedByName'] = widget.currentUserName;
       updatedExtraData['acceptedAt'] = DateTime.now().toIso8601String();
 
-      await ref.read(chatServiceProvider).updateMessageExtraData(
-        senderId: msg.senderId,
-        receiverId: msg.receiverId,
-        messageId: msg.id,
-        extraData: updatedExtraData,
-      );
-
       // Chỉ thông báo đúng chủ trọ lấy từ document phòng đã xác minh.
       await ref.read(chatServiceProvider).notifyHostRoommateAccepted(
         hostId: hostId,
+        invitationId: msg.id,
         roomId: roomId,
         roomTitle: roomTitle,
         primaryTenantName: msg.senderName,
@@ -972,13 +966,21 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         newRoommateId: widget.currentUserId,
       );
 
+      // Chỉ đánh dấu đồng ý sau khi yêu cầu tới chủ trọ được lưu thành công.
+      await ref.read(chatServiceProvider).updateMessageExtraData(
+        senderId: msg.senderId,
+        receiverId: msg.receiverId,
+        messageId: msg.id,
+        extraData: updatedExtraData,
+      );
+
       // Gửi tin nhắn xác nhận realtime vào đoạn chat
-      await _sendMessage('✅ Tôi đã chấp nhận lời mời ở ghép cùng bạn tại phòng $roomTitle. Hệ thống đã gửi thông báo đến chủ nhà!');
+      await _sendMessage('✅ Tôi đã chấp nhận lời mời ở ghép cùng bạn tại phòng $roomTitle. Đang chờ chủ trọ duyệt vào phòng.');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Đã chấp nhận lời mời ở ghép và gửi thông báo đến chủ nhà thành công!'),
+            content: Text('Đã đồng ý lời mời. Người ở ghép sẽ vào danh sách sau khi chủ trọ duyệt.'),
             backgroundColor: AppColors.primary,
           ),
         );
@@ -2285,7 +2287,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                     SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        'Đã chấp nhận • Đã gửi thông báo đến chủ nhà',
+                        'Đã đồng ý • Chờ chủ trọ duyệt vào phòng',
                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
                         overflow: TextOverflow.ellipsis,
                       ),

@@ -243,7 +243,7 @@ class RoomService {
         'phong_tro_id',
       ]);
       final referencedRoom = await _readReferencedRoom(roomId);
-      if (referencedRoom?.isDeleted == true) return null;
+      if (referencedRoom != null && !referencedRoom.canBeListed) return null;
 
       final addressText = listing.address
           .replaceAll(RegExp(r'[,\s]'), '')

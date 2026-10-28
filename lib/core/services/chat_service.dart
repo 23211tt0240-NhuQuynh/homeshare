@@ -410,11 +410,13 @@ class ChatService {
     required String newRoommateName,
     required String newRoommateId,
     String userNotificationId = '',
+    String invitationId = '',
   }) async {
     if (hostId.isEmpty) return;
 
     final resolvedCode = roomCode.isNotEmpty ? roomCode : 'P001';
-    final notifRef = _firestore.collection('notifications').doc();
+    final notifRef = _firestore.collection('notifications')
+        .doc(invitationId.isEmpty ? null : 'roommate_$invitationId');
     await notifRef.set({
       'notificationId': notifRef.id,
       'id': notifRef.id,

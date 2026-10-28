@@ -1,3 +1,4 @@
+import '../widgets/host_management_navigation.dart';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../chat/screens/chat_list_screen.dart';
@@ -15,7 +16,8 @@ import 'host_finance_screen.dart';
 // Chủ trọ - Khung điều hướng - Luồng đi: Mở Dashboard và giữ trạng thái
 // của 5 tab; các tab chưa triển khai hiển thị màn hình tạm.
 class HostMainScreen extends StatefulWidget {
-  const HostMainScreen({super.key});
+  const HostMainScreen({super.key, this.initialManagementIndex});
+  final int? initialManagementIndex;
 
   @override
   State<HostMainScreen> createState() => _HostMainScreenState();
@@ -25,6 +27,15 @@ class _HostMainScreenState extends State<HostMainScreen> {
   int _currentIndex = 0;
   int _managementIndex = 0;
   HostManagementSection _hostManagementSection = HostManagementSection.tenants;
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialManagementIndex != null) {
+      _currentIndex = 3;
+      _managementIndex = widget.initialManagementIndex!;
+    }
+  }
+
   static const _labels = [
     'Trang chủ',
     'Tin nhắn',
@@ -122,98 +133,9 @@ class _HostMainScreenState extends State<HostMainScreen> {
   // Chủ trọ - Bottom nav quản lý - Luồng đi: Thông tin chung mở danh
   // sách cơ sở; dấu cộng mở tạo nhà/phòng; nút cuối về Dashboard.
   Widget _buildManagementNavigation() {
-    const labels = [
-      'Thông tin chung',
-      'QL người thuê',
-      'Thêm mới',
-      'QL Tiền tệ',
-      'Quay lại',
-    ];
-    const icons = [
-      Icons.home_outlined,
-      Icons.people_outline,
-      Icons.add,
-      Icons.credit_card,
-      Icons.arrow_back,
-    ];
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            children: List.generate(labels.length, (index) {
-              final selected = index == _managementIndex;
-              final color = selected
-                  ? const Color(0xFF2563EB)
-                  : const Color(0xFF64748B);
-              return Expanded(
-                child: Semantics(
-                  selected: selected,
-                  button: true,
-                  label: labels[index],
-                  child: InkWell(
-                    onTap: () => _selectManagementTab(index),
-                    child: index == 2
-                        ? Center(
-                            heightFactor: 1,
-                            child: Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2,
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x662563EB),
-                                    blurRadius: 12,
-                                    offset: Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.add,
-                                color: Colors.white,
-                                size: 26,
-                              ),
-                            ),
-                          )
-                        : Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(icons[index], color: color, size: 20),
-                                const SizedBox(height: 4),
-                                Text(
-                                  labels[index],
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: selected
-                                        ? FontWeight.w700
-                                        : FontWeight.w500,
-                                    color: color,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                  ),
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
+    return HostManagementNavigation(
+      selectedIndex: _managementIndex,
+      onSelected: _selectManagementTab,
     );
   }
 
@@ -236,7 +158,9 @@ class _HostMainScreenState extends State<HostMainScreen> {
             IndexedStack(
               index: _managementIndex,
               children: [
-                const HostPropertyManagementScreen(),
+                HostPropertyManagementScreen(
+                  onManagementSelected: _selectManagementTab,
+                ),
                 _buildActiveManagementSection(),
                 const _HostPlaceholderScreen(
                   title: 'Thêm mới',

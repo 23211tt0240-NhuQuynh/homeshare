@@ -19,14 +19,17 @@ import 'package:home_share/features/host/widgets/tenant_card.dart';
 
 void main() {
   group('1. SDS Database Mapping & Model Tests', () {
-    test('FirestoreCollections contains required host management collections', () {
-      expect(FirestoreCollections.periods, 'periods');
-      expect(FirestoreCollections.kyO, 'periods');
-      expect(FirestoreCollections.checkins, 'checkins');
-      expect(FirestoreCollections.residents, 'residents');
-      expect(FirestoreCollections.handoverItems, 'handover_items');
-      expect(FirestoreCollections.checkoutRecords, 'checkout_records');
-    });
+    test(
+      'FirestoreCollections contains required host management collections',
+      () {
+        expect(FirestoreCollections.periods, 'periods');
+        expect(FirestoreCollections.kyO, 'periods');
+        expect(FirestoreCollections.checkins, 'checkins');
+        expect(FirestoreCollections.residents, 'residents');
+        expect(FirestoreCollections.handoverItems, 'handover_items');
+        expect(FirestoreCollections.checkoutRecords, 'checkout_records');
+      },
+    );
 
     test('PeriodModel dual getter and toMap verification', () {
       final now = DateTime(2024, 11, 1);
@@ -146,8 +149,9 @@ void main() {
   });
 
   group('2. Widget Render & Viewport (390–430px) Tests', () {
-    testWidgets('TenantCard renders single and group roommates correctly',
-        (tester) async {
+    testWidgets('TenantCard renders single and group roommates correctly', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(390 * 2, 844 * 2);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() {
@@ -210,12 +214,13 @@ void main() {
       expect(find.text('0912 345 678'), findsOneWidget);
       expect(find.text('Hà Vy & Đức Anh'), findsOneWidget);
       expect(find.text('2 người'), findsOneWidget);
-      expect(find.text('Gọi'), findsNWidgets(2));
+      expect(find.text('Gọi'), findsNothing);
       expect(find.text('SMS'), findsNWidgets(2));
     });
 
-    testWidgets('CheckinCheckoutCard displays pending and completed states',
-        (tester) async {
+    testWidgets('CheckinCheckoutCard displays pending and completed states', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(430 * 2, 932 * 2);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() {
@@ -287,8 +292,93 @@ void main() {
       expect(find.text('Đã Check-out'), findsOneWidget);
     });
 
-    testWidgets('HandoverMeterCard and HandoverItemCard render without overflow',
-        (tester) async {
+    testWidgets(
+      'HandoverMeterCard and HandoverItemCard render without overflow',
+      (tester) async {
+        tester.view.physicalSize = const Size(390 * 2, 844 * 2);
+        tester.view.devicePixelRatio = 2.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        final elecCtrl = TextEditingController(text: '1428');
+        var itemToggled = false;
+        const sampleItem = HandoverItemModel(
+          id: 'item_1',
+          periodId: 'p_1',
+          itemName: 'Bình nóng lạnh Ariston 20L',
+          description: 'Chống giật ELCB an toàn',
+          isChecked: true,
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: [
+                  HandoverMeterCard(
+                    title: 'Chỉ số điện ban đầu (kWh)',
+                    unit: 'kWh',
+                    rate: 3500.0,
+                    controller: elecCtrl,
+                    isElectricity: true,
+                  ),
+                  HandoverItemCard(
+                    item: sampleItem,
+                    onToggle: (val) {
+                      itemToggled = val;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text('Chỉ số điện ban đầu (kWh)'), findsOneWidget);
+        expect(find.text('1428'), findsOneWidget);
+        expect(find.text('kWh'), findsOneWidget);
+        expect(find.text('Bình nóng lạnh Ariston 20L'), findsOneWidget);
+
+        // Tap toggle
+        await tester.tap(find.byType(Switch));
+        expect(itemToggled, isFalse);
+      },
+    );
+
+    testWidgets(
+      'HostManagementMenu renders 3 options with current highlighted',
+      (tester) async {
+        HostManagementSection? selectedSection;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: HostManagementMenu(
+                currentSection: HostManagementSection.tenants,
+                onSelect: (sec) {
+                  selectedSection = sec;
+                },
+                onClose: () {},
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text('Quản lý người thuê'), findsOneWidget);
+        expect(find.text('Quản lý Check in/Check out'), findsOneWidget);
+        expect(find.text('Quản lý vi phạm & Phí phạt'), findsOneWidget);
+        expect(find.byIcon(Icons.check), findsOneWidget);
+
+        await tester.tap(find.text('Quản lý Check in/Check out'));
+        expect(selectedSection, HostManagementSection.checkinCheckout);
+      },
+    );
+
+    testWidgets('HostTenantManagementScreen renders header and stats', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(390 * 2, 844 * 2);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() {
@@ -296,101 +386,44 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      final elecCtrl = TextEditingController(text: '1428');
-      var itemToggled = false;
-      const sampleItem = HandoverItemModel(
-        id: 'item_1',
-        periodId: 'p_1',
-        itemName: 'Bình nóng lạnh Ariston 20L',
-        description: 'Chống giật ELCB an toàn',
-        isChecked: true,
-      );
-
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Column(
-              children: [
-                HandoverMeterCard(
-                  title: 'Chỉ số điện ban đầu (kWh)',
-                  unit: 'kWh',
-                  rate: 3500.0,
-                  controller: elecCtrl,
-                  isElectricity: true,
-                ),
-                HandoverItemCard(
-                  item: sampleItem,
-                  onToggle: (val) {
-                    itemToggled = val;
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-
-      expect(find.text('Chỉ số điện ban đầu (kWh)'), findsOneWidget);
-      expect(find.text('1428'), findsOneWidget);
-      expect(find.text('kWh'), findsOneWidget);
-      expect(find.text('Bình nóng lạnh Ariston 20L'), findsOneWidget);
-
-      // Tap toggle
-      await tester.tap(find.byType(Switch));
-      expect(itemToggled, isFalse);
-    });
-
-    testWidgets('HostManagementMenu renders 3 options with current highlighted',
-        (tester) async {
-      HostManagementSection? selectedSection;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: HostManagementMenu(
-              currentSection: HostManagementSection.tenants,
-              onSelect: (sec) {
-                selectedSection = sec;
-              },
-              onClose: () {},
-            ),
-          ),
+        const ProviderScope(
+          child: MaterialApp(home: HostTenantManagementScreen()),
         ),
       );
 
       expect(find.text('Quản lý người thuê'), findsOneWidget);
-      expect(find.text('Quản lý Check in/Check out'), findsOneWidget);
-      expect(find.text('Quản lý vi phạm & Phí phạt'), findsOneWidget);
-      expect(find.byIcon(Icons.check), findsOneWidget);
-
-      await tester.tap(find.text('Quản lý Check in/Check out'));
-      expect(selectedSection, HostManagementSection.checkinCheckout);
-    });
-
-    testWidgets('HostTenantManagementScreen renders header and stats',
-        (tester) async {
-      tester.view.physicalSize = const Size(390 * 2, 844 * 2);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: HostTenantManagementScreen(),
-          ),
-        ),
-      );
-
-      expect(find.text('Quản lý cư dân & người thuê'), findsOneWidget);
-      expect(find.text('Hồ sơ khách thuê & hợp đồng'), findsOneWidget);
+      expect(find.text('Tất cả cơ sở'), findsOneWidget);
+      expect(find.text('Tất cả phòng'), findsOneWidget);
       expect(find.byIcon(Icons.menu), findsOneWidget);
     });
 
-    testWidgets('HostCheckinCheckoutScreen renders QR banner and segmented tabs',
-        (tester) async {
+    testWidgets(
+      'HostCheckinCheckoutScreen renders QR banner and segmented tabs',
+      (tester) async {
+        tester.view.physicalSize = const Size(414 * 2, 896 * 2);
+        tester.view.devicePixelRatio = 2.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(
+          const ProviderScope(
+            child: MaterialApp(home: HostCheckinCheckoutScreen()),
+          ),
+        );
+
+        expect(find.text('Quản lý Check in & Check Out'), findsOneWidget);
+        expect(find.text('Quét mã'), findsOneWidget);
+        expect(find.text('Check-in'), findsOneWidget);
+        expect(find.text('Check-out'), findsOneWidget);
+      },
+    );
+
+    testWidgets('Tapping Quét mã opens HostQrScannerModal with controls', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(414 * 2, 896 * 2);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() {
@@ -400,32 +433,7 @@ void main() {
 
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(
-            home: HostCheckinCheckoutScreen(),
-          ),
-        ),
-      );
-
-      expect(find.text('Quản lý Check in & Check Out'), findsOneWidget);
-      expect(find.text('Quét mã'), findsOneWidget);
-      expect(find.text('Check-in'), findsOneWidget);
-      expect(find.text('Check-out'), findsOneWidget);
-    });
-
-    testWidgets('Tapping Quét mã opens HostQrScannerModal with controls',
-        (tester) async {
-      tester.view.physicalSize = const Size(414 * 2, 896 * 2);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: HostCheckinCheckoutScreen(),
-          ),
+          child: MaterialApp(home: HostCheckinCheckoutScreen()),
         ),
       );
 

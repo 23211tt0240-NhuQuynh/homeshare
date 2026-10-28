@@ -115,6 +115,9 @@ class RoomModel {
         s == 'dangmo';
   }
 
+  /// Only vacant rooms can receive another rental booking or listing.
+  bool get canBeListed => isAvailable && isApproved;
+
   bool get isPending {
     final s = status.toLowerCase().trim();
     return s == 'pending' || s == 'choduyet' || s == 'cho_duyet';
@@ -243,9 +246,9 @@ class RoomModel {
       electricityRate: (data['electricityRate'] as num?)?.toDouble(),
       waterRate: (data['waterRate'] as num?)?.toDouble(),
       serviceFee: (data['serviceFee'] as num?)?.toDouble(),
-      tenantName: data['tenantName'] ?? '',
-      tenantPhone: data['tenantPhone'] ?? '',
-      tenantAvatar: data['tenantAvatar'] ?? '',
+      tenantName: '',
+      tenantPhone: '',
+      tenantAvatar: '',
       contractId: data['contractId'] ?? '',
       contractStart: (data['contractStart'] as Timestamp?)?.toDate(),
       contractEnd: (data['contractEnd'] as Timestamp?)?.toDate(),
@@ -587,8 +590,9 @@ class RoomModel {
   static CollectionReference<Map<String, dynamic>> subColRef(
     String propertyId, [
     FirebaseFirestore? firestore,
-  ]) => (firestore ?? FirebaseFirestore.instance)
-      .collection(FirestoreCollections.hostRooms);
+  ]) => (firestore ?? FirebaseFirestore.instance).collection(
+    FirestoreCollections.hostRooms,
+  );
 
   /// Mapper chuẩn bảng phong_tro theo SQL_NHOM4_CHUYENDEDIDONG.sql (100% trường SQL)
   Map<String, dynamic> toPhongTroSql() => {

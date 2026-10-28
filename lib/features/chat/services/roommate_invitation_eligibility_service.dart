@@ -1,3 +1,4 @@
+import '../../../core/services/resident_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../data/models/room_model.dart';
@@ -37,13 +38,12 @@ class RoommateInvitationEligibility {
 /// Phân giải quyền gửi lời mời từ dữ liệu Firebase thật.
 ///
 /// Không dùng `pinnedRoom`, dữ liệu mẫu hay giá trị mặc định để cấp quyền.
-/// Phòng hợp lệ phải đến từ booking đã duyệt/đang ở hoặc bản ghi cư dân đang ở
-/// của chính người gửi.
+/// Phòng hợp lệ phải đến từ bản ghi residents đang ở của chính người gửi.
 class RoommateInvitationEligibilityService {
   final FirebaseFirestore? _injectedFirestore;
 
   RoommateInvitationEligibilityService({FirebaseFirestore? firestore})
-      : _injectedFirestore = firestore;
+    : _injectedFirestore = firestore;
 
   FirebaseFirestore get _firestore =>
       _injectedFirestore ?? FirebaseFirestore.instance;
@@ -106,40 +106,19 @@ class RoommateInvitationEligibilityService {
   }
 
   Future<RoomModel?> _findActiveRoom(String userId) async {
-    final bookingDocs = await _queryAliases(
-      collection: 'bookings',
-      fields: const [
-        'userId',
-        'renterId',
-        'nguoiDungId',
-        'nguoiDung_Id',
-        'khachXemId',
-      ],
-      value: userId,
-    );
-
-    for (final doc in bookingDocs) {
-      final data = doc.data();
-      final status =
-          data['status'] ?? data['trangThai'] ?? data['trangThai_id'];
-      if (!RoommateInvitationPolicy.isActiveBookingStatus(status)) continue;
-
-      final roomId = _firstNonEmpty(data, const [
-        'roomId',
-        'phongId',
-        'phongTroId',
-        'baiDangId',
-      ]);
-      final room = await _loadRoom(roomId);
-      if (room != null) return room;
-    }
-
     final residentDocs = await _queryAliases(
       collection: 'residents',
       fields: const ['userId', 'nguoiDungId', 'nguoi_dung_id'],
       value: userId,
     );
 
+    residentDocs.sort((a, b) {
+      DateTime date(Map<String, dynamic> data) =>
+          data['moveInDate'] is Timestamp
+          ? (data['moveInDate'] as Timestamp).toDate()
+          : DateTime(1970);
+      return date(b.data()).compareTo(date(a.data()));
+    });
     for (final doc in residentDocs) {
       final data = doc.data();
       final status =
@@ -147,7 +126,11 @@ class RoommateInvitationEligibilityService {
           data['status'] ??
           data['trangThai_id'] ??
           data['trang_thai'];
-      if (!RoommateInvitationPolicy.isActiveResidentStatus(status)) continue;
+      if (!RoommateInvitationPolicy.isActiveResidentStatus(status) ||
+          data['moveOutDate'] != null ||
+          data['ngayRoi'] != null) {
+        continue;
+      }
 
       var roomId = _firstNonEmpty(data, const [
         'roomId',
@@ -155,10 +138,18 @@ class RoommateInvitationEligibilityService {
         'phongTroId',
         'phong_tro_id',
       ]);
-      if (roomId.isEmpty) {
-        roomId = await _roomIdFromActivePeriod(
-          _firstNonEmpty(data, const ['periodId', 'kyThue_id', 'kyOId']),
-        );
+      final periodId = _firstNonEmpty(data, const [
+        'periodId',
+        'kyThue_id',
+        'kyOId',
+      ]);
+      if (periodId.isNotEmpty) {
+        final periodRoomId = await _roomIdFromActivePeriod(periodId);
+        if (periodRoomId.isEmpty) continue;
+        roomId = periodRoomId;
+      }
+      if (roomId.isNotEmpty) {
+        roomId = await ResidentService(_firestore).resolveRoomId(roomId);
       }
       final room = await _loadRoom(roomId);
       if (room != null) return room;

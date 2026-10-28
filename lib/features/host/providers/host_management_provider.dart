@@ -1,3 +1,4 @@
+import '../../../core/services/resident_service.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -141,7 +142,7 @@ class HostRepository {
 
       rooms.add(room);
     }
-    return rooms;
+    return Future.wait(rooms.map(ResidentService(_db).hydrateRoom));
   }
 
   Stream<List<RoomModel>> watchRooms(String uid) => _db
@@ -828,7 +829,6 @@ class HostRepository {
       _checkRevision(data, base);
       if (data['status'] == 'occupied' ||
           data['status'] == 'reserved' ||
-          (data['tenantName'] as String? ?? '').isNotEmpty ||
           (data['contractId'] as String? ?? '').isNotEmpty) {
         throw StateError(
           'Phòng còn khách thuê hoặc hợp đồng. Hãy kết thúc hợp đồng trước khi xóa.',
@@ -1080,6 +1080,10 @@ class HostRepository {
       throw StateError('Phòng không tồn tại hoặc không thuộc cơ sở của bạn.');
     }
 
+    if (!RoomModel.fromFirestore(sourceRoom).canBeListed) {
+      throw StateError('Phòng đã được đặt cọc hoặc không còn trống.');
+    }
+
     final finalUrls = <String>[...room.images];
     if (images.isNotEmpty) {
       final uploadRoomId = targetRoomId.isNotEmpty
@@ -1134,9 +1138,19 @@ class HostRepository {
       'isPinned': false,
       'createdAt': FieldValue.serverTimestamp(),
     };
-    batch.set(postRef, postPayload);
-
     await batch.commit();
+    // Recheck after uploads; touching the room serializes against deposit approval.
+    await _db.runTransaction((transaction) async {
+      final latestRoom = await transaction.get(sourceRoom.reference);
+      if (!latestRoom.exists ||
+          !RoomModel.fromFirestore(latestRoom).canBeListed) {
+        throw StateError('Phòng đã được đặt cọc hoặc không còn trống.');
+      }
+      transaction.update(sourceRoom.reference, {
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      transaction.set(postRef, postPayload);
+    });
     return postRef.id;
   }
 }

@@ -485,28 +485,41 @@ class NotificationCard extends ConsumerWidget {
                   );
 
                   if (confirm == true) {
-                    await ref
-                        .read(hostNotificationRepositoryProvider)
-                        .approveRoommateRequest(
-                          notificationId: notif.id,
-                          roomId: notif.roomId,
-                          primaryTenantId: notif.primaryTenantId,
-                          primaryTenantName: notif.primaryTenantName,
-                          newRoommateId: notif.newRoommateId,
-                          newRoommateName: notif.newRoommateName,
-                          roomTitle: notif.roomTitle,
-                          roomCode: notif.displayRoomCode,
-                          userNotificationId: notif.userNotificationId,
-                        );
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          backgroundColor: const Color(0xFF12B76A),
-                          content: Text(
-                            'Đã duyệt cho ${notif.newRoommateName} vào ở ghép phòng ${notif.displayRoomCode} thành công! Đã lưu vào tab Đang ở.',
+                    try {
+                      await ref
+                          .read(hostNotificationRepositoryProvider)
+                          .approveRoommateRequest(
+                            notificationId: notif.id,
+                            roomId: notif.roomId,
+                            primaryTenantId: notif.primaryTenantId,
+                            primaryTenantName: notif.primaryTenantName,
+                            newRoommateId: notif.newRoommateId,
+                            newRoommateName: notif.newRoommateName,
+                            roomTitle: notif.roomTitle,
+                            roomCode: notif.displayRoomCode,
+                            userNotificationId: notif.userNotificationId,
+                          );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: const Color(0xFF12B76A),
+                            content: Text(
+                              'Đã duyệt cho ${notif.newRoommateName} vào ở ghép phòng ${notif.displayRoomCode} thành công! Đã lưu vào tab Đang ở.',
+                            ),
                           ),
-                        ),
-                      );
+                        );
+                      }
+                    } catch (error) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Chưa duyệt được người ở ghép: $error',
+                            ),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                      }
                     }
                   }
                 },
