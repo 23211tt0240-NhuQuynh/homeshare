@@ -4,12 +4,16 @@ class RevenueLineChart extends StatelessWidget {
   final List<double> weeklyData;
   final List<String> labels;
   final int activeIndex;
+  final Color color;
+  final String emptyText;
 
   const RevenueLineChart({
     super.key,
     this.weeklyData = const [0, 0, 0, 0, 0, 0, 0],
     this.labels = const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
     this.activeIndex = 0, // điểm được nhấn mạnh (vd: hôm nay)
+    this.color = const Color(0xFF398FC0),
+    this.emptyText = 'Chưa có doanh thu',
   });
 
   @override
@@ -26,12 +30,13 @@ class RevenueLineChart extends StatelessWidget {
                 painter: _SplineLineChartPainter(
                   data: weeklyData,
                   activeIndex: activeIndex,
+                  color: color,
                 ),
               ),
               if (weeklyData.every((v) => v <= 0))
-                const Text(
-                  'Chưa có doanh thu',
-                  style: TextStyle(
+                Text(
+                  emptyText,
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: Color(0xFF94A3B8),
@@ -52,9 +57,7 @@ class RevenueLineChart extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  color: isSelected
-                      ? const Color(0xFF398FC0)
-                      : const Color(0xFF64748B),
+                  color: isSelected ? color : const Color(0xFF64748B),
                 ),
               );
             }),
@@ -68,8 +71,13 @@ class RevenueLineChart extends StatelessWidget {
 class _SplineLineChartPainter extends CustomPainter {
   final List<double> data;
   final int activeIndex;
+  final Color color;
 
-  _SplineLineChartPainter({required this.data, required this.activeIndex});
+  _SplineLineChartPainter({
+    required this.data,
+    required this.activeIndex,
+    required this.color,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -147,9 +155,9 @@ class _SplineLineChartPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          const Color(0xFF398FC0).withValues(alpha: 0.28),
-          const Color(0xFF89CFF0).withValues(alpha: 0.12),
-          const Color(0xFF89CFF0).withValues(alpha: 0.0),
+          color.withValues(alpha: 0.28),
+          color.withValues(alpha: 0.12),
+          color.withValues(alpha: 0.0),
         ],
       ).createShader(Rect.fromLTWH(0, paddingTop, size.width, chartHeight));
 
@@ -157,7 +165,7 @@ class _SplineLineChartPainter extends CustomPainter {
 
     // Draw main line stroke
     final strokePaint = Paint()
-      ..color = const Color(0xFF398FC0)
+      ..color = color
       ..strokeWidth = 3.2
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -173,13 +181,13 @@ class _SplineLineChartPainter extends CustomPainter {
       if (isPeak) {
         // Outer halo / glow for active point
         final haloPaint = Paint()
-          ..color = const Color(0xFF398FC0).withValues(alpha: 0.2)
+          ..color = color.withValues(alpha: 0.2)
           ..style = PaintingStyle.fill;
         canvas.drawCircle(p, 10.0, haloPaint);
 
         // Active outer ring
         final activeRingPaint = Paint()
-          ..color = const Color(0xFF398FC0)
+          ..color = color
           ..strokeWidth = 2.5
           ..style = PaintingStyle.stroke;
         canvas.drawCircle(p, 6.5, activeRingPaint);
@@ -191,7 +199,7 @@ class _SplineLineChartPainter extends CustomPainter {
         canvas.drawCircle(p, 4.5, centerPaint);
 
         final dotCenter = Paint()
-          ..color = const Color(0xFF398FC0)
+          ..color = color
           ..style = PaintingStyle.fill;
         canvas.drawCircle(p, 2.5, dotCenter);
       } else {
@@ -202,7 +210,7 @@ class _SplineLineChartPainter extends CustomPainter {
         canvas.drawCircle(p, 4.5, dotBg);
 
         final dotStroke = Paint()
-          ..color = const Color(0xFF398FC0)
+          ..color = color
           ..strokeWidth = 2.0
           ..style = PaintingStyle.stroke;
         canvas.drawCircle(p, 4.5, dotStroke);
@@ -212,6 +220,8 @@ class _SplineLineChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SplineLineChartPainter oldDelegate) {
-    return oldDelegate.data != data || oldDelegate.activeIndex != activeIndex;
+    return oldDelegate.data != data ||
+        oldDelegate.activeIndex != activeIndex ||
+        oldDelegate.color != color;
   }
 }
