@@ -393,12 +393,6 @@ class CheckinCheckoutRepository {
         .doc(roomId);
     batch.update(roomRef, {
       'status': 'available',
-      'tenantName': '',
-      'tenantPhone': '',
-      'tenantAvatar': '',
-      'contractId': '',
-      'contractStart': null,
-      'contractEnd': null,
       'updatedAt': FieldValue.serverTimestamp(),
     });
 

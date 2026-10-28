@@ -16,6 +16,7 @@ import '../../../core/services/chat_service.dart';
 import '../../../core/services/roommate_service.dart';
 import '../../renter/screens/room_detail_screen.dart';
 import '../../renter/screens/roommate_room_detail_screen.dart';
+import '../../renter/screens/report_host_screen.dart';
 import '../services/roommate_invitation_eligibility_service.dart';
 import '../services/roommate_invitation_policy.dart';
 import '../../renter/widgets/room_full_dialog.dart';
@@ -546,44 +547,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   }
 
   void _showReportDialog() {
-    final reasons = ['Lừa đảo tiền đặt cọc', 'Thông tin phòng không đúng sự thật', 'Quấy rối / Từ ngữ thô tục', 'Lý do khác'];
-    String selected = reasons[0];
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDState) => AlertDialog(
-          title: const Text('Báo cáo vi phạm', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: reasons
-                .map(
-                  (r) => ListTile(
-                    dense: true,
-                    leading: Icon(
-                      selected == r ? Icons.radio_button_checked : Icons.radio_button_off,
-                      color: selected == r ? AppColors.primary : AppColors.textMuted,
-                      size: 20,
-                    ),
-                    title: Text(r, style: const TextStyle(fontSize: 13)),
-                    onTap: () => setDState(() => selected = r),
-                  ),
-                )
-                .toList(),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger, foregroundColor: Colors.white),
-              onPressed: () {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Đã gửi báo cáo vi phạm tới Ban Quản Trị HomeShare')),
-                );
-              },
-              child: const Text('Gửi Báo Cáo'),
-            ),
-          ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReportHostScreen(
+          hostId: widget.receiverId,
+          hostName: widget.receiverName,
+          hostPhone: widget.receiverPhone,
+          room: widget.pinnedRoom,
         ),
       ),
     );
@@ -1275,9 +1246,6 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         newRoommateId: widget.currentUserId,
       );
 
-      // Gửi tin nhắn xác nhận realtime vào đoạn chat
-      await _sendMessage('✅ Tôi đã chấp nhận lời mời ở ghép cùng bạn tại phòng $roomTitle. Hệ thống đã gửi thông báo đến chủ nhà!');
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1308,8 +1276,6 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         messageId: msg.id,
         extraData: updatedExtraData,
       );
-
-      await _sendMessage('Tôi xin phép từ chối lời mời ở ghép này nhé. Cảm ơn bạn!');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

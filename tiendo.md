@@ -23,6 +23,62 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.80 - Tách Biệt Bảng Thông Báo Người Dùng (`notification_user`) Khỏi Bảng Thông Báo Chung (`notifications`):**
+    - **Vấn đề giải quyết:** Trước đây tất cả vai trò (Host, Admin, Renter/User) đều ghi chung vào bảng `notifications`. Khi một tài khoản vừa là Renter vừa tham gia quản trị hoặc thao tác các phòng, việc truy vấn lọc theo role dễ bị rối, trùng lặp hoặc xung đột notification types.
+    - **Giải pháp kiến trúc & Triển khai:**
+      + Khai báo hằng số tập trung `FirestoreCollections.notificationUser = 'notification_user'` trong [firestore_collections.dart](file:///d:/App/homeshare-dev-THE/lib/core/constants/firestore_collections.dart).
+      + Chuông thông báo người dùng [UserNotificationsScreen](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/user_notifications_screen.dart): Lắng nghe luồng realtime trực tiếp từ collection `notification_user`, đồng thời kết hợp cơ chế merge và deduplicate dữ liệu cũ từ `notifications` của user để bảo đảm 100% không mất bất kỳ thông báo cũ nào.
+      + [ChatService.notifyUserRoommateInvitation](file:///d:/App/homeshare-dev-THE/lib/core/services/chat_service.dart): Ghi lời mời ở ghép gửi đến người dùng vào bảng `notification_user`.
+      + [HostNotificationRepository](file:///d:/App/homeshare-dev-THE/lib/features/host/notifications/repositories/host_notification_repository.dart):
+        * `requestBookingAdjustment`: Gửi đề xuất đổi ngày dọn vào đến người thuê vào `notification_user`.
+        * `approveRoommateRequest`: Gửi thông báo duyệt vào phòng đến người ở ghép mới và người thuê chính vào `notification_user`.
+        * `rejectRoommateRequest`: Gửi thông báo từ chối ở ghép đến người ở ghép và người thuê chính vào `notification_user`.
+      + [BookingService](file:///d:/App/homeshare-dev-THE/lib/core/services/booking_service.dart):
+        * Duyệt tiền cọc (`createBooking`), Nhận phòng thành công (`checkinBooking`), Hủy đơn thuê (`cancelBooking`): Toàn bộ thông báo gửi người thuê được chuyển sang lưu vào `notification_user`.
+      + Module Quản trị viên ([AdminOrdersScreen](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_orders_screen.dart), [CancellationInvoiceScreen](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/cancellation_invoice_screen.dart), [AdminUsersScreen](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_users_screen.dart)):
+        * Phân luồng thông báo gửi đến người thuê (`recipientRole == 'renter'` hoặc `userRole == 'renter'`) tự động ghi vào `notification_user`.
+    - **Kiểm định mã nguồn:** Kiểm tra phân tích tĩnh toàn diện trên toàn bộ các tệp tin đã sửa đạt kết quả tuyệt đối **No errors!** (0 errors, 0 warnings).
+  * **Phase 2.79 - Chuẩn Hóa Nghiệp Vụ Báo Cáo Chủ Trọ (Thay Vì Báo Cáo Bài Đăng):**
+    - **Khắc phục triệt để lỗi phân loại báo cáo trong tầng Service ([HostReportService](file:///d:/App/homeshare-dev-THE/lib/core/services/host_report_service.dart)):**
+      + Chuẩn hóa đối tượng vi phạm: `HostReportFields.targetType` luôn luôn là `HostReportPolicy.targetHost` (`'host'`), bất kể báo cáo được gửi từ chi tiết phòng hay trang cá nhân của chủ trọ.
+      + Ghi nhận tường minh các trường phân loại: `reportType: 'host'`, `isHostReport: true`, `reportedRole: 'host'`, `targetUserId: hostId`, `targetUserName: hostName`. Phòng trọ đính kèm (`roomId`, `roomTitle`) chỉ đóng vai trò là thông tin ngữ cảnh đối soát (`relatedRoomId`, `relatedRoomTitle`).
+      + **Xóa bỏ hoàn toàn lệnh ghi sang collection `reposts`**: Báo cáo vi phạm chủ trọ chỉ lưu tại collection `reports`, `audit_logs` và `notifications`, tuyệt đối không lưu sang bảng `reposts` tránh làm sai lệch danh sách duyệt bài đăng lại của Admin.
+      + Chuẩn hóa thông báo & nhật ký kiểm toán: Tiêu đề là *"Báo cáo vi phạm chủ trọ"*, hành động *"Người thuê báo cáo chủ trọ"*.
+    - **Nâng cấp giao diện Quản lý người dùng & Báo cáo vi phạm ([AdminUsersScreen](file:///d:/App/homeshare-dev-THE/lib/features/admin/screens/admin_users_screen.dart)):**
+      + Lọc bỏ hoàn toàn các báo cáo người dùng (`isReport == true`, `reportId != null`, `BC_...`) khỏi Tab "Duyệt Repost", đảm bảo tab này chỉ chứa các bài đăng phòng sửa lại thực thụ từ chủ trọ.
+      + Cập nhật huy hiệu `_chip('Báo cáo chủ trọ', _red)` và đổi tiêu đề mục lý do thành *"LÝ DO BÁO CÁO CHỦ TRỌ:"*.
+      + Đổi thẻ phòng đính kèm từ *"BÀI ĐĂNG BỊ BÁO CÁO"* sang *"PHÒNG LIÊN QUAN ĐẾN BÁO CÁO"*, thể hiện đúng bản chất báo cáo hành vi của chủ trọ chứ không phải kiểm duyệt bài đăng phòng.
+    - **Cập nhật giao diện Người dùng ([RoomDetailScreen](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/room_detail_screen.dart), [ReportHostScreen](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/report_host_screen.dart), [ChatDetailScreen](file:///d:/App/homeshare-dev-THE/lib/features/chat/screens/chat_detail_screen.dart)):**
+      + [RoomDetailScreen](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/room_detail_screen.dart): Nút thao tác dưới cùng đổi tên thành "Báo cáo chủ trọ", Semantics `label: 'Báo cáo vi phạm chủ trọ'`.
+      + [ReportHostScreen](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/report_host_screen.dart): Ghi rõ "Chủ trọ" và "Phòng liên quan: ...", tiêu đề mục lý do: "LÝ DO BÁO CÁO CHỦ TRỌ (*)".
+      + [ChatDetailScreen](file:///d:/App/homeshare-dev-THE/lib/features/chat/screens/chat_detail_screen.dart): Nút menu "Báo cáo vi phạm" chuyển hướng trực tiếp sang [ReportHostScreen](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/report_host_screen.dart) để gửi báo cáo thật kèm bằng chứng hình ảnh lên Firebase Firestore thay vì hiển thị dialog tĩnh.
+    - **Kiểm định mã nguồn:** `flutter analyze` trên toàn bộ 5 tệp tin đạt chuẩn tuyệt đối **No issues found!** (0 errors, 0 warnings).
+  * **Phase 2.78 - Bỏ Gửi Tin Nhắn Sau Khi Thao Tác Lời Mời Ở Ghép & Chuẩn Hóa Cơ Chế Lưu Trữ Người Ở Ghép Vào CSDL:**
+    - **Tối ưu hóa trải nghiệm Chat & Thông báo lời mời ở ghép:**
+      + Trong [ChatDetailScreen](file:///d:/App/homeshare-dev-THE/lib/features/chat/screens/chat_detail_screen.dart): Loại bỏ hoàn toàn việc tự động gửi thêm tin nhắn chat văn bản (`_sendMessage`) sau khi người dùng bấm "Chấp nhận" hoặc "Từ chối" lời mời ở ghép. Thẻ lời mời (`roommate_invitation`) đã tự động cập nhật trạng thái trực quan sang *"ĐÃ ĐỒNG Ý Ở GHÉP"* (badge: *Đã chấp nhận • Đã gửi thông báo đến chủ nhà*) hoặc *"ĐÃ TỪ CHỐI Ở GHÉP"* (badge: *Lời mời đã bị từ chối*), giúp luồng chat gọn gàng, chuyên nghiệp, không bị trùng lặp nội dung.
+      + Trong [UserNotificationsScreen](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/user_notifications_screen.dart): Loại bỏ việc tự động gửi tin nhắn chat realtime sau khi chấp nhận lời mời từ chuông thông báo, đồng thời dọn dẹp import không sử dụng `chat_model.dart`.
+    - **Kiểm tra và chuẩn hóa cơ chế lưu trữ Quản lý người dùng & Quản lý người thuê (`residents`):**
+      + **Quản lý người dùng (Admin - `AdminUsersScreen`):** Mọi tài khoản tham gia hệ thống (người gửi, người nhận lời mời ở ghép) đều đã được lưu trong collection `users` ngay từ khi đăng ký, hiển thị đầy đủ trong danh sách quản trị người dùng.
+      + **Quản lý người thuê & Cư dân phòng (`residents` - `HostTenantManagementScreen`):** Tuân thủ luồng duyệt phòng chặt chẽ: khi người thuê chấp nhận lời mời ở ghép, hệ thống gửi thông báo duyệt đến Chủ trọ. Khi Chủ trọ bấm duyệt (`approveRoommateRequest`), hệ thống gọi [TenantRepository.addRoommateToRoom](file:///d:/App/homeshare-dev-THE/lib/features/host/repositories/tenant_repository.dart) để ghi nhận thành viên mới vào bảng `residents` (`formId: 'oGhep'`, `statusId: 'dangO'`) và cập nhật `host_rooms` sang `occupied`.
+    - **Kiểm định mã nguồn:** `flutter analyze` đạt kết quả tuyệt đối **No issues found!** (0 errors, 0 warnings).
+  * **Phase 2.77 - Chuẩn Hóa Phân Định Kiến Trúc Dữ Liệu: `host_rooms` Tuyệt Đối Chỉ Lưu Phòng, Toàn Bộ Thông Tin Người Ở Quản Lý Tập Trung Tại `residents`:**
+    - **Nguyên tắc thiết kế (Database Single Source of Truth):**
+      + Collection `host_rooms` (tương ứng thực thể `phong_tro` trong CSDL SQL) tuyệt đối chỉ quản lý thông tin phòng: diện tích, giá thuê, tiền cọc, tầng, tình trạng (`available` / `occupied`), đơn giá điện nước. Không bao giờ lưu mảng người thuê, tên người ở hay danh sách roommates trong `host_rooms`.
+      + Collection `residents` (tương ứng thực thể `cu_dan_dang_o`) là nguồn chân lý duy nhất quản lý cư dân thực tế: lưu chi tiết `roomId`, `userId`, `fullName`, `phone`, `formId` (chính/ở ghép), `moveInDate`, `moveOutDate`, `status` (`active` / `moved_out`).
+    - **Tái cấu trúc mã nguồn các tầng nghiệp vụ:**
+      + [BookingService.checkinBooking](file:///d:/App/homeshare-dev-THE/lib/core/services/booking_service.dart): Khi nhận phòng, chỉ cập nhật `host_rooms` sang `status: 'occupied'`, loại bỏ việc ghi đè `tenantName`, `tenantPhone`. Tự động tạo bản ghi cư dân chuẩn trong `residents` nếu chưa có.
+      + [HandoverRepository.confirmHandover](file:///d:/App/homeshare-dev-THE/lib/features/host/repositories/handover_repository.dart): Bỏ ghi `tenantName`, `tenantPhone`, `contractId` vào `host_rooms`. Chỉ lưu `status: 'occupied'`, `electricityRate`, `waterRate` và chuyển toàn bộ thông tin cư dân sang `residents`.
+      + [TenantRepository.addRoommateToRoom](file:///d:/App/homeshare-dev-THE/lib/features/host/repositories/tenant_repository.dart): Loại bỏ hoàn toàn các trường `tenantName`, `tenantIds`, `roommates` khỏi `host_rooms`. Mọi thành viên ở ghép được ghi trực tiếp vào `residents`.
+      + [CheckinCheckoutRepository.confirmCheckout](file:///d:/App/homeshare-dev-THE/lib/features/host/repositories/checkin_checkout_repository.dart): Khi trả phòng, chỉ cập nhật `host_rooms` về `status: 'available'`, không cần reset chuỗi người thuê rác trong phòng.
+    - **Kiểm định mã nguồn:** `flutter analyze` trên cả 4 file repository đạt kết quả tuyệt đối **No issues found!** (0 errors, 0 warnings).
+  * **Phase 2.76 - Bổ Sung Khối Hiển Thị Chi Phí Dịch Vụ (Điện, Nước, Wifi) Trên Màn Hình Chi Tiết Bài Đăng:**
+    - **Hiện trạng trước đây:** Tầng dữ liệu Firestore & Model (`RoomModel`, `RoomService`, `HostCreateScreen`) đã lưu và ánh xạ đầy đủ `electricityRate`, `waterRate`, `serviceFee`, nhưng trên giao diện [RoomDetailScreen](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/room_detail_screen.dart) chưa được vẽ ra màn hình.
+    - **Nâng cấp giao diện [RoomDetailScreen](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/room_detail_screen.dart):**
+      + Bổ sung khối thẻ **"Chi phí dịch vụ hàng tháng"** bo tròn hiện đại, bóng mờ nhẹ theo đúng Design System chuẩn Figma, đặt ngay dưới phần Thông số phòng và trên Thông tin chủ trọ.
+      + ⚡ **Tiền điện**: Hiển thị đơn giá thực tế (`${electricityRate} đ/kWh`) hoặc fallback an toàn *"Giá nhà nước"*.
+      + 💧 **Tiền nước**: Hiển thị đơn giá thực tế (`${waterRate} đ/m³`) hoặc fallback an toàn *"Quy định / Miễn phí"*.
+      + 📶 **Dịch vụ / Wifi**: Hiển thị đơn vị tháng (`${serviceFee} đ/tháng`) hoặc *"Miễn phí"*.
+    - **Kiểm định mã nguồn:** `flutter analyze lib/features/renter/screens/room_detail_screen.dart` đạt kết quả tuyệt đối **No issues found!** (0 errors, 0 warnings).
   * **Phase 2.75 - Nâng Cấp Giao Diện "Phòng Của Tôi" Phân Chia 2 Phần Chuyên Biệt (Nhà Đang Ở & Lịch Sử Nhà Đã Ở):**
     - **Màn hình chuyên biệt [MyHomesScreen](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/my_homes_screen.dart):**
       + Thiết kế `TabBar` 2 tab hiện đại:

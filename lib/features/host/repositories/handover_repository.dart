@@ -292,17 +292,13 @@ class HandoverRepository {
       });
     }
 
-    // 6. Cập nhật host_rooms sang occupied
+    // 6. Cập nhật host_rooms sang occupied (chỉ lưu thuộc tính phòng)
     if (roomId.isNotEmpty) {
       final roomRef = _firestore
           .collection(FirestoreCollections.hostRooms)
           .doc(roomId);
       batch.update(roomRef, {
         'status': 'occupied',
-        'tenantName': renterName,
-        'tenantPhone': renterPhone,
-        'contractId': periodId,
-        'contractStart': Timestamp.fromDate(now),
         'electricityRate': electricityRate,
         'waterRate': waterRate,
         'updatedAt': FieldValue.serverTimestamp(),

@@ -544,6 +544,63 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   ),
                   const SizedBox(height: 20),
 
+                  // Chi phí điện, nước & dịch vụ
+                  const Text(
+                    'Chi phí dịch vụ hàng tháng',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildUtilityItem(
+                          Icons.bolt_rounded,
+                          const Color(0xFFF59E0B),
+                          _room.electricityRate != null && _room.electricityRate! > 0
+                              ? '${currencyFormatter.format(_room.electricityRate)} đ/kWh'
+                              : 'Giá nhà nước',
+                          'Tiền điện',
+                        ),
+                        _buildSpecDivider(),
+                        _buildUtilityItem(
+                          Icons.water_drop_rounded,
+                          const Color(0xFF0284C7),
+                          _room.waterRate != null && _room.waterRate! > 0
+                              ? '${currencyFormatter.format(_room.waterRate)} đ/m³'
+                              : 'Quy định / Miễn phí',
+                          'Tiền nước',
+                        ),
+                        _buildSpecDivider(),
+                        _buildUtilityItem(
+                          Icons.wifi_rounded,
+                          const Color(0xFF10B981),
+                          _room.serviceFee != null && _room.serviceFee! > 0
+                              ? '${currencyFormatter.format(_room.serviceFee)} đ/tháng'
+                              : 'Miễn phí',
+                          'Dịch vụ / Wifi',
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
                   // Thông tin chủ nhà
                   const Text('Thông tin chủ trọ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
                   const SizedBox(height: 10),
@@ -677,21 +734,21 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
         child: SafeArea(
           child: Row(
             children: [
-              // 1. Nút Báo cáo
+              // 1. Nút Báo cáo chủ trọ
               Semantics(
-                label: 'Báo cáo vi phạm chủ nhà hoặc phòng trọ',
+                label: 'Báo cáo vi phạm chủ trọ',
                 button: true,
                 excludeSemantics: true,
                 child: OutlinedButton.icon(
                   onPressed: _onReportPressed,
                   icon: const Icon(Icons.flag_outlined, color: Color(0xFFDC2626), size: 16),
                   label: const Text(
-                    'Báo cáo',
+                    'Báo cáo chủ trọ',
                     style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                   style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(78, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    minimumSize: const Size(88, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                     side: const BorderSide(color: Color(0xFFFCA5A5)),
                     backgroundColor: const Color(0xFFFEF2F2),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -889,6 +946,48 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
       height: 28,
       width: 1,
       color: const Color(0xFFE5E7EB),
+    );
+  }
+
+  Widget _buildUtilityItem(
+    IconData icon,
+    Color iconColor,
+    String value,
+    String label,
+  ) {
+    return Expanded(
+      child: MergeSemantics(
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 18, color: iconColor),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

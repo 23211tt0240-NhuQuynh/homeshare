@@ -186,15 +186,40 @@ class BookingService {
       'trangThai': FieldValue.delete(),
     }, SetOptions(merge: true));
 
-    // Cập nhật phòng sang trạng thái 'occupied' (đang thuê)
+    // Cập nhật phòng sang trạng thái 'occupied' (đang thuê) - host_rooms chỉ lưu thông tin phòng
     if (finalRoomId.isNotEmpty) {
       await _firestore.collection('host_rooms').doc(finalRoomId).set({
         'status': 'occupied',
-        'tenantName': renterName,
-        'tenantPhone': renterPhone,
-        'contractStart': Timestamp.fromDate(now),
         'updatedAt': Timestamp.fromDate(now),
       }, SetOptions(merge: true));
+
+      // Lưu thông tin người ở thực tế vào bảng residents (Single Source of Truth)
+      if (renterId.isNotEmpty && renterId != 'guest') {
+        final existingResident = await _firestore
+            .collection('residents')
+            .where('roomId', isEqualTo: finalRoomId)
+            .where('userId', isEqualTo: renterId)
+            .where('statusId', isEqualTo: 'dangO')
+            .limit(1)
+            .get();
+
+        if (existingResident.docs.isEmpty) {
+          final resRef = _firestore.collection('residents').doc();
+          await resRef.set({
+            'id': resRef.id,
+            'roomId': finalRoomId,
+            'userId': renterId,
+            'periodId': bookingId,
+            'fullName': renterName,
+            'phone': renterPhone,
+            'formId': 'chinh',
+            'status': 'active',
+            'statusId': 'dangO',
+            'moveInDate': Timestamp.fromDate(now),
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
     }
 
     // Thông báo cho người thuê

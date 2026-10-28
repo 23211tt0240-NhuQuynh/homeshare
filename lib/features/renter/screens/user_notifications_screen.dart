@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/chat_service.dart';
-import '../../../data/models/chat_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
@@ -178,23 +177,6 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
         'daDoc': true,
         'updatedAt': FieldValue.serverTimestamp(),
       });
-
-      // 4. Gửi tin nhắn xác nhận realtime vào đoạn chat
-      try {
-        final confMsg = ChatMessageModel(
-          id: '',
-          senderId: currentUserId,
-          senderName: currentUserName,
-          receiverId: senderId,
-          text: '✅ Tôi đã đồng ý lời mời ở ghép cùng bạn tại phòng $roomTitle ($roomCode). Hệ thống đã gửi yêu cầu xác nhận tới Chủ trọ để duyệt vào phòng!',
-          timestamp: DateTime.now(),
-          status: 'sent',
-        );
-        await ref.read(chatServiceProvider).sendMessage(
-          confMsg,
-          receiverName: senderName,
-        );
-      } catch (_) {}
 
       if (context.mounted) {
         Navigator.pop(context); // Đóng loading dialog

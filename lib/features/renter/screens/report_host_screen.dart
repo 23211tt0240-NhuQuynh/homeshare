@@ -229,8 +229,8 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                         const SizedBox(height: 3),
                         Text(
                           roomTitle.isEmpty
-                              ? 'Báo cáo sẽ được gửi tới Admin'
-                              : roomTitle,
+                              ? 'Báo cáo vi phạm sẽ được gửi tới Ban Quản Trị'
+                              : 'Phòng liên quan: $roomTitle',
                           style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                         ),
                       ],
@@ -241,7 +241,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
             ),
             const SizedBox(height: 18),
             const Text(
-              'LÝ DO BÁO CÁO (*)',
+              'LÝ DO BÁO CÁO CHỦ TRỌ (*)',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
             ),
             const SizedBox(height: 4),

@@ -306,6 +306,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       final data = Map<String, dynamic>.from(
         d.data() as Map<String, dynamic>? ?? {},
       );
+      // Bỏ qua các tài liệu là báo cáo người dùng / chủ trọ lọt vào bảng repost
+      if (data['isReport'] == true ||
+          data['reportId'] != null ||
+          d.id.startsWith('BC_') ||
+          d.id.startsWith('REP_')) {
+        continue;
+      }
       data['id'] = d.id;
       data['sourceCollection'] = d.reference.parent.id;
 
@@ -1104,7 +1111,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                           border: Border.all(color: const Color(0xFFB2DDFF)),
                         ),
                         child: const Text(
-                          'BÀI ĐĂNG BỊ BÁO CÁO',
+                          'PHÒNG LIÊN QUAN ĐẾN BÁO CÁO',
                           style: TextStyle(
                             fontSize: 9.5,
                             fontWeight: FontWeight.w800,
@@ -1299,6 +1306,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
+                        _chip('Báo cáo chủ trọ', _red),
                         if ((r['reportedRole'] as String).isNotEmpty)
                           _chip(_roleLabel(r['reportedRole'] as String), _primary),
                         if (hostScore != null)
@@ -1342,7 +1350,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                     Icon(Icons.report_problem_outlined, size: 15, color: _orange),
                     SizedBox(width: 5),
                     Text(
-                      'LÝ DO BÁO CÁO VI PHẠM:',
+                      'LÝ DO BÁO CÁO CHỦ TRỌ:',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -2067,7 +2075,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     try {
       final db = FirebaseFirestore.instance;
       final batch = db.batch();
-      final collectionName = (item['sourceCollection'] ?? 'repost').toString();
+      final collectionName = (item['sourceCollection'] ?? 'reposts').toString();
       final repostRef = db.collection(collectionName).doc(item['id'] as String);
 
       batch.set(repostRef, {
@@ -2137,7 +2145,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     try {
       final db = FirebaseFirestore.instance;
       final batch = db.batch();
-      final collectionName = (item['sourceCollection'] ?? 'repost').toString();
+      final collectionName = (item['sourceCollection'] ?? 'reposts').toString();
       final repostRef = db.collection(collectionName).doc(item['id'] as String);
 
       batch.set(repostRef, {
@@ -3057,4 +3065,4 @@ class _WarningDialogState extends State<_WarningDialog> {
       ],
     );
   }
-}
+}

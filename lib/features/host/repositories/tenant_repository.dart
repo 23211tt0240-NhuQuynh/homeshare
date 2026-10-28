@@ -610,17 +610,12 @@ class TenantRepository {
       'createdAt': FieldValue.serverTimestamp(),
     });
 
-    // 4. Cập nhật tên phòng kết hợp trong host_rooms
-    final combinedTenantName = '$primaryTenantName & $newRoommateName';
-
+    // 4. Cập nhật trạng thái phòng trong host_rooms (chỉ lưu phòng)
     final hostRoomRef = _firestore
         .collection(FirestoreCollections.hostRooms)
         .doc(roomId);
     batch.set(hostRoomRef, {
       'status': 'occupied',
-      'tenantName': combinedTenantName,
-      'tenantIds': FieldValue.arrayUnion([primaryTenantId, newRoommateId]),
-      'roommates': FieldValue.arrayUnion([newRoommateName]),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
