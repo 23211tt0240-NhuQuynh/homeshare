@@ -18,7 +18,8 @@ import 'host_finance_screen.dart';
 // Chủ trọ - Khung điều hướng - Luồng đi: Mở Dashboard và giữ trạng thái
 // của 5 tab; các tab chưa triển khai hiển thị màn hình tạm.
 class HostMainScreen extends ConsumerStatefulWidget {
-  const HostMainScreen({super.key});
+  const HostMainScreen({super.key, this.initialManagementIndex});
+  final int? initialManagementIndex;
 
   @override
   ConsumerState<HostMainScreen> createState() => _HostMainScreenState();
@@ -28,6 +29,15 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
   int _currentIndex = 0;
   int _managementIndex = 0;
   HostManagementSection _hostManagementSection = HostManagementSection.tenants;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialManagementIndex != null) {
+      _currentIndex = 3;
+      _managementIndex = widget.initialManagementIndex!;
+    }
+  }
   static const _icons = [
     Icons.home_outlined,
     Icons.chat_bubble_outline,
@@ -246,7 +256,9 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
             IndexedStack(
               index: _managementIndex,
               children: [
-                const HostPropertyManagementScreen(),
+                HostPropertyManagementScreen(
+                  onManagementSelected: _selectManagementTab,
+                ),
                 _buildActiveManagementSection(),
                 const _HostPlaceholderScreen(
                   title: 'Thêm mới',

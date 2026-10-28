@@ -1,3 +1,4 @@
+import '../../../core/services/resident_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/constants/firestore_collections.dart';
 import '../../../data/models/booking_model.dart';
@@ -68,10 +69,12 @@ class CheckinCheckoutRepository {
         .where('hostId', isEqualTo: hostId)
         .snapshots()
         .asyncMap((roomSnap) async {
-          final hostRooms = roomSnap.docs
-              .map(RoomModel.fromFirestore)
-              .where((r) => r.status != 'deleted')
-              .toList();
+          final hostRooms = await Future.wait(
+            roomSnap.docs
+                .map(RoomModel.fromFirestore)
+                .where((r) => r.status != 'deleted')
+                .map(ResidentService(_firestore).hydrateRoom),
+          );
 
           if (hostRooms.isEmpty) return <CheckinCheckoutItem>[];
           final roomMap = {for (var r in hostRooms) r.id: r};
@@ -188,10 +191,12 @@ class CheckinCheckoutRepository {
         .where('hostId', isEqualTo: hostId)
         .snapshots()
         .asyncMap((roomSnap) async {
-          final hostRooms = roomSnap.docs
-              .map(RoomModel.fromFirestore)
-              .where((r) => r.status != 'deleted')
-              .toList();
+          final hostRooms = await Future.wait(
+            roomSnap.docs
+                .map(RoomModel.fromFirestore)
+                .where((r) => r.status != 'deleted')
+                .map(ResidentService(_firestore).hydrateRoom),
+          );
 
           if (hostRooms.isEmpty) return <CheckinCheckoutItem>[];
           final roomMap = {for (var r in hostRooms) r.id: r};
@@ -382,6 +387,7 @@ class CheckinCheckoutRepository {
       for (final d in resSnap.docs) {
         batch.update(d.reference, {
           'statusId': 'daRoi',
+          'status': 'moved_out',
           'moveOutDate': FieldValue.serverTimestamp(),
         });
       }
@@ -393,6 +399,9 @@ class CheckinCheckoutRepository {
         .doc(roomId);
     batch.update(roomRef, {
       'status': 'available',
+      'contractId': '',
+      'contractStart': null,
+      'contractEnd': null,
       'updatedAt': FieldValue.serverTimestamp(),
     });
 

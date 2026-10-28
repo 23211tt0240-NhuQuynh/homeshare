@@ -466,21 +466,25 @@ class HostNotificationRepository {
     String roomCode = '',
     String userNotificationId = '',
   }) async {
-    if (_firestore == null || _notificationsCol == null) return;
-
-    // 1. Thực hiện thêm người ở ghép vào phòng chính thức
-    final tenantRepo = TenantRepository(firestore: _firestore);
-    if (roomId.isNotEmpty) {
-      await tenantRepo.addRoommateToRoom(
-        roomId: roomId,
-        primaryTenantId: primaryTenantId,
-        primaryTenantName: primaryTenantName,
-        newRoommateId: newRoommateId,
-        newRoommateName: newRoommateName,
-      );
+    if (_firestore == null || _notificationsCol == null) {
+      throw StateError('Chưa kết nối Firebase');
+    }
+    if (roomId.isEmpty) {
+      throw StateError('Yêu cầu ở ghép chưa liên kết với phòng');
     }
 
     final batch = _firestore!.batch();
+
+    // 1. Thực hiện thêm người ở ghép vào phòng chính thức
+    final tenantRepo = TenantRepository(firestore: _firestore);
+    await tenantRepo.addRoommateToRoom(
+      roomId: roomId,
+      primaryTenantId: primaryTenantId,
+      primaryTenantName: primaryTenantName,
+      newRoommateId: newRoommateId,
+      newRoommateName: newRoommateName,
+      batch: batch,
+    );
 
     // 2. Cập nhật thông báo của Chủ trọ thành approved và chuyển loại sang "Đang ở" (staying)
     if (notificationId.isNotEmpty) {

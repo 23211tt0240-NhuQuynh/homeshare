@@ -245,7 +245,7 @@ class _HostFinanceInvoicesState extends ConsumerState<HostFinanceInvoices> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
-                      'Thực nhận dự kiến sau phí',
+                      'Thực nhận dự kiến sau phí hoa hồng',
                       style: TextStyle(color: Color(0xFFCCFBF1), fontSize: 12),
                     ),
                     const SizedBox(height: 12),
@@ -270,23 +270,7 @@ class _HostFinanceInvoicesState extends ConsumerState<HostFinanceInvoices> {
                               : 'Tổng khách thanh toán',
                           _money(gross),
                         ),
-                        _summary('Phí hoa hồng sàn', '-${_money(fee)}'),
                       ],
-                    ),
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: .12),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'Ước tính phí ${widget.isDeposit ? '10%' : '5%'} khi đơn chưa ghi nhận phí thực tế. ${invoices.length} hóa đơn.',
-                        style: const TextStyle(
-                          color: Color(0xFFCCFBF1),
-                          fontSize: 11,
-                        ),
-                      ),
                     ),
                   ],
                 ),

@@ -1,3 +1,4 @@
+import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
@@ -26,6 +27,37 @@ class _HostTenantManagementScreenState
   String _search = '';
   String? _propertyId;
   String? _roomId;
+
+  bool _syncingResidents = false;
+
+  Future<void> _syncResidents() async {
+    final hostId = ref.read(hostSessionProvider).value;
+    if (_syncingResidents || hostId == null) return;
+    setState(() => _syncingResidents = true);
+    try {
+      final result = await ref
+          .read(tenantRepositoryProvider)
+          .syncCheckedInResidents(hostId);
+      ref.invalidate(hostTenantsProvider);
+      ref.invalidate(hostRoomsProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Đã bổ sung ${result.created} hồ sơ nhận phòng.'
+            '${result.skipped > 0 ? ' Có ${result.skipped} đơn cần kiểm tra lại trạng thái phòng/kỳ ở.' : ''}',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Không đồng bộ được hồ sơ nhận phòng: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _syncingResidents = false);
+    }
+  }
 
   void _openTenantChat(TenantItem tenant) {
     final user = ref.read(currentUserProvider);
@@ -230,10 +262,12 @@ class _HostTenantManagementScreenState
     final tenantsAsync = ref.watch(hostTenantsProvider);
     final statsAsync = ref.watch(hostTenantStatsProvider);
     final properties = ref.watch(hostPropertiesProvider).value ?? [];
-    final rooms = <String, TenantItem>{
-      for (final tenant in tenantsAsync.value ?? <TenantItem>[])
-        if (_propertyId == null || tenant.propertyId == _propertyId)
-          tenant.roomId: tenant,
+    final hostRooms = ref.watch(hostRoomsProvider).value ?? <RoomModel>[];
+    final rooms = <String, RoomModel>{
+      for (final room in hostRooms)
+        if (room.status != 'deleted' &&
+            (_propertyId == null || room.propertyId == _propertyId))
+          room.id: room,
     };
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -246,7 +280,10 @@ class _HostTenantManagementScreenState
         actions: [
           IconButton(
             tooltip: 'Tải lại',
-            onPressed: () => ref.invalidate(hostTenantsProvider),
+            onPressed: () {
+              ref.invalidate(hostTenantsProvider);
+              ref.invalidate(hostRoomsProvider);
+            },
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -261,6 +298,24 @@ class _HostTenantManagementScreenState
                   data: _buildStatsRow,
                   loading: () => const LinearProgressIndicator(),
                   error: (error, stack) => const Text('Chưa tải được thống kê'),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: _syncingResidents ? null : _syncResidents,
+                    icon: _syncingResidents
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.sync, size: 18),
+                    label: Text(
+                      _syncingResidents
+                          ? 'Đang đồng bộ...'
+                          : 'Đồng bộ hồ sơ nhận phòng',
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -304,9 +359,13 @@ class _HostTenantManagementScreenState
                       child: Text('Tất cả phòng'),
                     ),
                     ...rooms.values.map(
-                      (tenant) => DropdownMenuItem(
-                        value: tenant.roomId,
-                        child: Text(tenant.roomName),
+                      (room) => DropdownMenuItem(
+                        value: room.id,
+                        child: Text(
+                          room.roomCode.isNotEmpty
+                              ? 'P.${room.roomCode}'
+                              : room.title,
+                        ),
                       ),
                     ),
                   ],
@@ -338,7 +397,13 @@ class _HostTenantManagementScreenState
                       Padding(
                         padding: const EdgeInsets.all(24),
                         child: Text(
-                          tenants.isEmpty
+                          _search.trim().isNotEmpty
+                              ? 'Không có người thuê phù hợp bộ lọc.'
+                              : _roomId != null && rooms.containsKey(_roomId)
+                              ? 'Phòng này chưa có người thuê đang ở.'
+                              : _propertyId != null
+                              ? 'Cơ sở này chưa có người thuê đang ở.'
+                              : tenants.isEmpty
                               ? 'Chưa có người thuê. Khách sẽ xuất hiện sau khi quét QR và xác nhận check-in.'
                               : 'Không có người thuê phù hợp bộ lọc.',
                           textAlign: TextAlign.center,

@@ -177,29 +177,25 @@ class NotificationCard extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     // Tag mã booking #BK12345
-                    Flexible(
-                      fit: FlexFit.loose,
-                      child: Container(
-                        constraints: const BoxConstraints(maxWidth: 120),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                    Container(
+                      constraints: const BoxConstraints(maxWidth: 110),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF8FF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        notif.displayBookingCode,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
                         ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF8FF),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          notif.displayBookingCode,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -489,28 +485,41 @@ class NotificationCard extends ConsumerWidget {
                   );
 
                   if (confirm == true) {
-                    await ref
-                        .read(hostNotificationRepositoryProvider)
-                        .approveRoommateRequest(
-                          notificationId: notif.id,
-                          roomId: notif.roomId,
-                          primaryTenantId: notif.primaryTenantId,
-                          primaryTenantName: notif.primaryTenantName,
-                          newRoommateId: notif.newRoommateId,
-                          newRoommateName: notif.newRoommateName,
-                          roomTitle: notif.roomTitle,
-                          roomCode: notif.displayRoomCode,
-                          userNotificationId: notif.userNotificationId,
-                        );
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          backgroundColor: const Color(0xFF12B76A),
-                          content: Text(
-                            'Đã duyệt cho ${notif.newRoommateName} vào ở ghép phòng ${notif.displayRoomCode} thành công! Đã lưu vào tab Đang ở.',
+                    try {
+                      await ref
+                          .read(hostNotificationRepositoryProvider)
+                          .approveRoommateRequest(
+                            notificationId: notif.id,
+                            roomId: notif.roomId,
+                            primaryTenantId: notif.primaryTenantId,
+                            primaryTenantName: notif.primaryTenantName,
+                            newRoommateId: notif.newRoommateId,
+                            newRoommateName: notif.newRoommateName,
+                            roomTitle: notif.roomTitle,
+                            roomCode: notif.displayRoomCode,
+                            userNotificationId: notif.userNotificationId,
+                          );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: const Color(0xFF12B76A),
+                            content: Text(
+                              'Đã duyệt cho ${notif.newRoommateName} vào ở ghép phòng ${notif.displayRoomCode} thành công! Đã lưu vào tab Đang ở.',
+                            ),
                           ),
-                        ),
-                      );
+                        );
+                      }
+                    } catch (error) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Chưa duyệt được người ở ghép: $error',
+                            ),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                      }
                     }
                   }
                 },

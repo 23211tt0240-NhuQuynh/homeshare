@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,12 +34,35 @@ class BookingService {
     return bookingId;
   }
 
-  // Lấy chi tiết 1 đơn thuê theo bookingId
+  /// Tự động hủy 1 đơn đặt phòng nếu đã quá hạn thanh toán 6 tiếng
+  Future<void> autoCancelIfExpired(DocumentSnapshot doc) async {
+    try {
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final status = (data['status'] ?? '').toString().toLowerCase();
+      if (status != 'pending' && status != 'pending_payment') return;
+
+      Timestamp? exp = data['expiresAt'] as Timestamp? ?? data['deadline'] as Timestamp?;
+      if (exp == null) {
+        final createdAt = data['createdAt'] as Timestamp?;
+        if (createdAt != null) {
+          exp = Timestamp.fromDate(createdAt.toDate().add(const Duration(hours: 6)));
+        }
+      }
+      if (exp != null && exp.toDate().isBefore(DateTime.now())) {
+        await cancelBooking(doc.id, reason: 'Tự động hủy do quá thời gian thanh toán 6 tiếng');
+      }
+    } catch (e) {
+      debugPrint('Error auto-cancelling expired booking ${doc.id}: $e');
+    }
+  }
+
+  // Lấy chi tiết 1 đơn thuê theo bookingId (có tự động kiểm tra hết hạn 6 tiếng)
   Future<BookingRequestModel?> getBookingById(String bookingId) async {
     if (bookingId.isEmpty) return null;
     try {
       final doc = await _firestore.collection('bookings').doc(bookingId).get();
       if (!doc.exists) return null;
+      await autoCancelIfExpired(doc);
       return BookingRequestModel.fromFirestore(doc);
     } catch (e) {
       debugPrint('Error getting booking $bookingId: $e');
@@ -355,6 +379,16 @@ class BookingService {
               data['khachXemId'] ??
               '';
           if (docRenterId != renterId) return null;
+
+          // Tự động hủy nếu đơn quá hạn 6 tiếng
+          final status = (data['status'] ?? '').toString().toLowerCase();
+          if (status == 'pending' || status == 'pending_payment') {
+            final exp = data['expiresAt'] as Timestamp? ?? data['deadline'] as Timestamp?;
+            if (exp != null && exp.toDate().isBefore(DateTime.now())) {
+              unawaited(autoCancelIfExpired(doc));
+            }
+          }
+
           return BookingRequestModel.fromFirestore(doc);
         } catch (e) {
           debugPrint('Error parsing booking ${doc.id}: $e');
@@ -379,6 +413,16 @@ class BookingService {
           final data = doc.data();
           final docHostId = data['hostId'] ?? data['chuNhaId'] ?? '';
           if (docHostId != hostId) return null;
+
+          // Tự động hủy nếu đơn quá hạn 6 tiếng
+          final status = (data['status'] ?? '').toString().toLowerCase();
+          if (status == 'pending' || status == 'pending_payment') {
+            final exp = data['expiresAt'] as Timestamp? ?? data['deadline'] as Timestamp?;
+            if (exp != null && exp.toDate().isBefore(DateTime.now())) {
+              unawaited(autoCancelIfExpired(doc));
+            }
+          }
+
           return BookingRequestModel.fromFirestore(doc);
         } catch (e) {
           debugPrint('Error parsing host booking ${doc.id}: $e');

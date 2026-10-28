@@ -2597,3 +2597,84 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
 
 
 
+
+
+---
+
+---
+
+### Phase 2.81: Hợp Nhất Phân Hệ Chủ Trọ (Host) Từ `D:\homeshare-dev-MAN` Vào `homeshare-dev-THE`
+* **Ngày hoàn thành:** 28/10/2026
+* **Mục tiêu & Thực hiện:**
+  1. **Khảo sát & Tích hợp Dịch vụ Quản lý Cư Dân Cốt Lõi (`ResidentService`):**
+     - Tạo mới [resident_service.dart](file:///d:/App/homeshare-dev-THE/lib/core/services/resident_service.dart) cung cấp bộ công cụ toàn diện xử lý cư dân:
+       - `syncCheckedInResidents(hostId)`: Tự động quét các lượt check-in `active` trong `checkin_checkout_history` và đồng bộ tạo lại bản ghi cư dân còn thiếu vào `residents` collection để chống thất thoát dữ liệu cư dân.
+       - `hydrateRoom(room)`: Tự động gắn danh sách cư dân từ collection `residents` vào object phòng khi hiển thị UI mà không cần nhồi nhét vào document `host_rooms`.
+       - `preparePrimary(...)`: Chuẩn hóa cấu trúc tạo bản ghi người thuê chính với ID dạng `${periodId}_${userId}`.
+  2. **Thanh Điều Hướng Quản Lý Cơ Sở Dùng Chung (`HostManagementNavigation`):**
+     - Tạo mới [host_management_navigation.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/widgets/host_management_navigation.dart) với 3 tab: Cơ sở & Phòng, Quản lý người thuê, Quản lý tiền tệ.
+     - Tích hợp điều hướng nhanh giữa các màn hình trong [host_property_management_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_property_management_screen.dart) và [host_room_list_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_room_list_screen.dart).
+  3. **Nâng Cấp Quản Lý Người Thuê & Cư Dân (`TenantRepository` & `HostTenantManagementScreen`):**
+     - [tenant_repository.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/repositories/tenant_repository.dart): Tích hợp `ResidentService`, tự động kích hoạt `syncCheckedInResidents` khi nạp dữ liệu người thuê, chuẩn hóa ID cư dân `${periodId}_$userId`, loại bỏ việc ghi đè mảng `residents` vào `host_rooms`.
+     - [host_tenant_management_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_tenant_management_screen.dart): Bổ sung nút "Đồng bộ hồ sơ nhận phòng", hỗ trợ lọc cư dân theo toàn bộ phòng thuộc cơ sở đã chọn, làm mới UI thông minh khi không có dữ liệu.
+  4. **Nâng Cấp Bàn Giao Phòng & Nhận/Trả Phòng (`HandoverRepository` & `CheckinCheckoutRepository`):**
+     - [handover_repository.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/repositories/handover_repository.dart): Sử dụng `ResidentService.preparePrimary` và `ResidentService.hydrateRoom`.
+     - [checkin_checkout_repository.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/repositories/checkin_checkout_repository.dart): Sử dụng `hydrateRoom`, cập nhật trạng thái hợp đồng `rental_contracts` thành `completed` và gắn cờ checkout `moved_out` chính xác khi trả phòng.
+     - [host_checkin_checkout_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_checkin_checkout_screen.dart) & [host_checkin_qr_result_sheet.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/widgets/host_checkin_qr_result_sheet.dart): Tương thích lấy thông tin phòng và giá từ `host_rooms`.
+  5. **Báo Cáo Tài Chính & Doanh Thu Thực Nhận Sau Khi Admin Giải Ngân:**
+     - [host_finance_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_finance_screen.dart): Tích hợp `RevenueLineChart` biểu đồ đường động trực quan doanh thu thực nhận theo Tuần/Tháng/Năm, tính toán dựa trên các hóa đơn cọc/tiền thuê mà Admin đã chuyển khoản giải ngân thành công (`disbursed` / `completed`).
+     - [host_finance_invoices.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_finance_invoices.dart): Tối ưu truy vấn đơn thuê (`rental_requests`) để hiển thị kèm tên bài đăng/phòng trọ trong danh sách hóa đơn thanh toán.
+  6. **Đăng Bài An Toàn & Chống Xung Đột Phòng (`HostManagementProvider`):**
+     - [host_management_provider.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/providers/host_management_provider.dart): Khi tạo bài đăng, chỉ tham chiếu phòng có sẵn (`canBeListed`), sử dụng Firestore Transaction chống race condition khi nhiều phiên cùng tạo bài cho 1 phòng.
+  7. **Chuẩn Hóa Nhập Diện Tích & Danh Mục Địa Giới Hành Chính:**
+     - [host_room_edit_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_room_edit_screen.dart) & [host_create_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_create_screen.dart): Sử dụng trường nhập diện tích chuẩn m².
+     - Thêm danh mục [vietnam_current_data.dart](file:///d:/App/homeshare-dev-THE/lib/core/constants/vietnam_current_data.dart) và cập nhật [host_location_provider.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/providers/host_location_provider.dart) theo chuẩn đơn vị hành chính cấp tỉnh/phường xã hiện hành.
+     - [host_property.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/data/host_property.dart): Chuẩn hóa model địa chỉ (city, ward).
+  8. **Xử Lý Duyệt Người Ở Ghép & Báo Cáo Vi Phạm An Toàn:**
+     - [host_notification_repository.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/notifications/repositories/host_notification_repository.dart): Thêm validation `roomId`, xử lý Firestore transaction/batch an toàn khi thêm người ở ghép.
+     - [notification_card.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/notifications/widgets/notification_card.dart): Bọc `try-catch` hiển thị lỗi thân thiện khi duyệt yêu cầu ở ghép.
+     - [violation_repository.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/repositories/violation_repository.dart): Tích hợp tra cứu danh sách người thuê phòng thông qua `ResidentService`.
+  9. **Bảo Tồn Tuyệt Đối Kiến Trúc Hệ Thống Hiện Tại Của `homeshare-dev-THE`:**
+     - Giữ nguyên kiến trúc phân tách bảng thông báo người dùng riêng biệt `notification_user` (đã hoàn thành ở Phase 2.80).
+     - Giữ nguyên cấu trúc song ngữ `AppTranslations` và Dark Mode tại [host_main_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/host/screens/host_main_screen.dart) đồng thời bổ sung tham số `initialManagementIndex` và `onManagementSelected`.
+     - Giữ nguyên quy chuẩn cấu trúc dữ liệu: `host_rooms` chỉ lưu thông tin phòng, toàn bộ cư dân lưu tập trung ở collection `residents`.
+  10. **Kiểm tra chất lượng:**
+      - `analyze_files`: **0 errors, 0 warnings (100% clean)** trên toàn bộ dự án.
+
+---
+
+### Phase 2.82: Tinh Chỉnh Giao Diện Chi Tiết Đặt Phòng (`RoomBookingDetailScreen`)
+* **Ngày hoàn thành:** 28/10/2026
+* **Yêu cầu & Thực hiện:**
+  1. **Lược bỏ mục "Số lượng người ở":**
+     - Tại [room_booking_detail_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/room_booking_detail_screen.dart):
+       + Loại bỏ hoàn toàn biến `_occupantCount` và khối Stepper chọn "Số lượng người ở" trong thẻ *Card 2: Kế hoạch chuyển đến*.
+       + Thẻ *Kế hoạch chuyển đến* được tinh gọn chỉ giữ lại: *Ngày dọn đến \**, *Ngày rời đi (dự kiến)*, và bộ chọn *Thời hạn thuê*.
+  2. **Kiểm tra chất lượng:**
+     - `dart analyze lib/features/renter/screens/room_booking_detail_screen.dart`: **No issues found! (0 errors, 0 warnings)**.
+
+---
+
+### Phase 2.83: Khắc Phục Toàn Diện Các Lỗi Logic & Thất Thoát Dữ Liệu Luồng Đặt Phòng
+* **Ngày hoàn thành:** 28/10/2026
+* **Yêu cầu & Thực hiện:**
+  1. **Chặn chủ nhà tự đặt phòng của chính mình (Mục 5):**
+     - Tại [room_booking_detail_screen.dart](file:///d:/App/homeshare-dev-THE/lib/features/renter/screens/room_booking_detail_screen.dart): Kiểm tra `user.uid == widget.room.hostId`, chặn gửi đơn và thông báo rõ ràng: *"Đây là phòng do chính bạn quản lý, không thể tự đặt phòng của mình!"*.
+  2. **Kiểm tra trạng thái phòng trước khi tạo đơn (Mục 4 - Race Condition Check):**
+     - Trước khi tạo đơn, truy vấn trực tiếp document phòng trên Firestore (`host_rooms`), nếu trạng thái đã chuyển thành `occupied`, `dango`, `rented`, `full` hoặc `isAvailable == false` thì lập tức chặn tạo đơn và thông báo phòng đã có người thuê / ngưng nhận khách.
+  3. **Khắc phục lỗi tràn ngày khi tính ngày rời đi dự kiến (Mục 6):**
+     - Bổ sung hàm `_addMonthsSafe(date, months)`: Tự động kẹp ngày `day` không vượt quá số ngày thực tế của tháng đích (ví dụ ngày 31/01 + 1 tháng sẽ ra đúng ngày 28/02 thay vì tràn sang 03/03).
+  4. **Cơ chế tự động hủy sau 6 tiếng trên hệ thống (Mục 7):**
+     - Tại [booking_service.dart](file:///d:/App/homeshare-dev-THE/lib/core/services/booking_service.dart): Bổ sung `autoCancelIfExpired(doc)`. Tích hợp kiểm tra tự động hủy đơn khi stream danh sách đơn của người thuê (`getRenterBookingsStream`), chủ trọ (`getHostBookingsStream`), và khi xem chi tiết đơn (`getBookingById`), tự động giải phóng phòng về `available` kể cả khi người dùng không mở app.
+  5. **Bảo toàn dữ liệu ô "Tuổi" (Mục 9):**
+     - Bổ sung trường `renterAge` trong [booking_model.dart](file:///d:/App/homeshare-dev-THE/lib/data/models/booking_model.dart) (`tuoiNguoiO` / `age`). Parse từ `_ageController` và lưu đầy đủ vào Firestore.
+  6. **Lưu rõ danh tính người đặt hộ khi chọn "Đặt hộ người thân" (Mục 10):**
+     - Bổ sung các trường `isBookingForSelf`, `bookedByUserName`, `bookedByUserPhone` trong [booking_model.dart](file:///d:/App/homeshare-dev-THE/lib/data/models/booking_model.dart).
+     - Khi người dùng chọn đặt hộ người thân, tự động ghi chú `[Đặt hộ người thân bởi: Tên - SĐT]` vào đơn booking để chủ trọ và Admin nắm rõ ai là người thanh toán và ai là người ở trực tiếp.
+  7. **Làm sạch và nới lỏng validation số điện thoại (Mục 11):**
+     - Tự động lọc bỏ các ký tự ngăn cách như khoảng trắng, dấu chấm `.`, gạch nối `-`, dấu ngoặc `()`.
+     - Áp dụng biểu thức chính quy chuẩn số điện thoại di động Việt Nam `r'^(0|\+84)[35789][0-9]{8}$'`.
+  8. **Kiểm tra chất lượng:**
+     - `dart analyze lib/features/renter/screens/room_booking_detail_screen.dart lib/core/services/booking_service.dart lib/data/models/booking_model.dart`: **No issues found! (0 errors, 0 warnings)**.
+
+
