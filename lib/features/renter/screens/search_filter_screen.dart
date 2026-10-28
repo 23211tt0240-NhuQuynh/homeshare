@@ -11,6 +11,7 @@ import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
+import '../../profile/widgets/host_reputation_stars.dart';
 import 'room_detail_screen.dart';
 import 'roommate_room_detail_screen.dart';
 
@@ -1873,15 +1874,23 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Tiêu đề phòng
-                  Text(
-                    room.title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          room.title,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      HostReputationStarLabel(hostId: room.hostId),
+                    ],
                   ),
                   const SizedBox(height: 3),
 

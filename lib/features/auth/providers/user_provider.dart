@@ -7,7 +7,7 @@ import '../../../core/utils/id_generator.dart';
 import 'auth_provider.dart';
 
 /// Model thông tin người dùng HomeShare chuẩn hóa theo Database homeShare (DrawIO pkg_0: Tài khoản)
-/// Bảng: Người dùng, Sở thích (soDienThoai, email, hoTen, anhDaiDien, gioiTinh, ngaySinh, diaChi, diemUyTin, ngheNghiep)
+/// Bảng: Người dùng, Sở thích (soDienThoai, email, hoTen, anhDaiDien, gioiTinh, ngaySinh, diaChi, reputationScore, ngheNghiep)
 class UserProfile {
   final String uid; // id
   final String? _userCode; // maNguoiDung 5 ký tự (3 số đầu + 2 chữ sau, vd: 382AN)
@@ -19,7 +19,7 @@ class UserProfile {
   final String gender; // gioiTinh: nam | nu | khac
   final String address; // diaChi
   final String hometown; // queQuan
-  final int reputationScore; // diemUyTin
+  final int reputationScore;
   final String occupation; // ngheNghiep
   final String workplace; // noiLamViec
   final String bio; // gioiThieu
@@ -138,7 +138,7 @@ class UserProfile {
       gender: data['gender'] ?? data['gioiTinh'] ?? 'Nam',
       address: data['address'] ?? data['diaChi'] ?? '',
       hometown: data['hometown'] ?? data['queQuan'] ?? '',
-      reputationScore: ((data['reputationScore'] ?? data['diemUyTin']) as num?)?.toInt() ?? 100,
+      reputationScore: (data['reputationScore'] as num?)?.toInt() ?? 100,
       occupation: data['occupation'] ?? data['ngheNghiep'] ?? 'Sinh viên',
       workplace: data['workplace'] ?? data['noiLamViec'] ?? '',
       bio: data['bio'] ?? data['gioiThieu'] ?? '',
@@ -348,7 +348,6 @@ Map<String, dynamic> englishUserFieldPatch(Map<String, dynamic> data) {
   move('phoneNumber', ['soDienThoai']);
   move('userCode', ['maNguoiDung', 'idNguoiDung']);
   move('createdAt', ['ngayTao']);
-  move('reputationScore', ['diemUyTin']);
   move('gender', ['gioiTinh']);
   move('address', ['diaChi']);
   move('hometown', ['queQuan']);

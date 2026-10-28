@@ -8,6 +8,7 @@ import 'package:home_share/data/models/room_model.dart';
 import 'package:home_share/data/models/roommate_post_model.dart';
 import 'package:home_share/features/auth/providers/auth_provider.dart';
 import 'package:home_share/features/auth/providers/user_provider.dart';
+import 'package:home_share/features/profile/widgets/host_reputation_stars.dart';
 import 'package:home_share/features/renter/screens/renter_dashboard_screen.dart';
 import 'package:home_share/features/renter/screens/search_filter_screen.dart';
 import 'package:home_share/features/renter/screens/user_notifications_screen.dart';
@@ -36,6 +37,9 @@ Widget _searchFilterTestApp({
         (ref, filters) => Stream<List<RoommatePostModel>>.value(roommatePosts),
       ),
       userUnreadNotificationCountProvider.overrideWith((ref) => 0),
+      hostReputationScoreProvider.overrideWith(
+        (ref, hostId) => Stream.value(100),
+      ),
     ],
     child: const MaterialApp(home: SearchFilterScreen(initialAdvanced: true)),
   );
@@ -204,6 +208,9 @@ void main() {
             (ref, filters) => Stream<List<RoommatePostModel>>.value(const []),
           ),
           userUnreadNotificationCountProvider.overrideWith((ref) => 0),
+          hostReputationScoreProvider.overrideWith(
+            (ref, hostId) => Stream.value(100),
+          ),
         ],
         child: const MaterialApp(home: RenterDashboardScreen()),
       ),
@@ -237,6 +244,9 @@ void main() {
             (ref, filters) => Stream<List<RoommatePostModel>>.value(const []),
           ),
           userUnreadNotificationCountProvider.overrideWith((ref) => 0),
+          hostReputationScoreProvider.overrideWith(
+            (ref, hostId) => Stream.value(100),
+          ),
         ],
         child: const MaterialApp(home: RenterDashboardScreen()),
       ),

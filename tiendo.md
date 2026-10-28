@@ -2126,7 +2126,7 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
   1. Collection mới: `host_reviews`. Document ID = `bookingId` (một đơn thuê chỉ đánh giá 1 lần).
   2. Sao trung bình **tính lúc đọc** từ danh sách review; client **không** ghi field trung bình lên document đánh giá.
   3. Thanh uy tín **chỉ hiện khi vai trò là chủ trọ** (`host` / `landlord` / `chutro` / `chu_tro`). Renter và Admin không hiện thanh này.
-  4. Công thức thống nhất: `diemUyTin = max(0, 20 * R - P)` với `R` = sao trung bình 1–5, `P` = tổng phạt Admin. **Hiện tại P = 0** (chưa có màn Admin trừ điểm).
+  4. Công thức thống nhất: `users.reputationScore = max(0, 20 * R - P)` với `R` = sao trung bình 1–5, `P` = tổng phạt Admin. **Hiện tại P = 0** (chưa có màn Admin trừ điểm). **Chỉ dùng trường `reputationScore`**, không đọc/ghi `diemUyTin`.
   5. Chưa có review hợp lệ thì giữ mặc định **100**.
   6. Không thay thế toàn bộ Firestore Rules live. Chỉ **tách rule riêng** cho `host_reviews`; các collection khác vẫn mở tới `2026-12-10` như rule đang chạy.
 
@@ -2145,12 +2145,13 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
 | `createdAt` | timestamp | Thời điểm gửi |
 
 * **Không có** field `average`, `count`, `reputationScore` trên document review.
-* **Điều kiện được đánh giá:** đơn thuộc người thuê đang đăng nhập, thuộc đúng `hostId`, chưa bị hủy, trạng thái thuộc nhóm đã duyệt / đã cọc / đang ở:
-  `approved`, `deposit_paid`, `paid`, `completed`, `active`, `daCoc`/`dacoc`, `dangO`/`dango`, `daDuyet`, `choNhanPhong`, `daNhanPhong` (rules so khớp nguyên văn nên phải liệt kê cả `dangO` lẫn `dango`).
-* **Cấm:** tự đánh giá chính mình; đánh giá đơn của người khác; sửa review (`allow update: if false`); xóa phía client (chỉ admin được xóa).
+* **Điều kiện được đánh giá:**
+  - Người thuê chính: đơn `bookings` thuộc người đang đăng nhập, đúng `hostId`, chưa hủy, trạng thái đã duyệt / đã cọc / đang ở (`approved`, `deposit_paid`, `paid`, `completed`, `active`, `daCoc`/`dacoc`, `dangO`/`dango`, `daDuyet`, `choNhanPhong`, `daNhanPhong`).
+  - Người ở ghép: bản ghi `residents` của chính họ, `statusId` đang ở (`dangO` / `active`), phòng (`posts` / `rooms` / `host_rooms`) thuộc đúng chủ trọ. Document review ID = `residentId` (không cần đơn `bookings` riêng). Chủ trọ phải đã duyệt vào phòng thì mới có resident.
+* **Cấm:** tự đánh giá chính mình; đánh giá đơn / chỗ ở của người khác; sửa review (`allow update: if false`); xóa phía client (chỉ admin được xóa).
 
 #### 2. Firestore Rules & Index đã deploy
-* **[firestore.rules](file:///D:/Downloads/homeshare-dev-TOAN/firestore.rules):** `match /host_reviews/{bookingId}` đọc nếu đã đăng nhập; tạo nếu đúng khóa, đúng người thuê của `bookings/{bookingId}`, rating 1–5, comment ≤ 500, không tự review. Catch-all `/{collection}/{document=**}` **loại trừ** `host_reviews` (nếu không tách thì rule OR làm collection này vẫn mở hết).
+* **[firestore.rules](file:///D:/Downloads/homeshare-dev-TOAN/firestore.rules):** `match /host_reviews/{bookingId}` đọc nếu đã đăng nhập; tạo nếu đúng khóa, rating 1–5, comment ≤ 500, không tự review, và (đúng người thuê của `bookings/{id}` **hoặc** cư dân đang ở `residents/{id}` của phòng chủ đó). Catch-all `/{collection}/{document=**}` **loại trừ** `host_reviews` (nếu không tách thì rule OR làm collection này vẫn mở hết).
 * **[firestore.indexes.json](file:///D:/Downloads/homeshare-dev-TOAN/firestore.indexes.json):** composite `hostId ASC` + `createdAt DESC` cho query danh sách review trên hồ sơ.
 * **[firebase.json](file:///D:/Downloads/homeshare-dev-TOAN/firebase.json):** đã trỏ rules + indexes. Deploy thật bằng CLI `npx firebase-tools@latest deploy --only firestore:rules,firestore:indexes --project homeshare-fe18e` (MCP `firestore:rules` báo success nhưng **không** cập nhật rule live).
 
@@ -2160,10 +2161,10 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
   - `R` = trung bình `rating` hợp lệ 1–5.
   - Ghi **merge** lên `users/{hostId}`:
     + `reputationScore` = `max(0, round(20 * R - P))`, P = 0
-    + `diemUyTin` = **cùng một số** (hai field là alias Anh/Việt, **không** phải hai thang điểm).
     + `updatedAt` = serverTimestamp
-* Ví dụ QA 2 review (4 sao + 1 sao) → R = 2.5 → điểm **50**. Thanh trên hồ sơ và 2 field trên `users` cùng ra 50.
-* **Lưu ý lệch số cũ:** luồng Admin `post_review_service` từng trừ riêng `diemUyTin` nên có document `reputationScore: 50` / `diemUyTin: 48`. Phase này **không** gỡ `diemUyTin`; lần sync review mới ghi lại 2 field bằng nhau. P Admin trên thanh uy tín host-review vẫn = 0.
+    + **Không** ghi `diemUyTin`.
+* Ví dụ QA 2 review (4 sao + 1 sao) → R = 2.5 → `users.reputationScore` = **50**.
+* Admin từ chối bài (warning) cũng trừ trên `reputationScore`, không đụng `diemUyTin`. P trên công thức host-review vẫn = 0.
 
 #### 4. File code đánh giá / uy tín
   1. [firestore_collections.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/core/constants/firestore_collections.dart): `hostReviews = 'host_reviews'`, `HostReviewFields`.
@@ -2186,8 +2187,8 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
 * **Ngày hoàn thành:** 25/10/2026
 * **Phạm vi đã chốt:** người thuê gửi báo cáo → Admin **nhận**. **Chưa** làm màn Admin duyệt/từ chối, chưa trừ uy tín, chưa khóa tài khoản, chưa báo ngược cho chủ trọ / người thuê.
 * **Điểm vào UI:**
-  - Chi tiết phòng: nút **Báo cáo** → [report_host_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/renter/screens/report_host_screen.dart) (`ReportHostScreen.fromRoom`).
-  - Hồ sơ chủ trọ (view-only): **Báo cáo chủ trọ**. Cấm tự báo cáo chính mình, bắt đăng nhập.
+  - Hồ sơ chủ trọ (view-only): **Báo cáo chủ trọ** → [report_host_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/renter/screens/report_host_screen.dart). Cấm tự báo cáo chính mình, bắt đăng nhập.
+  - Chi tiết bài đăng chủ trọ: nút **Báo cáo** từ Phase 2.64 trở đi mở dialog **báo cáo bài đăng** (không còn vào form báo cáo chủ).
 
 #### 1. Form người thuê
 * Checkbox **vuông**, chọn **nhiều** lý do:
@@ -2269,7 +2270,7 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
 
 | Điểm vào | Màn mở |
 |---|---|
-| Tab Cá nhân / nút sửa hồ sơ ([home_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/home/screens/home_screen.dart)) | `RoleAwareProfileScreen` — host → hồ sơ chủ, renter → hồ sơ người thuê |
+| Tab Cá nhân — bấm avatar / card hồ sơ ([home_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/home/screens/home_screen.dart)) | `RoleAwareProfileScreen` — host → hồ sơ chủ, renter → hồ sơ người thuê (xem trước, sửa bằng bút chì trên app bar — Phase 2.66) |
 | Chi tiết phòng thuê ([room_detail_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/renter/screens/room_detail_screen.dart)) | `HostProfileScreen(userId: hostId)` |
 | Tác giả tin ở ghép | `RoleAwareProfileScreen(userId: authorId)` |
 
@@ -2299,3 +2300,142 @@ Chạy máy local, **không** bơm dữ liệu giả lên Firebase Console.
 ```
 flutter test test/host_review_test.dart test/host_report_test.dart test/host_profile_test.dart test/profile_screen_test.dart test/role_routing_test.dart test/id_generator_test.dart
 ```
+
+### Phase 2.64: Báo cáo bài đăng chủ trọ — dialog chip gửi Admin
+* **Ngày hoàn thành:** 26/10/2026
+* **Phạm vi đã chốt:** người dùng vào **chi tiết bài đăng chủ trọ** → nút **Báo cáo** (cột hành động dưới cùng) → dialog chip vi phạm → gửi → Admin **nhận chuông**. **Chưa** làm màn Admin duyệt/từ chối, chưa ẩn bài, chưa trừ uy tín, chưa khóa tài khoản, chưa báo ngược cho chủ trọ / người gửi.
+* **Khác Phase 2.62:** báo cáo **bài đăng** (không phải hồ sơ chủ). Dialog chip, **không** bắt ảnh minh chứng. Cùng collection `reports`, phân biệt bằng `targetType: 'post'` và mã `BCB_`. Hồ sơ chủ trọ vẫn dùng form **Báo cáo chủ trọ** (2.62).
+* **Đã gỡ:** icon 3 chấm dọc trên thẻ trang chủ / tìm kiếm / yêu thích / app bar chi tiết / thẻ host.
+
+#### 1. Điểm vào — nút Báo cáo chi tiết bài
+[room_detail_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/renter/screens/room_detail_screen.dart) `_onReportPressed`. Chưa đăng nhập → snackbar. Tự báo bài của mình → chặn. Mở [report_host_post_dialog.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/renter/widgets/report_host_post_dialog.dart).
+
+#### 2. Dialog chip
+[report_host_post_dialog.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/renter/widgets/report_host_post_dialog.dart):
+
+* Tiêu đề **Báo cáo** + nút đóng.
+* Phụ đề: *Tìm hỗ trợ hoặc báo cáo bài đăng* / *Hãy giúp chúng tôi hiểu chuyện gì đang xảy ra.*
+* Chip chọn **nhiều** (chip xanh khi chọn):
+
+  1. Thông tin sai sự thật
+  2. Hình ảnh giả mạo
+  3. Giá thuê / tiền cọc không đúng
+  4. Phòng không còn trống
+  5. Lừa đảo
+  6. Nội dung phản cảm
+  7. Spam / bài trùng
+  8. Quyền sở hữu trí tuệ
+  9. Vấn đề khác
+
+* Tick **Vấn đề khác** mới hiện ô nhập (bắt buộc, tối đa 500 ký tự). Bỏ tick thì xóa text.
+* Cảnh báo vàng: liên hệ cơ quan hành pháp nếu ai đó đang gặp nguy hiểm.
+* Nút **Tiếp** gửi báo cáo. Thành công: đóng dialog + snackbar *Báo cáo bài đăng đã được gửi tới ban quản trị HomeShare.*
+* Dialog cuộn được (`SingleChildScrollView`) để không tràn khi hiện khung text.
+
+Validate ([host_post_report_policy.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/core/utils/host_post_report_policy.dart)): đăng nhập, có `postId`, không tự báo bài mình, ≥ 1 chip, Vấn đề khác phải có chữ.
+
+#### 3. Khi nhấn Tiếp — ghi Firebase
+[host_post_report_service.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/core/services/host_post_report_service.dart) batch 3 document. **Không** upload ảnh.
+
+**A. Collection `reports` — document ID `BCB_{timestamp}`** (`IdGenerator.postReport()`)
+
+| Trường | Giá trị |
+|---|---|
+| `id` | `BCB_...` |
+| `targetType` | `'post'` |
+| `postId`, `postTitle` | bài bị báo |
+| `hostId`, `hostName` | chủ bài |
+| `roomId`, `roomTitle` | trùng post nếu thiếu room riêng |
+| `reporterId`, `reporterName` | người gửi |
+| `reasons` | mảng chip đã chọn (giữ nguyên chữ “Vấn đề khác” nếu tick) |
+| `reason` | chuỗi ghép `; `. Mục Vấn đề khác được **thay bằng** nội dung ô nhập |
+| `detail` | text Vấn đề khác (rỗng nếu không tick) |
+| `status` | `'pending'` — Admin chưa xử lý nên **không đổi** |
+| `createdAt` | serverTimestamp |
+
+**B. Collection `notifications` — `TB_{timestamp}`**
+* `recipientRole: 'admin'`, `notificationType: 'report'`
+* `title: 'Báo cáo bài đăng'`
+* `message`: `"{người gửi} báo cáo bài \"{tiêu đề}\": {lý do}"`
+* `targetId` = mã `BCB_...`, `postId`, `hostId`, `reporterId`, `isRead: false`
+
+**C. Collection `audit_logs` — `LOG_{timestamp}`**
+* `action: 'Người dùng báo cáo bài đăng chủ trọ'`, `category: 'baoCao'`
+
+* **Không** ghi `users`. Không trừ `reputationScore` / `diemUyTin`. Không tạo collection mới (dùng lại `reports`). `HostReportFields` thêm `postId`, `postTitle`.
+
+#### 4. Admin thấy gì (đã setup tới đây)
+* Cùng chuông dashboard Admin: đếm `notifications` `recipientRole == admin` + `isRead == false`.
+* Mở chuông: tin **Báo cáo bài đăng**, icon đỏ `report` (cùng `notificationType: 'report'` với báo cáo chủ trọ).
+* Bấm tin: **chỉ đánh dấu đã đọc**. Chưa mở chi tiết `reports/BCB_...`.
+* **Chưa có:** màn danh sách/chi tiết báo cáo bài, đổi `status` khỏi `pending`, ẩn bài, trừ điểm, khóa host, thông báo 2 chiều.
+
+#### 5. File
+  1. [host_post_report_policy.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/core/utils/host_post_report_policy.dart)
+  2. [host_post_report_service.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/core/services/host_post_report_service.dart)
+  3. [report_host_post_dialog.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/renter/widgets/report_host_post_dialog.dart)
+  4. Nút **Báo cáo** trong [room_detail_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/renter/screens/room_detail_screen.dart)
+  5. `HostReportFields.postId` / `postTitle` trong [firestore_collections.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/core/constants/firestore_collections.dart)
+  6. [id_generator.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/core/utils/id_generator.dart): `postReport()` → `BCB_...`
+  7. Test: [host_post_report_test.dart](file:///D:/Downloads/homeshare-dev-TOAN/test/host_post_report_test.dart) — không tự báo, phải chọn chip, Vấn đề khác bắt buộc text, dialog hiện ô nhập khi tick chip đó.
+
+* **Rules:** `reports` / `notifications` / `audit_logs` vẫn catch-all live. **Không** chỉnh `firestore.rules`.
+* **Cần hot-restart** `flutter run` để mất 3 chấm và nút Báo cáo mở dialog bài đăng.
+
+```
+flutter test test/host_post_report_test.dart
+```
+
+---
+
+### Phase 2.65: Thẻ phòng hiện sao uy tín chủ trọ — gỡ badge 5 sao ở chi tiết
+* **Ngày hoàn thành:** 26/10/2026
+* **Yêu cầu:** Chi tiết bài đăng **không** còn card/badge 5 sao cạnh tiêu đề. Ở danh sách (chưa vào chi tiết), chỗ sao cũ hiện **số sao uy tín của chủ trọ** (icon sao + số), **không** hiện thang `100/100`.
+
+#### 1. Chi tiết bài đăng
+[room_detail_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/renter/screens/room_detail_screen.dart): gỡ badge vàng `⭐ {_room.rating} ({reviewCount})` cạnh tiêu đề. Chỉ còn tiêu đề + địa chỉ + giá.
+
+#### 2. Thẻ ngoài
+Widget [host_reputation_stars.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/profile/widgets/host_reputation_stars.dart) (`HostReputationStarLabel`): chỉ đọc `users/{hostId}.reputationScore`, hiện `⭐` + số sao 1 chữ số. Thiếu field thì mặc định 100.
+
+| Màn | Vị trí |
+|---|---|
+| Trang chủ người thuê | Cạnh giá trên thẻ phòng |
+| Kết quả tìm kiếm | Cạnh tiêu đề thẻ ngang |
+| Phòng yêu thích | Cạnh giá |
+
+Công thức hiển thị: `số sao = điểm uy tín / 20` ([host_reputation.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/core/utils/host_reputation.dart) `starsFromScore` / `starsText`). Điểm 100 → `5.0`, 80 → `4.0`, 50 → `2.5`. Chưa có đánh giá thì mặc định 100 → `5.0`. **Không** vẽ thanh 0–100 trên thẻ.
+
+Thanh uy tín `100/100` vẫn chỉ nằm trên hồ sơ chủ trọ (Phase 2.61).
+
+```
+flutter test test/host_review_test.dart test/renter_dashboard_search_filter_test.dart test/room_detail_firestore_post_test.dart
+```
+
+---
+
+### Phase 2.66: Hồ sơ của mình — xem trước, bút chì mới được sửa
+* **Ngày hoàn thành:** 27/10/2026
+* **Yêu cầu:** Gỡ bút chì trên **Trang cá nhân**. Bấm avatar hoặc card tên mở hồ sơ **của chính mình ở chế độ xem** (không mở form sửa ngay). Trên hồ sơ, bút chì **cùng hàng tiêu đề**; bấm vào mới được sửa. Không đổi bộ trường hồ sơ.
+
+#### 1. Trang cá nhân
+[home_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/home/screens/home_screen.dart): AppBar chỉ còn chữ **Trang cá nhân** (không `Icons.edit_outlined`). Card hồ sơ (avatar + tên) vẫn `InkWell` → `RoleAwareProfileScreen()`.
+
+#### 2. Hồ sơ người thuê / chủ trọ
+[personal_profile_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/profile/screens/personal_profile_screen.dart) và [host_profile_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/profile/screens/host_profile_screen.dart):
+
+| Trạng thái | UI |
+|---|---|
+| Xem hồ sơ người khác | Tiêu đề **Hồ sơ** / **Hồ sơ chủ trọ**, không bút chì, không footer Lưu |
+| Xem hồ sơ của mình (mặc định) | Tiêu đề **Hồ sơ cá nhân** / **Hồ sơ chủ trọ** + bút chì app bar; field dạng dòng đọc; không Hủy/Lưu; không camera đổi ảnh |
+| Bấm bút chì | Form sửa như cũ (ô nhập, chọn giới tính, sở thích, ngân hàng, Hủy bỏ / Lưu thay đổi) |
+
+* **Hủy bỏ** về chế độ xem (hydrate lại, không `pop` khỏi màn).
+* **Lưu thành công** ở lại màn hồ sơ, về chế độ xem (không `pop`).
+* Badge VNeID/CCCD trên hồ sơ của mình vẫn bấm được khi chưa xác thực.
+* Xem hồ sơ người khác không đổi: vẫn báo cáo chủ trọ / đánh giá khi đủ điều kiện.
+
+```
+flutter test test/host_profile_test.dart test/profile_screen_test.dart test/role_routing_test.dart
+```
+

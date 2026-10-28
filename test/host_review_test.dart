@@ -8,6 +8,7 @@ import 'package:home_share/core/utils/host_reputation.dart';
 import 'package:home_share/core/utils/host_review_policy.dart';
 import 'package:home_share/data/models/booking_model.dart';
 import 'package:home_share/data/models/host_review_model.dart';
+import 'package:home_share/data/models/resident_model.dart';
 import 'package:home_share/features/auth/providers/auth_provider.dart';
 import 'package:home_share/features/auth/providers/user_provider.dart';
 import 'package:home_share/features/profile/widgets/host_reputation_bar.dart';
@@ -84,7 +85,7 @@ void main() {
       expect(HostReputation.label(20), 'Uy tín thấp');
     });
 
-    test('diemUyTin = max(0, 20 * R - P), hiện tại P = 0', () {
+    test('reputationScore = max(0, 20 * R - P), hiện tại P = 0', () {
       expect(HostReputation.fromAverage(5), 100);
       expect(HostReputation.fromAverage(4), 80);
       expect(HostReputation.fromAverage(2.5), 50);
@@ -92,6 +93,15 @@ void main() {
       expect(HostReputation.fromAverage(null), 100);
       expect(HostReputation.fromAverage(2.5, penalty: 10), 40);
       expect(HostReputation.fromAverage(1, penalty: 50), 0);
+    });
+
+    test('sao uy tín = điểm / 20, không hiện thang 100', () {
+      expect(HostReputation.starsFromScore(100), 5.0);
+      expect(HostReputation.starsFromScore(80), 4.0);
+      expect(HostReputation.starsFromScore(50), 2.5);
+      expect(HostReputation.starsText(100), '5.0');
+      expect(HostReputation.starsText(80), '4.0');
+      expect(HostReputation.starsText(48), '2.4');
     });
   });
 
@@ -142,6 +152,74 @@ void main() {
         reviewedBookingIds: {},
       );
       expect(eligible?.id, 'new');
+    });
+
+    test('người ở ghép đang ở được đánh giá chủ trọ dù không có đơn bookings', () {
+      final eligible = HostReviewPolicy.firstEligibleResident(
+        reviewerId: 'roommate1',
+        hostId: 'host1',
+        residents: [
+          ResidentModel(
+            id: 'res_og_1',
+            periodId: 'p1',
+            roomId: 'room1',
+            userId: 'roommate1',
+            fullName: 'Bạn ở ghép',
+            formId: 'oGhep',
+            statusId: 'dangO',
+            moveInDate: DateTime(2026, 10, 2),
+          ),
+        ],
+        roomHostByRoomId: const {'room1': 'host1'},
+        reviewedBookingIds: {},
+      );
+      expect(eligible?.id, 'res_og_1');
+      expect(eligible?.renterId, 'roommate1');
+      expect(eligible?.hostId, 'host1');
+      expect(HostReviewPolicy.isReviewableBooking(eligible!), isTrue);
+    });
+
+    test('người ở ghép phòng chủ khác hoặc đã rời đi thì không được đánh giá', () {
+      final otherHost = HostReviewPolicy.firstEligibleResident(
+        reviewerId: 'roommate1',
+        hostId: 'host1',
+        residents: [
+          ResidentModel(
+            id: 'res_other',
+            periodId: 'p2',
+            roomId: 'room2',
+            userId: 'roommate1',
+            fullName: 'Bạn ở ghép',
+            formId: 'oGhep',
+            statusId: 'dangO',
+            moveInDate: DateTime(2026, 10, 2),
+          ),
+        ],
+        roomHostByRoomId: const {'room2': 'host2'},
+        reviewedBookingIds: {},
+      );
+      expect(otherHost, isNull);
+
+      final movedOut = HostReviewPolicy.firstEligibleResident(
+        reviewerId: 'roommate1',
+        hostId: 'host1',
+        residents: [
+          ResidentModel(
+            id: 'res_left',
+            periodId: 'p3',
+            roomId: 'room1',
+            userId: 'roommate1',
+            fullName: 'Bạn ở ghép',
+            formId: 'oGhep',
+            statusId: 'daRoi',
+            moveInDate: DateTime(2026, 9, 1),
+            moveOutDate: DateTime(2026, 10, 1),
+          ),
+        ],
+        roomHostByRoomId: const {'room1': 'host1'},
+        reviewedBookingIds: {},
+      );
+      expect(movedOut, isNull);
     });
   });
 

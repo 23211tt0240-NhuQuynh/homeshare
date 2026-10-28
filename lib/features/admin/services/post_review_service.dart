@@ -81,10 +81,10 @@ class PostReviewService {
       final hostRef = _db.collection('users').doc(hostId);
       final hostSnap = await hostRef.get();
       final hostData = hostSnap.data() ?? {};
-      final currentScore = (hostData['diemUyTin'] ?? 100) as num;
+      final currentScore = (hostData['reputationScore'] ?? 100) as num;
       if (hostSnap.exists) {
         batch.update(hostRef, {
-          'diemUyTin': (currentScore.toInt() - 1).clamp(0, 100),
+          'reputationScore': (currentScore.toInt() - 1).clamp(0, 100),
         });
       }
     }

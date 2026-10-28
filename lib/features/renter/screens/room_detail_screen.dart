@@ -4,12 +4,13 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/favorites_service.dart';
 import '../../../core/services/room_service.dart';
+import '../../../core/utils/host_post_report_policy.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
 import '../../profile/screens/host_profile_screen.dart';
-import 'report_host_screen.dart';
+import '../widgets/report_host_post_dialog.dart';
 import 'room_booking_detail_screen.dart';
 
 class RoomDetailScreen extends ConsumerStatefulWidget {
@@ -75,12 +76,31 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
     );
   }
 
-  void _onReportPressed() {
-    Navigator.push(
+  Future<void> _onReportPressed() async {
+    final reporterId = ref.read(currentUserProvider)?.uid ?? '';
+    if (reporterId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng đăng nhập để báo cáo.')),
+      );
+      return;
+    }
+    if (!HostPostReportPolicy.canReport(
+      reporterId: reporterId,
+      hostId: _room.hostId,
+      postId: _room.id,
+    )) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bạn không thể báo cáo bài đăng của chính mình.')),
+      );
+      return;
+    }
+    await showReportHostPostDialog(
       context,
-      MaterialPageRoute(
-        builder: (_) => ReportHostScreen.fromRoom(_room),
-      ),
+      postId: _room.id,
+      postTitle: _room.title,
+      hostId: _room.hostId,
+      hostName: _room.hostName,
+      roomId: _room.id,
     );
   }
 
@@ -354,48 +374,14 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                     ),
                   ],
 
-                  // Title & Badge
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _room.title,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textDark,
-                            height: 1.3,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Semantics(
-                        label: 'Đánh giá ${_room.rating} sao trên ${_room.reviewCount} lượt đánh giá',
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF9E6),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFFFE082)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.star, size: 14, color: Color(0xFFFFA000)),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${_room.rating}',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB78103)),
-                              ),
-                              Text(
-                                ' (${_room.reviewCount})',
-                                style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                  Text(
+                    _room.title,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                      height: 1.3,
+                    ),
                   ),
                   const SizedBox(height: 8),
 
@@ -626,7 +612,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
             children: [
               // 1. Nút Báo cáo
               Semantics(
-                label: 'Báo cáo vi phạm chủ nhà hoặc phòng trọ',
+                label: 'Báo cáo bài đăng',
                 button: true,
                 excludeSemantics: true,
                 child: OutlinedButton.icon(

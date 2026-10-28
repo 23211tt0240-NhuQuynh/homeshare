@@ -5,7 +5,7 @@ import '../constants/app_colors.dart';
 
 /// Thanh uy tín 0–100 chỉ dùng cho hồ sơ chủ trọ. Người thuê không hiện thanh này.
 ///
-/// Công thức thống nhất: `diemUyTin = max(0, 20 * R - P)`.
+/// Công thức thống nhất: `users.reputationScore = max(0, 20 * R - P)`.
 /// R là sao trung bình 1–5 từ `host_reviews`. P là tổng phạt Admin (hiện tại = 0).
 abstract final class HostReputation {
   static const int maxScore = 100;
@@ -27,6 +27,11 @@ abstract final class HostReputation {
     final appliedPenalty = penalty < 0 ? 0 : penalty;
     return clampScore((pointsPerStar * rating - appliedPenalty).round());
   }
+
+  /// Đổi điểm 0–100 sang số sao 0–5. Không hiện thang 100.
+  static double starsFromScore(int raw) => clampScore(raw) / pointsPerStar;
+
+  static String starsText(int raw) => starsFromScore(raw).toStringAsFixed(1);
 
   static double ratio(int raw) => clampScore(raw) / maxScore;
 

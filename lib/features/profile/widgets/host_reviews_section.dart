@@ -26,7 +26,10 @@ class HostReviewsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reviewsAsync = ref.watch(hostReviewsProvider(hostId));
-    final eligible = ref.watch(eligibleHostReviewBookingProvider(hostId));
+    final eligible = ref.watch(eligibleHostReviewBookingProvider(hostId)).maybeWhen(
+          data: (value) => value,
+          orElse: () => null,
+        );
 
     return reviewsAsync.when(
       data: (reviews) {

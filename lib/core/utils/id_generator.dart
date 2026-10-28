@@ -126,6 +126,12 @@ class IdGenerator {
     return 'BC_${DateTime.now().millisecondsSinceEpoch}';
   }
 
+  /// Sinh Document ID báo cáo bài đăng chủ trọ (reports, targetType = post):
+  /// BCB_1729053891000
+  static String postReport() {
+    return 'BCB_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
   /// Sinh Document ID Nhật ký kiểm toán (audit_logs):
   /// LOG_1729053891000
   static String auditLog() {

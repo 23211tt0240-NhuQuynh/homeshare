@@ -6,6 +6,7 @@ import '../../../data/models/room_model.dart';
 import '../../../core/services/room_service.dart';
 import '../../../core/services/favorites_service.dart';
 import '../../auth/providers/user_provider.dart';
+import '../../profile/widgets/host_reputation_stars.dart';
 import 'room_detail_screen.dart';
 import 'search_filter_screen.dart';
 
@@ -534,19 +535,7 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                           color: AppColors.primary,
                         ),
                       ),
-                      Row(
-                        children: [
-                          const Icon(Icons.star, size: 14, color: Colors.amber),
-                          const SizedBox(width: 2),
-                          Text(
-                            '${room.rating}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
+                      HostReputationStarLabel(hostId: room.hostId),
                     ],
                   ),
                   const SizedBox(height: 6),

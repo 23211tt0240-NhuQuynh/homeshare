@@ -576,6 +576,8 @@ abstract final class HostReportFields {
   static const hostPhone = 'hostPhone';
   static const roomId = 'roomId';
   static const roomTitle = 'roomTitle';
+  static const postId = 'postId';
+  static const postTitle = 'postTitle';
   static const reporterId = 'reporterId';
   static const reporterName = 'reporterName';
   static const reason = 'reason';
@@ -586,7 +588,7 @@ abstract final class HostReportFields {
   static const createdAt = 'createdAt';
 }
 
-/// Schema collection `host_reviews`. Document ID = bookingId.
+/// Schema collection `host_reviews`. Document ID = bookingId hoặc residentId (ở ghép).
 abstract final class HostReviewFields {
   static const hostId = 'hostId';
   static const reviewerId = 'reviewerId';

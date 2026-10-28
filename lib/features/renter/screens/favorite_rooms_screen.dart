@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/services/favorites_service.dart';
 import '../../../data/models/room_model.dart';
 import '../../../data/models/roommate_post_model.dart';
+import '../../profile/widgets/host_reputation_stars.dart';
 import 'renter_main_screen.dart';
 import 'room_detail_screen.dart';
 import 'roommate_post_detail_screen.dart';
@@ -232,7 +233,6 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                               ),
                             ),
                           ),
-                          const SizedBox(width: 4),
                           // Nút Bỏ lưu / Tim
                           InkWell(
                             onTap: () async {
@@ -297,19 +297,14 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                               color: AppColors.primary,
                             ),
                           ),
-                          Row(
-                            children: [
-                              const Icon(Icons.star_rounded, size: 15, color: Color(0xFFF59E0B)),
-                              const SizedBox(width: 2),
-                              Text(
-                                '${room.rating}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF334155),
-                                ),
-                              ),
-                            ],
+                          HostReputationStarLabel(
+                            hostId: room.hostId,
+                            iconSize: 15,
+                            textStyle: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF334155),
+                            ),
                           ),
                         ],
                       ),

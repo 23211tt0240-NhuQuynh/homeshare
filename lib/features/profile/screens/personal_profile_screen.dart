@@ -55,7 +55,10 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   String _bankName = '';
   bool _saving = false;
   bool _viewOnly = false;
+  bool _editing = false;
   bool _loadingUser = false;
+
+  bool get _locked => _viewOnly || !_editing;
   int _reputationScore = 100;
   String? _loadError;
   Uint8List? _pickedAvatar;
@@ -133,6 +136,24 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     final requested = widget.userId?.trim() ?? '';
     if (requested.isNotEmpty) return requested;
     return ref.read(userProfileProvider).value?.uid ?? '';
+  }
+
+  void _startEditing() {
+    setState(() => _editing = true);
+  }
+
+  void _cancelEditing() {
+    final profile = ref.read(userProfileProvider).value;
+    if (profile != null) {
+      _hydrate(profile);
+      _loadInterests(profile);
+      _loadBankAccount(profile.uid);
+    }
+    setState(() {
+      _editing = false;
+      _pickedAvatar = null;
+      _genderError = null;
+    });
   }
 
   void _openHostReport() {
@@ -450,7 +471,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
             : 'Thông tin cá nhân, tài khoản ngân hàng và sở thích đã được cập nhật.',
         success: true,
       );
-      if (mounted) Navigator.pop(context);
+      if (mounted) setState(() => _editing = false);
     } catch (e) {
       if (!mounted) return;
       await _showResult(
@@ -488,6 +509,14 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textDark,
         elevation: 0,
+        actions: [
+          if (!_viewOnly && !_editing)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Chỉnh sửa hồ sơ',
+              onPressed: _startEditing,
+            ),
+        ],
       ),
       body: waiting
           ? const Center(child: CircularProgressIndicator())
@@ -500,7 +529,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                     Expanded(
                       child: Form(
                         key: _formKey,
-                        autovalidateMode: _viewOnly ? AutovalidateMode.disabled : AutovalidateMode.onUserInteraction,
+                        autovalidateMode: _locked ? AutovalidateMode.disabled : AutovalidateMode.onUserInteraction,
                         child: ListView(
                           controller: _scrollController,
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -541,7 +570,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                             _buildSection(
                               icon: Icons.badge_outlined,
                               title: 'Thông tin cơ bản & Liên hệ',
-                              subtitle: _viewOnly ? '' : 'Thông tin dùng để xác minh danh tính và hồ sơ ở ghép',
+                              subtitle: _locked ? '' : 'Thông tin dùng để xác minh danh tính và hồ sơ ở ghép',
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
@@ -549,8 +578,8 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                                     controller: _nameController,
                                     label: 'Họ và tên *',
                                     hint: 'Họ và tên trên tài khoản',
-                                    readOnly: _viewOnly,
-                                    validator: _viewOnly
+                                    readOnly: _locked,
+                                    validator: _locked
                                         ? null
                                         : (val) {
                                             final name = val?.trim() ?? '';
@@ -570,8 +599,8 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                                     hint: '10 số, bắt đầu bằng 0',
                                     keyboardType: TextInputType.phone,
                                     inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-                                    readOnly: _viewOnly,
-                                    validator: _viewOnly
+                                    readOnly: _locked,
+                                    validator: _locked
                                         ? null
                                         : (val) {
                                             if (!RegExp(r'^0\d{9}$').hasMatch(val?.trim() ?? '')) {
@@ -592,8 +621,8 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                                     controller: _hometownController,
                                     label: 'Quê quán / Tỉnh thành *',
                                     hint: 'Nhập quê quán',
-                                    readOnly: _viewOnly,
-                                    validator: _viewOnly ? null : (val) => (val?.trim().length ?? 0) < 2 ? 'Nhập quê quán / tỉnh thành' : null,
+                                    readOnly: _locked,
+                                    validator: _locked ? null : (val) => (val?.trim().length ?? 0) < 2 ? 'Nhập quê quán / tỉnh thành' : null,
                                   ),
                                 ],
                               ),
@@ -602,7 +631,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                             _buildSection(
                               icon: Icons.work_outline,
                               title: 'Nghề nghiệp & Đơn vị công tác',
-                              subtitle: _viewOnly ? '' : 'Giúp bạn cùng phòng hiểu về lịch trình công việc và thời gian biểu của bạn',
+                              subtitle: _locked ? '' : 'Giúp bạn cùng phòng hiểu về lịch trình công việc và thời gian biểu của bạn',
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
@@ -610,16 +639,16 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                                     controller: _occupationController,
                                     label: 'Nghề nghiệp / Vị trí *',
                                     hint: 'Ví dụ: Sinh viên, Kỹ sư',
-                                    readOnly: _viewOnly,
-                                    validator: _viewOnly ? null : (val) => (val?.trim().length ?? 0) < 2 ? 'Nhập nghề nghiệp / vị trí' : null,
+                                    readOnly: _locked,
+                                    validator: _locked ? null : (val) => (val?.trim().length ?? 0) < 2 ? 'Nhập nghề nghiệp / vị trí' : null,
                                   ),
                                   const SizedBox(height: 12),
                                   _textField(
                                     controller: _workplaceController,
                                     label: 'Nơi làm việc / Công ty',
                                     hint: 'Trường hoặc nơi làm việc',
-                                    readOnly: _viewOnly,
-                                    validator: _viewOnly ? null : (val) => (val?.trim().length ?? 0) > 80 ? 'Tối đa 80 ký tự' : null,
+                                    readOnly: _locked,
+                                    validator: _locked ? null : (val) => (val?.trim().length ?? 0) > 80 ? 'Tối đa 80 ký tự' : null,
                                   ),
                                 ],
                               ),
@@ -634,7 +663,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                         ),
                       ),
                     ),
-                    if (!_viewOnly) _buildFooter(),
+                    if (!_viewOnly && _editing) _buildFooter(),
                   ],
                 ),
     );
@@ -652,7 +681,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               localBytes: _pickedAvatar,
               radius: 48,
             ),
-            if (!_viewOnly)
+            if (!_locked)
               Positioned(
                 right: -2,
                 bottom: -2,
@@ -671,7 +700,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               ),
           ],
         ),
-        if (!_viewOnly) ...[
+        if (!_locked) ...[
           const SizedBox(height: 8),
           TextButton(
             onPressed: _pickAvatar,
@@ -787,7 +816,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   }
 
   Widget _buildIntroSection() {
-    if (_viewOnly) {
+    if (_locked) {
       return Container(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
         decoration: BoxDecoration(
@@ -873,11 +902,11 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
           const SizedBox(height: 6),
           TextFormField(
             controller: _bioController,
-            readOnly: _viewOnly,
+            readOnly: _locked,
             maxLines: 4,
             maxLength: 500,
             buildCounter: (_, {required currentLength, required isFocused, maxLength}) => const SizedBox.shrink(),
-            onChanged: _viewOnly ? null : (_) => setState(() {}),
+            onChanged: _locked ? null : (_) => setState(() {}),
             decoration: _decoration('Viết vài dòng về bạn'),
           ),
           const SizedBox(height: 8),
@@ -1082,7 +1111,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
 
   Widget _yearField() {
     final age = _age();
-    if (_viewOnly) {
+    if (_locked) {
       final year = _yearController.text.trim();
       final shown = year.isEmpty ? '' : (age == null ? year : '$year · $age tuổi');
       return _profileLine('Năm sinh', shown);
@@ -1094,14 +1123,14 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
         const SizedBox(height: 6),
         TextFormField(
           controller: _yearController,
-          readOnly: _viewOnly,
+          readOnly: _locked,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)],
           onChanged: (_) => setState(() {}),
           decoration: _decoration('Năm sinh').copyWith(
             suffixText: age == null ? null : '$age tuổi',
           ),
-          validator: _viewOnly
+          validator: _locked
               ? null
               : (val) {
                   final year = int.tryParse(val?.trim() ?? '');
@@ -1118,7 +1147,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   }
 
   Widget _genderField() {
-    if (_viewOnly) return _profileLine('Giới tính', _gender);
+    if (_locked) return _profileLine('Giới tính', _gender);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1143,7 +1172,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   Widget _genderChip(String label) {
     final selected = _gender == label;
     return InkWell(
-      onTap: _viewOnly
+      onTap: _locked
           ? null
           : () => setState(() {
                 _gender = label;
@@ -1178,7 +1207,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
-    if (_viewOnly) {
+    if (_locked) {
       return _profileLine(label.replaceAll(' *', ''), controller?.text ?? '');
     }
     return Column(
@@ -1226,7 +1255,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: _saving ? null : () => Navigator.pop(context),
+                onPressed: _saving ? null : _cancelEditing,
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   side: const BorderSide(color: AppColors.border),
