@@ -18,6 +18,7 @@ import '../../renter/screens/room_detail_screen.dart';
 import '../../renter/screens/roommate_room_detail_screen.dart';
 import '../services/roommate_invitation_eligibility_service.dart';
 import '../services/roommate_invitation_policy.dart';
+import '../../renter/widgets/room_full_dialog.dart';
 import 'call_screen.dart';
 
 /// Màn hình Chi tiết Tin nhắn & Trao đổi (Feature #10 theo chuẩn SRS CDLTDD & Tc_CHAT_01 -> 50)
@@ -821,8 +822,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return;
     }
 
-    final targetRoom = eligibility.activeRoom;
-    if (targetRoom == null) {
+    final activeRooms = eligibility.activeRooms.isNotEmpty
+        ? eligibility.activeRooms
+        : (eligibility.activeRoom != null ? [eligibility.activeRoom!] : <RoomModel>[]);
+
+    if (activeRooms.isEmpty) {
       final lookupFailed = eligibility.blockReason == RoommateInvitationBlockReason.lookupFailed;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -837,6 +841,269 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return;
     }
 
+    if (eligibility.blockReason == RoommateInvitationBlockReason.roomFull) {
+      final firstRoom = activeRooms.isNotEmpty ? activeRooms.first : null;
+      final cap = firstRoom != null
+          ? eligibility.capacityChecks[firstRoom.id]
+          : null;
+      await RoomFullDialog.show(
+        context,
+        capacity: cap?.capacity ?? 2,
+        currentOccupants: cap?.currentOccupants ?? 2,
+        roomTitle: firstRoom?.title,
+      );
+      return;
+    }
+
+    if (activeRooms.length == 1) {
+      final targetRoom = activeRooms.first;
+      final cap = eligibility.capacityChecks[targetRoom.id] ??
+          await _invitationEligibilityService.checkRoomCapacity(
+            targetRoom.id,
+            senderId: widget.currentUserId,
+            fallbackRoom: targetRoom,
+          );
+      if (cap.isFull) {
+        if (!mounted) return;
+        await RoomFullDialog.show(
+          context,
+          capacity: cap.capacity,
+          currentOccupants: cap.currentOccupants,
+          roomTitle: targetRoom.title,
+        );
+        return;
+      }
+      if (!mounted) return;
+      _showRoommateInviteConfirmDialog(targetRoom);
+      return;
+    }
+
+    // Nếu người dùng có nhiều phòng đang thuê: hiện tất cả nhà đang ở để chọn!
+    if (!mounted) return;
+    _showSelectRoomToInviteSheet(activeRooms, eligibility.capacityChecks);
+  }
+
+  void _showSelectRoomToInviteSheet(
+    List<RoomModel> rooms,
+    Map<String, RoomCapacityCheckResult> capacityChecks,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF151C28) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.holiday_village_rounded, color: AppColors.primary, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Chọn nhà / phòng mời ở ghép',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Bạn đang thuê ${rooms.length} phòng. Chọn phòng để gửi lời mời tới ${widget.receiverName}:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  itemCount: rooms.length,
+                  separatorBuilder: (ctx, idx) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final room = rooms[index];
+                    final title = room.title.trim().isNotEmpty
+                        ? room.title.trim()
+                        : (room.roomCode.isNotEmpty ? room.roomCode : 'Phòng ${index + 1}');
+                    final sharePrice = room.price > 0 ? (room.price / 2).round() : 0;
+                    final cap = capacityChecks[room.id];
+                    final isFull = cap?.isFull == true;
+
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () async {
+                        if (isFull && cap != null) {
+                          await RoomFullDialog.show(
+                            context,
+                            capacity: cap.capacity,
+                            currentOccupants: cap.currentOccupants,
+                            roomTitle: room.title,
+                          );
+                          return;
+                        }
+                        Navigator.pop(ctx);
+                        _showRoommateInviteConfirmDialog(room);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isFull
+                                ? const Color(0xFFF59E0B).withValues(alpha: 0.5)
+                                : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: (isFull ? const Color(0xFFF59E0B) : AppColors.primary)
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                isFull ? Icons.group_off_rounded : Icons.meeting_room_outlined,
+                                color: isFull ? const Color(0xFFD97706) : AppColors.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                          ),
+                                        ),
+                                      ),
+                                      if (cap != null) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: isFull ? const Color(0xFFFEF3C7) : const Color(0xFFECFDF3),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: isFull ? const Color(0xFFFDE68A) : const Color(0xFFA6F4C5),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            isFull
+                                                ? 'Đã đủ (${cap.currentOccupants}/${cap.capacity})'
+                                                : 'Còn chỗ (${cap.currentOccupants}/${cap.capacity})',
+                                            style: TextStyle(
+                                              color: isFull ? const Color(0xFFB45309) : const Color(0xFF027A48),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 10.5,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  if (room.address.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      room.address,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    sharePrice > 0
+                                        ? 'Dự kiến: ${NumberFormat("#,###", "vi_VN").format(sharePrice)} đ/tháng/người'
+                                        : 'Giá phòng: ${NumberFormat("#,###", "vi_VN").format(room.price)} đ/tháng',
+                                    style: const TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 14,
+                              color: isFull ? const Color(0xFFD97706) : AppColors.primary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showRoommateInviteConfirmDialog(RoomModel targetRoom) {
     final roomTitle = targetRoom.title.trim().isNotEmpty
         ? targetRoom.title.trim()
         : (targetRoom.roomCode.trim().isNotEmpty ? targetRoom.roomCode.trim() : targetRoom.id);
@@ -883,7 +1150,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
             onPressed: () async {
               Navigator.pop(ctx);
-              await _sendVerifiedRoommateInvitation();
+              await _sendVerifiedRoommateInvitation(targetRoom);
             },
             child: const Text('Gửi Lời Mời'),
           ),
@@ -892,29 +1159,29 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
-  Future<void> _sendVerifiedRoommateInvitation() async {
-    // Kiểm tra lại ngay trước lúc ghi tin nhắn để không dùng quyền/phòng đã cũ.
-    final eligibility = await _refreshRoommateInvitationEligibility();
-    if (!mounted) return;
-
-    final room = eligibility.activeRoom;
-    if (!eligibility.canInvite || room == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            eligibility.blockReason == RoommateInvitationBlockReason.roleNotAllowed
-                ? 'Lời mời ở ghép chỉ được gửi giữa hai người dùng (người thuê).'
-                : 'Không tìm thấy phòng đang thuê hợp lệ. Lời mời chưa được gửi.',
-          ),
-          backgroundColor: AppColors.danger,
-        ),
-      );
-      return;
-    }
-
+  Future<void> _sendVerifiedRoommateInvitation(RoomModel room) async {
     final roomTitle = room.title.trim().isNotEmpty
         ? room.title.trim()
         : (room.roomCode.trim().isNotEmpty ? room.roomCode.trim() : room.id);
+
+    // Kiểm tra sức chứa phòng trước khi gửi
+    final cap = await _invitationEligibilityService.checkRoomCapacity(
+      room.id,
+      senderId: widget.currentUserId,
+      fallbackRoom: room,
+    );
+    if (cap.isFull) {
+      if (mounted) {
+        await RoomFullDialog.show(
+          context,
+          capacity: cap.capacity,
+          currentOccupants: cap.currentOccupants,
+          roomTitle: roomTitle,
+        );
+      }
+      return; // Tuyệt đối không gửi tin nhắn và không ghi nhận vào chuông thông báo
+    }
+
     final sharePrice = room.price > 0 ? (room.price / 2).round() : 0;
     final sent = await _sendRichMessage(
       text: 'Lời mời cùng ở ghép phòng tại HomeShare',
@@ -954,6 +1221,20 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     try {
       final extra = msg.extraData;
       final roomId = extra['roomId']?.toString().trim() ?? '';
+
+      final cap = await _invitationEligibilityService.checkRoomCapacity(roomId);
+      if (cap.isFull) {
+        if (mounted) {
+          await RoomFullDialog.show(
+            context,
+            capacity: cap.capacity,
+            currentOccupants: cap.currentOccupants,
+            roomTitle: extra['roomTitle']?.toString() ?? '',
+          );
+        }
+        return;
+      }
+
       final verifiedRoom = await _invitationEligibilityService.resolveInvitationRoom(
         roomId: roomId,
         hostId: extra['hostId']?.toString() ?? '',

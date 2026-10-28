@@ -19,10 +19,25 @@ final userNotificationsStreamProvider =
 
   return FirebaseFirestore.instance
       .collection('notifications')
-      .where('receiverId', isEqualTo: currentUserId)
+      .where(
+        Filter.or(
+          Filter('receiverId', isEqualTo: currentUserId),
+          Filter('recipientId', isEqualTo: currentUserId),
+          Filter('userId', isEqualTo: currentUserId),
+          Filter('nguoiNhanId', isEqualTo: currentUserId),
+        ),
+      )
       .snapshots()
       .map((snapshot) {
-    final docs = snapshot.docs.toList();
+    // Chỉ lấy thông báo của user (người thuê / ở ghép), loại trừ thông báo của chủ trọ và cảnh báo vi phạm
+    final docs = snapshot.docs.where((doc) {
+      final data = doc.data();
+      final role = (data['recipientRole'] ?? '').toString().toLowerCase();
+      final type = (data['notificationType'] ?? data['type'] ?? '').toString();
+      if (role == 'host' || type == 'warning') return false;
+      return true;
+    }).toList();
+
     // Sắp xếp client-side theo thời gian giảm dần (mới nhất lên đầu)
     docs.sort((a, b) {
       final tA = (a.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -54,7 +69,8 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
   Future<void> _markAllAsRead(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) async {
     final batch = FirebaseFirestore.instance.batch();
     for (final doc in docs) {
-      if (doc.data()['isRead'] != true) {
+      final isRead = doc.data()['isRead'] == true || doc.data()['daDoc'] == true;
+      if (!isRead) {
         batch.update(doc.reference, {'isRead': true, 'daDoc': true});
       }
     }
@@ -432,7 +448,8 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
     final type = data['notificationType'] ?? data['type'] ?? '';
     final isRead = data['isRead'] == true || data['daDoc'] == true;
     final title = data['title'] ?? data['tieuDe'] ?? 'Thông báo';
-    final message = data['message'] ?? data['noiDung'] ?? '';
+    final rawMsg = data['message'] ?? data['body'] ?? data['noiDung'] ?? '';
+    final message = rawMsg.toString();
     final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
     final timeStr = createdAt != null ? DateFormat('HH:mm - dd/MM/yyyy').format(createdAt) : '';
 
@@ -445,6 +462,25 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
         type == 'booking_date_change' ||
         data['newCheckInDate'] != null) {
       return _buildBookingAdjustmentCard(context, doc, data, isRead, timeStr);
+    }
+
+
+    IconData iconData = Icons.notifications_rounded;
+    Color iconColor = AppColors.primary;
+    Color iconBg = AppColors.primary.withValues(alpha: 0.12);
+
+    if (type == 'booking' || type == 'booking_approved') {
+      iconData = Icons.task_alt_rounded;
+      iconColor = const Color(0xFF16A34A);
+      iconBg = const Color(0xFFDCFCE7);
+    } else if (type == 'cancellation_invoice' || type == 'refund') {
+      iconData = Icons.receipt_long_rounded;
+      iconColor = const Color(0xFF2563EB);
+      iconBg = const Color(0xFFDBEAFE);
+    } else if (type == 'pendingAction') {
+      iconData = Icons.hourglass_top_rounded;
+      iconColor = const Color(0xFFD97706);
+      iconBg = const Color(0xFFFEF3C7);
     }
 
     // Thẻ thông báo thông thường (đặt phòng, thanh toán, hệ thống...)
@@ -469,8 +505,8 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
           children: [
             CircleAvatar(
               radius: 20,
-              backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-              child: const Icon(Icons.notifications_rounded, color: AppColors.primary, size: 20),
+              backgroundColor: iconBg,
+              child: Icon(iconData, color: iconColor, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -518,6 +554,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
       ),
     );
   }
+
 
   Widget _buildRoommateInviteCard(
     BuildContext context,

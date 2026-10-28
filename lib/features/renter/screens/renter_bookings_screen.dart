@@ -12,8 +12,8 @@ import '../../../core/utils/host_review_policy.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../profile/widgets/host_review_sheet.dart';
 import 'booking_payment_screen.dart';
-import 'create_roommate_post_screen.dart';
 import '../widgets/checkin_qr_bottom_sheet.dart';
+import '../widgets/send_roommate_invite_sheet.dart';
 
 class RenterBookingsScreen extends ConsumerStatefulWidget {
   final String? initialStatusFilter;
@@ -32,8 +32,15 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
   void initState() {
     super.initState();
     if (widget.initialStatusFilter != null && widget.initialStatusFilter!.isNotEmpty) {
-      if (widget.initialStatusFilter == 'Chờ duyệt' || widget.initialStatusFilter == 'pending') {
+      final f = widget.initialStatusFilter!.toLowerCase();
+      if (f == 'chờ duyệt' || f == 'pending' || f == 'đang xử lý') {
         _selectedStatusFilter = 'Đang xử lý';
+      } else if (f == 'active' || f == 'dango' || f == 'đang ở') {
+        _selectedStatusFilter = 'Đang ở';
+      } else if (f == 'approved' || f == 'daduyet' || f == 'đã duyệt') {
+        _selectedStatusFilter = 'Đã duyệt';
+      } else if (f == 'cancelled' || f == 'dahuy' || f == 'đã hủy') {
+        _selectedStatusFilter = 'Đã hủy';
       } else {
         _selectedStatusFilter = widget.initialStatusFilter!;
       }
@@ -913,13 +920,9 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                   width: double.infinity,
                                   child: ElevatedButton.icon(
                                     onPressed: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              CreateRoommatePostScreen(
-                                                initialBooking: b,
-                                              ),
-                                        ),
+                                      SendRoommateInviteSheet.show(
+                                        context,
+                                        booking: b,
                                       );
                                     },
                                     icon: const Icon(

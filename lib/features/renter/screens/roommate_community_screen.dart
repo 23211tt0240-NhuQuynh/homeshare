@@ -14,7 +14,6 @@ import '../../profile/screens/role_aware_profile_screen.dart';
 import 'create_roommate_post_screen.dart';
 import 'roommate_room_detail_screen.dart';
 import 'roommate_search_screen.dart';
-import 'user_notifications_screen.dart';
 
 /// Màn hình Tìm Ở Ghép chuẩn Figma 100% (Hình 1)
 /// Tích hợp Bộ lọc Lifestyle & Ở ghép AI Match (Hình 2)
@@ -290,50 +289,6 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
               IconButton(
                 icon: const Icon(Icons.search_rounded, color: Color(0xFF334155), size: 26),
                 onPressed: _openRoommateSearch,
-              ),
-              Consumer(
-                builder: (context, ref, _) {
-                  final unreadCount = ref.watch(userUnreadNotificationCountProvider);
-                  return Stack(
-                    alignment: Alignment.topRight,
-                    clipBehavior: Clip.none,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF334155), size: 24),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const UserNotificationsScreen()),
-                          );
-                        },
-                      ),
-                      if (unreadCount > 0)
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEF4444),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white, width: 1.5),
-                            ),
-                            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                            child: Text(
-                              unreadCount > 99 ? '99+' : '$unreadCount',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.bold,
-                                height: 1.1,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
-                    ],
-                  );
-                },
               ),
               const SizedBox(width: 4),
               // Profile Avatar
