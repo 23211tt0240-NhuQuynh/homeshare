@@ -248,6 +248,13 @@ class _RoomBookingDetailScreenState
           .createBooking(booking, propertyId: widget.room.propertyId);
       final finalBooking = booking.copyWith(id: createdBookingId);
 
+      // Tự động tạm ẩn bài đăng để tránh người khác đặt trùng trong thời gian giữ chỗ
+      try {
+        await ref
+            .read(bookingServiceProvider)
+            .hidePostOnPendingBooking(widget.room.id);
+      } catch (_) {}
+
       if (mounted) {
         // Chuyển sang Màn hình thanh toán chuẩn Figma với mã QR VietQR MBBank 0382542737
         Navigator.pushReplacement(

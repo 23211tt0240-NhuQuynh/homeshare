@@ -278,18 +278,51 @@ class HandoverRepository {
       batch.set(itemRef, itemData);
     }
 
-    // 5. Cập nhật booking sang trạng thái dangO/active nếu có
+    // 5. Cập nhật booking sang trạng thái dangO nếu có
     if (bookingId.isNotEmpty) {
       final bookingRef = _firestore
           .collection(FirestoreCollections.bookings)
           .doc(bookingId);
-      batch.update(bookingRef, {
-        'status': 'active',
+      batch.set(bookingRef, {
+        'status': 'dangO',
+        'subTag': 'Đang ở',
+        'description': 'Đang ở (Đã bàn giao phòng)',
+        'isCheckIn': true,
+        'daNhanPhong': true,
         'trangThai': 'dangO',
         'checkinAt': FieldValue.serverTimestamp(),
+        'checkedInAt': FieldValue.serverTimestamp(),
         'acceptedDate': Timestamp.fromDate(now),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
+
+      // Cập nhật thông báo của Host sang trạng thái 'Đang ở'
+      try {
+        var notifSnap = await _firestore
+            .collection(FirestoreCollections.notifications)
+            .where('bookingId', isEqualTo: bookingId)
+            .get();
+        if (notifSnap.docs.isEmpty) {
+          notifSnap = await _firestore
+              .collection(FirestoreCollections.notifications)
+              .where('donDatPhongId', isEqualTo: bookingId)
+              .get();
+        }
+        for (final doc in notifSnap.docs) {
+          final notifData = doc.data();
+          final recipientRole = (notifData['recipientRole'] ?? notifData['role'] ?? '').toString();
+          if (recipientRole != 'renter' && recipientRole != 'tenant') {
+            batch.set(doc.reference, {
+              'notificationType': 'staying',
+              'type': 'staying',
+              'status': 'dangO',
+              'statusId': 'dango',
+              'title': 'Khách đã nhận phòng và đang ở',
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+          }
+        }
+      } catch (_) {}
     }
 
     // 6. Cập nhật host_rooms sang occupied

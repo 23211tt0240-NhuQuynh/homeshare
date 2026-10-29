@@ -7,18 +7,10 @@ import '../../auth/providers/auth_provider.dart';
 import '../data/host_post_repository.dart';
 
 /// Các kiểu sắp xếp bảng tin chủ trọ
-enum HostHomeSort {
-  newest,
-  mostInterested,
-  priceAscending,
-  priceDescending,
-}
+enum HostHomeSort { newest, mostInterested, priceAscending, priceDescending }
 
 /// Kiểu sắp xếp theo giá (Radio: chỉ chọn 1 trong 2 hoặc null)
-enum HostPriceSort {
-  ascending,
-  descending,
-}
+enum HostPriceSort { ascending, descending }
 
 /// Trạng thái bộ lọc và tìm kiếm bảng tin chủ trọ
 class HostHomeFilterState {
@@ -92,17 +84,17 @@ class HostHomeFilterState {
 
   @override
   int get hashCode => Object.hash(
-        searchQuery,
-        Object.hashAll(selectedLocations),
-        minPrice,
-        maxPrice,
-        Object.hashAll(selectedAmenities),
-        Object.hashAll(customRequirements),
-        sortNewest,
-        sortMostInterested,
-        priceSort,
-        sort,
-      );
+    searchQuery,
+    Object.hashAll(selectedLocations),
+    minPrice,
+    maxPrice,
+    Object.hashAll(selectedAmenities),
+    Object.hashAll(customRequirements),
+    sortNewest,
+    sortMostInterested,
+    priceSort,
+    sort,
+  );
 }
 
 /// Notifier quản lý tương tác bộ lọc và tìm kiếm
@@ -165,8 +157,9 @@ class HostHomeFilterNotifier extends Notifier<HostHomeFilterState> {
 
   void removeCustomRequirement(String req) {
     state = state.copyWith(
-      customRequirements:
-          state.customRequirements.where((r) => r != req).toList(),
+      customRequirements: state.customRequirements
+          .where((r) => r != req)
+          .toList(),
     );
   }
 
@@ -187,13 +180,19 @@ class HostHomeFilterNotifier extends Notifier<HostHomeFilterState> {
     HostHomeSort? sort,
   }) {
     state = state.copyWith(
-      selectedLocations: selectedLocations != null ? Set.from(selectedLocations) : null,
+      selectedLocations: selectedLocations != null
+          ? Set.from(selectedLocations)
+          : null,
       minPrice: minPrice,
       maxPrice: maxPrice,
       clearMinPrice: minPrice == null,
       clearMaxPrice: maxPrice == null,
-      selectedAmenities: selectedAmenities != null ? Set.from(selectedAmenities) : null,
-      customRequirements: customRequirements != null ? List.from(customRequirements) : null,
+      selectedAmenities: selectedAmenities != null
+          ? Set.from(selectedAmenities)
+          : null,
+      customRequirements: customRequirements != null
+          ? List.from(customRequirements)
+          : null,
       sortNewest: sortNewest,
       sortMostInterested: sortMostInterested,
       priceSort: clearPriceSort ? null : (priceSort ?? state.priceSort),
@@ -209,22 +208,19 @@ class HostHomeFilterNotifier extends Notifier<HostHomeFilterState> {
 
 final hostHomeFilterProvider =
     NotifierProvider<HostHomeFilterNotifier, HostHomeFilterState>(
-  HostHomeFilterNotifier.new,
-);
+      HostHomeFilterNotifier.new,
+    );
 
 /// StreamProvider chính cung cấp danh sách bài đăng realtime đã lọc & sắp xếp
-final hostHomePostsProvider =
-    StreamProvider.autoDispose<List<HostPostModel>>((ref) {
+final hostHomePostsProvider = StreamProvider.autoDispose<List<HostPostModel>>((
+  ref,
+) {
   final currentUserId = ref.watch(currentUserProvider)?.uid ?? '';
   final repository = ref.watch(hostPostRepositoryProvider);
   final filter = ref.watch(hostHomeFilterProvider);
 
   // Đọc tất cả bài đăng công khai đang hoạt động (của cả chủ trọ khác và của chính mình)
-  return repository
-      .watchActivePosts(
-        currentUserId: currentUserId,
-      )
-      .map((posts) {
+  return repository.watchActivePosts(currentUserId: currentUserId).map((posts) {
     var result = posts.where((post) {
       // 1. Tìm kiếm theo: Tiêu đề, mô tả, tên chủ trọ, tên nhà trọ, địa chỉ, tỉnh/thành, quận/huyện, tiện ích
       if (filter.searchQuery.isNotEmpty) {
@@ -236,8 +232,9 @@ final hostHomePostsProvider =
         final matchAddr = post.address.toLowerCase().contains(q);
         final matchCity = post.city.toLowerCase().contains(q);
         final matchDist = post.district.toLowerCase().contains(q);
-        final matchAmenities =
-            post.amenities.any((a) => a.toLowerCase().contains(q));
+        final matchAmenities = post.amenities.any(
+          (a) => a.toLowerCase().contains(q),
+        );
 
         if (!matchTitle &&
             !matchDesc &&
@@ -251,7 +248,7 @@ final hostHomePostsProvider =
         }
       }
 
-      // 2. Lọc khu vực đối chiếu với Firebase
+      // 2. Lọc khu vực đối chiếu với Firebase (Hỗ trợ 34 Tỉnh/TP & Đơn vị mới gộp của VN)
       if (filter.selectedLocations.isNotEmpty) {
         final hasAllNationwide = filter.selectedLocations.any((loc) {
           final l = loc.toLowerCase();
@@ -259,45 +256,93 @@ final hostHomePostsProvider =
         });
 
         if (!hasAllNationwide) {
-          final locText =
-              '${post.city} ${post.district} ${post.address} ${post.propertyName}'
-                  .toLowerCase();
+          final locText = normalizeVietnameseComparison(
+            '${post.city} ${post.district} ${post.address} ${post.propertyName}',
+          );
           final matchesLocation = filter.selectedLocations.any((loc) {
-            final clean = loc.toLowerCase().trim();
+            final clean = normalizeVietnameseComparison(loc.trim());
             if (clean.isEmpty) return true;
             if (locText.contains(clean)) return true;
 
             final stripped = clean
                 .replaceAll('tp.', '')
                 .replaceAll('tp ', '')
-                .replaceAll('thành phố', '')
-                .replaceAll('tỉnh', '')
+                .replaceAll('thanh pho', '')
+                .replaceAll('tinh', '')
+                .replaceAll('quan', '')
+                .replaceAll('huyen', '')
                 .trim();
             if (stripped.isNotEmpty && locText.contains(stripped)) {
               return true;
             }
 
-            if (clean.contains('hồ chí minh') || clean.contains('hcm')) {
-              if (locText.contains('hồ chí minh') ||
+            // TP. Hồ Chí Minh
+            if (clean.contains('ho chi minh') || clean.contains('hcm')) {
+              if (locText.contains('ho chi minh') ||
                   locText.contains('hcm') ||
-                  locText.contains('sài gòn') ||
                   locText.contains('sai gon')) {
                 return true;
               }
             }
 
-            if (clean.contains('hà nội')) {
-              if (locText.contains('hà nội') ||
-                  locText.contains('ha noi') ||
-                  locText.contains('hn')) {
+            // Đơn vị mới gộp: TP. Thủ Đức (Sáp nhập Quận 2, Quận 9 và Thủ Đức cũ)
+            if (clean.contains('thu duc')) {
+              if (locText.contains('thu duc') ||
+                  locText.contains('quan 2') ||
+                  locText.contains('quan 9') ||
+                  locText.contains('q2') ||
+                  locText.contains('q9') ||
+                  locText.contains('q.2') ||
+                  locText.contains('q.9')) {
                 return true;
               }
             }
 
-            if (clean.contains('vũng tàu')) {
-              if (locText.contains('vũng tàu') || locText.contains('bà rịa')) {
+            // Hà Nội
+            if (clean.contains('ha noi')) {
+              if (locText.contains('ha noi') || locText.contains('hn')) {
                 return true;
               }
+            }
+
+            // Hải Phòng: TP. Thủy Nguyên, Quận An Dương mới thành lập
+            if (clean.contains('thuy nguyen')) {
+              if (locText.contains('thuy nguyen')) return true;
+            }
+            if (clean.contains('an duong')) {
+              if (locText.contains('an duong')) return true;
+            }
+
+            // Huế (Thừa Thiên Huế mới chuyển đổi thành TP trực thuộc TW)
+            if (clean.contains('hue')) {
+              if (locText.contains('hue') || locText.contains('thua thien')) {
+                return true;
+              }
+            }
+
+            // Bà Rịa - Vũng Tàu: Huyện Long Đất (sáp nhập Long Điền & Đất Đỏ), TP. Phú Mỹ
+            if (clean.contains('long dat')) {
+              if (locText.contains('long dat') ||
+                  locText.contains('long dien') ||
+                  locText.contains('dat do')) {
+                return true;
+              }
+            }
+            if (clean.contains('phu my')) {
+              if (locText.contains('phu my')) return true;
+            }
+            if (clean.contains('vung tau') || clean.contains('ba ria')) {
+              if (locText.contains('vung tau') || locText.contains('ba ria')) {
+                return true;
+              }
+            }
+
+            // Bình Dương: TP. Bến Cát, TP. Tân Uyên, TP. Dĩ An, TP. Thuận An
+            if (clean.contains('ben cat')) {
+              if (locText.contains('ben cat')) return true;
+            }
+            if (clean.contains('tan uyen')) {
+              if (locText.contains('tan uyen')) return true;
             }
 
             return false;
@@ -347,7 +392,8 @@ final hostHomePostsProvider =
 
       if (filter.customRequirements.isNotEmpty) {
         final fullContent = normalizeVietnameseComparison(
-            '${post.tieuDe} ${post.moTa} ${post.amenities.join(' ')}');
+          '${post.tieuDe} ${post.moTa} ${post.amenities.join(' ')}',
+        );
         for (final customReq in filter.customRequirements) {
           final reqNorm = normalizeVietnameseComparison(customReq);
           final reqCompact = reqNorm.replaceAll(' ', '');

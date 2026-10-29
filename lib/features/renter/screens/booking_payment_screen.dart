@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/booking_service.dart';
 import '../../../core/utils/id_generator.dart';
 import '../../../core/utils/vietqr_helper.dart';
 import '../../../data/models/booking_model.dart';
@@ -170,6 +171,17 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           'updatedAt': FieldValue.serverTimestamp(),
           'daHuy': true,
         }, SetOptions(merge: true));
+      }
+
+      // Khôi phục bài đăng nếu quá hạn thanh toán 6 tiếng
+      final targetRoomId = widget.booking.roomId.isNotEmpty
+          ? widget.booking.roomId
+          : widget.room.id;
+      if (targetRoomId.isNotEmpty) {
+        await BookingService().restorePostOnCancelledBooking(targetRoomId);
+      }
+      if (widget.room.id.isNotEmpty && widget.room.id != targetRoomId) {
+        await BookingService().restorePostOnCancelledBooking(widget.room.id);
       }
     } catch (e) {
       debugPrint('Error auto cancelling booking: $e');
@@ -343,6 +355,24 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           'paymentMethod': 'Chuyển khoản QR',
           'paymentType': widget.paymentType,
         });
+      }
+
+      // 2c. Ẩn bài đăng ngay khi gửi thông báo đặt phòng đang chờ xử lý
+      final bookingService = BookingService();
+      final targetRoomId = widget.booking.roomId.isNotEmpty
+          ? widget.booking.roomId
+          : widget.room.id;
+      if (targetRoomId.isNotEmpty) {
+        await bookingService.hidePostOnPendingBooking(
+          targetRoomId,
+          reason: 'Đang có yêu cầu đặt phòng chờ xử lý',
+        );
+      }
+      if (widget.room.id.isNotEmpty && widget.room.id != targetRoomId) {
+        await bookingService.hidePostOnPendingBooking(
+          widget.room.id,
+          reason: 'Đang có yêu cầu đặt phòng chờ xử lý',
+        );
       }
 
       // 3. Ghi vết kiểm toán hệ thống vào audit_logs

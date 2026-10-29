@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_share/features/auth/providers/auth_provider.dart';
 import 'package:home_share/features/auth/providers/user_provider.dart';
@@ -41,10 +42,18 @@ final selectedHostNotificationTypeProvider =
 final hostNotificationsProvider =
     StreamProvider.family<List<HostNotificationModel>, HostNotificationType>(
   (ref, type) {
-    // Ưu tiên UID từ currentUserProvider, nếu rỗng thì fallback từ userProfileProvider
     final authUser = ref.watch(currentUserProvider);
+    final firebaseAuthUser = FirebaseAuth.instance.currentUser;
     final userProfile = ref.watch(userProfileProvider).asData?.value;
-    final hostId = authUser?.uid ?? userProfile?.uid ?? 'host_current_user';
+    final hostId = (authUser?.uid != null && authUser!.uid.isNotEmpty)
+        ? authUser.uid
+        : (firebaseAuthUser?.uid != null && firebaseAuthUser!.uid.isNotEmpty
+            ? firebaseAuthUser.uid
+            : (userProfile?.uid ?? ''));
+
+    if (hostId.isEmpty) {
+      return Stream.value(const []);
+    }
 
     final repo = ref.watch(hostNotificationRepositoryProvider);
     return repo.watchByType(hostId: hostId, type: type);
@@ -55,8 +64,22 @@ final hostNotificationsProvider =
 final hostNotificationCountsProvider =
     StreamProvider<Map<HostNotificationType, int>>((ref) {
   final authUser = ref.watch(currentUserProvider);
+  final firebaseAuthUser = FirebaseAuth.instance.currentUser;
   final userProfile = ref.watch(userProfileProvider).asData?.value;
-  final hostId = authUser?.uid ?? userProfile?.uid ?? 'host_current_user';
+  final hostId = (authUser?.uid != null && authUser!.uid.isNotEmpty)
+      ? authUser.uid
+      : (firebaseAuthUser?.uid != null && firebaseAuthUser!.uid.isNotEmpty
+          ? firebaseAuthUser.uid
+          : (userProfile?.uid ?? ''));
+
+  if (hostId.isEmpty) {
+    return Stream.value({
+      HostNotificationType.pendingAction: 0,
+      HostNotificationType.staying: 0,
+      HostNotificationType.deposit: 0,
+      HostNotificationType.paymentCompleted: 0,
+    });
+  }
 
   final repo = ref.watch(hostNotificationRepositoryProvider);
   return repo.watchCounts(hostId);
@@ -65,8 +88,17 @@ final hostNotificationCountsProvider =
 /// StreamProvider đếm số lượng thông báo chưa đọc của chủ trọ
 final hostUnreadNotificationCountProvider = StreamProvider<int>((ref) {
   final authUser = ref.watch(currentUserProvider);
+  final firebaseAuthUser = FirebaseAuth.instance.currentUser;
   final userProfile = ref.watch(userProfileProvider).asData?.value;
-  final hostId = authUser?.uid ?? userProfile?.uid ?? 'host_current_user';
+  final hostId = (authUser?.uid != null && authUser!.uid.isNotEmpty)
+      ? authUser.uid
+      : (firebaseAuthUser?.uid != null && firebaseAuthUser!.uid.isNotEmpty
+          ? firebaseAuthUser.uid
+          : (userProfile?.uid ?? ''));
+
+  if (hostId.isEmpty) {
+    return Stream.value(0);
+  }
 
   final repo = ref.watch(hostNotificationRepositoryProvider);
   return repo.getUnreadCount(hostId);
@@ -84,10 +116,16 @@ final filteredHostNotificationsProvider =
     return list.where((item) {
       final code = item.displayBookingCode.toLowerCase();
       final title = item.roomTitle.toLowerCase();
+      final postTitle = item.postTitle.toLowerCase();
+      final notifTitle = item.title.toLowerCase();
+      final rejectReason = item.rejectReason.toLowerCase();
       final renter = item.renterName.toLowerCase();
       final room = item.roomCode.toLowerCase();
       return code.contains(query) ||
           title.contains(query) ||
+          postTitle.contains(query) ||
+          notifTitle.contains(query) ||
+          rejectReason.contains(query) ||
           renter.contains(query) ||
           room.contains(query);
     }).toList();

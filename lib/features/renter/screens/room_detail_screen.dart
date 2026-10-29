@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -23,7 +24,7 @@ class RoomDetailScreen extends ConsumerStatefulWidget {
   });
 
   /// Làm sạch định dạng URL ảnh, loại bỏ triệt để lỗi crash hình ảnh khi Firestore trả về
-  /// chuỗi {url: ...} hoặc dấu ngoặc kép thừa
+  /// chuỗi {url: ...} hoặc dấu ngoặc kép thừa hoặc Base64
   static String cleanImageUrl(dynamic raw) {
     if (raw == null) return '';
     if (raw is Map) {
@@ -32,12 +33,28 @@ class RoomDetailScreen extends ConsumerStatefulWidget {
               raw['image'] ??
               raw['imageUrl'] ??
               raw['link'] ??
+              raw['photo'] ??
+              raw['path'] ??
               '')
           .toString()
           .trim();
       return cleanImageUrl(u);
     }
     var s = raw.toString().trim();
+    if (s.isEmpty) return '';
+
+    // Nếu là Base64 Data URI hoặc chuỗi Base64
+    if (s.startsWith('data:image') || s.startsWith('blob:') || s.startsWith('base64,')) {
+      return s;
+    }
+
+    // Nếu chuỗi chứa URL http/https hợp lệ
+    final httpMatch = RegExp(r"""https?://[^\s",'}\]]+""").firstMatch(s);
+    if (httpMatch != null) {
+      return httpMatch.group(0)!;
+    }
+
+    // Bóc ngoặc kép / ngoặc đơn
     if (s.startsWith('"') && s.endsWith('"') && s.length > 2) {
       s = s.substring(1, s.length - 1).trim();
     }
@@ -46,10 +63,10 @@ class RoomDetailScreen extends ConsumerStatefulWidget {
     }
     if (s.startsWith('{') && s.endsWith('}')) {
       final match = RegExp(
-        r'(?:duongDan|url|image|imageUrl|link):\s*([^,}]+)',
+        r'''["']?(?:duongDan|url|image|imageUrl|link|photo|path)["']?\s*:\s*["']?([^,"'}]+)["']?''',
       ).firstMatch(s);
       if (match != null) {
-        s = match.group(1)!.trim().replaceAll('"', '').replaceAll("'", "");
+        s = match.group(1)!.trim();
       }
     }
     return s;
@@ -71,17 +88,83 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
 
   List<String> get _cleanedImages {
     final list = <String>[];
-    for (final raw in _room.images) {
+    final sourceImages = _room.images.isNotEmpty
+        ? _room.images
+        : widget.room.images;
+    for (final raw in sourceImages) {
       final cleaned = RoomDetailScreen.cleanImageUrl(raw);
       if (cleaned.isNotEmpty &&
           (cleaned.startsWith('http://') ||
               cleaned.startsWith('https://') ||
               cleaned.startsWith('blob:') ||
-              cleaned.startsWith('data:'))) {
+              cleaned.startsWith('data:') ||
+              cleaned.startsWith('base64,'))) {
         list.add(cleaned);
       }
     }
     return list;
+  }
+
+  Widget _buildRoomImage(String rawUrl) {
+    final clean = RoomDetailScreen.cleanImageUrl(rawUrl);
+    if (clean.isEmpty) {
+      return Container(
+        color: Colors.grey.shade200,
+        child: const Icon(Icons.apartment, size: 64, color: Colors.grey),
+      );
+    }
+
+    // 1. Base64 Data URI hoặc chuỗi Base64
+    if (clean.startsWith('data:image') || clean.startsWith('base64,')) {
+      try {
+        final commaIdx = clean.indexOf(',');
+        final base64Str = commaIdx != -1 ? clean.substring(commaIdx + 1) : clean;
+        final bytes = base64Decode(base64Str.trim());
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          errorBuilder: (context, error, stackTrace) => Container(
+            color: Colors.grey.shade200,
+            child: const Icon(Icons.apartment, size: 64, color: Colors.grey),
+          ),
+        );
+      } catch (e) {
+        debugPrint('[RoomDetailScreen] Lỗi giải mã Base64 ảnh: $e');
+        return Container(
+          color: Colors.grey.shade200,
+          child: const Icon(Icons.apartment, size: 64, color: Colors.grey),
+        );
+      }
+    }
+
+    // 2. Network Image (HTTP / HTTPS / Blob)
+    return Image.network(
+      clean,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          color: Colors.grey.shade100,
+          child: const Center(
+            child: SizedBox(
+              width: 32,
+              height: 32,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        debugPrint('[RoomDetailScreen] Lỗi Image.network: $clean - $error');
+        return Container(
+          color: Colors.grey.shade200,
+          child: const Icon(Icons.apartment, size: 64, color: Colors.grey),
+        );
+      },
+    );
   }
 
   void _onQuickBookingPressed() {
@@ -308,15 +391,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                             return Semantics(
                               image: true,
                               label: 'Ảnh phòng trọ ${index + 1} trên ${_cleanedImages.length}',
-                              child: Image.network(
-                                _cleanedImages[index],
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                errorBuilder: (context, error, stackTrace) => Container(
-                                  color: Colors.grey.shade200,
-                                  child: const Icon(Icons.apartment, size: 64, color: Colors.grey),
-                                ),
-                              ),
+                              child: _buildRoomImage(_cleanedImages[index]),
                             );
                           },
                         ),

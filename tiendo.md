@@ -23,6 +23,54 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.71 - Tự Động Ẩn Bài Đăng Khi Nhận Thông Báo Chờ Xử Lý Đặt Phòng & Khóa Phòng Đã Có Người Ở Khi Đăng Bài:**
+    - **Tự động ẩn bài đăng khi user đặt phòng gửi về thông báo đang chờ xử lý:**
+      + **Nâng cấp `BookingService` ([booking_service.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/core/services/booking_service.dart)):**
+        * Bổ sung phương thức `hidePostOnPendingBooking(String roomId, {String? reason})`: Quét toàn diện các bài đăng trong `posts` (theo doc ID, trường `roomId`, `phongId`, `id`) và cập nhật đồng bộ `status: 'hidden'`, `statusId: 'hidden'`, `trangThai: 'tamAn'`, `trangThai_id: 'tamAn'`, `isAvailable: false`, `hiddenReason: 'Đang có yêu cầu đặt phòng chờ xử lý'`, `updatedAt: serverTimestamp()`. Đồng thời cập nhật trạng thái phòng trong `host_rooms` và `rooms` sang `isAvailable: false`, `bookingStatus: 'pending_approval'`.
+        * Bổ sung phương thức `restorePostOnCancelledBooking(String roomId)`: Khôi phục trạng thái bài đăng về `status: 'approved'`, `statusId: 'approved'`, `trangThai: 'daDuyet'`, `isAvailable: true`, xóa `hiddenReason` khi yêu cầu đặt phòng bị hủy hoặc hết hạn thanh toán 6 tiếng.
+        * Tích hợp tự động gọi `restorePostOnCancelledBooking(roomId)` ngay trong quy trình `cancelBooking()`.
+      + **Kích hoạt ẩn bài đăng ngay khi gửi thông báo ([booking_payment_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/renter/screens/booking_payment_screen.dart)):**
+        * Ngay khi khách thuê xác nhận chuyển khoản và hệ thống gửi thông báo `pendingAction` với tiêu đề *"Yêu cầu đặt phòng đang chờ xử lý"* cho Chủ trọ, hệ thống lập tức gọi `hidePostOnPendingBooking(targetRoomId)`. Bài đăng bị ẩn ngay tức khắc khỏi các màn hình tìm kiếm, danh sách phòng và bảng tin.
+        * Trong `_handleExpired()`: Khi hết hạn 6 tiếng mà chưa thanh toán, hệ thống tự động hủy đơn và gọi `restorePostOnCancelledBooking(targetRoomId)` để mở lại bài đăng cho người khác thuê.
+      + **Bảo vệ phòng trong thời gian chờ thanh toán ([room_booking_detail_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/renter/screens/room_booking_detail_screen.dart)):**
+        * Khi người thuê bấm *"Tiếp tục thanh toán"*, hệ thống lập tức tạm ẩn bài đăng để tránh người khác đặt trùng trong 6 tiếng giữ chỗ.
+      + **Bộ lọc hiển thị chặt chẽ ([room_model.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/data/models/room_model.dart)):**
+        * Bổ sung getter `isOccupied` nhận diện phòng đã có người ở (`occupied`, `dathue`, `dang_o`, `tenantName`, `contractId`).
+        * Bổ sung điều kiện `!isOccupied` vào `isDisplayable`: Đảm bảo các bài đăng của phòng đã có người ở hoặc đang có đơn đặt phòng chờ xử lý (`isAvailable: false`, `status: hidden`) sẽ tuyệt đối không hiển thị ở phía người thuê.
+    - **Khóa phòng đã có người ở, không cho phép đăng bài ([HostCreatePostScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_create_post_screen.dart)):**
+      + **Hàm nhận diện phòng đang ở `_isRoomOccupied(RoomModel room)`:** Kiểm tra toàn diện `room.isOccupied`, các mã trạng thái `occupied`, `dathue`, `da_thue`, `dang_o`, `dango`, `đang ở`, `đã thuê`, hoặc khi phòng đã có dữ liệu `tenantName` / `contractId`.
+      + **Khóa trực quan trên Dropdown chọn phòng:**
+        * Phòng đã có người ở hiển thị biểu tượng Khóa đỏ `Icons.lock_rounded`, nhãn `(Đã có người ở - Khóa)` và huy hiệu đỏ nổi bật `"Đang ở"`.
+        * Vô hiệu hóa lựa chọn bằng thuộc tính `enabled: !isOccupied` của `DropdownMenuItem`.
+        * `initialValue` tự động lọc bỏ các phòng đã có người ở, tránh việc vô tình chọn sẵn phòng đang thuê.
+      + **Kiểm soát chặt chẽ tại các luồng nghiệp vụ:**
+        * Trong `_onRoomSelected`: Nếu phòng đã có người ở, hệ thống lập tức từ chối gán `_selectedRoom = null` và bật SnackBar cảnh báo.
+        * Trong `_save`: Kiểm tra xác thực `_isRoomOccupied(_selectedRoom!)`, chặn submit và thông báo lỗi rõ ràng nếu chủ trọ cố tình đăng phòng đang có người ở.
+        * Trong `initState`: Nếu màn hình được mở với `widget.initialRoom` đã có người ở, hệ thống không tự động điền form và thông báo cảnh báo cho chủ trọ.
+    - **Đồng bộ mã nguồn & Phân tích chất lượng:**
+      + Đồng bộ toàn bộ 5 file sửa đổi sang thư mục `homeshare-dev-TOAN/`.
+      + `flutter analyze`: **No issues found!** (0 errors, 0 warnings).
+  * **Phase 2.70 - Khắc Phục Lỗi Hiển Thị Ảnh Bài Đăng, Xóa Tim & Bình Luận, Xây Dựng Màn Hình Chi Tiết Bài Đăng Cho Role Chủ Trọ (Host):**
+    - **Sửa triệt để lỗi không lấy được ảnh & lỗi hiển thị icon tòa nhà xám ([room_detail_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/renter/screens/room_detail_screen.dart), [host_room_detail_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_room_detail_screen.dart), [host_post_card.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/widgets/host_post_card.dart)):**
+      + **Nguyên nhân:** Khi chạy môi trường Flutter Web hoặc khi chưa cấu hình Firebase Storage bucket, ảnh được lưu dưới dạng chuỗi Base64 Data URI (`data:image/jpeg;base64,...`). `Image.network()` không hỗ trợ Base64 dẫn đến crash và fallback về icon tòa nhà xám `Icons.apartment` kèm số đếm `1/1`. Ngoài ra, ảnh mạng ngoài trên Flutter Web CanvasKit bị chặn CORS nếu thiếu cấu hình fallback.
+      + **Giải pháp:** Nâng cấp hàm `cleanImageUrl()` bảo toàn trọn vẹn chuỗi Base64 và URL mạng; tự động nhận diện tiền tố Base64 để giải mã sang byte array và hiển thị bằng `Image.memory()`; đồng thời cấu hình `webHtmlElementStrategy: WebHtmlElementStrategy.fallback` cho `Image.network()` giúp ảnh mạng tải trơn tru không bị chặn CORS trên trình duyệt Web.
+    - **Xóa bỏ hoàn toàn biểu tượng Thả tim (Quan tâm) & Bình luận (Phản hồi) ([host_post_card.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/widgets/host_post_card.dart)):**
+      + Loại bỏ cụm `Icons.favorite` / `post.interestedCount` và `Icons.chat_bubble_outline` / `post.responseCount` dưới giá tiền.
+      + Mở rộng nút hành động ("Bài của bạn" / "Nhắn tin trao đổi") chiếm trọn hàng (`width: double.infinity`), mang lại giao diện tinh gọn, thoáng đãng.
+    - **Xây dựng Màn hình Chi tiết bài đăng riêng biệt cho Role Chủ trọ ([HostPostDetailScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_post_detail_screen.dart)):**
+      + **Phân quyền chuẩn hóa (Role separation):** Không dùng chung màn hình của người thuê để tránh các nút hành động không phù hợp (như "Đặt phòng nhanh" hay nút "Lưu yêu thích").
+      + **Kết nối trực tiếp collection `posts`:** Lắng nghe realtime từ `FirestoreCollections.posts.doc(postId)` (fallback sang `bai_dang_cho_thue` nếu có), tự động ghép nối quan hệ với các bảng `rooms`, `properties`, `users`, `locations` để nạp đủ chi phí điện/nước/dịch vụ, diện tích, tiện ích và thông tin liên hệ.
+      + **Giao diện chuẩn hóa tương tự chi tiết của user:**
+        * `SliverAppBar` tích hợp slider ảnh, hỗ trợ đầy đủ Base64 & Network Image kèm chỉ số `1/n`.
+        * Tiêu đề bài đăng, huy hiệu đánh giá `5.0 (0)`, địa chỉ phòng trọ chi tiết.
+        * Bảng nổi bật hiển thị Giá thuê phòng & Tiền đặt cọc.
+        * Bộ 3 thông số phòng: Diện tích (m²), Loại phòng (Phòng trọ/Căn hộ), Tình trạng (Còn phòng/Hết phòng).
+        * Thẻ thông tin chủ trọ: Avatar, tên, huy hiệu xác minh, nút gọi điện thoại trực tiếp.
+        * Danh sách chip tiện ích phòng trọ & khung mô tả chi tiết bài đăng.
+      + **Xóa sạch Tim và Bình luận:** Actions trên AppBar để trống, không hiển thị bất kỳ nút tim hay bình luận nào trên toàn màn hình.
+      + **Thanh Bottom Action Bar chuyên biệt:** Phân nhánh rõ ràng nếu là bài của mình thì hiển thị "Bài đăng của bạn", nếu là bài của chủ trọ đối tác thì cung cấp nút "Báo cáo", nút "Gọi điện" và nút "Nhắn tin trao đổi" kết nối trực tiếp cuộc trò chuyện qua `openChatWithHost`.
+      + **Cập nhật điều hướng:** [HostPostCard](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/widgets/host_post_card.dart) khi nhấn vào thẻ hoặc nút "Xem chi tiết" sẽ mở trực tiếp [HostPostDetailScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_post_detail_screen.dart).
+    - **Kiểm định mã nguồn:** `flutter analyze` trên toàn bộ các file sửa đổi và tạo mới đạt kết quả tuyệt đối **No issues found!** (0 errors).
   * **Phase 2.69 - Quản Lý Khung Phạt Lưu Trữ Firestore & Cơ Chế Xử Lý Lỗi Vi Phạm Khác (Admin):**
     - **Lưu trữ động khung phạt trên Firebase Firestore ([violation_rules_service.dart](file:///d:/App/homeshare-dev-THE/lib/core/services/violation_rules_service.dart) & [violation_rule_model.dart](file:///d:/App/homeshare-dev-THE/lib/data/models/violation_rule_model.dart)):**
       + Quản lý toàn bộ danh mục lỗi vi phạm và số điểm trừ mặc định tại document `system_configs/violation_rules` trên Firestore.

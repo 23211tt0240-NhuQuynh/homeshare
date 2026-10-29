@@ -213,6 +213,36 @@ class BookingService {
       });
     }
 
+    // Cập nhật thông báo của Chủ trọ sang tab "Đang ở" (staying)
+    try {
+      var hostNotifSnap = await _firestore
+          .collection('notifications')
+          .where('bookingId', isEqualTo: bookingId)
+          .get();
+      if (hostNotifSnap.docs.isEmpty) {
+        hostNotifSnap = await _firestore
+            .collection('notifications')
+            .where('donDatPhongId', isEqualTo: bookingId)
+            .get();
+      }
+      for (final doc in hostNotifSnap.docs) {
+        final notifData = doc.data();
+        final role = (notifData['recipientRole'] ?? notifData['role'] ?? '').toString();
+        if (role != 'renter' && role != 'tenant') {
+          await doc.reference.set({
+            'notificationType': 'staying',
+            'type': 'staying',
+            'status': 'dangO',
+            'statusId': 'dango',
+            'title': 'Khách đã nhận phòng và đang ở',
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
+      }
+    } catch (e) {
+      debugPrint('Error updating host notification on checkin: $e');
+    }
+
     // Ghi audit log
     await _firestore.collection('audit_logs').add({
       'action': 'Xác nhận nhận phòng',
@@ -247,12 +277,15 @@ class BookingService {
       'ngayCapNhat': FieldValue.delete(),
     }, SetOptions(merge: true));
 
-    // Giải phóng phòng về available nếu phòng đang bị lock
+    // Giải phóng phòng về available nếu phòng đang bị lock và khôi phục bài đăng
     if (roomId.isNotEmpty) {
       await _firestore.collection('host_rooms').doc(roomId).set({
         'status': 'available',
+        'isAvailable': true,
+        'bookingStatus': 'available',
         'updatedAt': Timestamp.fromDate(now),
       }, SetOptions(merge: true));
+      await restorePostOnCancelledBooking(roomId);
     }
 
     // Thông báo cho các bên
@@ -311,6 +344,211 @@ class BookingService {
         'updatedAt': FieldValue.serverTimestamp(),
         if (reason != null && reason.isNotEmpty) 'note': reason,
       }, SetOptions(merge: true));
+    }
+  }
+
+  /// 5. ẨN BÀI ĐĂNG KHI CÓ YÊU CẦU ĐẶT PHÒNG ĐANG CHỜ XỬ LÝ
+  Future<void> hidePostOnPendingBooking(String roomId, {String? reason}) async {
+    if (roomId.isEmpty) return;
+    try {
+      final now = DateTime.now();
+      final hiddenReason = reason ?? 'Đang có yêu cầu đặt phòng chờ xử lý';
+      final postsRef = _firestore.collection('posts');
+
+      // 1. Kiểm tra trực tiếp document theo doc ID == roomId
+      try {
+        final directDoc = await postsRef.doc(roomId).get();
+        if (directDoc.exists) {
+          await postsRef.doc(roomId).set({
+            'status': 'hidden',
+            'statusId': 'hidden',
+            'trangThai': 'tamAn',
+            'trangThai_id': 'tamAn',
+            'isAvailable': false,
+            'hiddenReason': hiddenReason,
+            'updatedAt': Timestamp.fromDate(now),
+          }, SetOptions(merge: true));
+        }
+      } catch (e) {
+        debugPrint('Error hiding post directDoc $roomId: $e');
+      }
+
+      // 2. Tìm bài đăng có trường 'roomId' == roomId
+      try {
+        final queryByRoomId =
+            await postsRef.where('roomId', isEqualTo: roomId).get();
+        for (final doc in queryByRoomId.docs) {
+          await doc.reference.set({
+            'status': 'hidden',
+            'statusId': 'hidden',
+            'trangThai': 'tamAn',
+            'trangThai_id': 'tamAn',
+            'isAvailable': false,
+            'hiddenReason': hiddenReason,
+            'updatedAt': Timestamp.fromDate(now),
+          }, SetOptions(merge: true));
+        }
+      } catch (e) {
+        debugPrint('Error hiding posts by roomId $roomId: $e');
+      }
+
+      // 3. Tìm bài đăng có trường 'phongId' == roomId
+      try {
+        final queryByPhongId =
+            await postsRef.where('phongId', isEqualTo: roomId).get();
+        for (final doc in queryByPhongId.docs) {
+          await doc.reference.set({
+            'status': 'hidden',
+            'statusId': 'hidden',
+            'trangThai': 'tamAn',
+            'trangThai_id': 'tamAn',
+            'isAvailable': false,
+            'hiddenReason': hiddenReason,
+            'updatedAt': Timestamp.fromDate(now),
+          }, SetOptions(merge: true));
+        }
+      } catch (e) {
+        debugPrint('Error hiding posts by phongId $roomId: $e');
+      }
+
+      // 4. Tìm bài đăng có trường 'id' == roomId
+      try {
+        final queryById =
+            await postsRef.where('id', isEqualTo: roomId).get();
+        for (final doc in queryById.docs) {
+          await doc.reference.set({
+            'status': 'hidden',
+            'statusId': 'hidden',
+            'trangThai': 'tamAn',
+            'trangThai_id': 'tamAn',
+            'isAvailable': false,
+            'hiddenReason': hiddenReason,
+            'updatedAt': Timestamp.fromDate(now),
+          }, SetOptions(merge: true));
+        }
+      } catch (e) {
+        debugPrint('Error hiding posts by id $roomId: $e');
+      }
+
+      // 5. Cập nhật khóa phòng trong host_rooms và rooms
+      try {
+        await _firestore.collection('host_rooms').doc(roomId).set({
+          'isAvailable': false,
+          'bookingStatus': 'pending_approval',
+          'updatedAt': Timestamp.fromDate(now),
+        }, SetOptions(merge: true));
+      } catch (_) {}
+
+      try {
+        await _firestore.collection('rooms').doc(roomId).set({
+          'isAvailable': false,
+          'bookingStatus': 'pending_approval',
+          'updatedAt': Timestamp.fromDate(now),
+        }, SetOptions(merge: true));
+      } catch (_) {}
+
+      debugPrint('Đã ẩn bài đăng cho phòng $roomId (Lý do: $hiddenReason)');
+    } catch (e) {
+      debugPrint('Lỗi tổng quát khi hidePostOnPendingBooking $roomId: $e');
+    }
+  }
+
+  /// 6. KHÔI PHỤC BÀI ĐĂNG KHI YÊU CẦU ĐẶT PHÒNG BỊ HỦY / HẾT HẠN
+  Future<void> restorePostOnCancelledBooking(String roomId) async {
+    if (roomId.isEmpty) return;
+    try {
+      final now = DateTime.now();
+      final postsRef = _firestore.collection('posts');
+
+      Future<void> restoreDoc(DocumentReference ref) async {
+        await ref.set({
+          'status': 'approved',
+          'statusId': 'approved',
+          'trangThai': 'daDuyet',
+          'trangThai_id': 'daDuyet',
+          'isAvailable': true,
+          'hiddenReason': FieldValue.delete(),
+          'updatedAt': Timestamp.fromDate(now),
+        }, SetOptions(merge: true));
+      }
+
+      // 1. Khôi phục trực tiếp theo doc ID == roomId
+      try {
+        final directDoc = await postsRef.doc(roomId).get();
+        if (directDoc.exists) {
+          final data = directDoc.data() ?? {};
+          if (data['hiddenReason'] == 'Đang có yêu cầu đặt phòng chờ xử lý' ||
+              data['status'] == 'hidden' ||
+              data['statusId'] == 'hidden') {
+            await restoreDoc(postsRef.doc(roomId));
+          }
+        }
+      } catch (_) {}
+
+      // 2. Khôi phục theo trường 'roomId' == roomId
+      try {
+        final queryByRoomId =
+            await postsRef.where('roomId', isEqualTo: roomId).get();
+        for (final doc in queryByRoomId.docs) {
+          final data = doc.data();
+          if (data['hiddenReason'] == 'Đang có yêu cầu đặt phòng chờ xử lý' ||
+              data['status'] == 'hidden' ||
+              data['statusId'] == 'hidden') {
+            await restoreDoc(doc.reference);
+          }
+        }
+      } catch (_) {}
+
+      // 3. Khôi phục theo trường 'phongId' == roomId
+      try {
+        final queryByPhongId =
+            await postsRef.where('phongId', isEqualTo: roomId).get();
+        for (final doc in queryByPhongId.docs) {
+          final data = doc.data();
+          if (data['hiddenReason'] == 'Đang có yêu cầu đặt phòng chờ xử lý' ||
+              data['status'] == 'hidden' ||
+              data['statusId'] == 'hidden') {
+            await restoreDoc(doc.reference);
+          }
+        }
+      } catch (_) {}
+
+      // 4. Khôi phục theo trường 'id' == roomId
+      try {
+        final queryById =
+            await postsRef.where('id', isEqualTo: roomId).get();
+        for (final doc in queryById.docs) {
+          final data = doc.data();
+          if (data['hiddenReason'] == 'Đang có yêu cầu đặt phòng chờ xử lý' ||
+              data['status'] == 'hidden' ||
+              data['statusId'] == 'hidden') {
+            await restoreDoc(doc.reference);
+          }
+        }
+      } catch (_) {}
+
+      // 5. Khôi phục phòng trong host_rooms và rooms
+      try {
+        await _firestore.collection('host_rooms').doc(roomId).set({
+          'status': 'available',
+          'isAvailable': true,
+          'bookingStatus': 'available',
+          'updatedAt': Timestamp.fromDate(now),
+        }, SetOptions(merge: true));
+      } catch (_) {}
+
+      try {
+        await _firestore.collection('rooms').doc(roomId).set({
+          'status': 'available',
+          'isAvailable': true,
+          'bookingStatus': 'available',
+          'updatedAt': Timestamp.fromDate(now),
+        }, SetOptions(merge: true));
+      } catch (_) {}
+
+      debugPrint('Đã khôi phục bài đăng thành công cho phòng: $roomId');
+    } catch (e) {
+      debugPrint('Lỗi khi restorePostOnCancelledBooking $roomId: $e');
     }
   }
 

@@ -73,6 +73,10 @@ class NotificationCard extends ConsumerWidget {
     final checkInStr = dateFmt.format(notif.checkInDate ?? notif.createdAt);
     final relativeTimeStr = _formatRelativeTime(notif.createdAt);
 
+    if (notif.isPostRejected) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
@@ -110,7 +114,7 @@ class NotificationCard extends ConsumerWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Huy hiệu số phòng (101, 203, 302...)
+                    // Huy hiệu số phòng
                     Container(
                       width: 48,
                       height: 48,
@@ -119,23 +123,29 @@ class NotificationCard extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(14),
                       ),
                       alignment: Alignment.center,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            notif.displayRoomCode,
-                            style: TextStyle(
-                              fontSize: notif.displayRoomCode.length > 3
-                                  ? 12
-                                  : 15,
-                              fontWeight: FontWeight.bold,
-                              color: _getBadgeTextColor(notif.displayRoomCode),
+                      child: notif.displayRoomCode.isNotEmpty
+                          ? FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  notif.displayRoomCode,
+                                  style: TextStyle(
+                                    fontSize: notif.displayRoomCode.length > 3
+                                        ? 12
+                                        : 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: _getBadgeTextColor(notif.displayRoomCode),
+                                  ),
+                                  maxLines: 1,
+                                ),
+                              ),
+                            )
+                          : const Icon(
+                              Icons.meeting_room_outlined,
+                              size: 22,
+                              color: Color(0xFF2563EB),
                             ),
-                            maxLines: 1,
-                          ),
-                        ),
-                      ),
                     ),
                     const SizedBox(width: 10),
                     // Tiêu đề phòng & tầng
@@ -146,9 +156,9 @@ class NotificationCard extends ConsumerWidget {
                           Text(
                             notif.roomTitle.isNotEmpty
                                 ? notif.roomTitle
-                                : (notif.roomFloorInfo.isNotEmpty
-                                      ? notif.roomFloorInfo
-                                      : 'Phòng ${notif.displayRoomCode}'),
+                                : (notif.displayRoomCode.isNotEmpty
+                                      ? 'Phòng ${notif.displayRoomCode}'
+                                      : 'Phòng trọ'),
                             style: const TextStyle(
                               fontSize: 14.5,
                               fontWeight: FontWeight.bold,
@@ -159,12 +169,11 @@ class NotificationCard extends ConsumerWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            notif.roomFloorInfo.isNotEmpty &&
-                                    notif.roomTitle.isNotEmpty
+                            notif.roomFloorInfo.isNotEmpty
                                 ? notif.roomFloorInfo
-                                : (notif.roomFloorInfo.isNotEmpty
-                                      ? 'Phòng trọ'
-                                      : 'Phòng trọ tiện nghi'),
+                                : (notif.roomCode.isNotEmpty
+                                      ? 'Mã phòng: ${notif.roomCode}'
+                                      : 'Phòng cho thuê'),
                             style: const TextStyle(
                               fontSize: 12,
                               color: Color(0xFF667085),
@@ -175,33 +184,35 @@ class NotificationCard extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    // Tag mã booking #BK12345
-                    Flexible(
-                      fit: FlexFit.loose,
-                      child: Container(
-                        constraints: const BoxConstraints(maxWidth: 120),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF8FF),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          notif.displayBookingCode,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
+                    if (notif.displayBookingCode.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      // Tag mã booking
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 120),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
                           ),
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.ellipsis,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF8FF),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            notif.displayBookingCode,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
 
@@ -250,7 +261,7 @@ class NotificationCard extends ConsumerWidget {
                             Text(
                               notif.renterName.isNotEmpty
                                   ? notif.renterName
-                                  : 'Khách thuê HomeShare',
+                                  : 'Khách thuê',
                               style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
@@ -656,3 +667,4 @@ class NotificationCard extends ConsumerWidget {
     }
   }
 }
+

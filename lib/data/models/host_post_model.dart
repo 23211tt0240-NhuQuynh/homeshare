@@ -26,6 +26,10 @@ class HostPostModel {
   final String contactPhone; // soDienThoaiLienHe
   final DateTime createdAt; // ngayDang
   final String status; // trangThai
+  final String rejectReason; // lyDoTuChoi (từ Firestore khi admin từ chối)
+  final DateTime? hostResubmittedAt; // thời gian chủ trọ gửi duyệt lại
+  final DateTime? reviewedAt; // thời gian admin duyệt / từ chối
+  final String reviewedBy; // adminId thực hiện duyệt
 
   // Các trường nghiệp vụ giao diện và ghép nối bộ nhớ (IN-MEMORY ONLY - KHÔNG LƯU FIRESTORE)
   final String authorName;
@@ -62,6 +66,10 @@ class HostPostModel {
     String? contactPhone,
     DateTime? createdAt,
     this.status = 'dangHienThi',
+    String? rejectReason,
+    this.hostResubmittedAt,
+    this.reviewedAt,
+    this.reviewedBy = '',
     // In-memory UI fields
     this.authorName = '',
     this.authorAvatar = '',
@@ -91,6 +99,7 @@ class HostPostModel {
     int? phanTramTienCoc,
     String? soDienThoaiLienHe,
     DateTime? ngayDang,
+    String? lyDoTuChoi,
   }) : roomId = roomId ?? phongId ?? '',
        hostId = hostId ?? chuNhaId ?? '',
        locationId = locationId ?? diaDiemId ?? '',
@@ -102,7 +111,10 @@ class HostPostModel {
        depositAmount = depositAmount ?? tienCoc ?? 0.0,
        depositPercentage = depositPercentage ?? phanTramTienCoc ?? 20,
        contactPhone = contactPhone ?? soDienThoaiLienHe ?? '',
-       createdAt = createdAt ?? ngayDang ?? DateTime.now();
+       createdAt = createdAt ?? ngayDang ?? DateTime.now(),
+       rejectReason = (rejectReason != null && rejectReason.isNotEmpty)
+           ? rejectReason
+           : (lyDoTuChoi ?? '');
 
   // Vietnamese Schema Aliases for backward compatibility in code
   String get phongId => roomId;
@@ -121,11 +133,67 @@ class HostPostModel {
   String get soDienThoaiLienHe => contactPhone;
   DateTime get ngayDang => createdAt;
   String get trangThai => status;
+  String get lyDoTuChoi => rejectReason;
+  String get propertyId => joinedRoom?.propertyId ?? '';
+
+  bool get isRejected {
+    final s = status.toLowerCase().trim();
+    final sId = statusId.toLowerCase().trim();
+    return s == 'rejected' ||
+        s == 'tuchoi' ||
+        s == 'tu_choi' ||
+        s == 'bituchoi' ||
+        s == 'bi_tu_choi' ||
+        sId == 'rejected' ||
+        sId == 'tuchoi' ||
+        sId == 'tu_choi' ||
+        sId == 'bituchoi' ||
+        sId == 'bi_tu_choi';
+  }
+
+  bool get isPending {
+    final s = status.toLowerCase().trim();
+    final sId = statusId.toLowerCase().trim();
+    return s == 'pending' ||
+        s == 'choduyet' ||
+        s == 'cho_duyet' ||
+        sId == 'pending' ||
+        sId == 'choduyet' ||
+        sId == 'cho_duyet';
+  }
+
+  bool get isApprovedOrActive {
+    final s = status.toLowerCase().trim();
+    final sId = statusId.toLowerCase().trim();
+    return isActive ||
+        s == 'active' ||
+        s == 'approved' ||
+        s == 'daduyet' ||
+        s == 'da_duyet' ||
+        s == 'danghienthi' ||
+        s == 'dang_hien_thi' ||
+        s == 'published' ||
+        sId == 'active' ||
+        sId == 'approved' ||
+        sId == 'daduyet' ||
+        sId == 'da_duyet' ||
+        sId == 'danghienthi' ||
+        sId == 'dang_hien_thi' ||
+        sId == 'published';
+  }
 
   bool get isActive {
     final sId = statusId.toLowerCase().trim();
-    const activeStatuses = {'active', 'danghienthi', 'published', 'approved'};
-    return activeStatuses.contains(sId);
+    final s = status.toLowerCase().trim();
+    const activeStatuses = {
+      'active',
+      'danghienthi',
+      'published',
+      'approved',
+      'daduyet',
+      'da_duyet',
+    };
+    return activeStatuses.contains(sId) || activeStatuses.contains(s);
   }
 
   /// Đường dẫn Sub-collection trên Firestore theo quan hệ 1-N:
@@ -405,6 +473,26 @@ class HostPostModel {
           data['daXacThuc'] == true,
       isVip: data['isVip'] == true || data['vip'] == true,
       isUserInterested: isUserInterested,
+      rejectReason: (data['rejectReason'] ??
+              data['lyDoTuChoi'] ??
+              data['reason'] ??
+              data['ly_do_tu_choi'] ??
+              '')
+          .toString()
+          .trim(),
+      hostResubmittedAt: data['hostResubmittedAt'] is Timestamp
+          ? (data['hostResubmittedAt'] as Timestamp).toDate()
+          : (data['hostResubmittedAt'] is String
+              ? DateTime.tryParse(data['hostResubmittedAt'])
+              : null),
+      reviewedAt: data['reviewedAt'] is Timestamp
+          ? (data['reviewedAt'] as Timestamp).toDate()
+          : (data['reviewedAt'] is String
+              ? DateTime.tryParse(data['reviewedAt'])
+              : null),
+      reviewedBy: (data['reviewedBy'] ?? data['nguoiDuyet'] ?? '')
+          .toString()
+          .trim(),
     );
   }
 
@@ -470,6 +558,10 @@ class HostPostModel {
     bool? isUserInterested,
     RoomModel? joinedRoom,
     UserProfile? joinedHost,
+    String? rejectReason,
+    DateTime? hostResubmittedAt,
+    DateTime? reviewedAt,
+    String? reviewedBy,
     // Vietnamese legacy named params
     String? phongId,
     String? chuNhaId,
@@ -483,6 +575,7 @@ class HostPostModel {
     int? phanTramTienCoc,
     String? soDienThoaiLienHe,
     DateTime? ngayDang,
+    String? lyDoTuChoi,
   }) {
     return HostPostModel(
       id: id ?? this.id,
@@ -503,6 +596,10 @@ class HostPostModel {
       contactPhone: contactPhone ?? soDienThoaiLienHe ?? this.contactPhone,
       createdAt: createdAt ?? ngayDang ?? this.createdAt,
       status: status ?? this.status,
+      rejectReason: rejectReason ?? lyDoTuChoi ?? this.rejectReason,
+      hostResubmittedAt: hostResubmittedAt ?? this.hostResubmittedAt,
+      reviewedAt: reviewedAt ?? this.reviewedAt,
+      reviewedBy: reviewedBy ?? this.reviewedBy,
       authorName: authorName ?? this.authorName,
       authorAvatar: authorAvatar ?? this.authorAvatar,
       propertyName: propertyName ?? this.propertyName,

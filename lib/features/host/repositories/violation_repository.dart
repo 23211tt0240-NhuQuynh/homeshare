@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:intl/intl.dart';
 import '../../../core/constants/firestore_collections.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/period_model.dart';
@@ -374,25 +375,113 @@ class ViolationRepository {
       batch.set(lineDocRef, invoiceLine.toMap());
     }
 
+    // Gửi thông báo đến chuông của người thuê kèm bằng chứng & số tiền phạt
+    if (recordToSave.tenantId.isNotEmpty) {
+      final notifRef =
+          _firestore.collection(FirestoreCollections.notifications).doc();
+      final fineFmt =
+          NumberFormat('#,###', 'vi_VN').format(recordToSave.totalFine);
+      final violationsStr = recordToSave.violationTitles.isNotEmpty
+          ? recordToSave.violationTitles.join(', ')
+          : 'Nội quy phòng trọ';
+      batch.set(notifRef, {
+        'id': notifRef.id,
+        'receiverId': recordToSave.tenantId,
+        'recipientRole': 'renter',
+        'title': 'Biên bản phạt vi phạm nội quy',
+        'message':
+            'Chủ trọ đã ghi nhận vi phạm phòng ${recordToSave.roomCode}: $violationsStr. Số tiền phạt: $fineFmt đ. Lưu ý: Tiền phạt nộp trực tiếp cho chủ trọ, không thu trên ứng dụng.',
+        'notificationType': 'violation_fine',
+        'type': 'violation_fine',
+        'recordId': recordToSave.id,
+        'roomId': recordToSave.roomId,
+        'roomCode': recordToSave.roomCode,
+        'propertyName': recordToSave.propertyName,
+        'tenantId': recordToSave.tenantId,
+        'tenantName': recordToSave.tenantName,
+        'totalFine': recordToSave.totalFine,
+        'amount': recordToSave.totalFine,
+        'violationTitles': recordToSave.violationTitles,
+        'description': recordToSave.description,
+        'evidenceUrls': recordToSave.evidenceUrls,
+        'paymentMethod': recordToSave.paymentMethod,
+        'status': recordToSave.status,
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+
     await batch.commit();
     return recordToSave.id;
   }
 
-  /// Thu tiền mặt: cập nhật trạng thái đã thanh toán
+  /// Thu tiền mặt: cập nhật trạng thái đã thanh toán và gửi thông báo xác nhận cho người thuê
   Future<void> markCashPayment(
     String recordId, {
     required String hostId,
   }) async {
-    await _firestore
-        .collection(FirestoreCollections.violationRecords)
-        .doc(recordId)
-        .update({
+    final recRef =
+        _firestore.collection(FirestoreCollections.violationRecords).doc(recordId);
+    final doc = await recRef.get();
+    String tenantId = '';
+    String roomCode = '';
+    double fineAmt = 0.0;
+    if (doc.exists && doc.data() != null) {
+      final data = doc.data()!;
+      tenantId = (data['tenantId'] ?? data['nguoiDungId'] ?? '').toString();
+      roomCode = (data['roomCode'] ?? data['soPhong'] ?? '').toString();
+      final totalFine = (data['totalFine'] ?? data['tongTienPhat'] ?? 0.0);
+      fineAmt = (totalFine is num) ? totalFine.toDouble() : 0.0;
+    }
+
+    final batch = _firestore.batch();
+    batch.update(recRef, {
       'status': 'PAID',
       'paidAt': Timestamp.now(),
       'paidMethod': 'CASH',
       'paidCollector': hostId,
       'updatedAt': Timestamp.now(),
     });
+
+    // Cập nhật các notification liên quan sang PAID
+    try {
+      final notifsSnap = await _firestore
+          .collection(FirestoreCollections.notifications)
+          .where('recordId', isEqualTo: recordId)
+          .get();
+      for (final nDoc in notifsSnap.docs) {
+        batch.update(nDoc.reference, {
+          'status': 'PAID',
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (_) {}
+
+    // Gửi thông báo xác nhận đã thu tiền trực tiếp
+    if (tenantId.isNotEmpty) {
+      final notifRef =
+          _firestore.collection(FirestoreCollections.notifications).doc();
+      final fineFmt = NumberFormat('#,###', 'vi_VN').format(fineAmt);
+      batch.set(notifRef, {
+        'id': notifRef.id,
+        'receiverId': tenantId,
+        'recipientRole': 'renter',
+        'title': 'Xác nhận đã nộp phạt trực tiếp ✓',
+        'message':
+            'Chủ trọ đã xác nhận nhận đủ tiền phạt $fineFmt đ phòng $roomCode bằng tiền mặt ngoài ứng dụng.',
+        'notificationType': 'violation_fine',
+        'type': 'violation_fine',
+        'recordId': recordId,
+        'roomCode': roomCode,
+        'totalFine': fineAmt,
+        'amount': fineAmt,
+        'status': 'PAID',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
   }
 
   /// Trừ vào hóa đơn: tạo dòng hóa đơn và cập nhật trạng thái biên bản
@@ -429,17 +518,102 @@ class ViolationRepository {
       'updatedAt': Timestamp.now(),
     });
 
+    // 3. Cập nhật các notification liên quan sang ADDED_TO_INVOICE
+    try {
+      final notifsSnap = await _firestore
+          .collection(FirestoreCollections.notifications)
+          .where('recordId', isEqualTo: record.id)
+          .get();
+      for (final nDoc in notifsSnap.docs) {
+        batch.update(nDoc.reference, {
+          'status': 'ADDED_TO_INVOICE',
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (_) {}
+
+    // 4. Gửi thông báo đến người thuê
+    if (record.tenantId.isNotEmpty) {
+      final notifRef =
+          _firestore.collection(FirestoreCollections.notifications).doc();
+      final fineFmt = NumberFormat('#,###', 'vi_VN').format(record.totalFine);
+      batch.set(notifRef, {
+        'id': notifRef.id,
+        'receiverId': record.tenantId,
+        'recipientRole': 'renter',
+        'title': 'Cộng tiền phạt vào hóa đơn tháng sau',
+        'message':
+            'Khoản phạt $fineFmt đ phòng ${record.roomCode} đã được cộng vào hóa đơn tiền phòng kỳ tới để thanh toán trực tiếp.',
+        'notificationType': 'violation_fine',
+        'type': 'violation_fine',
+        'recordId': record.id,
+        'roomCode': record.roomCode,
+        'totalFine': record.totalFine,
+        'amount': record.totalFine,
+        'status': 'ADDED_TO_INVOICE',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+
     await batch.commit();
   }
 
-  /// Gửi nhắc nộp tiền: ghi nhận thời gian gửi nhắc
+  /// Gửi nhắc nộp tiền: ghi nhận thời gian gửi nhắc và gửi thông báo cho người thuê
   Future<void> sendPaymentReminder(String recordId) async {
-    await _firestore
+    final doc = await _firestore
         .collection(FirestoreCollections.violationRecords)
         .doc(recordId)
-        .update({
-      'lastReminderAt': Timestamp.now(),
-      'updatedAt': Timestamp.now(),
-    });
+        .get();
+    if (!doc.exists || doc.data() == null) return;
+    final data = doc.data()!;
+    final tenantId =
+        (data['tenantId'] ?? data['nguoiDungId'] ?? '').toString();
+    final roomCode =
+        (data['roomCode'] ?? data['soPhong'] ?? '').toString();
+    final rawFine = data['totalFine'] ?? data['tongTienPhat'] ?? 0.0;
+    final fineAmt = (rawFine is num) ? rawFine.toDouble() : 0.0;
+    final fineFmt = NumberFormat('#,###', 'vi_VN').format(fineAmt);
+    final violationTitles = List<String>.from(
+        data['violationTitles'] ?? data['danhSachTenViPham'] ?? []);
+    final evidenceUrls =
+        List<String>.from(data['evidenceUrls'] ?? data['chungCu'] ?? []);
+    final description =
+        (data['description'] ?? data['moTa'] ?? '').toString();
+
+    final batch = _firestore.batch();
+    batch.update(
+        _firestore.collection(FirestoreCollections.violationRecords).doc(recordId),
+        {
+          'lastReminderAt': Timestamp.now(),
+          'updatedAt': Timestamp.now(),
+        });
+
+    if (tenantId.isNotEmpty) {
+      final notifRef =
+          _firestore.collection(FirestoreCollections.notifications).doc();
+      batch.set(notifRef, {
+        'id': notifRef.id,
+        'receiverId': tenantId,
+        'recipientRole': 'renter',
+        'title': 'Nhắc nhở nộp phạt vi phạm nội quy',
+        'message':
+            'Chủ trọ nhắc bạn thanh toán tiền phạt $fineFmt đ cho vi phạm phòng $roomCode. Vui lòng thanh toán trực tiếp cho chủ trọ.',
+        'notificationType': 'violation_fine',
+        'type': 'violation_fine',
+        'recordId': recordId,
+        'roomCode': roomCode,
+        'totalFine': fineAmt,
+        'amount': fineAmt,
+        'violationTitles': violationTitles,
+        'description': description,
+        'evidenceUrls': evidenceUrls,
+        'status': 'PENDING',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
   }
 }

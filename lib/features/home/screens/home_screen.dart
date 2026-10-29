@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/providers/app_settings_provider.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -16,6 +17,8 @@ import '../../host/screens/host_property_management_screen.dart';
 import '../../host/screens/host_tenant_management_screen.dart';
 import '../../host/screens/host_checkin_checkout_screen.dart';
 import '../../host/screens/host_violation_management_screen.dart';
+import '../../host/screens/host_post_management_screen.dart';
+import '../../host/data/host_post_repository.dart';
 import '../../admin/screens/admin_main_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -321,6 +324,15 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(userProfileProvider).value;
+    final authUser = ref.watch(currentUserProvider);
+    final firebaseAuthUser = FirebaseAuth.instance.currentUser;
+    final currentUserId = (authUser?.uid != null && authUser!.uid.isNotEmpty)
+        ? authUser.uid
+        : (firebaseAuthUser?.uid != null && firebaseAuthUser!.uid.isNotEmpty
+            ? firebaseAuthUser.uid
+            : (profile?.uid ?? ''));
+    final rejectedCountAsync = ref.watch(hostRejectedCountProvider(currentUserId));
+    final rejectedPostsCount = rejectedCountAsync.value ?? 0;
     final currentLang = ref.watch(appLanguageProvider);
     final currentThemeMode = ref.watch(appThemeModeProvider);
 
@@ -587,6 +599,25 @@ class HomeScreen extends ConsumerWidget {
               child: Column(
                 children: (profile?.isHost == true)
                     ? [
+                        _buildMenuRow(
+                          icon: Icons.post_add_rounded,
+                          title: 'Quản lý bài đăng',
+                          subtitle: rejectedPostsCount > 0
+                              ? '$rejectedPostsCount bài đăng bị từ chối duyệt'
+                              : 'Danh sách bài đăng phòng, trạng thái kiểm duyệt',
+                          badgeCount: rejectedPostsCount,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => HostPostManagementScreen(
+                                  initialTabIndex: rejectedPostsCount > 0 ? 0 : 2,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        _buildMenuDivider(),
                         _buildMenuRow(
                           icon: Icons.holiday_village_outlined,
                           title: 'Quản lý cơ sở & Tòa nhà',
@@ -856,6 +887,7 @@ class HomeScreen extends ConsumerWidget {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    int? badgeCount,
   }) {
     return ListTile(
       onTap: onTap,
@@ -879,10 +911,33 @@ class HomeScreen extends ConsumerWidget {
         subtitle,
         style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
       ),
-      trailing: const Icon(
-        Icons.chevron_right,
-        size: 20,
-        color: AppColors.textMuted,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (badgeCount != null && badgeCount > 0) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.danger,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$badgeCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+          ],
+          const Icon(
+            Icons.chevron_right,
+            size: 20,
+            color: AppColors.textMuted,
+          ),
+        ],
       ),
     );
   }

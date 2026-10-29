@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/host_post_model.dart';
-import '../../renter/screens/room_detail_screen.dart';
+import '../screens/host_post_detail_screen.dart';
 
 /// Thẻ hiển thị bài đăng của chủ trọ đối tác theo thiết kế Figma
 class HostPostCard extends StatelessWidget {
@@ -23,9 +23,10 @@ class HostPostCard extends StatelessWidget {
   void _openDetail(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => RoomDetailScreen(
-          room: post.toRoomModel(),
-          isHostView: isOwnPost,
+        builder: (_) => HostPostDetailScreen(
+          postId: post.id,
+          post: post,
+          isOwnPost: isOwnPost,
         ),
       ),
     );
@@ -419,134 +420,63 @@ class HostPostCard extends StatelessWidget {
 
           const Divider(height: 20, color: Color(0xFFF1F5F9)),
 
-          // 5. Thao tác tương tác & Nút Nhắn tin trao đổi
+          // 5. Nút Nhắn tin trao đổi / Bài của bạn (Đã xóa tim & bình luận)
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-            child: Row(
-              children: [
-                // Nút Quan tâm
-                InkWell(
-                  onTap: onInterestPressed,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 6,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          post.isUserInterested
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          size: 18,
-                          color: post.isUserInterested
-                              ? const Color(0xFFE11D48)
-                              : const Color(0xFF64748B),
+            child: SizedBox(
+              width: double.infinity,
+              child: isOwnPost
+                  ? OutlinedButton.icon(
+                      onPressed: onChatPressed,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF1E60F2),
+                        side: const BorderSide(color: Color(0xFF1E60F2)),
+                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${post.interestedCount}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: post.isUserInterested
-                                ? const Color(0xFFE11D48)
-                                : const Color(0xFF64748B),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-
-                // Lượt phản hồi
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 6,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.chat_bubble_outline,
-                        size: 17,
-                        color: Color(0xFF64748B),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${post.responseCount}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-
-                const Spacer(),
-
-                // Nút Nhắn tin trao đổi / Bài của bạn
-                Flexible(
-                  child: isOwnPost
-                      ? OutlinedButton.icon(
-                          onPressed: onChatPressed,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF1E60F2),
-                            side: const BorderSide(color: Color(0xFF1E60F2)),
-                            minimumSize: const Size(0, 36),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          icon: const Icon(Icons.person_outline, size: 15),
-                          label: const Text(
-                            'Bài của bạn',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        )
-                      : FilledButton.icon(
-                          onPressed: onChatPressed,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E60F2),
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(0, 36),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            elevation: 0,
-                          ),
-                          icon: const Icon(Icons.chat_bubble_outline, size: 15),
-                          label: const Text(
-                            'Nhắn tin trao đổi',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                      icon: const Icon(Icons.person_outline, size: 16),
+                      label: const Text(
+                        'Bài của bạn',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
                         ),
-                ),
-              ],
+                      ),
+                    )
+                  : FilledButton.icon(
+                      onPressed: onChatPressed,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E60F2),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 0,
+                      ),
+                      icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                      label: const Text(
+                        'Nhắn tin trao đổi',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
             ),
           ),
         ],

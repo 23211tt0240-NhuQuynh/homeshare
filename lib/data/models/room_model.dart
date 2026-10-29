@@ -16,6 +16,7 @@ class RoomModel {
   final String tenantName, tenantPhone, tenantAvatar, contractId;
   final DateTime? contractStart, contractEnd, updatedAt;
   final bool hasRentDebt;
+  final String rejectReason;
   final String id; // phongId / baiDangId
   final String title; // tieuDe / tieuDePhong
   final String description; // moTa / noiDung
@@ -121,6 +122,15 @@ class RoomModel {
     return s == 'pending' || s == 'choduyet' || s == 'cho_duyet';
   }
 
+  bool get isRejected {
+    final s = status.toLowerCase().trim();
+    return s == 'rejected' ||
+        s == 'tuchoi' ||
+        s == 'tu_choi' ||
+        s == 'bituchoi' ||
+        s == 'bi_tu_choi';
+  }
+
   bool get isDeleted {
     final s = status.toLowerCase().trim();
     return s == 'deleted' || s == 'daxoa' || s == 'da_xoa' || s == 'đã xóa';
@@ -151,6 +161,19 @@ class RoomModel {
         s == 'unavailable';
   }
 
+  bool get isOccupied {
+    final s = status.toLowerCase().trim();
+    return s == 'occupied' ||
+        s == 'dathue' ||
+        s == 'da_thue' ||
+        s == 'dang_o' ||
+        s == 'dango' ||
+        s == 'đang ở' ||
+        s == 'đã thuê' ||
+        tenantName.trim().isNotEmpty ||
+        contractId.trim().isNotEmpty;
+  }
+
   /// Kiểm tra xem bài đăng có phải bài mẫu hardcode (sample) không
   bool get isSampleOrHardcode {
     if (id.toLowerCase().startsWith('sample')) return true;
@@ -179,14 +202,14 @@ class RoomModel {
         !isPending &&
         !isHiddenOrRejected &&
         isAvailable &&
+        !isOccupied &&
         !isSampleOrHardcode;
   }
 
   String get statusDisplayLabel {
     if (isPending) return 'Chờ duyệt';
     if (isHiddenOrRejected) return 'Đã ẩn';
-    final s = status.toLowerCase().trim();
-    if (s == 'occupied' || s == 'dathue') return 'Đã thuê';
+    if (isOccupied) return 'Đã thuê';
     return 'Đã duyệt';
   }
 
@@ -206,6 +229,7 @@ class RoomModel {
     this.contractEnd,
     this.updatedAt,
     this.hasRentDebt = false,
+    this.rejectReason = '',
     required this.title,
     required this.description,
     required this.price,
@@ -547,6 +571,13 @@ class RoomModel {
           : (data['ngayDang'] is Timestamp)
           ? (data['ngayDang'] as Timestamp).toDate()
           : DateTime.now(),
+      rejectReason: (data['rejectReason'] ??
+              data['lyDoTuChoi'] ??
+              data['reason'] ??
+              data['ly_do_tu_choi'] ??
+              '')
+          .toString()
+          .trim(),
     );
   }
 
@@ -794,6 +825,7 @@ class RoomModel {
     double? electricityRate,
     double? waterRate,
     double? serviceFee,
+    String? rejectReason,
   }) {
     return RoomModel(
       id: id ?? this.id,
@@ -835,6 +867,7 @@ class RoomModel {
       electricityRate: electricityRate ?? this.electricityRate,
       waterRate: waterRate ?? this.waterRate,
       serviceFee: serviceFee ?? this.serviceFee,
+      rejectReason: rejectReason ?? this.rejectReason,
     );
   }
 }
