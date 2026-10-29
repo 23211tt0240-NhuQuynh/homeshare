@@ -27,7 +27,7 @@ class _InvalidRoleScreenState extends ConsumerState<InvalidRoleScreen> {
       debugPrint('Invalid role screen sign out error');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Không thể đăng xuất. Vui lòng thử lại sau.'),
             backgroundColor: AppColors.danger,
           ),
@@ -52,12 +52,12 @@ class _InvalidRoleScreenState extends ConsumerState<InvalidRoleScreen> {
           'Xác Thực Vai Trò',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: AppColors.danger),
+            icon: Icon(Icons.logout, color: AppColors.danger),
             tooltip: 'Đăng xuất',
             onPressed: _isSigningOut ? null : _handleSignOut,
           ),
@@ -73,7 +73,7 @@ class _InvalidRoleScreenState extends ConsumerState<InvalidRoleScreen> {
             child: Container(
               padding: const EdgeInsets.all(28.0),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.surface,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AppColors.border),
                 boxShadow: [
@@ -95,7 +95,7 @@ class _InvalidRoleScreenState extends ConsumerState<InvalidRoleScreen> {
                       color: AppColors.dangerContainer,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.gpp_bad_outlined,
                       size: 40,
                       color: AppColors.danger,
@@ -104,7 +104,7 @@ class _InvalidRoleScreenState extends ConsumerState<InvalidRoleScreen> {
                   const SizedBox(height: 20),
 
                   // Tiêu đề
-                  const Text(
+                  Text(
                     'Vai Trò Không Hợp Lệ',
                     style: TextStyle(
                       fontSize: 20,
@@ -116,7 +116,7 @@ class _InvalidRoleScreenState extends ConsumerState<InvalidRoleScreen> {
                   const SizedBox(height: 12),
 
                   // Mô tả chi tiết chính sách Fail-Closed
-                  const Text(
+                  Text(
                     'Tài khoản của bạn chưa được cấp vai trò hợp lệ trên hệ thống HomeShare. Để bảo mật dữ liệu và quyền riêng tư, hệ thống không thể tự động chuyển vào giao diện người dùng.',
                     style: TextStyle(
                       fontSize: 14,
@@ -142,7 +142,7 @@ class _InvalidRoleScreenState extends ConsumerState<InvalidRoleScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Vai trò ghi nhận:',
                           style: TextStyle(
                             fontSize: 13,
@@ -152,7 +152,7 @@ class _InvalidRoleScreenState extends ConsumerState<InvalidRoleScreen> {
                         Flexible(
                           child: Text(
                             roleDisplayText,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
                               color: AppColors.danger,
@@ -173,7 +173,7 @@ class _InvalidRoleScreenState extends ConsumerState<InvalidRoleScreen> {
                       color: AppColors.warningContainer.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Row(
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(

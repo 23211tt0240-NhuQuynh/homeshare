@@ -1,3 +1,4 @@
+import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import '../../../data/models/handover_item_model.dart';
 
@@ -46,11 +47,11 @@ class HandoverItemCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: item.isChecked
-              ? const Color(0xFFE2E8F0)
+              ? AppColors.border
               : const Color(0xFFFED7AA),
         ),
       ),
@@ -61,13 +62,13 @@ class HandoverItemCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
+              color: AppColors.primaryContainer,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               _getIcon(item.itemName),
               size: 20,
-              color: const Color(0xFF2563EB),
+              color: AppColors.primary,
             ),
           ),
           const SizedBox(width: 12),
@@ -78,19 +79,19 @@ class HandoverItemCard extends StatelessWidget {
               children: [
                 Text(
                   item.itemName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
+                    color: AppColors.textDark,
                   ),
                 ),
                 if (item.description.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
                     item.description,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF64748B),
+                      color: AppColors.textMuted,
                     ),
                   ),
                 ],
@@ -103,10 +104,10 @@ class HandoverItemCard extends StatelessWidget {
             scale: 0.85,
             child: Switch(
               value: item.isChecked,
-              activeThumbColor: const Color(0xFF16A34A),
+              activeThumbColor: AppColors.success,
               activeTrackColor: const Color(0xFFBBF7D0),
-              inactiveThumbColor: const Color(0xFF94A3B8),
-              inactiveTrackColor: const Color(0xFFE2E8F0),
+              inactiveThumbColor: AppColors.textMuted,
+              inactiveTrackColor: AppColors.border,
               onChanged: onToggle,
             ),
           ),

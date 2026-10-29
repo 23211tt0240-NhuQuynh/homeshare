@@ -118,7 +118,7 @@ class _HostUpdateDepositBottomSheetState
       debugPrint('Không thể cập nhật thông tin đặt chỗ: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             backgroundColor: AppColors.danger,
             content: Text('Không thể lưu thay đổi. Vui lòng thử lại.'),
           ),
@@ -135,8 +135,8 @@ class _HostUpdateDepositBottomSheetState
     final dateFmt = DateFormat('dd/MM/yyyy');
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       padding: EdgeInsets.only(
@@ -170,7 +170,7 @@ class _HostUpdateDepositBottomSheetState
                     children: [
                       Text(
                         'THAO TÁC CHỦ NHÀ • ${notif.displayBookingCode}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: AppColors.primary,
@@ -178,7 +178,7 @@ class _HostUpdateDepositBottomSheetState
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
+                      Text(
                         'Cập nhật thông tin cọc',
                         style: TextStyle(
                           fontSize: 20,
@@ -197,10 +197,10 @@ class _HostUpdateDepositBottomSheetState
                         color: Color(0xFFF2F4F7),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.close_rounded,
                         size: 20,
-                        color: Color(0xFF667085),
+                        color: AppColors.textMuted,
                       ),
                     ),
                   ),
@@ -219,7 +219,7 @@ class _HostUpdateDepositBottomSheetState
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: AppColors.background,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: const Color(0xFFEAECF0)),
                     ),
@@ -227,7 +227,7 @@ class _HostUpdateDepositBottomSheetState
                       children: [
                         CircleAvatar(
                           radius: 20,
-                          backgroundColor: const Color(0xFFE0EAFF),
+                          backgroundColor: AppColors.primaryContainer,
                           child: Text(
                             notif.renterName.isNotEmpty
                                 ? notif.renterName[0].toUpperCase()
@@ -244,11 +244,11 @@ class _HostUpdateDepositBottomSheetState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Khách đặt cọc:',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xFF667085),
+                                  color: AppColors.textMuted,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -256,10 +256,10 @@ class _HostUpdateDepositBottomSheetState
                                 notif.renterName.isNotEmpty
                                     ? notif.renterName
                                     : 'Khách thuê',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF101828),
+                                  color: AppColors.textDark,
                                 ),
                               ),
                             ],
@@ -268,17 +268,17 @@ class _HostUpdateDepositBottomSheetState
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            const Text(
+                            Text(
                               'Đã cọc trước:',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF667085),
+                                color: AppColors.textMuted,
                               ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               _formatCurrency(notif.amount),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.primary,
@@ -296,7 +296,7 @@ class _HostUpdateDepositBottomSheetState
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Row(
+                      Row(
                         children: [
                           Icon(
                             Icons.meeting_room_outlined,
@@ -309,16 +309,16 @@ class _HostUpdateDepositBottomSheetState
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF101828),
+                              color: AppColors.textDark,
                             ),
                           ),
                         ],
                       ),
                       Text(
                         'Hiện tại: ${notif.displayRoomCode.isNotEmpty ? 'Phòng ${notif.displayRoomCode}' : 'Phòng đang chọn'}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF667085),
+                          color: AppColors.textMuted,
                         ),
                       ),
                     ],
@@ -327,7 +327,7 @@ class _HostUpdateDepositBottomSheetState
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF9FAFB),
+                      color: AppColors.background,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: const Color(0xFFD0D5DD)),
                     ),
@@ -338,18 +338,18 @@ class _HostUpdateDepositBottomSheetState
                             ? _selectedRoomId
                             : _roomOptions.first['id'],
                         isExpanded: true,
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.keyboard_arrow_down_rounded,
-                          color: Color(0xFF667085),
+                          color: AppColors.textMuted,
                         ),
                         items: _roomOptions.map((room) {
                           return DropdownMenuItem<String>(
                             value: room['id'],
                             child: Text(
                               room['title']!,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
-                                color: Color(0xFF101828),
+                                color: AppColors.textDark,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -369,7 +369,7 @@ class _HostUpdateDepositBottomSheetState
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Row(
+                  Row(
                     children: [
                       Icon(
                         Icons.info_outline_rounded,
@@ -394,7 +394,7 @@ class _HostUpdateDepositBottomSheetState
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Row(
+                      Row(
                         children: [
                           Icon(
                             Icons.calendar_month_outlined,
@@ -407,16 +407,16 @@ class _HostUpdateDepositBottomSheetState
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF101828),
+                              color: AppColors.textDark,
                             ),
                           ),
                         ],
                       ),
                       Text(
                         'Gốc: ${notif.checkInDate != null ? dateFmt.format(notif.checkInDate!) : 'Chưa thiết lập'}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF667085),
+                          color: AppColors.textMuted,
                         ),
                       ),
                     ],
@@ -431,28 +431,28 @@ class _HostUpdateDepositBottomSheetState
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF9FAFB),
+                        color: AppColors.background,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: const Color(0xFFD0D5DD)),
                       ),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.calendar_today_outlined,
                             size: 16,
-                            color: Color(0xFF667085),
+                            color: AppColors.textMuted,
                           ),
                           const SizedBox(width: 10),
                           Text(
                             dateFmt.format(_selectedCheckInDate),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF101828),
+                              color: AppColors.textDark,
                             ),
                           ),
                           const Spacer(),
-                          const Icon(
+                          Icon(
                             Icons.edit_calendar_rounded,
                             size: 18,
                             color: AppColors.primary,
@@ -468,17 +468,17 @@ class _HostUpdateDepositBottomSheetState
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Tháng 10, 2026',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF667085),
+                          color: AppColors.textMuted,
                         ),
                       ),
                       InkWell(
                         onTap: _pickDate,
-                        child: const Text(
+                        child: Text(
                           'Chọn nhanh',
                           style: TextStyle(
                             fontSize: 11,
@@ -524,25 +524,25 @@ class _HostUpdateDepositBottomSheetState
                   const SizedBox(height: 18),
 
                   // Mục 3: Lý do điều chỉnh
-                  const Text(
+                  Text(
                     'Lý do điều chỉnh (Gửi kèm khách)',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF101828),
+                      color: AppColors.textDark,
                     ),
                   ),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _reasonController,
                     maxLines: 3,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF101828),
+                      color: AppColors.textDark,
                     ),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: const Color(0xFFF9FAFB),
+                      fillColor: AppColors.background,
                       hintText: 'Nhập lý do gửi đến người thuê...',
                       hintStyle: const TextStyle(
                         fontSize: 12,
@@ -551,15 +551,15 @@ class _HostUpdateDepositBottomSheetState
                       contentPadding: const EdgeInsets.all(12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFFE4E7EC)),
+                        borderSide: BorderSide(color: AppColors.border),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFFE4E7EC)),
+                        borderSide: BorderSide(color: AppColors.border),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.primary),
+                        borderSide: BorderSide(color: AppColors.primary),
                       ),
                     ),
                   ),
@@ -641,11 +641,11 @@ class _HostUpdateDepositBottomSheetState
                   // Nút Hủy bỏ thay đổi
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text(
+                    child: Text(
                       'Hủy bỏ thay đổi',
                       style: TextStyle(
                         fontSize: 14,
-                        color: Color(0xFF667085),
+                        color: AppColors.textMuted,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -676,7 +676,7 @@ class _HostUpdateDepositBottomSheetState
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary : const Color(0xFFF2F4F7),
+            color: isSelected ? AppColors.primary : Color(0xFFF2F4F7),
             borderRadius: BorderRadius.circular(10),
           ),
           alignment: Alignment.center,
@@ -685,7 +685,7 @@ class _HostUpdateDepositBottomSheetState
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: isSelected ? Colors.white : const Color(0xFF344054),
+              color: isSelected ? Colors.white : AppColors.textDark,
             ),
           ),
         ),

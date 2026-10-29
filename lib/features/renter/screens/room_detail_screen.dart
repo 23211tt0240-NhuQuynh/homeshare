@@ -206,12 +206,12 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                 child: Container(
                   width: 48,
                   height: 48,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppColors.textDark, size: 20),
+                    icon: Icon(Icons.arrow_back, color: AppColors.textDark, size: 20),
                     tooltip: 'Quay lại',
                     onPressed: () => Navigator.pop(context),
                   ),
@@ -231,14 +231,14 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                       child: Container(
                         width: 48,
                         height: 48,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
                           icon: Icon(
                             isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                            color: isFav ? const Color(0xFFEF4444) : AppColors.textDark,
+                            color: isFav ? Color(0xFFEF4444) : AppColors.textDark,
                             size: 20,
                           ),
                           tooltip: isFav ? 'Bỏ lưu yêu thích' : 'Lưu yêu thích',
@@ -252,7 +252,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                                       ? 'Đã thêm phòng vào danh sách yêu thích ❤️'
                                       : 'Đã bỏ lưu phòng khỏi danh sách yêu thích'),
                                   duration: const Duration(seconds: 2),
-                                  backgroundColor: added ? AppColors.primary : const Color(0xFF334155),
+                                  backgroundColor: added ? AppColors.primary : Color(0xFF334155),
                                 ),
                               );
                             }
@@ -376,7 +376,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
 
                   Text(
                     _room.title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: AppColors.textDark,
@@ -388,12 +388,12 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   // Address
                   Row(
                     children: [
-                      const Icon(Icons.location_on_outlined, size: 16, color: AppColors.primary),
+                      Icon(Icons.location_on_outlined, size: 16, color: AppColors.primary),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           _room.address,
-                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                         ),
                       ),
                     ],
@@ -404,7 +404,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
@@ -420,11 +420,11 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Giá thuê phòng', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                            Text('Giá thuê phòng', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                             const SizedBox(height: 2),
                             Text(
                               priceStr,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.primary,
@@ -432,15 +432,15 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                             ),
                           ],
                         ),
-                        Container(height: 32, width: 1, color: const Color(0xFFE5E7EB)),
+                        Container(height: 32, width: 1, color: AppColors.border),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Tiền đặt cọc', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                            Text('Tiền đặt cọc', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                             const SizedBox(height: 2),
                             Text(
                               depositStr,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.textDark,
@@ -457,7 +457,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
@@ -478,10 +478,10 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   const SizedBox(height: 20),
 
                   // Thông tin chủ nhà
-                  const Text('Thông tin chủ trọ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                  Text('Thông tin chủ trọ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
                   const SizedBox(height: 10),
                   Material(
-                    color: Colors.white,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(14),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(14),
@@ -495,7 +495,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                               backgroundColor: AppColors.primaryContainer,
                               child: Text(
                                 _room.hostName.isNotEmpty ? _room.hostName[0] : 'H',
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 18),
+                                style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 18),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -510,11 +510,11 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                                       ),
                                       const SizedBox(width: 4),
-                                      const Icon(Icons.verified, size: 14, color: AppColors.primary),
+                                      Icon(Icons.verified, size: 14, color: AppColors.primary),
                                     ],
                                   ),
                                   const SizedBox(height: 2),
-                                  const Text(
+                                  Text(
                                     'Chủ nhà đã xác minh • Nhấn để xem hồ sơ',
                                     style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                                   ),
@@ -522,7 +522,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.phone_in_talk, color: AppColors.primary),
+                              icon: Icon(Icons.phone_in_talk, color: AppColors.primary),
                               tooltip: 'Gọi điện chủ trọ',
                               onPressed: _onCallHostPressed,
                             ),
@@ -534,7 +534,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   const SizedBox(height: 20),
 
                   // Tiện ích phòng trọ
-                  const Text('Tiện ích phòng trọ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                  Text('Tiện ích phòng trọ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
@@ -543,18 +543,18 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.surface,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                          border: Border.all(color: AppColors.border),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.check_circle, size: 14, color: AppColors.primary),
+                            Icon(Icons.check_circle, size: 14, color: AppColors.primary),
                             const SizedBox(width: 6),
                             Text(
                               _getAmenityLabel(amenity),
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textDark),
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textDark),
                             ),
                           ],
                         ),
@@ -564,18 +564,18 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   const SizedBox(height: 20),
 
                   // Mô tả chi tiết
-                  const Text('Mô tả chi tiết', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                  Text('Mô tả chi tiết', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
                   const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.all(16),
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
                       _room.description,
-                      style: const TextStyle(fontSize: 14, height: 1.6, color: AppColors.textSecondary),
+                      style: TextStyle(fontSize: 14, height: 1.6, color: AppColors.textSecondary),
                     ),
                   ),
                 ],
@@ -598,7 +598,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
       bottomSheet: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -625,8 +625,8 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(78, 48),
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                    side: const BorderSide(color: Color(0xFFFCA5A5)),
-                    backgroundColor: const Color(0xFFFEF2F2),
+                    side: BorderSide(color: AppColors.danger.withValues(alpha: 0.45)),
+                    backgroundColor: AppColors.dangerContainer,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
@@ -640,15 +640,15 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                 excludeSemantics: true,
                 child: OutlinedButton.icon(
                   onPressed: _onChatPressed,
-                  icon: const Icon(Icons.chat_outlined, color: AppColors.primary, size: 17),
-                  label: const Text(
+                  icon: Icon(Icons.chat_outlined, color: AppColors.primary, size: 17),
+                  label: Text(
                     'Nhắn tin',
                     style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12.5),
                   ),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(92, 48),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                    side: const BorderSide(color: AppColors.primary, width: 1.4),
+                    side: BorderSide(color: AppColors.primary, width: 1.4),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
@@ -739,7 +739,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         foregroundColor: AppColors.textDark,
         elevation: 0,
         title: const Text('Chi tiết bài đăng'),
@@ -755,7 +755,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textDark,
@@ -765,7 +765,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(color: AppColors.textSecondary),
               ),
               if (action != null) ...[const SizedBox(height: 20), action],
             ],
@@ -781,9 +781,9 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
         children: [
           Icon(icon, size: 20, color: AppColors.primary),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark)),
+          Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark)),
           const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+          Text(label, style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
         ],
       ),
     );
@@ -793,7 +793,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
     return Container(
       height: 28,
       width: 1,
-      color: const Color(0xFFE5E7EB),
+      color: AppColors.border,
     );
   }
 

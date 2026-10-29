@@ -63,7 +63,7 @@ class NotificationCard extends ConsumerWidget {
   Color _getAvatarTextColor(String name) {
     if (name.startsWith('N')) return const Color(0xFF175CD3);
     if (name.startsWith('L')) return const Color(0xFFC11574);
-    return const Color(0xFF344054);
+    return AppColors.textDark;
   }
 
   @override
@@ -76,7 +76,7 @@ class NotificationCard extends ConsumerWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: notif.isRead
@@ -149,10 +149,10 @@ class NotificationCard extends ConsumerWidget {
                                 : (notif.roomFloorInfo.isNotEmpty
                                       ? notif.roomFloorInfo
                                       : 'Phòng ${notif.displayRoomCode}'),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14.5,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF101828),
+                              color: AppColors.textDark,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -165,9 +165,9 @@ class NotificationCard extends ConsumerWidget {
                                 : (notif.roomFloorInfo.isNotEmpty
                                       ? 'Phòng trọ'
                                       : 'Phòng trọ tiện nghi'),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF667085),
+                              color: AppColors.textMuted,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -189,7 +189,7 @@ class NotificationCard extends ConsumerWidget {
                       ),
                       child: Text(
                         notif.displayBookingCode,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: AppColors.primary,
@@ -210,7 +210,7 @@ class NotificationCard extends ConsumerWidget {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: AppColors.background,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(
@@ -236,21 +236,21 @@ class NotificationCard extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Khách thuê',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF667085),
+                                color: AppColors.textMuted,
                               ),
                             ),
                             Text(
                               notif.renterName.isNotEmpty
                                   ? notif.renterName
                                   : 'Khách thuê HomeShare',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF101828),
+                                color: AppColors.textDark,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -270,14 +270,14 @@ class NotificationCard extends ConsumerWidget {
                                           HostNotificationType.staying
                                       ? 'Tiền cọc / phí phòng'
                                       : 'Tiền cọc giữ phòng'),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF667085),
+                              color: AppColors.textMuted,
                             ),
                           ),
                           Text(
                             _formatCurrency(notif.amount),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: AppColors.primary,
@@ -294,18 +294,18 @@ class NotificationCard extends ConsumerWidget {
                 // 3. Ngày nhận phòng & thời gian gửi
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.calendar_today_outlined,
                       size: 13,
-                      color: Color(0xFF667085),
+                      color: AppColors.textMuted,
                     ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         'Dự kiến nhận phòng: $checkInStr  •  $relativeTimeStr',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF667085),
+                          color: AppColors.textMuted,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -342,10 +342,10 @@ class NotificationCard extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.check_circle_rounded,
                 size: 16,
-                color: Color(0xFF12B76A),
+                color: AppColors.success,
               ),
               const SizedBox(width: 6),
               Expanded(
@@ -367,13 +367,13 @@ class NotificationCard extends ConsumerWidget {
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFFFEF3F2),
+            color: AppColors.dangerContainer,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: const Color(0xFFFECDCA)),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.cancel_rounded, size: 16, color: Color(0xFFD92D20)),
+              Icon(Icons.cancel_rounded, size: 16, color: AppColors.danger),
               SizedBox(width: 6),
               Text(
                 'Đã từ chối cho vào ở ghép',
@@ -410,7 +410,7 @@ class NotificationCard extends ConsumerWidget {
                         ElevatedButton(
                           onPressed: () => Navigator.of(ctx).pop(true),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFD92D20),
+                            backgroundColor: AppColors.danger,
                           ),
                           child: const Text('Xác nhận từ chối'),
                         ),
@@ -433,16 +433,16 @@ class NotificationCard extends ConsumerWidget {
                         );
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           content: Text('Đã từ chối yêu cầu vào ở ghép.'),
-                          backgroundColor: Color(0xFFD92D20),
+                          backgroundColor: AppColors.danger,
                         ),
                       );
                     }
                   }
                 },
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFD92D20),
+                  foregroundColor: AppColors.danger,
                   side: const BorderSide(color: Color(0xFFFDA29B)),
                   padding: const EdgeInsets.symmetric(vertical: 9),
                   shape: RoundedRectangleBorder(
@@ -476,7 +476,7 @@ class NotificationCard extends ConsumerWidget {
                         ElevatedButton(
                           onPressed: () => Navigator.of(ctx).pop(true),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF12B76A),
+                            backgroundColor: AppColors.success,
                           ),
                           child: const Text('Xác nhận duyệt'),
                         ),
@@ -501,7 +501,7 @@ class NotificationCard extends ConsumerWidget {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          backgroundColor: const Color(0xFF12B76A),
+                          backgroundColor: AppColors.success,
                           content: Text(
                             'Đã duyệt cho ${notif.newRoommateName} vào ở ghép phòng ${notif.displayRoomCode} thành công! Đã lưu vào tab Đang ở.',
                           ),
@@ -516,7 +516,7 @@ class NotificationCard extends ConsumerWidget {
                   style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF12B76A),
+                  backgroundColor: AppColors.success,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 9),
@@ -540,9 +540,9 @@ class NotificationCard extends ConsumerWidget {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: const Color(0xFFA6F4C5)),
         ),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(Icons.home_rounded, size: 16, color: Color(0xFF12B76A)),
+            Icon(Icons.home_rounded, size: 16, color: AppColors.success),
             SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -599,8 +599,8 @@ class NotificationCard extends ConsumerWidget {
                 HostUpdateDepositBottomSheet.show(context, notification: notif);
               },
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF344054),
-                backgroundColor: Colors.white,
+                foregroundColor: AppColors.textDark,
+                backgroundColor: AppColors.surface,
                 side: const BorderSide(color: Color(0xFFD0D5DD)),
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 shape: RoundedRectangleBorder(

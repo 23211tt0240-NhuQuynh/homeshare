@@ -1,3 +1,4 @@
+import '../theme/admin_colors.dart';
 import 'package:flutter/material.dart';
 
 /// Pastel canvas with a quiet HomeShare wordmark behind admin page content.
@@ -11,8 +12,8 @@ class AdminPageBackdrop extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        const ColoredBox(color: Color(0xFFF4F9FF)),
-        const Positioned(
+        ColoredBox(color: AdminColors.paper),
+        Positioned(
           right: 22,
           bottom: 18,
           child: IgnorePointer(
@@ -24,13 +25,13 @@ class AdminPageBackdrop extends StatelessWidget {
                   Icon(
                     Icons.home_work_rounded,
                     size: 72,
-                    color: Color(0xFFD6EDF9),
+                    color: AdminColors.watermark,
                   ),
                   SizedBox(width: 7),
                   Text(
                     'HomeShare',
                     style: TextStyle(
-                      color: Color(0xFFD6EDF9),
+                      color: AdminColors.watermark,
                       fontSize: 23,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -.5,

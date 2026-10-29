@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../core/services/roommate_capacity_service.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/services/role_resolver.dart';
 import 'roommate_invitation_policy.dart';
@@ -9,6 +10,7 @@ enum RoommateInvitationBlockReason {
   invalidUser,
   roleNotAllowed,
   noActiveRoom,
+  roomAtCapacity,
   lookupFailed,
 }
 
@@ -87,12 +89,28 @@ class RoommateInvitationEligibilityService {
       }
 
       final activeRoom = await _findActiveRoom(cleanSenderId);
+      if (activeRoom == null) {
+        return RoommateInvitationEligibility(
+          senderRole: senderRole,
+          receiverRole: receiverRole,
+          activeRoom: null,
+          blockReason: RoommateInvitationBlockReason.noActiveRoom,
+        );
+      }
+
+      final capacity = await RoommateCapacityService(firestore: _firestore)
+          .snapshotForAuthor(
+        authorId: cleanSenderId,
+        roomId: activeRoom.id,
+        roomCapacity: activeRoom.capacity,
+        knownOccupantIds: [cleanSenderId],
+      );
       return RoommateInvitationEligibility(
         senderRole: senderRole,
         receiverRole: receiverRole,
         activeRoom: activeRoom,
-        blockReason: activeRoom == null
-            ? RoommateInvitationBlockReason.noActiveRoom
+        blockReason: capacity.isFull
+            ? RoommateInvitationBlockReason.roomAtCapacity
             : RoommateInvitationBlockReason.none,
       );
     } catch (_) {

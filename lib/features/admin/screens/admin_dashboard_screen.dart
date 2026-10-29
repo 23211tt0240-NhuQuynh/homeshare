@@ -1,7 +1,10 @@
+import '../theme/admin_colors.dart';
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/theme/app_theme_controller.dart';
 import 'admin_notifications_screen.dart';
 import '../utils/booking_utils.dart';
 import '../widgets/admin_branded_title.dart';
@@ -126,8 +129,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: AdminColors.card,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
@@ -140,7 +143,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 20),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: AdminColors.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -150,12 +153,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFECFDF3),
+                    color: AdminColors.successContainer,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.account_balance_wallet_outlined,
-                    color: Color(0xFF12B76A),
+                    color: AdminColors.success,
                     size: 26,
                   ),
                 ),
@@ -164,19 +167,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Phê Duyệt Giải Ngân Cọc',
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF101828),
+                          color: AdminColors.ink,
                         ),
                       ),
                       Text(
                         'Mã đơn: $orderCode',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12.5,
-                          color: Color(0xFF667085),
+                          color: AdminColors.muted,
                         ),
                       ),
                     ],
@@ -188,9 +191,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFF4F9FF),
+                color: AdminColors.paper,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: AdminColors.border),
               ),
               child: Column(
                 children: [
@@ -221,15 +224,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     onPressed: () => Navigator.pop(ctx),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: Color(0xFFD0D5DD)),
+                      side: BorderSide(color: AdminColors.border),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Đóng',
                       style: TextStyle(
-                        color: Color(0xFF344054),
+                        color: AdminColors.mutedStrong,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -259,7 +262,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF12B76A),
+                      backgroundColor: AdminColors.success,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
@@ -291,7 +294,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 12.5, color: Color(0xFF667085)),
+          style: TextStyle(fontSize: 12.5, color: AdminColors.muted),
         ),
         Flexible(
           child: Text(
@@ -301,8 +304,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               fontSize: isHighlight ? 15 : 13,
               fontWeight: isHighlight ? FontWeight.w800 : FontWeight.w600,
               color: isHighlight
-                  ? const Color(0xFF398FC0)
-                  : const Color(0xFF101828),
+                  ? AdminColors.accent
+                  : AdminColors.ink,
             ),
           ),
         ),
@@ -315,7 +318,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AdminColors.card,
         elevation: 0,
         scrolledUnderElevation: 0.5,
         titleSpacing: 20,
@@ -327,6 +330,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               : 'Dữ liệu tổng quan toàn hệ thống',
         ),
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final mode =
+                    ref.watch(appThemeControllerProvider).value?.mode ??
+                    ThemeMode.light;
+                final isDarkMode = mode == ThemeMode.dark;
+                return InkWell(
+                  onTap: () {
+                    ref.read(appThemeControllerProvider.notifier).setMode(
+                      isDarkMode ? ThemeMode.light : ThemeMode.dark,
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AdminColors.accentSoft,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isDarkMode
+                          ? Icons.wb_sunny_outlined
+                          : Icons.nightlight_round_outlined,
+                      color: AdminColors.mutedStrong,
+                      size: 21,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: StreamBuilder<QuerySnapshot>(
@@ -350,16 +387,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   child: Container(
                     width: 38,
                     height: 38,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFEAF4FA),
+                    decoration: BoxDecoration(
+                      color: AdminColors.accentSoft,
                       shape: BoxShape.circle,
                     ),
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.notifications_none_outlined,
-                          color: Color(0xFF344054),
+                          color: AdminColors.mutedStrong,
                           size: 21,
                         ),
                         if (unreadCount > 0)
@@ -369,8 +406,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             child: Container(
                               width: 8,
                               height: 8,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFD92D20),
+                              decoration: BoxDecoration(
+                                color: AdminColors.danger,
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -630,22 +667,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               final Color flowComparisonBackground;
               if (previousTotalFlow == 0 && totalFlow > 0) {
                 flowComparisonText = 'Mới phát sinh kỳ này';
-                flowComparisonColor = const Color(0xFF138A58);
-                flowComparisonBackground = const Color(0xFFE8F8F0);
+                flowComparisonColor = AdminColors.successInk;
+                flowComparisonBackground = AdminColors.successContainer;
               } else if (previousTotalFlow == 0) {
                 flowComparisonText = 'Chưa có dòng tiền kỳ trước';
-                flowComparisonColor = const Color(0xFF64748B);
-                flowComparisonBackground = const Color(0xFFF1F5F9);
+                flowComparisonColor = AdminColors.muted;
+                flowComparisonBackground = AdminColors.paper;
               } else {
                 final arrow = flowChangePercent >= 0 ? '▲' : '▼';
                 flowComparisonText =
                     '$arrow ${flowChangePercent.abs().toStringAsFixed(1).replaceAll('.', ',')}% so với $periodLabel';
                 flowComparisonColor = flowChangePercent >= 0
-                    ? const Color(0xFF138A58)
-                    : const Color(0xFFB54708);
+                    ? AdminColors.successInk
+                    : AdminColors.warningInk;
                 flowComparisonBackground = flowChangePercent >= 0
-                    ? const Color(0xFFE8F8F0)
-                    : const Color(0xFFFFF4E5);
+                    ? AdminColors.successContainer
+                    : AdminColors.warningContainer;
               }
 
               // Định dạng ghi chú biến động thành viên mới trong tháng
@@ -676,7 +713,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           child: _buildKpiCard(
                             title: 'TỔNG DÒNG TIỀN',
                             value: _formatMoney(totalFlow),
-                            valueColor: const Color(0xFF101828),
+                            valueColor: AdminColors.ink,
                             badgeText: flowComparisonText,
                             badgeColor: flowComparisonBackground,
                             badgeTextColor: flowComparisonColor,
@@ -689,15 +726,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 ? 'DOANH THU SÀN'
                                 : 'DOANH THU SÀN',
                             value: _formatMoney(netRevenue),
-                            valueColor: const Color(0xFF398FC0),
+                            valueColor: AdminColors.accent,
                             subtext: 'Cọc và phí hủy đã ghi nhận',
-                            subtextColor: const Color(0xFF398FC0),
-                            backgroundColor: const Color.fromARGB(
-                              255,
-                              252,
-                              252,
-                              253,
-                            ),
+                            subtextColor: AdminColors.accent,
                           ),
                         ),
                       ],
@@ -711,10 +742,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           child: _buildKpiCard(
                             title: 'GIAO DỊCH THÀNH CÔNG',
                             value: '$successfulTxCount Đơn',
-                            valueColor: const Color(0xFFD97706),
+                            valueColor: AdminColors.warningInk,
                             subtext:
                                 '$depositTxCount đơn cọc • $cancellationTxCount đơn hủy',
-                            subtextColor: const Color(0xFF64748B),
+                            subtextColor: AdminColors.muted,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -724,16 +755,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 ? 'TỔNG USER TOÀN SÀN'
                                 : 'TỔNG USER HỆ THỐNG',
                             value: '$totalUsers Users',
-                            valueColor: const Color(0xFF101828),
+                            valueColor: AdminColors.ink,
                             badgeText: userBadgeText,
                             badgeColor:
                                 (newHostsCount > 0 || newRentersCount > 0)
-                                ? const Color(0xFFECFDF3)
-                                : const Color(0xFFEAF4FA),
+                                ? AdminColors.successContainer
+                                : AdminColors.accentSoft,
                             badgeTextColor:
                                 (newHostsCount > 0 || newRentersCount > 0)
-                                ? const Color(0xFF027A48)
-                                : const Color(0xFF667085),
+                                ? AdminColors.successInk
+                                : AdminColors.muted,
                           ),
                         ),
                       ],
@@ -744,10 +775,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AdminColors.card,
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
-                          color: const Color(0xFFDCEAF5),
+                          color: AdminColors.border,
                           width: 1.2,
                         ),
                         boxShadow: [
@@ -769,12 +800,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
+                                    Text(
                                       'THỐNG KÊ DOANH THU',
                                       style: TextStyle(
                                         fontSize: 13.5,
                                         fontWeight: FontWeight.w800,
-                                        color: Color(0xFF101828),
+                                        color: AdminColors.ink,
                                         letterSpacing: 0.2,
                                       ),
                                     ),
@@ -783,9 +814,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       isYearView
                                           ? 'Phí hoa hồng cọc năm ${now.year}'
                                           : 'Tổng phí hoa hồng sàn thực nhận',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 11.5,
-                                        color: Color(0xFF667085),
+                                        color: AdminColors.muted,
                                       ),
                                     ),
                                   ],
@@ -795,7 +826,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               Container(
                                 padding: const EdgeInsets.all(3),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFEAF4FA),
+                                  color: AdminColors.accentSoft,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Row(
@@ -865,12 +896,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       children: [
                         Row(
                           children: [
-                            const Text(
+                            Text(
                               'VIỆC CẦN XỬ LÝ',
                               style: TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFF344054),
+                                color: AdminColors.mutedStrong,
                                 letterSpacing: 0.5,
                               ),
                             ),
@@ -881,18 +912,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFEF3F2),
+                                color: AdminColors.dangerContainer,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: const Color(0xFFFECDCA),
+                                  color: AdminColors.dangerContainer,
                                 ),
                               ),
                               child: Text(
                                 '${pendingTransferDocs.length} việc chờ chuyển tiền',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFFB42318),
+                                  color: AdminColors.dangerInk,
                                 ),
                               ),
                             ),
@@ -906,12 +937,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                            child: const Text(
+                            child: Text(
                               'Xem tất cả',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF398FC0),
+                                color: AdminColors.accent,
                               ),
                             ),
                           ),
@@ -928,9 +959,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AdminColors.card,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFDCEAF5)),
+                          border: Border.all(color: AdminColors.border),
                         ),
                         child: Row(
                           children: [
@@ -938,19 +969,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               width: 38,
                               height: 38,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFECFDF3),
+                                color: AdminColors.successContainer,
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Center(
+                              child: Center(
                                 child: Icon(
                                   Icons.check_circle_outline_rounded,
-                                  color: Color(0xFF12B76A),
+                                  color: AdminColors.success,
                                   size: 22,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 12),
-                            const Expanded(
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -959,7 +990,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF101828),
+                                      color: AdminColors.ink,
                                     ),
                                   ),
                                   SizedBox(height: 2),
@@ -967,7 +998,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     'Hiện không có đơn nào chờ chuyển tiền',
                                     style: TextStyle(
                                       fontSize: 11.5,
-                                      color: Color(0xFF667085),
+                                      color: AdminColors.muted,
                                     ),
                                   ),
                                 ],
@@ -1010,9 +1041,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AdminColors.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFDCEAF5)),
+        border: Border.all(color: AdminColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -1027,14 +1058,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: const Color(0xFFFEF3F2),
+              color: AdminColors.dangerContainer,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Center(
+            child: Center(
               child: Text(
                 '!',
                 style: TextStyle(
-                  color: Color(0xFFF04438),
+                  color: AdminColors.danger,
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                 ),
@@ -1048,18 +1079,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               children: [
                 Text(
                   actionTitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF101828),
+                    color: AdminColors.ink,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   actionDetail,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11.5,
-                    color: Color(0xFF667085),
+                    color: AdminColors.muted,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1082,7 +1113,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF12B76A),
+              backgroundColor: AdminColors.success,
               foregroundColor: Colors.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -1109,16 +1140,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     Color? badgeTextColor,
     String? subtext,
     Color? subtextColor,
-    Color backgroundColor = Colors.white,
-    Color borderColor = const Color(0xFFDCEAF5),
+    Color? backgroundColor,
+    Color? borderColor,
   }) {
     return Container(
       height: 108,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: backgroundColor ?? AdminColors.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor),
+        border: Border.all(color: borderColor ?? AdminColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -1133,10 +1164,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF64748B),
+              color: AdminColors.muted,
               letterSpacing: 0.3,
             ),
             textAlign: TextAlign.start,
@@ -1160,7 +1191,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: badgeColor ?? const Color(0xFFECFDF3),
+                color: badgeColor ?? AdminColors.successContainer,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -1170,7 +1201,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 style: TextStyle(
                   fontSize: 10.5,
                   fontWeight: FontWeight.bold,
-                  color: badgeTextColor ?? const Color(0xFF027A48),
+                  color: badgeTextColor ?? AdminColors.successInk,
                 ),
               ),
             ),
@@ -1182,7 +1213,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
-                color: subtextColor ?? const Color(0xFF667085),
+                color: subtextColor ?? AdminColors.muted,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1205,12 +1236,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF398FC0) : Colors.transparent,
+          color: isSelected ? AdminColors.accent : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: const Color(0xFF398FC0).withValues(alpha: 0.25),
+                    color: AdminColors.accent.withValues(alpha: 0.25),
                     blurRadius: 4,
                     offset: const Offset(0, 1),
                   ),
@@ -1222,7 +1253,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           style: TextStyle(
             fontSize: 11.5,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? Colors.white : const Color(0xFF667085),
+            color: isSelected ? Colors.white : AdminColors.muted,
           ),
         ),
       ),

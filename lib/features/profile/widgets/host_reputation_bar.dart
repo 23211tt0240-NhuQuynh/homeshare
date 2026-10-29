@@ -19,7 +19,7 @@ class HostReputationBar extends StatelessWidget {
           children: [
             Icon(Icons.verified_user_outlined, size: 18, color: color),
             const SizedBox(width: 6),
-            const Expanded(
+            Expanded(
               child: Text(
                 'Độ uy tín',
                 style: TextStyle(

@@ -60,7 +60,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Đăng nhập thành công!'),
             backgroundColor: AppColors.primary,
           ),
@@ -90,7 +90,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.lock_outline, color: AppColors.danger, size: 32),
+        icon: Icon(Icons.lock_outline, color: AppColors.danger, size: 32),
         title: const Text('Tài khoản đã bị khóa'),
         content: const Text(AuthService.lockedAccountMessage),
         actions: [
@@ -106,7 +106,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -156,7 +156,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       style: PhongSangText.screenTitle.copyWith(
                         fontSize: 28,
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF0F172A),
+                        color: AppColors.textDark,
                         letterSpacing: -0.5,
                       ),
                     ),
@@ -166,7 +166,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       textAlign: TextAlign.center,
                       style: PhongSangText.body.copyWith(
                         fontSize: 14,
-                        color: const Color(0xFF64748B),
+                        color: AppColors.textMuted,
                       ),
                     ),
                     const SizedBox(height: 26),
@@ -194,7 +194,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 _obscurePassword
                                     ? Icons.visibility_off_outlined
                                     : Icons.visibility_outlined,
-                                color: PhongSangColors.muted,
+                                color: AppColors.textMuted,
                                 size: 22,
                               ),
                               onPressed: () => setState(
@@ -226,7 +226,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 );
                               },
                               style: TextButton.styleFrom(
-                                foregroundColor: PhongSangColors.accent,
+                                foregroundColor: AppColors.primary,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
                                   vertical: 10,
@@ -235,7 +235,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               child: Text(
                                 'Quên mật khẩu?',
                                 style: PhongSangText.label(
-                                  color: PhongSangColors.accent,
+                                  color: AppColors.primary,
                                   fontSize: 15,
                                 ),
                               ),
@@ -253,7 +253,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.lock_outline,
                                     color: AppColors.danger,
                                   ),
@@ -261,7 +261,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   Expanded(
                                     child: Text(
                                       _lockNotice!,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: AppColors.danger,
                                         fontWeight: FontWeight.w600,
                                         height: 1.35,
@@ -278,7 +278,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             child: ElevatedButton(
                               onPressed: _isLoading ? null : _handleLogin,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: PhongSangColors.accent,
+                                backgroundColor: AppColors.primary,
                                 foregroundColor: Colors.white,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
@@ -311,7 +311,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       children: [
                         Text(
                           'Chưa có tài khoản? ',
-                          style: PhongSangText.body.copyWith(fontSize: 16),
+                          style: PhongSangText.body.copyWith(
+                            fontSize: 16,
+                            color: AppColors.textMuted,
+                          ),
                         ),
                         GestureDetector(
                           onTap: () async {
@@ -334,7 +337,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           child: Text(
                             'Đăng ký ngay',
                             style: PhongSangText.label(
-                              color: PhongSangColors.accent,
+                              color: AppColors.primary,
                               fontSize: 16,
                             ),
                           ),

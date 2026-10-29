@@ -1,3 +1,4 @@
+import '../theme/admin_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
@@ -35,15 +36,15 @@ class SettlementReceiptScreen extends StatelessWidget {
         : '#REC-${DateFormat('yyyyMMdd-HHmmss').format(time)}';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F9FF),
+      backgroundColor: AdminColors.paper,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AdminColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios_new_rounded,
             size: 20,
-            color: Color(0xFF101828),
+            color: AdminColors.ink,
           ),
           onPressed: () => Navigator.pop(context),
         ),
@@ -58,17 +59,17 @@ class SettlementReceiptScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AdminColors.card,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFDCEAF5)),
+                  border: Border.all(color: AdminColors.border),
                 ),
                 child: Column(
                   children: [
                     Container(
                       width: 48,
                       height: 48,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF12B76A),
+                      decoration: BoxDecoration(
+                        color: AdminColors.success,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -78,30 +79,30 @@ class SettlementReceiptScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       'ĐÃ GHI NHẬN CHUYỂN KHOẢN',
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF027A48),
+                        color: AdminColors.successInk,
                         letterSpacing: 0.3,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${currencyFormatter.format(amount)} đ',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF101828),
+                        color: AdminColors.ink,
                       ),
                     ),
                     const SizedBox(height: 2),
-                    const Text(
+                    Text(
                       'Số tiền chuyển cho chủ trọ (theo xác nhận của Admin)',
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: Color(0xFF667085),
+                        color: AdminColors.muted,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -111,15 +112,15 @@ class SettlementReceiptScreen extends StatelessWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEAF4FA),
+                        color: AdminColors.accentSoft,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         'Đã quyết toán ${settlementItems.length} đơn',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF344054),
+                          color: AdminColors.mutedStrong,
                         ),
                       ),
                     ),
@@ -135,7 +136,7 @@ class SettlementReceiptScreen extends StatelessWidget {
                     _buildReceiptRow(
                       'Phương thức',
                       'Chuyển khoản ngân hàng (ngoài ứng dụng)',
-                      valueColor: const Color(0xFF398FC0),
+                      valueColor: AdminColors.accent,
                     ),
                     _buildReceiptRow('Người thụ hưởng', hostName),
                     _buildReceiptRow(
@@ -145,18 +146,18 @@ class SettlementReceiptScreen extends StatelessWidget {
                     _buildReceiptRow(
                       'Trạng thái',
                       'Admin đã xác nhận & ghi sổ',
-                      valueColor: const Color(0xFF027A48),
+                      valueColor: AdminColors.successInk,
                     ),
 
                     const SizedBox(height: 16),
-                    const Align(
+                    Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
                         'BẢNG KÊ ĐỐI SOÁT CHI TIẾT',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF101828),
+                          color: AdminColors.ink,
                         ),
                       ),
                     ),
@@ -170,14 +171,14 @@ class SettlementReceiptScreen extends StatelessWidget {
                         3: FlexColumnWidth(1.5),
                       },
                       children: [
-                        const TableRow(
+                        TableRow(
                           children: [
                             Text(
                               'Khách & HĐ',
                               style: TextStyle(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF667085),
+                                color: AdminColors.muted,
                               ),
                             ),
                             Text(
@@ -186,7 +187,7 @@ class SettlementReceiptScreen extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF667085),
+                                color: AdminColors.muted,
                               ),
                             ),
                             Text(
@@ -195,7 +196,7 @@ class SettlementReceiptScreen extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF667085),
+                                color: AdminColors.muted,
                               ),
                             ),
                             Text(
@@ -204,7 +205,7 @@ class SettlementReceiptScreen extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF667085),
+                                color: AdminColors.muted,
                               ),
                             ),
                           ],
@@ -232,9 +233,9 @@ class SettlementReceiptScreen extends StatelessWidget {
                                       (item['roomCode'] ?? '').toString(),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 9.5,
-                                        color: Color(0xFF667085),
+                                        color: AdminColors.muted,
                                       ),
                                     ),
                                   ],
@@ -257,9 +258,9 @@ class SettlementReceiptScreen extends StatelessWidget {
                                 child: Text(
                                   '-${currencyFormatter.format(item['fee'])}',
                                   textAlign: TextAlign.right,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 10.5,
-                                    color: Color(0xFFD92D20),
+                                    color: AdminColors.danger,
                                   ),
                                 ),
                               ),
@@ -270,10 +271,10 @@ class SettlementReceiptScreen extends StatelessWidget {
                                 child: Text(
                                   currencyFormatter.format(item['net']),
                                   textAlign: TextAlign.right,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF027A48),
+                                    color: AdminColors.successInk,
                                   ),
                                 ),
                               ),
@@ -287,26 +288,26 @@ class SettlementReceiptScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF3),
+                        color: AdminColors.successContainer,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
+                          Text(
                             'TỔNG CỘNG THỰC CHUYỂN',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF027A48),
+                              color: AdminColors.successInk,
                             ),
                           ),
                           Text(
                             '${currencyFormatter.format(amount)} đ',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w900,
-                              color: Color(0xFF027A48),
+                              color: AdminColors.successInk,
                             ),
                           ),
                         ],
@@ -316,9 +317,9 @@ class SettlementReceiptScreen extends StatelessWidget {
                     Text(
                       'Biên lai nội bộ, ghi nhận theo xác nhận chuyển khoản của Admin.\nMã tra cứu: $code',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10,
-                        color: Color(0xFF98A2B3),
+                        color: AdminColors.muted,
                       ),
                     ),
                   ],
@@ -402,7 +403,7 @@ class SettlementReceiptScreen extends StatelessWidget {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF344054),
+                        foregroundColor: AdminColors.mutedStrong,
                         minimumSize: const Size.fromHeight(48),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -415,7 +416,7 @@ class SettlementReceiptScreen extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: () => Navigator.pop(context),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF398FC0),
+                        backgroundColor: AdminColors.accent,
                         foregroundColor: Colors.white,
                         minimumSize: const Size.fromHeight(48),
                         shape: RoundedRectangleBorder(
@@ -440,7 +441,7 @@ class SettlementReceiptScreen extends StatelessWidget {
   Widget _buildReceiptRow(
     String label,
     String value, {
-    Color valueColor = const Color(0xFF101828),
+    Color? valueColor,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3.5),
@@ -449,14 +450,14 @@ class SettlementReceiptScreen extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 11.5, color: Color(0xFF667085)),
+            style: TextStyle(fontSize: 11.5, color: AdminColors.muted),
           ),
           Text(
             value,
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.bold,
-              color: valueColor,
+              color: valueColor ?? AdminColors.ink,
             ),
           ),
         ],

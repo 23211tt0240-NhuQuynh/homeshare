@@ -1,3 +1,4 @@
+import '../../../core/constants/app_colors.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -62,23 +63,23 @@ class EvidencePicker extends StatelessWidget {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFCBD5E1),
+                    color: AppColors.border,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const Text(
+                Text(
                   'Chọn bằng chứng vi phạm',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1E293B),
+                    color: AppColors.textDark,
                   ),
                 ),
                 const SizedBox(height: 12),
                 ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFEFF6FF),
-                    child: Icon(Icons.photo_library_outlined, color: Color(0xFF2563EB)),
+                  leading: CircleAvatar(
+                    backgroundColor: AppColors.primaryContainer,
+                    child: Icon(Icons.photo_library_outlined, color: AppColors.primary),
                   ),
                   title: const Text('Chọn ảnh từ thư viện'),
                   onTap: () {
@@ -87,9 +88,9 @@ class EvidencePicker extends StatelessWidget {
                   },
                 ),
                 ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFEFF6FF),
-                    child: Icon(Icons.camera_alt_outlined, color: Color(0xFF2563EB)),
+                  leading: CircleAvatar(
+                    backgroundColor: AppColors.primaryContainer,
+                    child: Icon(Icons.camera_alt_outlined, color: AppColors.primary),
                   ),
                   title: const Text('Chụp ảnh hiện trường'),
                   onTap: () {
@@ -144,9 +145,9 @@ class EvidencePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -154,46 +155,46 @@ class EvidencePicker extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.image_outlined,
-                color: Color(0xFF2563EB),
+                color: AppColors.primary,
                 size: 22,
               ),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'BẰNG CHỨNG VI PHẠM',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.5,
-                    color: Color(0xFF1E293B),
+                    color: AppColors.textDark,
                   ),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
+                  color: AppColors.primaryContainer,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   '${files.length}/5 tệp',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF2563EB),
+                    color: AppColors.primary,
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Tải lên hình ảnh hoặc video ghi lại hiện trường vi phạm (tối đa 5 tệp)',
             style: TextStyle(
               fontSize: 12.5,
-              color: Color(0xFF64748B),
+              color: AppColors.textMuted,
               height: 1.4,
             ),
           ),
@@ -213,9 +214,9 @@ class EvidencePicker extends StatelessWidget {
                     height: 100,
                     margin: const EdgeInsets.only(right: 12),
                     decoration: BoxDecoration(
-                      color: isVideo ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                      color: isVideo ? AppColors.textDark : AppColors.surfaceVariant,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                      border: Border.all(color: AppColors.border),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: Stack(
@@ -230,10 +231,10 @@ class EvidencePicker extends StatelessWidget {
                             ),
                           )
                         else
-                          const Center(
+                          Center(
                             child: CircleAvatar(
                               radius: 18,
-                              backgroundColor: Color(0xFF2563EB),
+                              backgroundColor: AppColors.primary,
                               child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: 24),
                             ),
                           ),
@@ -304,7 +305,7 @@ class EvidencePicker extends StatelessWidget {
                       width: 100,
                       height: 100,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: AppColors.background,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: const Color(0xFF93C5FD),
@@ -317,23 +318,23 @@ class EvidencePicker extends StatelessWidget {
                         children: [
                           Container(
                             padding: const EdgeInsets.all(6),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFDBEAFE),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryContainer,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.add,
-                              color: Color(0xFF2563EB),
+                              color: AppColors.primary,
                               size: 20,
                             ),
                           ),
                           const SizedBox(height: 6),
-                          const Text(
+                          Text(
                             'Thêm tệp',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF2563EB),
+                              color: AppColors.primary,
                             ),
                           ),
                         ],
@@ -344,16 +345,16 @@ class EvidencePicker extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          const Row(
+          Row(
             children: [
-              Icon(Icons.info_outline, size: 14, color: Color(0xFF2563EB)),
+              Icon(Icons.info_outline, size: 14, color: AppColors.primary),
               SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Hỗ trợ ảnh JPG, PNG hoặc video MP4 dung lượng < 25MB',
                   style: TextStyle(
                     fontSize: 11.5,
-                    color: Color(0xFF64748B),
+                    color: AppColors.textMuted,
                   ),
                 ),
               ),

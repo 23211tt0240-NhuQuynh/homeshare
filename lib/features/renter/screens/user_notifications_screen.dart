@@ -183,7 +183,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
       if (context.mounted) {
         Navigator.pop(context); // Đóng loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Bạn đã đồng ý lời mời ở ghép! Đã gửi yêu cầu đến Chủ trọ. Khi Chủ trọ xác nhận duyệt, bạn sẽ chính thức được vào phòng.'),
             backgroundColor: AppColors.primary,
             duration: Duration(seconds: 4),
@@ -254,17 +254,17 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
     final notifsAsync = ref.watch(userNotificationsStreamProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Thông báo',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0F172A)),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.textDark),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF0F172A)),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: AppColors.textDark),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -274,7 +274,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
               if (unreadCount == 0) return const SizedBox.shrink();
               return TextButton(
                 onPressed: () => _markAllAsRead(docs),
-                child: const Text('Đọc tất cả', style: TextStyle(fontSize: 13, color: AppColors.primary)),
+                child: Text('Đọc tất cả', style: TextStyle(fontSize: 13, color: AppColors.primary)),
               );
             },
             orElse: () => const SizedBox.shrink(),
@@ -297,17 +297,17 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
                       color: AppColors.primary.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.notifications_off_outlined, size: 36, color: AppColors.primary),
+                    child: Icon(Icons.notifications_off_outlined, size: 36, color: AppColors.primary),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'Chưa có thông báo nào',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
+                  Text(
                     'Các lời mời ở ghép và thông báo phòng sẽ hiển thị tại đây.',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                    style: TextStyle(fontSize: 13, color: AppColors.textMuted),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -353,10 +353,10 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isRead ? Colors.white : const Color(0xFFF0FDF4),
+          color: isRead ? AppColors.surface : AppColors.primarySurface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isRead ? const Color(0xFFE2E8F0) : AppColors.primary.withValues(alpha: 0.3),
+            color: isRead ? AppColors.border : AppColors.primary.withValues(alpha: 0.3),
             width: isRead ? 1 : 1.5,
           ),
           boxShadow: const [
@@ -369,7 +369,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
             CircleAvatar(
               radius: 20,
               backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-              child: const Icon(Icons.notifications_rounded, color: AppColors.primary, size: 20),
+              child: Icon(Icons.notifications_rounded, color: AppColors.primary, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -385,7 +385,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
-                            color: const Color(0xFF0F172A),
+                            color: AppColors.textDark,
                           ),
                         ),
                       ),
@@ -393,7 +393,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
                         Container(
                           width: 8,
                           height: 8,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: AppColors.primary,
                             shape: BoxShape.circle,
                           ),
@@ -407,7 +407,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
                   ),
                   if (timeStr.isNotEmpty) ...[
                     const SizedBox(height: 6),
-                    Text(timeStr, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                    Text(timeStr, style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
                   ],
                 ],
               ),
@@ -436,12 +436,12 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: status == 'accepted'
               ? AppColors.primary
-              : (status == 'rejected' ? const Color(0xFFE2E8F0) : const Color(0xFFF97316)),
+              : (status == 'rejected' ? AppColors.border : Color(0xFFF97316)),
           width: 1.5,
         ),
         boxShadow: const [
@@ -476,7 +476,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
                       ),
                     ),
                     if (timeStr.isNotEmpty)
-                      Text(timeStr, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                      Text(timeStr, style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
                   ],
                 ),
               ),
@@ -497,11 +497,11 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
           const Divider(height: 20),
           RichText(
             text: TextSpan(
-              style: const TextStyle(fontSize: 13.5, color: Color(0xFF1E293B), height: 1.4),
+              style: TextStyle(fontSize: 13.5, color: AppColors.textDark, height: 1.4),
               children: [
                 TextSpan(
                   text: senderName,
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textDark),
                 ),
                 const TextSpan(text: ' đã gửi lời mời bạn cùng ở ghép tại:'),
               ],
@@ -511,17 +511,17 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+              color: AppColors.surfaceVariant,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               children: [
-                const Icon(Icons.meeting_room_outlined, size: 18, color: Color(0xFF475569)),
+                Icon(Icons.meeting_room_outlined, size: 18, color: AppColors.textMuted),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     '$roomTitle (Mã: $roomCode)',
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1E293B)),
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textDark),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -532,7 +532,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
           const SizedBox(height: 6),
           Text(
             'Chi phí dự kiến: $priceFormatted đ/tháng/người',
-            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.primary),
           ),
           if ((data['note']?.toString() ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -540,19 +540,19 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: AppColors.background,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: AppColors.border),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.format_quote_rounded, size: 16, color: Color(0xFF94A3B8)),
+                  Icon(Icons.format_quote_rounded, size: 16, color: AppColors.textMuted),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       (data['note']?.toString() ?? '').trim(),
-                      style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Color(0xFF475569)),
+                      style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: AppColors.textMuted),
                     ),
                   ),
                 ],
@@ -637,16 +637,16 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
+                color: AppColors.surfaceVariant,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.cancel_outlined, color: Color(0xFF64748B), size: 18),
+                  Icon(Icons.cancel_outlined, color: AppColors.textMuted, size: 18),
                   const SizedBox(width: 8),
                   Text(
                     status == 'host_rejected' ? 'Chủ trọ đã từ chối yêu cầu ở ghép' : 'Đã từ chối lời mời ở ghép',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textMuted),
                   ),
                 ],
               ),
@@ -683,7 +683,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
                 if (senderId.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   IconButton(
-                    icon: const Icon(Icons.chat_outlined, color: AppColors.primary),
+                    icon: Icon(Icons.chat_outlined, color: AppColors.primary),
                     tooltip: 'Nhắn tin với người gửi',
                     onPressed: () => _openChatWithSender(
                       context: context,

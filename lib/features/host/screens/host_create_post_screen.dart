@@ -614,7 +614,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       child: Scaffold(
         backgroundColor: HostTheme.background,
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.surface,
           elevation: 0,
           leading: Padding(
             padding: const EdgeInsets.all(8.0),
@@ -622,11 +622,11 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               borderRadius: BorderRadius.circular(20),
               onTap: _saving ? null : () => Navigator.pop(context),
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF1F5F9),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.arrow_back_ios_new,
                   size: 16,
                   color: HostTheme.textDark,
@@ -634,7 +634,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               ),
             ),
           ),
-          title: const Column(
+          title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -643,7 +643,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A),
+                  color: AppColors.textDark,
                 ),
               ),
               Text(
@@ -656,7 +656,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             TextButton(
               key: const ValueKey('reset_button'),
               onPressed: _saving ? null : _resetForm,
-              child: const Text(
+              child: Text(
                 'Đặt lại',
                 style: TextStyle(
                   fontSize: 14,
@@ -891,7 +891,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             hint: Text(propertyHint, style: const TextStyle(fontSize: 14)),
             decoration: HostTheme.inputDecoration(
               labelText: 'Khu nhà *',
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.home_work_outlined,
                 color: HostTheme.primary,
                 size: 20,
@@ -923,7 +923,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             hint: Text(roomHint, style: const TextStyle(fontSize: 14)),
             decoration: HostTheme.inputDecoration(
               labelText: 'Phòng *',
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.meeting_room_outlined,
                 color: HostTheme.primary,
                 size: 20,
@@ -973,7 +973,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     readOnly: true,
     keyboardType: TextInputType.number,
     inputFormatters: [VndInputFormatter()],
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 17,
       fontWeight: FontWeight.w700,
       color: HostTheme.primary,
@@ -1001,7 +1001,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     readOnly: true,
     keyboardType: TextInputType.number,
     inputFormatters: [VndInputFormatter()],
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 17,
       fontWeight: FontWeight.w700,
       color: HostTheme.primary,
@@ -1034,7 +1034,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           height: 52,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
+            color: AppColors.surfaceVariant,
             borderRadius: HostTheme.radius14,
             border: Border.all(color: HostTheme.inputBorder),
           ),
@@ -1043,7 +1043,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               Expanded(
                 child: Text(
                   formatted,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: HostTheme.textDark,
@@ -1051,7 +1051,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Text(
+              Text(
                 'đ',
                 style: TextStyle(
                   fontSize: 14,
@@ -1103,7 +1103,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       icon: Icons.image_outlined,
       trailing: Text(
         totalImages == 0 ? '0/10 ảnh' : 'Đã chọn $totalImages/10',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           color: HostTheme.textSecondary,
           fontWeight: FontWeight.w600,
@@ -1151,7 +1151,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          const Row(
+          Row(
             children: [
               Icon(Icons.info_rounded, size: 16, color: HostTheme.primary),
               SizedBox(width: 6),
@@ -1250,7 +1250,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       icon: Icons.format_list_bulleted_rounded,
       trailing: Text(
         '${_selectedAmenities.length} đang chọn',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           color: HostTheme.primary,
           fontWeight: FontWeight.w700,
@@ -1268,7 +1268,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.add_circle_outline,
                   color: HostTheme.primary,
                   size: 20,
@@ -1278,7 +1278,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                   child: TextField(
                     key: const ValueKey('custom_amenity_input'),
                     controller: _customAmenity,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Thêm tiện ích, yêu cầu riêng...',
                       hintStyle: TextStyle(
                         fontSize: 13,
@@ -1317,7 +1317,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           ),
           const SizedBox(height: 12),
           if (visible.isEmpty && !_amenitiesExpanded)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Center(
                 child: Text(
@@ -1358,7 +1358,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               alignment: Alignment.center,
               child: Text(
                 _amenitiesExpanded ? 'Thu gọn ^' : 'Xem thêm v',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: HostTheme.primary,
@@ -1371,7 +1371,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     );
   }
 
-  Widget _authWarning() => const Padding(
+  Widget _authWarning() => Padding(
     padding: EdgeInsets.only(bottom: 12),
     child: Text(
       'Cần đăng nhập tài khoản chủ nhà để đăng bài.',

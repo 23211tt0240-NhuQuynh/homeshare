@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/phong_sang_theme.dart';
 
-/// Card trắng bọc cụm ô nhập trên màn đăng nhập và đăng ký.
+/// Card bọc cụm ô nhập trên màn đăng nhập và đăng ký.
 class AuthFormCard extends StatelessWidget {
   final Widget child;
 
@@ -14,12 +15,14 @@ class AuthFormCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
       decoration: BoxDecoration(
-        color: PhongSangColors.card,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: PhongSangColors.line),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: PhongSangColors.ink.withValues(alpha: 0.06),
+            color: AppColors.textDark.withValues(
+              alpha: AppColors.isDark ? 0.22 : 0.06,
+            ),
             blurRadius: 28,
             offset: const Offset(0, 12),
           ),
@@ -57,7 +60,7 @@ class AuthTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(14),
-      borderSide: const BorderSide(color: PhongSangColors.line),
+      borderSide: BorderSide(color: AppColors.border),
     );
 
     return Column(
@@ -65,7 +68,7 @@ class AuthTextField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: PhongSangText.label(color: PhongSangColors.ink, fontSize: 15),
+          style: PhongSangText.label(color: AppColors.textDark, fontSize: 15),
         ),
         const SizedBox(height: 8),
         TextFormField(
@@ -75,22 +78,23 @@ class AuthTextField extends StatelessWidget {
           style: PhongSangText.search.copyWith(
             fontSize: 16,
             fontWeight: FontWeight.w500,
+            color: AppColors.textDark,
           ),
           validator: validator,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: PhongSangText.search.copyWith(
               fontSize: 15,
-              color: PhongSangColors.muted,
+              color: AppColors.textMuted,
             ),
-            prefixIcon: Icon(icon, size: 22, color: PhongSangColors.muted),
+            prefixIcon: Icon(icon, size: 22, color: AppColors.textMuted),
             prefixIconConstraints: const BoxConstraints(
               minWidth: 50,
               minHeight: 58,
             ),
             suffixIcon: suffixIcon,
             filled: true,
-            fillColor: PhongSangColors.priceSoft,
+            fillColor: AppColors.surfaceVariant,
             isDense: false,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 8,
@@ -99,17 +103,17 @@ class AuthTextField extends StatelessWidget {
             border: border,
             enabledBorder: border,
             focusedBorder: border.copyWith(
-              borderSide: const BorderSide(
-                color: PhongSangColors.accent,
+              borderSide: BorderSide(
+                color: AppColors.primary,
                 width: 1.6,
               ),
             ),
             errorBorder: border.copyWith(
-              borderSide: const BorderSide(color: Color(0xFFD92D20)),
+              borderSide: BorderSide(color: AppColors.danger),
             ),
             focusedErrorBorder: border.copyWith(
-              borderSide: const BorderSide(
-                color: Color(0xFFD92D20),
+              borderSide: BorderSide(
+                color: AppColors.danger,
                 width: 1.6,
               ),
             ),

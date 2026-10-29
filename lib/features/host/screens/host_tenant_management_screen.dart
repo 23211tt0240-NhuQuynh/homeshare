@@ -1,3 +1,4 @@
+import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/resident_model.dart';
@@ -84,12 +85,12 @@ class _HostTenantManagementScreenState
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Thêm khách thuê mới',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF0F172A),
+                          color: AppColors.textDark,
                         ),
                       ),
                       IconButton(
@@ -148,7 +149,7 @@ class _HostTenantManagementScreenState
                   const SizedBox(height: 16),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
+                      backgroundColor: AppColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -244,21 +245,21 @@ class _HostTenantManagementScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: AppColors.surfaceVariant,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: const Color(0xFF475569)),
+          Icon(icon, size: 16, color: AppColors.textMuted),
           const SizedBox(width: 6),
           Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF334155),
+              color: AppColors.textMuted,
             ),
           ),
         ],
@@ -272,14 +273,14 @@ class _HostTenantManagementScreenState
     final statsAsync = ref.watch(hostTenantStatsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
             // Header: Menu góc trái + Tiêu đề + Subtitle
             Container(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              color: Colors.white,
+              color: AppColors.surface,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -294,19 +295,19 @@ class _HostTenantManagementScreenState
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
+                            color: AppColors.primaryContainer,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.menu,
-                            color: Color(0xFF2563EB),
+                            color: AppColors.primary,
                             size: 24,
                           ),
                         ),
                       ),
                       const SizedBox(width: 14),
                       // Tiêu đề & Subtitle
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -315,7 +316,7 @@ class _HostTenantManagementScreenState
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFF0F172A),
+                                color: AppColors.textDark,
                               ),
                             ),
                             SizedBox(height: 2),
@@ -323,7 +324,7 @@ class _HostTenantManagementScreenState
                               'Hồ sơ khách thuê & hợp đồng',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Color(0xFF64748B),
+                                color: AppColors.textMuted,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -346,7 +347,7 @@ class _HostTenantManagementScreenState
                 ],
               ),
             ),
-            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            Divider(height: 1, color: AppColors.border),
             // Danh sách người thuê
             Expanded(
               child: tenantsAsync.when(
@@ -424,19 +425,19 @@ class _HostTenantManagementScreenState
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.surface,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: const Color(0xFF93C5FD),
                               width: 1.5,
                             ),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
                                 Icons.person_add_alt_1_outlined,
-                                color: Color(0xFF2563EB),
+                                color: AppColors.primary,
                                 size: 19,
                               ),
                               SizedBox(width: 8),
@@ -445,7 +446,7 @@ class _HostTenantManagementScreenState
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFF2563EB),
+                                  color: AppColors.primary,
                                 ),
                               ),
                             ],
@@ -473,7 +474,7 @@ class _HostTenantManagementScreenState
                         Text(
                           'Lỗi tải danh sách: $err',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: Color(0xFF64748B)),
+                          style: TextStyle(color: AppColors.textMuted),
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_theme_controller.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../profile/screens/role_aware_profile_screen.dart';
@@ -21,90 +22,93 @@ class HomeScreen extends ConsumerWidget {
     final shouldLogout = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
+      builder: (ctx) {
+        final colors = AppColors.of(ctx);
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: colors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const Icon(
-              Icons.logout_rounded,
-              color: AppColors.danger,
-              size: 48,
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Đăng xuất khỏi tài khoản?',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
+              Icon(
+                Icons.logout_rounded,
+                color: colors.danger,
+                size: 48,
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Bạn sẽ cần đăng nhập lại để tiếp tục quản lý phòng hoặc liên hệ ở ghép.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textMuted,
+              const SizedBox(height: 12),
+              Text(
+                'Đăng xuất khỏi tài khoản?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: colors.textDark,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: AppColors.border),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 8),
+              Text(
+                'Bạn sẽ cần đăng nhập lại để tiếp tục quản lý phòng hoặc liên hệ ở ghép.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: colors.textMuted,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(color: colors.border),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Hủy',
+                        style: TextStyle(color: colors.textDark, fontWeight: FontWeight.w600),
                       ),
                     ),
-                    child: const Text(
-                      'Hủy',
-                      style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.w600),
-                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.danger,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: colors.danger,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Đăng xuất',
+                        style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
-                    child: const Text(
-                      'Đăng xuất',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
     );
 
     if (shouldLogout == true) {
@@ -134,9 +138,9 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.check, color: AppColors.primary),
+              leading: Icon(Icons.check, color: AppColors.of(ctx).primary),
               title: const Text('Tiếng Việt', style: TextStyle(fontWeight: FontWeight.w600)),
-              trailing: const Text('Mặc định', style: TextStyle(color: AppColors.primary)),
+              trailing: Text('Mặc định', style: TextStyle(color: AppColors.of(ctx).primary)),
               onTap: () => Navigator.pop(ctx),
             ),
             ListTile(
@@ -155,47 +159,63 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  void _showThemeDialog(BuildContext context) {
+  void _showThemeDialog(BuildContext context, WidgetRef ref) {
+    final current = ref.read(appThemeControllerProvider).value?.mode ?? ThemeMode.light;
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Tùy chỉnh giao diện',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.wb_sunny_outlined, color: AppColors.primary),
-              title: const Text('Giao diện sáng (Mặc định)', style: TextStyle(fontWeight: FontWeight.w600)),
-              trailing: const Icon(Icons.check, color: AppColors.primary),
-              onTap: () => Navigator.pop(ctx),
-            ),
-            ListTile(
-              leading: const Icon(Icons.nightlight_round_outlined),
-              title: const Text('Giao diện tối (Dark mode)'),
-              onTap: () {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Chế độ Dark mode đang được phát triển.')),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings_system_daydream_outlined),
-              title: const Text('Theo hệ thống thiết bị'),
-              onTap: () => Navigator.pop(ctx),
-            ),
-          ],
-        ),
-      ),
+      builder: (ctx) {
+        final colors = AppColors.of(ctx);
+        Widget check(ThemeMode mode) => mode == current
+            ? Icon(Icons.check, color: colors.primary)
+            : const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Tùy chỉnh giao diện',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Icon(Icons.wb_sunny_outlined, color: colors.primary),
+                title: const Text(
+                  'Giao diện sáng (Phòng Sáng)',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                trailing: check(ThemeMode.light),
+                onTap: () {
+                  ref.read(appThemeControllerProvider.notifier).setMode(ThemeMode.light);
+                  Navigator.pop(ctx);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.nightlight_round_outlined, color: colors.primary),
+                title: const Text('Giao diện tối (Graphite)'),
+                trailing: check(ThemeMode.dark),
+                onTap: () {
+                  ref.read(appThemeControllerProvider.notifier).setMode(ThemeMode.dark);
+                  Navigator.pop(ctx);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.settings_system_daydream_outlined),
+                title: const Text('Theo hệ thống thiết bị'),
+                trailing: check(ThemeMode.system),
+                onTap: () {
+                  ref.read(appThemeControllerProvider.notifier).setMode(ThemeMode.system);
+                  Navigator.pop(ctx);
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -287,7 +307,7 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.phone_in_talk, color: AppColors.primary),
+              leading: Icon(Icons.phone_in_talk, color: AppColors.of(ctx).primary),
               title: const Text('Tổng đài hỗ trợ 24/7'),
               subtitle: const Text('1900 1234 (Miễn phí cước)'),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
@@ -299,13 +319,13 @@ class HomeScreen extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.email_outlined, color: AppColors.primary),
+              leading: Icon(Icons.email_outlined, color: AppColors.of(ctx).primary),
               title: const Text('Email hỗ trợ'),
               subtitle: const Text('cskh@homeshare.vn'),
               onTap: () => Navigator.pop(ctx),
             ),
             ListTile(
-              leading: const Icon(Icons.chat_bubble_outline, color: AppColors.primary),
+              leading: Icon(Icons.chat_bubble_outline, color: AppColors.of(ctx).primary),
               title: const Text('Zalo / Hỗ trợ trực tuyến'),
               subtitle: const Text('0981 234 567 (8:00 - 22:00)'),
               onTap: () => Navigator.pop(ctx),
@@ -351,7 +371,7 @@ class HomeScreen extends ConsumerWidget {
             SizedBox(height: 6),
             Text(
               'HomeShare là nền tảng kết nối người thuê trọ, người tìm bạn ở ghép và chủ nhà trọ. Người dùng có trách nhiệm cung cấp thông tin trung thực, tuân thủ pháp luật và nội quy phòng trọ khi ký kết hợp đồng.',
-              style: TextStyle(color: AppColors.textMuted, height: 1.4),
+              style: TextStyle(height: 1.4),
             ),
             SizedBox(height: 14),
             Text(
@@ -361,7 +381,7 @@ class HomeScreen extends ConsumerWidget {
             SizedBox(height: 6),
             Text(
               'Chúng tôi cam kết bảo vệ dữ liệu cá nhân, thông tin CCCD gắn chip và lịch sử giao dịch của bạn theo tiêu chuẩn an toàn bảo mật cao nhất. Dữ liệu chỉ được dùng cho mục đích định danh và xác thực hợp đồng.',
-              style: TextStyle(color: AppColors.textMuted, height: 1.4),
+              style: TextStyle(height: 1.4),
             ),
             SizedBox(height: 14),
             Text(
@@ -371,7 +391,7 @@ class HomeScreen extends ConsumerWidget {
             SizedBox(height: 6),
             Text(
               'Các khoản đặt cọc giữ phòng được đảm bảo bởi HomeShare Escrow, bảo vệ tối đa quyền lợi của cả người thuê và chủ nhà.',
-              style: TextStyle(color: AppColors.textMuted, height: 1.4),
+              style: TextStyle(height: 1.4),
             ),
           ],
         ),
@@ -382,9 +402,14 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(userProfileProvider).value;
+    final colors = AppColors.of(context);
+    final themeState = ref.watch(appThemeControllerProvider).value;
+    final themeIcon = themeState?.mode == ThemeMode.dark
+        ? Icons.nightlight_round_outlined
+        : Icons.wb_sunny_outlined;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       appBar: AppBar(
         title: const Text('Trang cá nhân'),
       ),
@@ -399,7 +424,7 @@ class HomeScreen extends ConsumerWidget {
               clipBehavior: Clip.antiAlias,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: Color(0xFFE2E8F0)),
+                side: BorderSide(color: colors.border),
               ),
               child: InkWell(
                 onTap: () {
@@ -416,7 +441,7 @@ class HomeScreen extends ConsumerWidget {
                     children: [
                       CircleAvatar(
                         radius: 32,
-                        backgroundColor: AppColors.primaryContainer,
+                        backgroundColor: colors.primaryContainer,
                         backgroundImage: (profile?.avatarUrl.startsWith('http') == true)
                             ? NetworkImage(profile!.avatarUrl)
                             : null,
@@ -426,10 +451,10 @@ class HomeScreen extends ConsumerWidget {
                                 (profile?.displayName.isNotEmpty ?? false)
                                     ? profile!.displayName[0].toUpperCase()
                                     : 'HS',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.primary,
+                                  color: colors.primary,
                                 ),
                               ),
                       ),
@@ -443,10 +468,10 @@ class HomeScreen extends ConsumerWidget {
                                 Flexible(
                                   child: Text(
                                     profile?.displayName ?? 'Người dùng HomeShare',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 17,
                                       fontWeight: FontWeight.bold,
-                                      color: AppColors.textDark,
+                                      color: colors.textDark,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -455,7 +480,7 @@ class HomeScreen extends ConsumerWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primaryContainer,
+                                    color: colors.primaryContainer,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
@@ -465,10 +490,10 @@ class HomeScreen extends ConsumerWidget {
                                             profile?.role == 'chutro')
                                         ? 'Chủ trọ'
                                         : 'Người tìm phòng',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
+                                      color: colors.primary,
                                     ),
                                   ),
                                 ),
@@ -486,16 +511,16 @@ class HomeScreen extends ConsumerWidget {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFF1F5F9),
+                                      color: colors.surfaceVariant,
                                       borderRadius: BorderRadius.circular(5),
-                                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                                      border: Border.all(color: colors.border),
                                     ),
                                     child: Text(
                                       'ID: ${profile?.userCode ?? "---"}',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
-                                        color: AppColors.textDark,
+                                        color: colors.textDark,
                                         letterSpacing: 0.5,
                                       ),
                                     ),
@@ -505,7 +530,7 @@ class HomeScreen extends ConsumerWidget {
                                 Expanded(
                                   child: Text(
                                     profile?.email ?? 'user@homeshare.vn',
-                                    style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+                                    style: TextStyle(fontSize: 12.5, color: colors.textMuted),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -515,7 +540,7 @@ class HomeScreen extends ConsumerWidget {
                             if (profile?.isCccdVerified == true)
                               Row(
                                 children: [
-                                  const Icon(Icons.verified, size: 14, color: AppColors.primary),
+                                  Icon(Icons.verified, size: 14, color: colors.primary),
                                   const SizedBox(width: 4),
                                   Flexible(
                                     child: Text(
@@ -524,10 +549,10 @@ class HomeScreen extends ConsumerWidget {
                                           : 'Đã xác thực CCCD (eKYC) ✓',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
-                                        color: AppColors.primary,
+                                        color: colors.primary,
                                       ),
                                     ),
                                   ),
@@ -578,7 +603,7 @@ class HomeScreen extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF94A3B8)),
+                      Icon(Icons.arrow_forward_ios_rounded, size: 16, color: colors.textMuted),
                     ],
                   ),
                 ),
@@ -594,20 +619,20 @@ class HomeScreen extends ConsumerWidget {
                 child: (profile?.isHost == true)
                     ? Row(
                         children: [
-                          _buildStatItem('03', 'Cơ sở / Nhà'),
-                          _buildVerticalDivider(),
-                          _buildStatItem('12', 'Phòng quản lý'),
-                          _buildVerticalDivider(),
-                          _buildStatItem('09', 'Đang cho thuê'),
+                          _buildStatItem(colors, '03', 'Cơ sở / Nhà'),
+                          _buildVerticalDivider(colors),
+                          _buildStatItem(colors, '12', 'Phòng quản lý'),
+                          _buildVerticalDivider(colors),
+                          _buildStatItem(colors, '09', 'Đang cho thuê'),
                         ],
                       )
                     : Row(
                         children: [
-                          _buildStatItem('08', 'Phòng đã lưu'),
-                          _buildVerticalDivider(),
-                          _buildStatItem('02', 'Lịch hẹn'),
-                          _buildVerticalDivider(),
-                          _buildStatItem('01', 'Đang thuê'),
+                          _buildStatItem(colors, '08', 'Phòng đã lưu'),
+                          _buildVerticalDivider(colors),
+                          _buildStatItem(colors, '02', 'Lịch hẹn'),
+                          _buildVerticalDivider(colors),
+                          _buildStatItem(colors, '01', 'Đang thuê'),
                         ],
                       ),
               ),
@@ -622,7 +647,7 @@ class HomeScreen extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: Colors.grey.shade600,
+                  color: colors.textMuted,
                   letterSpacing: 0.8,
                 ),
               ),
@@ -633,6 +658,7 @@ class HomeScreen extends ConsumerWidget {
                 children: (profile?.isHost == true)
                     ? [
                         _buildMenuRow(
+                          colors: colors,
                           icon: Icons.holiday_village_outlined,
                           title: 'Quản lý cơ sở & Tòa nhà',
                           subtitle: 'Danh sách các dãy trọ, căn hộ quản lý',
@@ -643,8 +669,9 @@ class HomeScreen extends ConsumerWidget {
                             );
                           },
                         ),
-                        _buildMenuDivider(),
+                        _buildMenuDivider(colors),
                         _buildMenuRow(
+                          colors: colors,
                           icon: Icons.people_outline,
                           title: 'Quản lý khách thuê & Hợp đồng',
                           subtitle: 'Danh sách khách thuê và trạng thái hợp đồng',
@@ -659,8 +686,9 @@ class HomeScreen extends ConsumerWidget {
                             );
                           },
                         ),
-                        _buildMenuDivider(),
+                        _buildMenuDivider(colors),
                         _buildMenuRow(
+                          colors: colors,
                           icon: Icons.assignment_turned_in_outlined,
                           title: 'Bàn giao phòng (Check-in / Check-out)',
                           subtitle: 'Biên bản bàn giao tài sản và trang thiết bị',
@@ -675,8 +703,9 @@ class HomeScreen extends ConsumerWidget {
                             );
                           },
                         ),
-                        _buildMenuDivider(),
+                        _buildMenuDivider(colors),
                         _buildMenuRow(
+                          colors: colors,
                           icon: Icons.warning_amber_rounded,
                           title: 'Biên bản sự cố & Vi phạm',
                           subtitle: 'Ghi nhận và xử lý vi phạm nội quy',
@@ -694,6 +723,7 @@ class HomeScreen extends ConsumerWidget {
                       ]
                     : [
                         _buildMenuRow(
+                          colors: colors,
                           icon: Icons.calendar_month_outlined,
                           title: 'Lịch xem phòng & Đơn thuê',
                           subtitle: 'Theo dõi yêu cầu xem phòng của bạn',
@@ -704,8 +734,9 @@ class HomeScreen extends ConsumerWidget {
                             );
                           },
                         ),
-                        _buildMenuDivider(),
+                        _buildMenuDivider(colors),
                         _buildMenuRow(
+                          colors: colors,
                           icon: Icons.favorite_rounded,
                           title: 'Phòng trọ yêu thích',
                           subtitle: 'Danh sách phòng & bài đăng bạn quan tâm',
@@ -716,8 +747,9 @@ class HomeScreen extends ConsumerWidget {
                             );
                           },
                         ),
-                        _buildMenuDivider(),
+                        _buildMenuDivider(colors),
                         _buildMenuRow(
+                          colors: colors,
                           icon: Icons.storefront_outlined,
                           title: 'Giao diện Chủ trọ (Quản lý)',
                           subtitle: 'Quản lý cơ sở, phòng, khách thuê & hợp đồng',
@@ -728,8 +760,9 @@ class HomeScreen extends ConsumerWidget {
                             );
                           },
                         ),
-                        _buildMenuDivider(),
+                        _buildMenuDivider(colors),
                         _buildMenuRow(
+                          colors: colors,
                           icon: Icons.admin_panel_settings_outlined,
                           title: 'Quản trị hệ thống (Admin Portal)',
                           subtitle: 'Báo cáo doanh thu, giải ngân, duyệt tin',
@@ -740,15 +773,17 @@ class HomeScreen extends ConsumerWidget {
                             );
                           },
                         ),
-                        _buildMenuDivider(),
+                        _buildMenuDivider(colors),
                         _buildMenuRow(
+                          colors: colors,
                           icon: Icons.meeting_room_outlined,
                           title: 'Phòng đang thuê (Nhà của tôi)',
                           subtitle: '1 phòng đang hoạt động',
                           onTap: () {},
                         ),
-                        _buildMenuDivider(),
+                        _buildMenuDivider(colors),
                         _buildMenuRow(
+                          colors: colors,
                           icon: Icons.build_outlined,
                           title: 'Báo cáo sự cố phòng trọ',
                           subtitle: 'Máy lạnh, điện nước, wifi',
@@ -767,7 +802,7 @@ class HomeScreen extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: Colors.grey.shade600,
+                  color: colors.textMuted,
                   letterSpacing: 0.8,
                 ),
               ),
@@ -777,32 +812,37 @@ class HomeScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   _buildSettingsItem(
+                    colors: colors,
                     icon: Icons.language_outlined,
                     title: 'Ngôn ngữ',
                     trailingText: 'Tiếng Việt',
                     onTap: () => _showLanguageDialog(context),
                   ),
-                  _buildMenuDivider(),
+                  _buildMenuDivider(colors),
                   _buildSettingsItem(
-                    icon: Icons.wb_sunny_outlined,
+                    colors: colors,
+                    icon: themeIcon,
                     title: 'Giao diện',
-                    trailingText: 'Sáng',
-                    onTap: () => _showThemeDialog(context),
+                    trailingText: themeState?.label ?? 'Sáng',
+                    onTap: () => _showThemeDialog(context, ref),
                   ),
-                  _buildMenuDivider(),
+                  _buildMenuDivider(colors),
                   _buildSettingsItem(
+                    colors: colors,
                     icon: Icons.help_outline,
                     title: 'Trung tâm trợ giúp & FAQ',
                     onTap: () => _showHelpFaqDialog(context),
                   ),
-                  _buildMenuDivider(),
+                  _buildMenuDivider(colors),
                   _buildSettingsItem(
+                    colors: colors,
                     icon: Icons.support_agent_outlined,
                     title: 'Liên hệ hỗ trợ / Hotline',
                     onTap: () => _showHotlineDialog(context),
                   ),
-                  _buildMenuDivider(),
+                  _buildMenuDivider(colors),
                   _buildSettingsItem(
+                    colors: colors,
                     icon: Icons.description_outlined,
                     title: 'Điều khoản & Chính sách bảo mật',
                     onTap: () => _showTermsDialog(context),
@@ -823,37 +863,37 @@ class HomeScreen extends ConsumerWidget {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.dangerContainer.withValues(alpha: 0.5),
+                    color: colors.dangerContainer.withValues(alpha: 0.5),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.logout_rounded,
-                    color: AppColors.danger,
+                    color: colors.danger,
                     size: 20,
                   ),
                 ),
-                title: const Text(
+                title: Text(
                   'Đăng xuất',
                   style: TextStyle(
-                    color: AppColors.danger,
+                    color: colors.danger,
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
                   ),
                 ),
-                trailing: const Icon(
+                trailing: Icon(
                   Icons.chevron_right,
-                  color: AppColors.danger,
+                  color: colors.danger,
                   size: 20,
                 ),
               ),
             ),
             const SizedBox(height: 20),
-            const Center(
+            Center(
               child: Text(
                 'Phiên bản ứng dụng v3.8.2 • HomeShare',
                 style: TextStyle(
                   fontSize: 12,
-                  color: AppColors.textMuted,
+                  color: colors.textMuted,
                 ),
               ),
             ),
@@ -864,37 +904,38 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatItem(String number, String label) {
+  Widget _buildStatItem(AppPalette colors, String number, String label) {
     return Expanded(
       child: Column(
         children: [
           Text(
             number,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: AppColors.primary,
+              color: colors.primary,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+            style: TextStyle(fontSize: 12, color: colors.textMuted),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildVerticalDivider() {
+  Widget _buildVerticalDivider(AppPalette colors) {
     return Container(
       height: 32,
       width: 1,
-      color: const Color(0xFFE5E7EB),
+      color: colors.border,
     );
   }
 
   Widget _buildMenuRow({
+    required AppPalette colors,
     required IconData icon,
     required String title,
     required String subtitle,
@@ -905,32 +946,33 @@ class HomeScreen extends ConsumerWidget {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F4F6),
+          color: colors.surfaceVariant,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, size: 20, color: AppColors.textDark),
+        child: Icon(icon, size: 20, color: colors.textDark),
       ),
       title: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w600,
-          color: AppColors.textDark,
+          color: colors.textDark,
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+        style: TextStyle(fontSize: 12, color: colors.textMuted),
       ),
-      trailing: const Icon(
+      trailing: Icon(
         Icons.chevron_right,
         size: 20,
-        color: AppColors.textMuted,
+        color: colors.textMuted,
       ),
     );
   }
 
   Widget _buildSettingsItem({
+    required AppPalette colors,
     required IconData icon,
     required String title,
     String? subtitle,
@@ -943,23 +985,23 @@ class HomeScreen extends ConsumerWidget {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F4F6),
+          color: colors.surfaceVariant,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, size: 20, color: AppColors.textDark),
+        child: Icon(icon, size: 20, color: colors.textDark),
       ),
       title: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w500,
-          color: AppColors.textDark,
+          color: colors.textDark,
         ),
       ),
       subtitle: subtitle != null
           ? Text(
               subtitle,
-              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 12, color: colors.textMuted),
             )
           : null,
       trailing: trailing ??
@@ -969,28 +1011,28 @@ class HomeScreen extends ConsumerWidget {
               if (trailingText != null)
                 Text(
                   trailingText,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.textMuted,
+                    color: colors.textMuted,
                   ),
                 ),
               const SizedBox(width: 4),
-              const Icon(
+              Icon(
                 Icons.chevron_right,
                 size: 20,
-                color: AppColors.textMuted,
+                color: colors.textMuted,
               ),
             ],
           ),
     );
   }
 
-  Widget _buildMenuDivider() {
-    return const Divider(
+  Widget _buildMenuDivider(AppPalette colors) {
+    return Divider(
       height: 1,
       thickness: 1,
       indent: 52,
-      color: Color(0xFFF1F3F5),
+      color: colors.border,
     );
   }
 }

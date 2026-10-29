@@ -1,3 +1,4 @@
+import '../theme/admin_colors.dart';
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -598,7 +599,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AdminColors.card,
         elevation: 0,
         scrolledUnderElevation: 0.5,
         automaticallyImplyLeading: false,
@@ -614,7 +615,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
         children: [
           // ── Khối 1: Chọn Chủ Trọ (Chuẩn theo ảnh mẫu) ──
           Container(
-            color: Colors.white,
+            color: AdminColors.card,
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -622,26 +623,26 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       'Chủ trọ',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF667085),
+                        color: AdminColors.muted,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Container(
                       width: 44,
                       height: 44,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFE9F5FC),
+                      decoration: BoxDecoration(
+                        color: AdminColors.accentSoft,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.real_estate_agent_outlined,
                         size: 22,
-                        color: Color(0xFF398FC0),
+                        color: AdminColors.accent,
                       ),
                     ),
                   ],
@@ -652,17 +653,17 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     height: 46,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AdminColors.card,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFD0D5DD)),
+                      border: Border.all(color: AdminColors.border),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         isExpanded: true,
                         value: _selectedHostArea,
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.keyboard_arrow_down_rounded,
-                          color: Color(0xFF667085),
+                          color: AdminColors.muted,
                           size: 22,
                         ),
                         items: _hostDropdownItems.map((hName) {
@@ -671,10 +672,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                             child: Text(
                               hName,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF101828),
+                                color: AdminColors.ink,
                               ),
                             ),
                           );
@@ -696,7 +697,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
 
           // ── Khối 2: Ô Tìm Kiếm & Ngày Đối Soát (Gõ mượt mà 100%, không lag/freeze) ──
           Container(
-            color: Colors.white,
+            color: AdminColors.card,
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
             child: Row(
               children: [
@@ -710,21 +711,21 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                       onChanged: (val) {
                         _searchQuery.value = val;
                       },
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF101828),
+                        color: AdminColors.ink,
                       ),
                       decoration: InputDecoration(
                         hintText: 'Tìm theo Mã HĐ, tên khách, chủ trọ...',
-                        hintStyle: const TextStyle(
+                        hintStyle: TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF98A2B3),
+                          color: AdminColors.muted,
                         ),
-                        prefixIcon: const Icon(
+                        prefixIcon: Icon(
                           Icons.search,
                           size: 20,
-                          color: Color(0xFF667085),
+                          color: AdminColors.muted,
                         ),
                         suffixIcon: ValueListenableBuilder<String>(
                           valueListenable: _searchQuery,
@@ -733,10 +734,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               return const SizedBox.shrink();
                             }
                             return IconButton(
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.cancel,
                                 size: 18,
-                                color: Color(0xFF98A2B3),
+                                color: AdminColors.muted,
                               ),
                               onPressed: () {
                                 _searchCtrl.clear();
@@ -746,26 +747,26 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                           },
                         ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: AdminColors.card,
                         contentPadding: const EdgeInsets.symmetric(
                           vertical: 12,
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFD0D5DD),
+                          borderSide: BorderSide(
+                            color: AdminColors.border,
                           ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFD0D5DD),
+                          borderSide: BorderSide(
+                            color: AdminColors.border,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF398FC0),
+                          borderSide: BorderSide(
+                            color: AdminColors.accent,
                             width: 1.5,
                           ),
                         ),
@@ -828,25 +829,25 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     height: 46,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AdminColors.card,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFD0D5DD)),
+                      border: Border.all(color: AdminColors.border),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.calendar_month_outlined,
                           size: 19,
-                          color: Color(0xFF475467),
+                          color: AdminColors.muted,
                         ),
                         const SizedBox(width: 6),
                         Text.rich(
                           TextSpan(
                             text: 'Đối soát: ',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12.5,
-                              color: Color(0xFF475467),
+                              color: AdminColors.muted,
                             ),
                             children: [
                               TextSpan(
@@ -855,9 +856,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                     : DateFormat(
                                         'dd/MM/yyyy',
                                       ).format(effectiveSelectedDate),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF101828),
+                                  color: AdminColors.ink,
                                 ),
                               ),
                             ],
@@ -873,7 +874,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
 
           // ── Khối 3: Tab Lọc Trạng Thái (Bao gồm Đơn Hủy) ──
           Container(
-            color: Colors.white,
+            color: AdminColors.card,
             padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
             child: Row(
               children: [
@@ -881,28 +882,28 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                   label: 'Đang xử lý',
                   count: cPending,
                   value: 'pending',
-                  dotColor: const Color(0xFFF79009),
+                  dotColor: AdminColors.warning,
                 ),
                 const SizedBox(width: 4),
                 _buildStatusPill(
                   label: 'Đã cọc',
                   count: cDeposit,
                   value: 'deposit_paid',
-                  dotColor: const Color(0xFF398FC0),
+                  dotColor: AdminColors.accent,
                 ),
                 const SizedBox(width: 4),
                 _buildStatusPill(
                   label: 'Đã trả hết',
                   count: cCompleted,
                   value: 'completed',
-                  dotColor: const Color(0xFF12B76A),
+                  dotColor: AdminColors.success,
                 ),
                 const SizedBox(width: 4),
                 _buildStatusPill(
                   label: 'Đơn hủy',
                   count: cCancelled,
                   value: 'cancelled',
-                  dotColor: const Color(0xFFD92D20),
+                  dotColor: AdminColors.danger,
                 ),
               ],
             ),
@@ -911,11 +912,11 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
           // ── Khối 4: Header Phụ Của Danh Sách ──
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF4F9FF),
+            decoration: BoxDecoration(
+              color: AdminColors.paper,
               border: Border(
-                top: BorderSide(color: Color(0xFFDCEAF5)),
-                bottom: BorderSide(color: Color(0xFFDCEAF5)),
+                top: BorderSide(color: AdminColors.border),
+                bottom: BorderSide(color: AdminColors.border),
               ),
             ),
             child: Row(
@@ -927,19 +928,19 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                       : (_filter == 'pending'
                             ? 'MÃ GD / HẠN KHÁCH THUÊ CHUYỂN'
                             : 'MÃ GD / PHÂN LOẠI CỌC'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF475467),
+                    color: AdminColors.muted,
                     letterSpacing: 0.3,
                   ),
                 ),
-                const Text(
+                Text(
                   'TRẠNG THÁI',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF475467),
+                    color: AdminColors.muted,
                     letterSpacing: 0.3,
                   ),
                 ),
@@ -980,8 +981,8 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                 final int totalHostComp = (totalCancelDeposit * 0.10).round();
 
                 if (_isLoading && _allOrders.isEmpty) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF398FC0)),
+                  return Center(
+                    child: CircularProgressIndicator(color: AdminColors.accent),
                   );
                 }
 
@@ -1020,9 +1021,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                                   : 'Không có đơn nào đã cọc hết 100%')))
                                 : 'Không tìm thấy đơn nào khớp với "$queryText" trong mục này',
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13.5,
-                              color: Color(0xFF667085),
+                              color: AdminColors.muted,
                             ),
                           ),
                           if (otherMatches.isNotEmpty) ...[
@@ -1030,10 +1031,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFE9F5FC),
+                                color: AdminColors.accentSoft,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: const Color(0xFFB2DDFF),
+                                  color: AdminColors.accentSoft,
                                 ),
                               ),
                               child: Column(
@@ -1055,7 +1056,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                       ))
                                         ActionChip(
                                           label: const Text('Xem "Đang xử lý"'),
-                                          backgroundColor: Colors.white,
+                                          backgroundColor: AdminColors.card,
                                           onPressed: () => setState(
                                             () => _filter = 'pending',
                                           ),
@@ -1065,7 +1066,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                       ))
                                         ActionChip(
                                           label: const Text('Xem "Đã cọc"'),
-                                          backgroundColor: Colors.white,
+                                          backgroundColor: AdminColors.card,
                                           onPressed: () => setState(
                                             () => _filter = 'deposit_paid',
                                           ),
@@ -1075,7 +1076,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                       ))
                                         ActionChip(
                                           label: const Text('Xem "Đã trả hết"'),
-                                          backgroundColor: Colors.white,
+                                          backgroundColor: AdminColors.card,
                                           onPressed: () => setState(
                                             () => _filter = 'completed',
                                           ),
@@ -1085,7 +1086,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                       ))
                                         ActionChip(
                                           label: const Text('Xem "Đơn hủy"'),
-                                          backgroundColor: Colors.white,
+                                          backgroundColor: AdminColors.card,
                                           onPressed: () => setState(
                                             () => _filter = 'cancelled',
                                           ),
@@ -1168,9 +1169,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: const Border(
-                            top: BorderSide(color: Color(0xFFDCEAF5)),
+                          color: AdminColors.card,
+                          border: Border(
+                            top: BorderSide(color: AdminColors.border),
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -1193,18 +1194,18 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                         Container(
                                           width: 8,
                                           height: 8,
-                                          decoration: const BoxDecoration(
-                                            color: Color(0xFFD92D20),
+                                          decoration: BoxDecoration(
+                                            color: AdminColors.danger,
                                             shape: BoxShape.circle,
                                           ),
                                         ),
                                         const SizedBox(width: 6),
                                         Text(
                                           'Đã tự lọc: ${filteredList.length} đơn hủy',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 12.5,
                                             fontWeight: FontWeight.w700,
-                                            color: Color(0xFFB42318),
+                                            color: AdminColors.dangerInk,
                                           ),
                                         ),
                                       ],
@@ -1213,10 +1214,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                     Text(
                                       'Hoàn khách 85%: ${currencyFormatter.format(totalRefund)}đ • Bồi thường chủ: ${currencyFormatter.format(totalHostComp)}đ',
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 11.5,
                                         fontWeight: FontWeight.w700,
-                                        color: Color(0xFF475467),
+                                        color: AdminColors.muted,
                                       ),
                                     ),
                                   ],
@@ -1231,7 +1232,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                   _navigateToCancellationInvoice(ids);
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFD92D20),
+                                  backgroundColor: AdminColors.danger,
                                   foregroundColor: Colors.white,
                                   elevation: 0,
                                   padding: const EdgeInsets.symmetric(
@@ -1265,9 +1266,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: const Border(
-                            top: BorderSide(color: Color(0xFFDCEAF5)),
+                          color: AdminColors.card,
+                          border: Border(
+                            top: BorderSide(color: AdminColors.border),
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -1292,8 +1293,8 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                           height: 8,
                                           decoration: BoxDecoration(
                                             color: checkInOrders.isNotEmpty
-                                                ? const Color(0xFF12B76A)
-                                                : const Color(0xFFF79009),
+                                                ? AdminColors.success
+                                                : AdminColors.warning,
                                             shape: BoxShape.circle,
                                           ),
                                         ),
@@ -1304,8 +1305,8 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                             fontSize: 12.5,
                                             fontWeight: FontWeight.w700,
                                             color: checkInOrders.isNotEmpty
-                                                ? const Color(0xFF027A48)
-                                                : const Color(0xFFB54708),
+                                                ? AdminColors.successInk
+                                                : AdminColors.warningInk,
                                           ),
                                         ),
                                       ],
@@ -1313,21 +1314,21 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                     const SizedBox(height: 3),
                                     Row(
                                       children: [
-                                        const Text(
+                                        Text(
                                           'Tổng giải ngân: ',
                                           style: TextStyle(
                                             fontSize: 12,
-                                            color: Color(0xFF475467),
+                                            color: AdminColors.muted,
                                           ),
                                         ),
                                         Expanded(
                                           child: Text(
                                             '${currencyFormatter.format(autoCheckInAmount)} đ',
                                             overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w900,
-                                              color: Color(0xFF398FC0),
+                                              color: AdminColors.accent,
                                             ),
                                           ),
                                         ),
@@ -1341,7 +1342,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                 onPressed: () =>
                                     _navigateToSettlementInvoice(filteredList),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF398FC0),
+                                  backgroundColor: AdminColors.accent,
                                   foregroundColor: Colors.white,
                                   elevation: 0,
                                   padding: const EdgeInsets.symmetric(
@@ -1394,8 +1395,8 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
           padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
           decoration: BoxDecoration(
             color: isSelected
-                ? const Color(0xFF398FC0)
-                : const Color(0xFFEAF4FA),
+                ? AdminColors.accent
+                : AdminColors.accentSoft,
             borderRadius: BorderRadius.circular(22),
           ),
           child: Center(
@@ -1411,13 +1412,13 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                       Container(
                         width: 5.5,
                         height: 5.5,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFDB022),
+                        decoration: BoxDecoration(
+                          color: AdminColors.warning,
                           shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 3),
-                    ] else if (dotColor == const Color(0xFFD92D20)) ...[
+                    ] else if (dotColor == AdminColors.danger) ...[
                       Container(
                         width: 5.5,
                         height: 5.5,
@@ -1433,7 +1434,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: isSelected ? Colors.white : const Color(0xFF344054),
+                        color: isSelected ? Colors.white : AdminColors.mutedStrong,
                       ),
                     ),
                     const SizedBox(width: 3.5),
@@ -1444,10 +1445,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                       ),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? const Color(0xFFF79009)
-                            : (dotColor == const Color(0xFFD92D20)
-                                  ? const Color(0xFFFEE4E2)
-                                  : const Color(0xFFE4E7EC)),
+                            ? AdminColors.warning
+                            : (dotColor == AdminColors.danger
+                                  ? AdminColors.dangerContainer
+                                  : AdminColors.border),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -1457,9 +1458,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                           fontWeight: FontWeight.bold,
                           color: isSelected
                               ? Colors.white
-                              : (dotColor == const Color(0xFFD92D20)
-                                    ? const Color(0xFFB42318)
-                                    : const Color(0xFF344054)),
+                              : (dotColor == AdminColors.danger
+                                    ? AdminColors.dangerInk
+                                    : AdminColors.mutedStrong),
                         ),
                       ),
                     ),
@@ -1488,9 +1489,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AdminColors.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFFECDCA)),
+        border: Border.all(color: AdminColors.dangerContainer),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -1517,16 +1518,16 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3F2),
+                        color: AdminColors.dangerContainer,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFFECDCA)),
+                        border: Border.all(color: AdminColors.dangerContainer),
                       ),
                       child: Text(
                         orderCode,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFFD92D20),
+                          color: AdminColors.danger,
                         ),
                       ),
                     ),
@@ -1534,18 +1535,18 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.cancel_outlined,
                           size: 13,
-                          color: Color(0xFFD92D20),
+                          color: AdminColors.danger,
                         ),
                         const SizedBox(width: 3),
                         Text(
                           deadline,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFFD92D20),
+                            color: AdminColors.danger,
                           ),
                         ),
                       ],
@@ -1563,19 +1564,19 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                         renterName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF101828),
+                          color: AdminColors.ink,
                         ),
                       ),
                       const SizedBox(height: 5),
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.meeting_room_outlined,
                             size: 14,
-                            color: Color(0xFF667085),
+                            color: AdminColors.muted,
                           ),
                           const SizedBox(width: 4),
                           Expanded(
@@ -1583,9 +1584,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               roomTitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12.5,
-                                color: Color(0xFF475467),
+                                color: AdminColors.muted,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -1599,9 +1600,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                           'Chủ trọ: $hostName',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF667085),
+                            color: AdminColors.muted,
                           ),
                         ),
                       ],
@@ -1620,21 +1621,21 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                         vertical: 3.5,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3F2),
+                        color: AdminColors.dangerContainer,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFFECDCA)),
+                        border: Border.all(color: AdminColors.dangerContainer),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.circle, size: 6, color: Color(0xFFD92D20)),
+                          Icon(Icons.circle, size: 6, color: AdminColors.danger),
                           SizedBox(width: 4),
                           Text(
                             'Đã hủy',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFFB42318),
+                              color: AdminColors.dangerInk,
                             ),
                           ),
                         ],
@@ -1643,10 +1644,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     const SizedBox(height: 6),
                     Text(
                       '${currencyFormatter.format(deposit)}đ',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF101828),
+                        color: AdminColors.ink,
                       ),
                     ),
                   ],
@@ -1658,10 +1659,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
           // Footer Card: Tỷ lệ phân bổ & Nút Hóa Đơn Hủy
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: Color(0xFFFFFBFB),
+            decoration: BoxDecoration(
+              color: AdminColors.dangerContainer,
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(13)),
-              border: Border(top: BorderSide(color: Color(0xFFFECDCA))),
+              border: Border(top: BorderSide(color: AdminColors.dangerContainer)),
             ),
             child: Row(
               children: [
@@ -1671,15 +1672,15 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     vertical: 2.5,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3F2),
+                    color: AdminColors.dangerContainer,
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Đơn hủy',
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFFD92D20),
+                      color: AdminColors.danger,
                     ),
                   ),
                 ),
@@ -1689,10 +1690,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     'Hoàn khách 85% (${currencyFormatter.format(renterRefund)}đ) • Bồi thường chủ 10% (${currencyFormatter.format(hostCompensation)}đ)',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFFB42318),
+                      color: AdminColors.dangerInk,
                     ),
                   ),
                 ),
@@ -1719,9 +1720,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AdminColors.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFDCEAF5)),
+        border: Border.all(color: AdminColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -1748,16 +1749,16 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE9F5FC),
+                        color: AdminColors.accentSoft,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFB2DDFF)),
+                        border: Border.all(color: AdminColors.accentSoft),
                       ),
                       child: Text(
                         orderCode,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF398FC0),
+                          color: AdminColors.accent,
                         ),
                       ),
                     ),
@@ -1765,18 +1766,18 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.access_time_rounded,
                           size: 13,
-                          color: Color(0xFFF79009),
+                          color: AdminColors.warning,
                         ),
                         const SizedBox(width: 3),
                         Text(
                           deadline,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFFB54708),
+                            color: AdminColors.warningInk,
                           ),
                         ),
                       ],
@@ -1794,19 +1795,19 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                         renterName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF101828),
+                          color: AdminColors.ink,
                         ),
                       ),
                       const SizedBox(height: 5),
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.meeting_room_outlined,
                             size: 14,
-                            color: Color(0xFF667085),
+                            color: AdminColors.muted,
                           ),
                           const SizedBox(width: 4),
                           Expanded(
@@ -1814,9 +1815,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               roomTitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12.5,
-                                color: Color(0xFF475467),
+                                color: AdminColors.muted,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -1838,21 +1839,21 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                         vertical: 3.5,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFEF0C7),
+                        color: AdminColors.warningContainer,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFFEDF89)),
+                        border: Border.all(color: AdminColors.warningContainer),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.circle, size: 6, color: Color(0xFFF79009)),
+                          Icon(Icons.circle, size: 6, color: AdminColors.warning),
                           SizedBox(width: 4),
                           Text(
                             'Chờ xác nhận',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFFB54708),
+                              color: AdminColors.warningInk,
                             ),
                           ),
                         ],
@@ -1861,10 +1862,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     const SizedBox(height: 6),
                     Text(
                       '${currencyFormatter.format(deposit)}đ',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF101828),
+                        color: AdminColors.ink,
                       ),
                     ),
                   ],
@@ -1876,10 +1877,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
           // Footer Card
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF4F9FF),
+            decoration: BoxDecoration(
+              color: AdminColors.paper,
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(13)),
-              border: Border(top: BorderSide(color: Color(0xFFDCEAF5))),
+              border: Border(top: BorderSide(color: AdminColors.border)),
             ),
             child: Row(
               children: [
@@ -1890,8 +1891,8 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: isFullPayment
-                        ? const Color(0xFFECFDF3)
-                        : const Color(0xFFE9F5FC),
+                        ? AdminColors.successContainer
+                        : AdminColors.accentSoft,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -1900,7 +1901,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
                       color: isFullPayment
-                          ? const Color(0xFF027A48)
+                          ? AdminColors.successInk
                           : const Color(0xFF175CD3),
                     ),
                   ),
@@ -1911,9 +1912,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     note.isNotEmpty ? note : 'Khách đã gửi lệnh chuyển tiền',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11.5,
-                      color: Color(0xFF667085),
+                      color: AdminColors.muted,
                     ),
                   ),
                 ),
@@ -1921,7 +1922,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                 ElevatedButton(
                   onPressed: onActionPressed,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF398FC0),
+                    backgroundColor: AdminColors.accent,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(
@@ -1968,10 +1969,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AdminColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isCheckIn ? const Color(0xFFD0D5DD) : const Color(0xFFDCEAF5),
+          color: isCheckIn ? AdminColors.border : AdminColors.border,
           width: 1.0,
         ),
         boxShadow: [
@@ -2001,13 +2002,13 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                       ),
                       decoration: BoxDecoration(
                         color: isFullPayment
-                            ? const Color(0xFFECFDF3)
-                            : const Color(0xFFE9F5FC),
+                            ? AdminColors.successContainer
+                            : AdminColors.accentSoft,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: isFullPayment
-                              ? const Color(0xFFA6F4C5)
-                              : const Color(0xFFB2DDFF),
+                              ? AdminColors.successContainer
+                              : AdminColors.accentSoft,
                         ),
                       ),
                       child: Text(
@@ -2016,8 +2017,8 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
                           color: isFullPayment
-                              ? const Color(0xFF027A48)
-                              : const Color(0xFF398FC0),
+                              ? AdminColors.successInk
+                              : AdminColors.accent,
                         ),
                       ),
                     ),
@@ -2031,8 +2032,8 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               : Icons.calendar_today_rounded,
                           size: 13,
                           color: isCheckIn
-                              ? const Color(0xFF12B76A)
-                              : const Color(0xFF667085),
+                              ? AdminColors.success
+                              : AdminColors.muted,
                         ),
                         const SizedBox(width: 3),
                         Text(
@@ -2041,8 +2042,8 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                             color: isCheckIn
-                                ? const Color(0xFF027A48)
-                                : const Color(0xFF475467),
+                                ? AdminColors.successInk
+                                : AdminColors.muted,
                           ),
                         ),
                       ],
@@ -2060,19 +2061,19 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                         renterName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF101828),
+                          color: AdminColors.ink,
                         ),
                       ),
                       const SizedBox(height: 5),
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.meeting_room_outlined,
                             size: 14,
-                            color: Color(0xFF667085),
+                            color: AdminColors.muted,
                           ),
                           const SizedBox(width: 4),
                           Expanded(
@@ -2080,9 +2081,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               roomTitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12.5,
-                                color: Color(0xFF475467),
+                                color: AdminColors.muted,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -2096,9 +2097,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                           'Chủ trọ: $hostName',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF667085),
+                            color: AdminColors.muted,
                           ),
                         ),
                       ],
@@ -2118,17 +2119,17 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                           vertical: 3.5,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF9F5FF),
+                          color: AdminColors.purpleContainer,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFD6BBFB)),
+                          border: Border.all(color: AdminColors.purpleContainer),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.check_circle_rounded,
                               size: 7,
-                              color: Color(0xFF6941C6),
+                              color: AdminColors.purple,
                             ),
                             SizedBox(width: 4),
                             Text(
@@ -2136,7 +2137,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFF6941C6),
+                                color: AdminColors.purple,
                               ),
                             ),
                           ],
@@ -2149,17 +2150,17 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                           vertical: 3.5,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFECFDF3),
+                          color: AdminColors.successContainer,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFF6CE9A6)),
+                          border: Border.all(color: AdminColors.successInk),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.circle,
                               size: 6,
-                              color: Color(0xFF12B76A),
+                              color: AdminColors.success,
                             ),
                             SizedBox(width: 4),
                             Text(
@@ -2167,7 +2168,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFF027A48),
+                                color: AdminColors.successInk,
                               ),
                             ),
                           ],
@@ -2180,17 +2181,17 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                           vertical: 3.5,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFEF0C7),
+                          color: AdminColors.warningContainer,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFFEDF89)),
+                          border: Border.all(color: AdminColors.warningContainer),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.circle,
                               size: 6,
-                              color: Color(0xFFF79009),
+                              color: AdminColors.warning,
                             ),
                             SizedBox(width: 4),
                             Text(
@@ -2198,7 +2199,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFFB54708),
+                                color: AdminColors.warningInk,
                               ),
                             ),
                           ],
@@ -2208,10 +2209,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     const SizedBox(height: 6),
                     Text(
                       '${currencyFormatter.format(deposit)}đ',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF101828),
+                        color: AdminColors.ink,
                       ),
                     ),
                   ],
@@ -2225,16 +2226,16 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: isCheckIn
-                  ? const Color(0xFFF4F9FF)
-                  : const Color(0xFFFEFBF0),
+                  ? AdminColors.paper
+                  : AdminColors.warningContainer,
               borderRadius: const BorderRadius.vertical(
                 bottom: Radius.circular(13),
               ),
               border: Border(
                 top: BorderSide(
                   color: isCheckIn
-                      ? const Color(0xFFDCEAF5)
-                      : const Color(0xFFFEF0C7),
+                      ? AdminColors.border
+                      : AdminColors.warningContainer,
                 ),
               ),
             ),
@@ -2247,8 +2248,8 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: isFullPayment
-                        ? const Color(0xFFECFDF3)
-                        : const Color(0xFFE9F5FC),
+                        ? AdminColors.successContainer
+                        : AdminColors.accentSoft,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -2257,7 +2258,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
                       color: isFullPayment
-                          ? const Color(0xFF027A48)
+                          ? AdminColors.successInk
                           : const Color(0xFF175CD3),
                     ),
                   ),
@@ -2276,10 +2277,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
                       color: isDisbursed
-                          ? const Color(0xFF6941C6)
+                          ? AdminColors.purple
                           : (isCheckIn
-                                ? const Color(0xFF027A48)
-                                : const Color(0xFFB54708)),
+                                ? AdminColors.successInk
+                                : AdminColors.warningInk),
                     ),
                   ),
                 ),
@@ -2452,7 +2453,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFF12B76A),
+            backgroundColor: AdminColors.success,
             content: Text(
               'Đã xác nhận $actionText cho đơn ${item['orderCode']}! Đã chuyển vào mục "$targetTabName".',
             ),
@@ -2463,7 +2464,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFFD92D20),
+            backgroundColor: AdminColors.danger,
             content: const Text('Không thể cập nhật đơn. Vui lòng thử lại.'),
           ),
         );

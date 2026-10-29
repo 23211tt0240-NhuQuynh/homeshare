@@ -8,7 +8,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           backgroundColor: AppColors.background,
-          body: const Center(
+          body: Center(
             child: Text(
               'HomeShare Renter Suite',
               style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),

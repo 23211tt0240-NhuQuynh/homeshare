@@ -41,7 +41,7 @@ class HostRoomSection extends StatelessWidget {
     margin: const EdgeInsets.only(bottom: 16),
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(16),
     ),
     child: Material(
@@ -110,14 +110,14 @@ class HostRoomTenant extends StatelessWidget {
     title: 'Khách thuê',
     icon: Icons.person_outline,
     child: room.tenantName.isEmpty
-        ? const Text(
+        ? Text(
             'Chưa có thông tin khách thuê.',
             style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
           )
         : Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0F4FF),
+              color: AppColors.primaryContainer,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -126,7 +126,7 @@ class HostRoomTenant extends StatelessWidget {
                 Row(
                   children: [
                     CircleAvatar(
-                      backgroundColor: const Color(0xFFDCE7FF),
+                      backgroundColor: AppColors.primaryContainer,
                       child: Text(
                         room.tenantName.characters.first.toUpperCase(),
                       ),
@@ -143,7 +143,7 @@ class HostRoomTenant extends StatelessWidget {
                           if (room.tenantPhone.isNotEmpty)
                             Text(
                               room.tenantPhone,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
                               ),
@@ -168,7 +168,7 @@ class HostRoomTenant extends StatelessWidget {
                             );
                           }
                         },
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.phone_outlined,
                           color: AppColors.primary,
                         ),

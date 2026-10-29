@@ -1,3 +1,4 @@
+import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import '../models/violation_model.dart';
 
@@ -29,7 +30,7 @@ class ViolationTypeSelector extends StatelessWidget {
   }
 
   Color _getUnselectedIconColor(String id) {
-    if (id.contains('rac')) return const Color(0xFF2563EB);
+    if (id.contains('rac')) return AppColors.primary;
     if (id.contains('on_ao')) return const Color(0xFFEA580C);
     if (id.contains('hut_thuoc')) return const Color(0xFFEF4444);
     if (id.contains('nguoi_la')) return const Color(0xFF0284C7);
@@ -56,9 +57,9 @@ class ViolationTypeSelector extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -66,20 +67,20 @@ class ViolationTypeSelector extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.edit_note_rounded,
-                color: Color(0xFF2563EB),
+                color: AppColors.primary,
                 size: 22,
               ),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'HÀNH VI VI PHẠM',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.5,
-                    color: Color(0xFF1E293B),
+                    color: AppColors.textDark,
                   ),
                 ),
               ),
@@ -87,8 +88,8 @@ class ViolationTypeSelector extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: selectedCount > 0
-                      ? const Color(0xFFEFF6FF)
-                      : const Color(0xFFF1F5F9),
+                      ? AppColors.primaryContainer
+                      : AppColors.surfaceVariant,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -97,8 +98,8 @@ class ViolationTypeSelector extends StatelessWidget {
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: selectedCount > 0
-                        ? const Color(0xFF2563EB)
-                        : const Color(0xFF64748B),
+                        ? AppColors.primary
+                        : AppColors.textMuted,
                   ),
                 ),
               ),
@@ -126,13 +127,13 @@ class ViolationTypeSelector extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? const Color(0xFF2563EB)
-                        : const Color(0xFFF8FAFC),
+                        ? AppColors.primary
+                        : AppColors.background,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected
-                          ? const Color(0xFF1D4ED8)
-                          : const Color(0xFFE2E8F0),
+                          ? AppColors.primaryDark
+                          : AppColors.border,
                     ),
                   ),
                   child: Row(
@@ -155,7 +156,7 @@ class ViolationTypeSelector extends StatelessWidget {
                                 : FontWeight.w500,
                             color: isSelected
                                 ? Colors.white
-                                : const Color(0xFF1E293B),
+                                : AppColors.textDark,
                           ),
                         ),
                       ),
@@ -166,7 +167,7 @@ class ViolationTypeSelector extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                           color: isSelected
                               ? Colors.white
-                              : const Color(0xFF334155),
+                              : AppColors.textMuted,
                         ),
                       ),
                     ],

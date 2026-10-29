@@ -1,3 +1,4 @@
+import '../theme/admin_colors.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -55,12 +56,12 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
         child: Container(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AdminColors.card,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFFDCEAF5)),
+            border: Border.all(color: AdminColors.border),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF398FC0).withValues(alpha: 0.14),
+                color: AdminColors.accent.withValues(alpha: 0.14),
                 blurRadius: 24,
                 offset: const Offset(0, 10),
               ),
@@ -72,13 +73,13 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
               Container(
                 width: 48,
                 height: 48,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEAF6FC),
+                decoration: BoxDecoration(
+                  color: AdminColors.accentSoft,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.wb_sunny_rounded,
-                  color: Color(0xFF71B9DA),
+                  color: AdminColors.accentLight,
                   size: 25,
                 ),
               ),
@@ -89,7 +90,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Color(0xFF69AFCF),
+                  color: AdminColors.accentLight,
                   fontSize: 20,
                   fontStyle: FontStyle.italic,
                   fontWeight: FontWeight.w700,
@@ -101,7 +102,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                 'Chúc $adminName một ngày làm việc thật vui nhé!',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Color(0xFF7A8798),
+                  color: AdminColors.muted,
                   fontSize: 13,
                   height: 1.35,
                 ),
@@ -112,8 +113,8 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                 child: TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
                   style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF287AA8),
-                    backgroundColor: const Color(0xFFEAF6FC),
+                    foregroundColor: AdminColors.accentDark,
+                    backgroundColor: AdminColors.accentSoft,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -160,37 +161,47 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
     return Theme(
       data: Theme.of(context).copyWith(
         colorScheme: Theme.of(context).colorScheme.copyWith(
-          primary: const Color(0xFF398FC0),
-          secondary: const Color(0xFF89CFF0),
-          surface: Colors.white,
+          primary: AdminColors.accent,
+          secondary: AdminColors.accentLight,
+          surface: AdminColors.card,
+          onSurface: AdminColors.ink,
         ),
-        scaffoldBackgroundColor: const Color(0xFFF4F9FF),
-        appBarTheme: Theme.of(context).appBarTheme.copyWith(
-          backgroundColor: Colors.white,
+        scaffoldBackgroundColor: AdminColors.paper,
+        cardColor: AdminColors.card,
+        dividerColor: AdminColors.border,
+        dialogTheme: DialogThemeData(
+          backgroundColor: AdminColors.card,
           surfaceTintColor: Colors.transparent,
-          foregroundColor: const Color(0xFF17324D),
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          backgroundColor: Colors.transparent,
+        ),
+        appBarTheme: Theme.of(context).appBarTheme.copyWith(
+          backgroundColor: AdminColors.card,
+          surfaceTintColor: Colors.transparent,
+          foregroundColor: AdminColors.title,
           elevation: 0,
         ),
-        navigationRailTheme: const NavigationRailThemeData(
-          selectedIconTheme: IconThemeData(color: Color(0xFF398FC0)),
-          unselectedIconTheme: IconThemeData(color: Color(0xFF7890A4)),
-          indicatorColor: Color(0xFFE3F3FB),
+        navigationRailTheme: NavigationRailThemeData(
+          selectedIconTheme: IconThemeData(color: AdminColors.accent),
+          unselectedIconTheme: IconThemeData(color: AdminColors.navInactive),
+          indicatorColor: AdminColors.accentSoft,
           selectedLabelTextStyle: TextStyle(
-            color: Color(0xFF287AA8),
+            color: AdminColors.accentDark,
             fontSize: 11,
             fontWeight: FontWeight.w700,
           ),
           unselectedLabelTextStyle: TextStyle(
-            color: Color(0xFF7890A4),
+            color: AdminColors.navInactive,
             fontSize: 11,
           ),
         ),
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFFF4F9FF),
+        backgroundColor: AdminColors.paper,
         body: Stack(
           children: [
-            const Positioned(
+            Positioned(
               right: 24,
               bottom: 20,
               child: IgnorePointer(
@@ -202,13 +213,13 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                       Icon(
                         Icons.home_work_rounded,
                         size: 78,
-                        color: Color(0xFFD6EDF9),
+                        color: AdminColors.watermark,
                       ),
                       SizedBox(width: 8),
                       Text(
                         'HomeShare',
                         style: TextStyle(
-                          color: Color(0xFFD6EDF9),
+                          color: AdminColors.watermark,
                           fontSize: 25,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -.5,
@@ -223,7 +234,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
               Row(
                 children: [
                   NavigationRail(
-                    backgroundColor: Colors.white,
+                    backgroundColor: AdminColors.card,
                     selectedIndex: _currentIndex,
                     onDestinationSelected: _onSelectTab,
                     labelType: NavigationRailLabelType.all,
@@ -251,10 +262,10 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                       ),
                     ],
                   ),
-                  const VerticalDivider(
+                  VerticalDivider(
                     width: 1,
                     thickness: 1,
-                    color: Color(0xFFDCEAF5),
+                    color: AdminColors.border,
                   ),
                   Expanded(
                     child: Center(
@@ -279,9 +290,9 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
             ? null
             : Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: const Border(
-                    top: BorderSide(color: Color(0xFFDCEAF5), width: 1.0),
+                  color: AdminColors.card,
+                  border: Border(
+                    top: BorderSide(color: AdminColors.border, width: 1.0),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -353,8 +364,8 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
     int badgeCount = 0,
   }) {
     final isSelected = _currentIndex == index;
-    const activeColor = Color(0xFF398FC0);
-    const inactiveColor = Color(0xFF667085);
+    final activeColor = AdminColors.accent;
+    final inactiveColor = AdminColors.muted;
 
     return InkWell(
       onTap: () => _onSelectTab(index),
@@ -379,8 +390,8 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                     child: Container(
                       width: 8,
                       height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFD92D20),
+                      decoration: BoxDecoration(
+                        color: AdminColors.danger,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -433,7 +444,7 @@ class _CustomErrorTabScopeState extends State<CustomErrorTabScope> {
     _previousBuilder = ErrorWidget.builder;
     ErrorWidget.builder = (FlutterErrorDetails details) {
       return Scaffold(
-        backgroundColor: const Color(0xFFFEF3F2),
+        backgroundColor: AdminColors.dangerContainer,
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
@@ -441,27 +452,27 @@ class _CustomErrorTabScopeState extends State<CustomErrorTabScope> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.error_outline_rounded,
                     size: 56,
-                    color: Color(0xFFD92D20),
+                    color: AdminColors.danger,
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'LỖI DỰNG GIAO DIỆN (LAYOUT ERROR)',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFFB42318),
+                      color: AdminColors.dangerInk,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     details.exceptionAsString(),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF475467),
+                      color: AdminColors.muted,
                       fontFamily: 'monospace',
                     ),
                   ),

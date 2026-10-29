@@ -53,7 +53,7 @@ class HostReviewsSection extends ConsumerWidget {
                     ref.invalidate(hostReviewsProvider(hostId));
                     ScaffoldMessenger.of(context).hideCurrentSnackBar();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
+                      SnackBar(
                         content: Text('Đã gửi đánh giá thành công.'),
                         backgroundColor: AppColors.success,
                       ),
@@ -91,7 +91,7 @@ class HostReviewsSection extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
@@ -104,7 +104,7 @@ class HostReviewsSection extends ConsumerWidget {
                 : HostReputation.fromAverage(stats.average),
           ),
           const SizedBox(height: 16),
-          const Divider(height: 1, color: AppColors.border),
+          Divider(height: 1, color: AppColors.border),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -112,7 +112,7 @@ class HostReviewsSection extends ConsumerWidget {
               const SizedBox(width: 6),
               Text(
                 stats.displayAverage,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textDark,
@@ -121,7 +121,7 @@ class HostReviewsSection extends ConsumerWidget {
               const Spacer(),
               Text(
                 stats.count == 0 ? '0 lượt đánh giá' : '${stats.count} lượt đánh giá',
-                style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -130,16 +130,16 @@ class HostReviewsSection extends ConsumerWidget {
             const LinearProgressIndicator(minHeight: 2),
           ] else if (errorText != null) ...[
             const SizedBox(height: 12),
-            Text(errorText, style: const TextStyle(color: AppColors.danger)),
+            Text(errorText, style: TextStyle(color: AppColors.danger)),
           ] else if (reviews.isEmpty) ...[
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Chưa có nhận xét nào.',
               style: TextStyle(fontSize: 13, color: AppColors.textMuted),
             ),
           ] else ...[
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Nhận xét gần đây',
               style: TextStyle(
                 fontSize: 13,
@@ -190,7 +190,7 @@ class HostReviewsSection extends ConsumerWidget {
               Expanded(
                 child: Text(
                   name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textDark,
@@ -209,13 +209,13 @@ class HostReviewsSection extends ConsumerWidget {
           ),
           Text(
             DateFormat('dd/MM/yyyy').format(review.createdAt),
-            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+            style: TextStyle(fontSize: 11, color: AppColors.textMuted),
           ),
           if (review.comment.isNotEmpty) ...[
             const SizedBox(height: 2),
             Text(
               review.comment,
-              style: const TextStyle(fontSize: 13, height: 1.35, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 13, height: 1.35, color: AppColors.textSecondary),
             ),
           ],
         ],

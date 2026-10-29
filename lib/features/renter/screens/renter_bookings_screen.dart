@@ -196,7 +196,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
     if (ok) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Đã gửi đánh giá thành công.'),
           backgroundColor: AppColors.success,
         ),
@@ -237,7 +237,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                   color: Color(0xFF98A2B3),
                 ),
                 filled: true,
-                fillColor: const Color(0xFFF8FAFC),
+                fillColor: AppColors.background,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(color: Color(0xFFEAECF0)),
@@ -253,9 +253,9 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
+            child: Text(
               'Giữ lại đơn',
-              style: TextStyle(color: Color(0xFF667085)),
+              style: TextStyle(color: AppColors.textMuted),
             ),
           ),
           ElevatedButton(
@@ -323,7 +323,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
             children: [
               Icon(Icons.lock_outline, size: 64, color: Colors.grey.shade400),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Vui lòng đăng nhập để xem đơn thuê & lịch hẹn',
                 style: TextStyle(
                   fontSize: 15,
@@ -341,12 +341,16 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Quản lý Đơn Thuê & Trạng Thái')),
+      appBar: AppBar(
+        title: const Text('Quản lý Đơn Thuê & Trạng Thái'),
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textDark,
+      ),
       body: Column(
         children: [
           // Filter Chips
           Container(
-            color: Colors.white,
+            color: AppColors.surface,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -414,7 +418,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                           _selectedStatusFilter == 'Tất cả'
                               ? 'Không có đơn thuê hoặc lịch hẹn nào'
                               : 'Không có đơn thuê nào ở trạng thái "$_selectedStatusFilter"',
-                          style: const TextStyle(color: AppColors.textMuted),
+                          style: TextStyle(color: AppColors.textMuted),
                         ),
                       ],
                     ),
@@ -487,7 +491,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                   ),
                                   Text(
                                     DateFormat('dd/MM/yyyy HH:mm').format(b.createdAt),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11,
                                       color: AppColors.textMuted,
                                     ),
@@ -499,7 +503,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                               // Room Title
                               Text(
                                 b.roomTitle,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15.5,
                                   color: AppColors.textDark,
@@ -508,7 +512,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                               const SizedBox(height: 4),
                               Text(
                                 b.roomAddress,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12.5,
                                   color: AppColors.textMuted,
                                 ),
@@ -537,7 +541,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 10),
-                                  const Icon(
+                                  Icon(
                                     Icons.calendar_today_outlined,
                                     size: 14,
                                     color: AppColors.textMuted,
@@ -546,7 +550,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                   Flexible(
                                     child: Text(
                                       'Dọn vào: ${DateFormat('dd/MM/yyyy').format(b.moveInDate)}',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 12,
                                         color: AppColors.textMuted,
                                       ),
@@ -689,7 +693,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                   Expanded(
                                     child: Row(
                                       children: [
-                                        const Icon(
+                                        Icon(
                                           Icons.person_pin,
                                           size: 18,
                                           color: AppColors.textSecondary,
@@ -890,15 +894,15 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                             vertical: 6,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFFF2F4F7),
+                                            color: AppColors.surfaceVariant,
                                             borderRadius:
                                                 BorderRadius.circular(8),
                                           ),
-                                          child: const Text(
+                                          child: Text(
                                             'Đã hủy đơn',
                                             style: TextStyle(
                                               fontSize: 12,
-                                              color: Color(0xFF667085),
+                                              color: AppColors.textMuted,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
@@ -957,7 +961,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                     label: const Text('Đánh giá chủ trọ'),
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: AppColors.primary,
-                                      side: const BorderSide(
+                                      side: BorderSide(
                                         color: AppColors.primary,
                                       ),
                                       minimumSize: const Size.fromHeight(42),

@@ -164,16 +164,22 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
       return true;
     }).toList();
 
+    final colors = AppColors.of(context);
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        title: const Text('Tin nhắn & Trao đổi'),
+        title: Text(
+          'Tin nhắn & Trao đổi',
+          style: TextStyle(color: colors.textDark, fontWeight: FontWeight.w700),
+        ),
+        backgroundColor: colors.surface,
+        foregroundColor: colors.textDark,
         actions: [
           IconButton(
-            icon: const Badge(
+            icon: Badge(
               smallSize: 8,
-              backgroundColor: AppColors.danger,
-              child: Icon(Icons.notifications_none_outlined),
+              backgroundColor: colors.danger,
+              child: Icon(Icons.notifications_none_outlined, color: colors.textDark),
             ),
             tooltip: 'Thông báo',
             onPressed: () => _showNotificationSheet(context),
@@ -186,14 +192,15 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
           RepaintBoundary(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Colors.white,
+              color: colors.surface,
               child: TextField(
                 controller: _searchController,
                 onChanged: _onSearchChanged,
+                style: TextStyle(color: colors.textDark, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: 'Tìm kiếm cuộc trò chuyện, phòng trọ...',
-                  hintStyle: const TextStyle(fontSize: 13, color: AppColors.textMuted),
-                  prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.textMuted),
+                  hintStyle: TextStyle(fontSize: 13, color: colors.textMuted),
+                  prefixIcon: Icon(Icons.search, size: 20, color: colors.textMuted),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear, size: 18),
@@ -205,7 +212,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                         )
                       : null,
                   filled: true,
-                  fillColor: const Color(0xFFF3F4F6),
+                  fillColor: colors.surfaceVariant,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -219,7 +226,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
           // 2. Thanh Filter Chips (Tất cả, Chủ trọ, Ở ghép, Chưa đọc)
           RepaintBoundary(
             child: Container(
-              color: Colors.white,
+              color: colors.surface,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               child: Row(
                 children: [
@@ -243,16 +250,16 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.mark_chat_read_outlined, size: 64, color: Colors.grey.shade300),
+                        Icon(Icons.mark_chat_read_outlined, size: 64, color: colors.textMuted),
                         const SizedBox(height: 12),
-                        const Text(
+                        Text(
                           'Không tìm thấy cuộc trò chuyện nào phù hợp',
-                          style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold, fontSize: 14),
+                          style: TextStyle(color: colors.textDark, fontWeight: FontWeight.bold, fontSize: 14),
                         ),
                         const SizedBox(height: 6),
-                        const Text(
+                        Text(
                           'Hãy thử thay đổi từ khóa hoặc bộ lọc danh mục.',
-                          style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                          style: TextStyle(color: colors.textMuted, fontSize: 12),
                         ),
                         const SizedBox(height: 16),
                         OutlinedButton(
@@ -274,7 +281,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                       physics: const ClampingScrollPhysics(),
                       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                       itemCount: filteredConversations.length,
-                      separatorBuilder: (context, index) => const Divider(height: 1, indent: 76),
+                      separatorBuilder: (context, index) => Divider(height: 1, indent: 76, color: colors.border),
                       itemBuilder: (context, index) {
                       final item = filteredConversations[index];
                       final isUnread = item.unreadCount > 0 || !item.isRead;
@@ -291,20 +298,20 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                         onToggleMute: () => _toggleMute(item.id, item.partnerName),
                         child: Material(
                           color: isPinned
-                              ? const Color(0xFFF0FDF4)
-                              : (isUnread ? const Color(0xFFF8FAFC) : Colors.white),
+                              ? (colors.isDark ? colors.primarySurface : const Color(0xFFF0FDF4))
+                              : (isUnread ? colors.surfaceVariant : colors.surface),
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             leading: Stack(
                               children: [
                                 CircleAvatar(
                                   radius: 26,
-                                  backgroundColor: isUnread ? AppColors.primary : AppColors.primaryContainer,
+                                  backgroundColor: isUnread ? colors.primary : colors.primaryContainer,
                                   child: Text(
                                     item.partnerName.isNotEmpty ? item.partnerName[0] : 'U',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: isUnread ? Colors.white : AppColors.primary,
+                                      color: isUnread ? colors.onPrimary : colors.primary,
                                       fontSize: 18,
                                     ),
                                   ),
@@ -318,7 +325,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                     decoration: BoxDecoration(
                                       color: Colors.green,
                                       shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.white, width: 2),
+                                      border: Border.all(color: colors.surface, width: 2),
                                     ),
                                   ),
                                 ),
@@ -331,7 +338,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                   child: Row(
                                     children: [
                                       if (isPinned) ...[
-                                        const Icon(Icons.push_pin_rounded, color: Color(0xFF2563EB), size: 14),
+                                        Icon(Icons.push_pin_rounded, color: colors.primary, size: 14),
                                         const SizedBox(width: 4),
                                       ],
                                       Flexible(
@@ -340,7 +347,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                           style: TextStyle(
                                             fontWeight: isUnread ? FontWeight.w900 : FontWeight.w600,
                                             fontSize: isUnread ? 15.5 : 14,
-                                            color: isUnread ? const Color(0xFF0F172A) : AppColors.textDark,
+                                            color: colors.textDark,
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -348,7 +355,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                       ),
                                       if (item.isLandlord) ...[
                                         const SizedBox(width: 4),
-                                        const Icon(Icons.verified, color: AppColors.primary, size: 14),
+                                        Icon(Icons.verified, color: colors.primary, size: 14),
                                       ],
                                     ],
                                   ),
@@ -357,14 +364,14 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     if (isMuted) ...[
-                                      const Icon(Icons.notifications_off_outlined, size: 13, color: Color(0xFF94A3B8)),
+                                      Icon(Icons.notifications_off_outlined, size: 13, color: AppColors.textMuted),
                                       const SizedBox(width: 4),
                                     ],
                                     Text(
                                       _formatTime(item.lastMessageTime),
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: isUnread ? AppColors.primary : AppColors.textMuted,
+                                        color: isUnread ? colors.primary : colors.textMuted,
                                         fontWeight: isUnread ? FontWeight.w900 : FontWeight.normal,
                                       ),
                                     ),
@@ -380,12 +387,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: Colors.grey.shade100,
+                                    color: colors.surfaceVariant,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
                                     '${item.roomCode ?? ''} ${item.roomTitle ?? ''}'.trim(),
-                                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                                    style: TextStyle(fontSize: 11, color: colors.textMuted, fontWeight: FontWeight.w500),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -399,7 +406,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                       item.lastMessage,
                                       style: TextStyle(
                                         fontSize: isUnread ? 14 : 13,
-                                        color: isUnread ? const Color(0xFF0F172A) : AppColors.textMuted,
+                                        color: isUnread ? colors.textDark : colors.textMuted,
                                         fontWeight: isUnread ? FontWeight.w900 : FontWeight.normal,
                                       ),
                                       maxLines: 1,
@@ -504,13 +511,14 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
 
   Widget _buildFilterChip(String key, String label) {
     final isSelected = _selectedFilter == key;
+    final colors = AppColors.of(context);
     return InkWell(
       onTap: () => setState(() => _selectedFilter = key),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : const Color(0xFFF3F4F6),
+          color: isSelected ? colors.primary : colors.surfaceVariant,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Text(
@@ -518,7 +526,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? Colors.white : AppColors.textDark,
+            color: isSelected ? colors.onPrimary : colors.textDark,
           ),
         ),
       ),
@@ -580,7 +588,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.delete_outline_rounded, color: AppColors.danger, size: 22),
             SizedBox(width: 8),
@@ -589,12 +597,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         ),
         content: Text(
           'Bạn có chắc chắn muốn xóa cuộc trò chuyện với "$name"? Lịch sử trò chuyện sẽ được ẩn khỏi danh sách của bạn.',
-          style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+          style: TextStyle(fontSize: 13, color: AppColors.textMuted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy', style: TextStyle(color: Color(0xFF64748B))),
+            child: Text('Hủy', style: TextStyle(color: AppColors.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -635,11 +643,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
+      builder: (ctx) {
+        final colors = AppColors.of(ctx);
+        return Container(
         height: MediaQuery.of(context).size.height * 0.75,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
@@ -662,20 +672,20 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                       color: AppColors.primarySurface,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.notifications_outlined, color: AppColors.primary, size: 20),
+                    child: Icon(Icons.notifications_outlined, color: AppColors.primary, size: 20),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Thông báo',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: colors.textDark),
                         ),
                         Text(
                           'Cập nhật tin nhắn & lịch xem phòng mới nhất',
-                          style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                          style: TextStyle(fontSize: 11.5, color: colors.textMuted),
                         ),
                       ],
                     ),
@@ -752,17 +762,18 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                     },
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      side: BorderSide(color: AppColors.border),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    child: const Text('Đánh dấu đọc tất cả', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
+                    child: Text('Đánh dấu đọc tất cả', style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ),
             ),
           ],
         ),
-      ),
+      );
+      },
     );
   }
 
@@ -775,8 +786,9 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     required String time,
     required bool isUnread,
   }) {
+    final colors = AppColors.of(context);
     return Container(
-      color: isUnread ? const Color(0xFFF8FAFC) : Colors.transparent,
+      color: isUnread ? colors.surfaceVariant : Colors.transparent,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -803,20 +815,20 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
-                          color: const Color(0xFF0F172A),
+                          color: colors.textDark,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Text(time, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                    Text(time, style: TextStyle(fontSize: 11, color: colors.textMuted)),
                   ],
                 ),
                 const SizedBox(height: 3),
                 Text(
                   content,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.35),
+                  style: TextStyle(fontSize: 12, color: colors.textMuted, height: 1.35),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -829,7 +841,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
               margin: const EdgeInsets.only(top: 4),
               width: 8,
               height: 8,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.primary,
                 shape: BoxShape.circle,
               ),
@@ -1023,7 +1035,11 @@ class _SwipeableConversationItemState extends State<_SwipeableConversationItem>
             Transform.translate(
               offset: Offset(_dragExtent, 0),
               child: Material(
-                color: widget.isPinned ? const Color(0xFFF0FDF4) : Colors.white,
+                color: widget.isPinned
+                    ? (AppColors.of(context).isDark
+                        ? AppColors.of(context).primarySurface
+                        : const Color(0xFFF0FDF4))
+                    : AppColors.of(context).surface,
                 child: GestureDetector(
                   onTap: () {
                     if (_dragExtent < -10) {

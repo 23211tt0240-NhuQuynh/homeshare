@@ -86,7 +86,7 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
 
     final error = rooms.error ?? houses.error;
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FF),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(
           widget.previewRoom == null ? 'Chi tiết phòng' : 'Xem trước phòng',
@@ -106,7 +106,7 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
               children: [
                 Text(
                   '▦ ${property.name} • Tầng ${room.floor}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                   ),
@@ -138,7 +138,7 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                               ),
                               Text(
                                 '${hostMoney(room.price)} đ',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.w800,
                                   fontSize: 23,
@@ -160,7 +160,7 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                           child:
                               displayImages.isEmpty &&
                                   widget.previewImages.isEmpty
-                              ? const Center(
+                              ? Center(
                                   child: Icon(
                                     Icons.image_outlined,
                                     size: 64,
@@ -197,7 +197,7 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
                             '${displayImages.length + widget.previewImages.length} ảnh • Vuốt để xem',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               color: AppColors.textSecondary,
                             ),
@@ -219,7 +219,7 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF0F4FF),
+                          color: AppColors.primaryContainer,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -241,7 +241,7 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                                 amenity,
                                 style: const TextStyle(fontSize: 11),
                               ),
-                              backgroundColor: const Color(0xFFF0F4FF),
+                              backgroundColor: AppColors.primaryContainer,
                               side: BorderSide.none,
                             ),
                         ],
@@ -296,7 +296,7 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                       IconButton.filled(
                         tooltip: 'Xóa phòng',
                         style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xFFFFDADA),
+                          backgroundColor: AppColors.dangerContainer,
                           foregroundColor: AppColors.danger,
                         ),
                         onPressed: () async {

@@ -1,3 +1,4 @@
+import '../theme/admin_colors.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -169,8 +170,8 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
               await PostReviewService.approve(doc.id);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    backgroundColor: Color(0xFF12B76A),
+                  SnackBar(
+                    backgroundColor: AdminColors.success,
                     content: Text('Đã phê duyệt bài đăng thành công!'),
                   ),
                 );
@@ -188,8 +189,8 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
           onRejected: () async {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  backgroundColor: Color(0xFFD92D20),
+                SnackBar(
+                  backgroundColor: AdminColors.danger,
                   content: Text('Đã từ chối bài đăng thành công!'),
                 ),
               );
@@ -206,8 +207,8 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
       await PostReviewService.approve(docId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: Color(0xFF12B76A),
+          SnackBar(
+            backgroundColor: AdminColors.success,
             content: Text('Đã duyệt bài đăng! Dashboard đã cập nhật sang trạng thái Đã duyệt.'),
           ),
         );
@@ -232,8 +233,8 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: Color(0xFFD92D20),
+          SnackBar(
+            backgroundColor: AdminColors.danger,
             content: Text('Đã ẩn bài đăng! Dashboard đã cập nhật sang trạng thái Đã ẩn.'),
           ),
         );
@@ -250,9 +251,9 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F9FD),
+      backgroundColor: AdminColors.paper,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AdminColors.card,
         elevation: 0,
         scrolledUnderElevation: 0.5,
         titleSpacing: 16,
@@ -268,24 +269,24 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
         children: [
           // 1. Thanh Lọc Trạng Thái (Tất cả, Chờ duyệt, Đã duyệt, Từ chối)
           Container(
-            color: Colors.white,
+            color: AdminColors.card,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: Row(
               children: [
-                _buildFilterPill('Tất cả', 'all', const Color(0xFF398FC0)),
+                _buildFilterPill('Tất cả', 'all', AdminColors.accent),
                 const SizedBox(width: 8),
                 _buildFilterPill(
                   'Chờ duyệt',
                   'pending',
-                  const Color(0xFF398FC0),
+                  AdminColors.accent,
                 ),
                 const SizedBox(width: 8),
-                _buildFilterPill('Đã duyệt', 'active', const Color(0xFF398FC0)),
+                _buildFilterPill('Đã duyệt', 'active', AdminColors.accent),
                 const SizedBox(width: 8),
                 _buildFilterPill(
                   'Từ chối',
                   'rejected',
-                  const Color(0xFF398FC0),
+                  AdminColors.accent,
                 ),
               ],
             ),
@@ -359,10 +360,10 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                       padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
                       child: Text(
                         'Tìm thấy ${filteredDocs.length} kết quả',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF667085),
+                          color: AdminColors.muted,
                         ),
                       ),
                     ),
@@ -373,16 +374,16 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                           ? Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
-                                children: const [
+                                children: [
                                   Icon(
                                     Icons.apartment_rounded,
                                     size: 48,
-                                    color: Color(0xFFD0D5DD),
+                                    color: AdminColors.border,
                                   ),
                                   SizedBox(height: 8),
                                   Text(
                                     'Không có bài đăng nào trong danh mục này',
-                                    style: TextStyle(color: Color(0xFF667085)),
+                                    style: TextStyle(color: AdminColors.muted),
                                   ),
                                 ],
                               ),
@@ -417,10 +418,10 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 9),
           decoration: BoxDecoration(
-            color: isSelected ? color : const Color(0xFFEAF4FA),
+            color: isSelected ? color : AdminColors.accentSoft,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isSelected ? color : const Color(0xFFD8EAF5),
+              color: isSelected ? color : AdminColors.accentSoft,
             ),
           ),
           alignment: Alignment.center,
@@ -429,7 +430,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.bold,
-              color: isSelected ? Colors.white : const Color(0xFF536B82),
+              color: isSelected ? Colors.white : AdminColors.muted,
             ),
           ),
         ),
@@ -476,12 +477,12 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AdminColors.card,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isPending
-                ? const Color(0xFFB9DDF1)
-                : const Color(0xFFDCEAF3),
+                ? AdminColors.accentSoft
+                : AdminColors.border,
             width: isPending ? 1.4 : 1.0,
           ),
           boxShadow: [
@@ -503,7 +504,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                   child: Container(
                     width: 84,
                     height: 84,
-                    color: const Color(0xFFE6F1F8),
+                    color: AdminColors.accentSoft,
                     child: imageUrl != null && imageUrl.isNotEmpty
                         ? Image.network(
                             imageUrl,
@@ -515,14 +516,14 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                                     imageUrl.contains('storage.googleapis.com')
                                 ? WebHtmlElementStrategy.prefer
                                 : WebHtmlElementStrategy.fallback,
-                            errorBuilder: (ctx, err, stack) => const Icon(
+                            errorBuilder: (ctx, err, stack) => Icon(
                               Icons.apartment_rounded,
-                              color: Color(0xFF98A2B3),
+                              color: AdminColors.muted,
                             ),
                           )
-                        : const Icon(
+                        : Icon(
                             Icons.apartment_rounded,
-                            color: Color(0xFF98A2B3),
+                            color: AdminColors.muted,
                           ),
                   ),
                 ),
@@ -541,15 +542,15 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFEF0C7),
+                                color: AdminColors.warningContainer,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: const Text(
+                              child: Text(
                                 '• Chờ duyệt',
                                 style: TextStyle(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFFB54708),
+                                  color: AdminColors.warningInk,
                                 ),
                               ),
                             )
@@ -560,15 +561,15 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFECFDF3),
+                                color: AdminColors.successContainer,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: const Text(
+                              child: Text(
                                 'Đã duyệt',
                                 style: TextStyle(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF027A48),
+                                  color: AdminColors.successInk,
                                 ),
                               ),
                             )
@@ -579,33 +580,33 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFEE4E2),
+                                color: AdminColors.dangerContainer,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: const Text(
+                              child: Text(
                                 '• Từ chối',
                                 style: TextStyle(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFFD92D20),
+                                  color: AdminColors.danger,
                                 ),
                               ),
                             ),
                           const Spacer(),
-                          const Icon(
+                          Icon(
                             Icons.arrow_forward_ios_rounded,
                             size: 13,
-                            color: Color(0xFF98A2B3),
+                            color: AdminColors.muted,
                           ),
                         ],
                       ),
                       const SizedBox(height: 4),
                       Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF101828),
+                          color: AdminColors.ink,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -613,10 +614,10 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.person_outline,
                             size: 13,
-                            color: Color(0xFF667085),
+                            color: AdminColors.muted,
                           ),
                           const SizedBox(width: 4),
                           FutureBuilder<Map<String, dynamic>?>(
@@ -632,9 +633,9 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                                       .toString();
                               return Text(
                                 name,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xFF667085),
+                                  color: AdminColors.muted,
                                 ),
                               );
                             },
@@ -643,9 +644,9 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                             const SizedBox(width: 6),
                             Text(
                               '• $phone',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF98A2B3),
+                                color: AdminColors.muted,
                               ),
                             ),
                           ],
@@ -676,7 +677,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                     child: ElevatedButton(
                       onPressed: () => _approvePost(id),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF398FC0),
+                        backgroundColor: AdminColors.accent,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -698,8 +699,8 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                     child: OutlinedButton(
                       onPressed: () => _openDetailPreview(doc),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFFDA29B)),
-                        foregroundColor: const Color(0xFFD92D20),
+                        side: BorderSide(color: AdminColors.dangerContainer),
+                        foregroundColor: AdminColors.danger,
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -743,21 +744,21 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => _rejectPost(id),
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.visibility_off_outlined,
                         size: 14,
-                        color: Color(0xFFD92D20),
+                        color: AdminColors.danger,
                       ),
-                      label: const Text(
+                      label: Text(
                         'Ẩn bài / Gỡ tin',
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFFD92D20),
+                          color: AdminColors.danger,
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFFDA29B)),
+                        side: BorderSide(color: AdminColors.dangerContainer),
                         padding: const EdgeInsets.symmetric(vertical: 6),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -774,23 +775,23 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3F2),
+                    color: AdminColors.dangerContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.warning_amber_rounded,
                         size: 14,
-                        color: Color(0xFFD92D20),
+                        color: AdminColors.danger,
                       ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           rejectReason,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFFD92D20),
+                            color: AdminColors.danger,
                           ),
                         ),
                       ),
@@ -812,7 +813,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF12B76A),
+                        backgroundColor: AdminColors.success,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(vertical: 8),

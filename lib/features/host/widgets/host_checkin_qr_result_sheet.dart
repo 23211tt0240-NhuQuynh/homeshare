@@ -1,3 +1,4 @@
+import '../../../core/constants/app_colors.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -225,7 +226,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Đã xác nhận nhận phòng thành công cho khách $_renterName! Trạng thái đơn đã chuyển sang "Đang ở".'),
-          backgroundColor: const Color(0xFF12B76A),
+          backgroundColor: AppColors.success,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -237,7 +238,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Lỗi cập nhật nhận phòng: $e'),
-          backgroundColor: const Color(0xFFD92D20),
+          backgroundColor: AppColors.danger,
         ),
       );
     }
@@ -266,7 +267,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                 hintText: 'Nhập lý do hủy...',
                 hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF98A2B3)),
                 filled: true,
-                fillColor: const Color(0xFFF8FAFC),
+                fillColor: AppColors.background,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
@@ -281,7 +282,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD92D20),
+              backgroundColor: AppColors.danger,
               foregroundColor: Colors.white,
             ),
             child: const Text('Xác nhận hủy'),
@@ -305,9 +306,9 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
         Navigator.pop(context);
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Đã hủy đơn thuê thành công.'),
-            backgroundColor: Color(0xFF155EEF),
+            backgroundColor: AppColors.primary,
           ),
         );
 
@@ -318,7 +319,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Lỗi hủy đơn: $e'),
-            backgroundColor: const Color(0xFFD92D20),
+            backgroundColor: AppColors.danger,
           ),
         );
       }
@@ -348,8 +349,8 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.9,
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
@@ -378,9 +379,9 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFA6F4C5)),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.verified_rounded,
-                    color: Color(0xFF12B76A),
+                    color: AppColors.success,
                     size: 26,
                   ),
                 ),
@@ -389,21 +390,21 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'QUÉT QR THÀNH CÔNG',
                         style: TextStyle(
                           fontSize: 16.5,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF101828),
+                          color: AppColors.textDark,
                           letterSpacing: 0.2,
                         ),
                       ),
                       const SizedBox(height: 2),
-                      const Text(
+                      Text(
                         'Thông tin phòng & khách thuê nhận phòng',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF667085),
+                          color: AppColors.textMuted,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -412,7 +413,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, color: Color(0xFF667085)),
+                  icon: Icon(Icons.close_rounded, color: AppColors.textMuted),
                 ),
               ],
             ),
@@ -431,7 +432,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: AppColors.background,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: const Color(0xFFEAECF0)),
                     ),
@@ -440,14 +441,14 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.receipt_long_outlined, size: 18, color: Color(0xFF155EEF)),
+                            Icon(Icons.receipt_long_outlined, size: 18, color: AppColors.primary),
                             const SizedBox(width: 6),
                             Text(
                               'Mã đơn: $_bookingId',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF101828),
+                                color: AppColors.textDark,
                               ),
                             ),
                           ],
@@ -482,7 +483,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                       border: Border.all(color: const Color(0xFFA6F4C5), width: 1.5),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF12B76A).withValues(alpha: 0.06),
+                          color: AppColors.success.withValues(alpha: 0.06),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -520,7 +521,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.surface,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(color: const Color(0xFFD1FADF)),
                           ),
@@ -565,10 +566,10 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                                       color: const Color(0xFFECFDF3),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.check_circle_rounded, size: 13, color: Color(0xFF12B76A)),
+                                        Icon(Icons.check_circle_rounded, size: 13, color: AppColors.success),
                                         SizedBox(width: 4),
                                         Text(
                                           'Hợp lệ',
@@ -597,7 +598,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                         _buildRow(
                           'Giá thuê phòng:',
                           '${currencyFormatter.format(effectivePrice)} đ/tháng',
-                          highlightColor: const Color(0xFF155EEF),
+                          highlightColor: AppColors.primary,
                           isBold: true,
                         ),
                         if (!isFullPayment)
@@ -615,7 +616,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                         _buildRow(
                           'Hình thức trả:',
                           isFullPayment ? 'Trả hết (Toàn bộ tiền phòng)' : 'Đặt cọc giữ phòng',
-                          highlightColor: isFullPayment ? const Color(0xFF7F56D9) : const Color(0xFF155EEF),
+                          highlightColor: isFullPayment ? const Color(0xFF7F56D9) : AppColors.primary,
                         ),
                         _buildRow('Phương thức:', 'Chuyển khoản QR MBBank'),
                       ],
@@ -628,7 +629,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                   _buildSection(
                     title: 'THÔNG TIN PHÒNG TRỌ',
                     icon: Icons.meeting_room_outlined,
-                    iconColor: const Color(0xFF155EEF),
+                    iconColor: AppColors.primary,
                     children: [
                       _buildRow('Tên phòng:', _roomTitle, isBold: true),
                       if (_roomCode.isNotEmpty)
@@ -651,18 +652,18 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'Số điện thoại:',
-                              style: TextStyle(fontSize: 12.5, color: Color(0xFF667085), fontWeight: FontWeight.w500),
+                              style: TextStyle(fontSize: 12.5, color: AppColors.textMuted, fontWeight: FontWeight.w500),
                             ),
                             Row(
                               children: [
                                 Text(
                                   _renterPhone,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF101828),
+                                    color: AppColors.textDark,
                                   ),
                                 ),
                                 if (_renterPhone.isNotEmpty) ...[
@@ -676,10 +677,10 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Row(
-                                        children: const [
-                                          Icon(Icons.phone_in_talk, size: 13, color: Color(0xFF155EEF)),
-                                          SizedBox(width: 4),
-                                          Text('Gọi', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF155EEF))),
+                                        children: [
+                                          Icon(Icons.phone_in_talk, size: 13, color: AppColors.primary),
+                                          const SizedBox(width: 4),
+                                          Text('Gọi', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
                                         ],
                                       ),
                                     ),
@@ -703,7 +704,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF9FAFB),
+                      color: AppColors.background,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: const Color(0xFFEAECF0)),
                     ),
@@ -739,7 +740,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                           style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF155EEF),
+                          backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -761,7 +762,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                           style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF12B76A),
+                          backgroundColor: AppColors.success,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -778,7 +779,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                       child: OutlinedButton(
                         onPressed: _cancelBooking,
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFD92D20),
+                          foregroundColor: AppColors.danger,
                           side: const BorderSide(color: Color(0xFFFDA29B)),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -806,7 +807,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFEAECF0)),
       ),
@@ -853,9 +854,9 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
             width: 120,
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12.5,
-                color: Color(0xFF667085),
+                color: AppColors.textMuted,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -866,7 +867,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
               textAlign: TextAlign.right,
               style: TextStyle(
                 fontSize: 13,
-                color: highlightColor ?? (isBold ? const Color(0xFF101828) : const Color(0xFF344054)),
+                color: highlightColor ?? (isBold ? AppColors.textDark : AppColors.textDark),
                 fontWeight: (isBold || highlightColor != null)
                     ? FontWeight.bold
                     : FontWeight.w500,

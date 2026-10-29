@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../../../core/constants/firestore_collections.dart';
+import '../../../core/services/roommate_capacity_service.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/period_model.dart';
 import '../../../data/models/resident_model.dart';
@@ -499,5 +501,15 @@ class TenantRepository {
     }, SetOptions(merge: true));
 
     await batch.commit();
+
+    try {
+      await RoommateCapacityService(firestore: _firestore).closeHasRoomPostsIfFull(
+        authorId: primaryTenantId,
+        roomId: roomId,
+        knownOccupantIds: [primaryTenantId, newRoommateId],
+      );
+    } catch (error) {
+      debugPrint('Ẩn tin ở ghép khi đủ sức chứa: $error');
+    }
   }
 }

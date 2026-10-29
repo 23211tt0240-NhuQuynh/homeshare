@@ -123,7 +123,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.shield_outlined, color: AppColors.primary, size: 26),
               SizedBox(width: 8),
@@ -162,7 +162,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Gửi báo cáo thất bại. Vui lòng thử lại.'),
           backgroundColor: AppColors.danger,
         ),
@@ -178,9 +178,11 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
     final roomTitle = widget.room?.title.trim() ?? '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Báo cáo chủ trọ'),
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textDark,
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -191,7 +193,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.surface,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: Colors.grey.shade200),
               ),
@@ -202,7 +204,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                     backgroundColor: AppColors.primaryContainer,
                     child: Text(
                       hostName[0].toUpperCase(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: AppColors.primary,
                       ),
@@ -215,7 +217,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                       children: [
                         Text(
                           hostName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
                             color: AppColors.textDark,
@@ -226,7 +228,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                           roomTitle.isEmpty
                               ? 'Báo cáo sẽ được gửi tới Admin'
                               : roomTitle,
-                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                         ),
                       ],
                     ),
@@ -235,19 +237,19 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            const Text(
+            Text(
               'LÝ DO BÁO CÁO (*)',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Có thể chọn nhiều lý do',
               style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
             const SizedBox(height: 8),
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.surface,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: Colors.grey.shade200),
               ),
@@ -290,7 +292,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
             ),
             if (_showOtherField) ...[
               const SizedBox(height: 14),
-              const Text(
+              Text(
                 'LÝ DO KHÁC (*)',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
               ),
@@ -304,7 +306,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                   hintText: 'Nhập lý do khác của bạn...',
                   hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF6B7280)),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: AppColors.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: Colors.grey.shade300),
@@ -319,7 +321,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
             const SizedBox(height: 14),
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
                     'ẢNH MINH CHỨNG (*)',
                     style: TextStyle(
@@ -338,7 +340,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
             ),
             Text(
               'Bắt buộc ít nhất 1 ảnh, tối đa ${HostReportPolicy.maxEvidenceImages} ảnh.',
-              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
             if (_evidenceImages.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -386,7 +388,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
       ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
-        color: Colors.white,
+        color: AppColors.surface,
         child: SafeArea(
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(

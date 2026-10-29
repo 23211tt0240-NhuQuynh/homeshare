@@ -37,6 +37,10 @@ class _CreateRoommatePostScreenState
   final _formKey = GlobalKey<FormState>();
   int _currentStep = 0;
 
+  /// Chữ phụ trên Graphite: #94A3B8 quá tối, dùng slate sáng hơn.
+  Color get _readableMuted =>
+      AppColors.isDark ? const Color(0xFFCBD5E1) : AppColors.textMuted;
+
   // 1. Thông tin người đăng
   final _authorNameController = TextEditingController();
   final _authorAgeController = TextEditingController();
@@ -318,7 +322,7 @@ class _CreateRoommatePostScreenState
     // Không yêu cầu số ký tự tối thiểu, chỉ cần có nhập và không phải khoảng trắng
     if (!formOk || name.isEmpty || ageStr.isEmpty || phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Vui lòng điền thông tin người đăng ở Bước 1!'),
           backgroundColor: AppColors.danger,
           duration: Duration(seconds: 2),
@@ -344,7 +348,7 @@ class _CreateRoommatePostScreenState
         address.isEmpty ||
         desc.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Vui lòng điền thông tin bài đăng ở Bước 2!'),
           backgroundColor: AppColors.danger,
           duration: Duration(seconds: 2),
@@ -368,7 +372,7 @@ class _CreateRoommatePostScreenState
 
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Vui lòng đăng nhập trước khi đăng bài tìm ở ghép!'),
           backgroundColor: AppColors.danger,
         ),
@@ -397,7 +401,7 @@ class _CreateRoommatePostScreenState
         isHost || bookings.any((b) => b.isActive || b.isApproved);
     if (_hasRoom && !hasRealRoom) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
             'Bạn hiện chưa có phòng đang thuê trên hệ thống nên không thể đăng tin "Đã có phòng".',
           ),
@@ -635,25 +639,26 @@ class _CreateRoommatePostScreenState
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Đăng tin tìm ở ghép',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 17,
-            color: Color(0xFF0F172A),
+            color: AppColors.textDark,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textDark,
         elevation: 0,
         centerTitle: false,
         actions: [
           if (_currentStep == 0)
             TextButton.icon(
               onPressed: _syncFromProfile,
-              icon: const Icon(Icons.sync, size: 16, color: AppColors.primary),
-              label: const Text(
+              icon: Icon(Icons.sync, size: 16, color: AppColors.primary),
+              label: Text(
                 'Đồng bộ',
                 style: TextStyle(
                   color: AppColors.primary,
@@ -694,7 +699,7 @@ class _CreateRoommatePostScreenState
     final steps = ['Hồ sơ', 'Phòng & Giá', 'Lối sống & Ảnh'];
 
     return Container(
-      color: Colors.white,
+      color: AppColors.surface,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       child: Row(
         children: List.generate(steps.length, (idx) {
@@ -733,8 +738,8 @@ class _CreateRoommatePostScreenState
                             ? FontWeight.bold
                             : FontWeight.w500,
                         color: isCurrent
-                            ? const Color(0xFF0F172A)
-                            : const Color(0xFF64748B),
+                            ? AppColors.textDark
+                            : _readableMuted,
                       ),
                     ),
                   ),
@@ -746,7 +751,7 @@ class _CreateRoommatePostScreenState
                       margin: const EdgeInsets.symmetric(horizontal: 6),
                       color: isPassed
                           ? AppColors.primary
-                          : const Color(0xFFE2E8F0),
+                          : AppColors.border,
                     ),
                   ),
               ],
@@ -822,11 +827,12 @@ class _CreateRoommatePostScreenState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Giới tính *',
                         style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -1062,9 +1068,13 @@ class _CreateRoommatePostScreenState
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Tỉnh / Thành phố *',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
@@ -1090,7 +1100,7 @@ class _CreateRoommatePostScreenState
                           alignment: Alignment.centerLeft,
                           child: Text(
                             p,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               color: AppColors.textPrimary,
                             ),
@@ -1129,11 +1139,12 @@ class _CreateRoommatePostScreenState
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Quận / Huyện *',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -1162,7 +1173,7 @@ class _CreateRoommatePostScreenState
                           alignment: Alignment.centerLeft,
                           child: Text(
                             d,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               color: AppColors.textPrimary,
                             ),
@@ -1192,11 +1203,12 @@ class _CreateRoommatePostScreenState
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Phường / Xã',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -1225,7 +1237,7 @@ class _CreateRoommatePostScreenState
                           alignment: Alignment.centerLeft,
                           child: Text(
                             w,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               color: AppColors.textPrimary,
                             ),
@@ -1245,11 +1257,12 @@ class _CreateRoommatePostScreenState
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Loại hình nhà ở *',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -1273,7 +1286,7 @@ class _CreateRoommatePostScreenState
                           alignment: Alignment.centerLeft,
                           child: Text(
                             t,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               color: AppColors.textPrimary,
                             ),
@@ -1295,11 +1308,12 @@ class _CreateRoommatePostScreenState
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Giới tính tìm kiếm *',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -1323,7 +1337,7 @@ class _CreateRoommatePostScreenState
                           alignment: Alignment.centerLeft,
                           child: Text(
                             g,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               color: AppColors.textPrimary,
                             ),
@@ -1409,28 +1423,34 @@ class _CreateRoommatePostScreenState
                         }
                       : null,
                   deleteIcon: isCustom
-                      ? const Icon(
+                      ? Icon(
                           Icons.close_rounded,
                           size: 14,
-                          color: Color(0xFF64748B),
+                          color: AppColors.textMuted,
                         )
                       : null,
-                  selectedColor: AppColors.primarySurface,
-                  checkmarkColor: AppColors.primary,
-                  backgroundColor: const Color(0xFFF1F5F9),
+                  selectedColor: AppColors.isDark
+                      ? AppColors.success
+                      : AppColors.primarySurface,
+                  checkmarkColor: AppColors.isDark
+                      ? AppColors.textDark
+                      : AppColors.primary,
+                  backgroundColor: AppColors.surfaceVariant,
                   labelStyle: TextStyle(
                     fontSize: 12,
                     color: isSelected
-                        ? AppColors.primaryDark
-                        : const Color(0xFF334155),
+                        ? (AppColors.isDark
+                            ? AppColors.textDark
+                            : AppColors.primaryDark)
+                        : AppColors.textDark,
                     fontWeight: isSelected
                         ? FontWeight.bold
-                        : FontWeight.normal,
+                        : FontWeight.w600,
                   ),
                   side: BorderSide(
                     color: isSelected
                         ? AppColors.primary.withValues(alpha: 0.3)
-                        : const Color(0xFFE2E8F0),
+                        : AppColors.border,
                   ),
                 );
               }).toList(),
@@ -1439,19 +1459,19 @@ class _CreateRoommatePostScreenState
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: AppColors.background,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: AppColors.border),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Nhập tiêu chí sinh hoạt cho người muốn thêm:',
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF334155),
+                      color: AppColors.textDark,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1592,7 +1612,7 @@ class _CreateRoommatePostScreenState
   // Action buttons
   Widget _buildBottomActionBar() {
     return Container(
-      color: Colors.white,
+      color: AppColors.surface,
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
@@ -1665,9 +1685,9 @@ class _CreateRoommatePostScreenState
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1680,10 +1700,10 @@ class _CreateRoommatePostScreenState
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
+                    color: AppColors.textDark,
                   ),
                 ),
               ),
@@ -1692,9 +1712,9 @@ class _CreateRoommatePostScreenState
           const SizedBox(height: 2),
           Text(
             subtitle,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            style: TextStyle(fontSize: 12, color: _readableMuted),
           ),
-          const Divider(height: 20, color: Color(0xFFF1F5F9)),
+          Divider(height: 20, color: AppColors.surfaceVariant),
           ...children,
         ],
       ),
@@ -1710,17 +1730,25 @@ class _CreateRoommatePostScreenState
     required VoidCallback onTap,
   }) {
     final effectiveColor = !isEnabled
-        ? const Color(0xFFF1F5F9)
-        : (isSelected ? AppColors.primarySurface : Colors.white);
+        ? AppColors.surfaceVariant
+        : (isSelected
+            ? (AppColors.isDark
+                ? const Color(0xFF166534)
+                : AppColors.primarySurface)
+            : AppColors.surface);
     final borderColor = !isEnabled
-        ? const Color(0xFFE2E8F0)
-        : (isSelected ? AppColors.primary : const Color(0xFFCBD5E1));
+        ? AppColors.border
+        : (isSelected ? AppColors.primary : Color(0xFFCBD5E1));
     final textColor = !isEnabled
-        ? const Color(0xFF94A3B8)
-        : (isSelected ? AppColors.primary : const Color(0xFF0F172A));
+        ? _readableMuted
+        : (isSelected
+            ? (AppColors.isDark ? const Color(0xFF86EFAC) : AppColors.primary)
+            : AppColors.textDark);
     final subTextColor = !isEnabled
-        ? const Color(0xFFA0AEC0)
-        : (isSelected ? AppColors.primary : const Color(0xFF64748B));
+        ? _readableMuted
+        : (isSelected
+            ? (AppColors.isDark ? const Color(0xFFBBF7D0) : AppColors.primary)
+            : _readableMuted);
 
     return InkWell(
       onTap: onTap,
@@ -1738,10 +1766,10 @@ class _CreateRoommatePostScreenState
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (!isEnabled) ...[
-                  const Icon(
+                  Icon(
                     Icons.lock_outline,
                     size: 14,
-                    color: Color(0xFF94A3B8),
+                    color: AppColors.textMuted,
                   ),
                   const SizedBox(width: 4),
                 ],
@@ -1798,10 +1826,10 @@ class _CreateRoommatePostScreenState
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF334155),
+            color: AppColors.textDark,
           ),
         ),
         const SizedBox(height: 6),
@@ -1820,32 +1848,32 @@ class _CreateRoommatePostScreenState
   InputDecoration _inputDecoration({String? hint}) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
+      hintStyle: TextStyle(fontSize: 12.5, color: _readableMuted),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       isDense: true,
       filled: true,
-      fillColor: const Color(0xFFF8FAFC),
+      fillColor: AppColors.background,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        borderSide: BorderSide(color: AppColors.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        borderSide: BorderSide(color: AppColors.primary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.danger, width: 1.2),
+        borderSide: BorderSide(color: AppColors.danger, width: 1.2),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.danger, width: 1.5),
+        borderSide: BorderSide(color: AppColors.danger, width: 1.5),
       ),
-      errorStyle: const TextStyle(
+      errorStyle: TextStyle(
         fontSize: 11,
         color: AppColors.danger,
         height: 1.2,

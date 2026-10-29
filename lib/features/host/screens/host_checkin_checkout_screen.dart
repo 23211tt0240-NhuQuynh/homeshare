@@ -1,3 +1,4 @@
+import '../../../core/constants/app_colors.dart';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -306,7 +307,7 @@ class _HostCheckinCheckoutScreenState
             content: Text(
               'Nhận diện trả phòng: P.${matchedItem.roomCode} - ${matchedItem.renterName}',
             ),
-            backgroundColor: const Color(0xFF16A34A),
+            backgroundColor: AppColors.success,
           ),
         );
         _showCheckoutDialog(matchedItem);
@@ -316,7 +317,7 @@ class _HostCheckinCheckoutScreenState
             content: Text(
               'Mã QR "$rawTrimmed" không nằm trong danh sách phòng chờ trả phòng.',
             ),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppColors.danger,
           ),
         );
       }
@@ -358,10 +359,10 @@ class _HostCheckinCheckoutScreenState
                     children: [
                       Text(
                         'Chốt trả phòng P.${item.roomCode}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF0F172A),
+                          color: AppColors.textDark,
                         ),
                       ),
                       IconButton(
@@ -375,28 +376,28 @@ class _HostCheckinCheckoutScreenState
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: AppColors.background,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      border: Border.all(color: AppColors.border),
                     ),
                     child: Column(
                       children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'Tiền cọc ban đầu:',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Color(0xFF64748B),
+                                color: AppColors.textMuted,
                               ),
                             ),
                             Text(
                               '${NumberFormat.decimalPattern('vi').format(item.deposit)} đ',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF0F172A),
+                                color: AppColors.textDark,
                               ),
                             ),
                           ],
@@ -405,19 +406,19 @@ class _HostCheckinCheckoutScreenState
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'Khoản khấu trừ:',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Color(0xFFDC2626),
+                                color: AppColors.danger,
                               ),
                             ),
                             Text(
                               '- ${NumberFormat.decimalPattern('vi').format(currentDeduction)} đ',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFFDC2626),
+                                color: AppColors.danger,
                               ),
                             ),
                           ],
@@ -426,12 +427,12 @@ class _HostCheckinCheckoutScreenState
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'Tiền hoàn cọc thực tế:',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF0F172A),
+                                color: AppColors.textDark,
                               ),
                             ),
                             Text(
@@ -472,7 +473,7 @@ class _HostCheckinCheckoutScreenState
                   const SizedBox(height: 16),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFDC2626),
+                      backgroundColor: AppColors.danger,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -493,9 +494,9 @@ class _HostCheckinCheckoutScreenState
                             );
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text('Đã hoàn tất check-out phòng!'),
-                              backgroundColor: Color(0xFF16A34A),
+                              backgroundColor: AppColors.success,
                             ),
                           );
                         }
@@ -536,14 +537,14 @@ class _HostCheckinCheckoutScreenState
         checkoutItemsAsync.value?.where((i) => !i.isCompleted).length ?? 2;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
             // Header
             Container(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              color: Colors.white,
+              color: AppColors.surface,
               child: Row(
                 children: [
                   InkWell(
@@ -553,31 +554,31 @@ class _HostCheckinCheckoutScreenState
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
+                        color: AppColors.primaryContainer,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.menu,
-                        color: Color(0xFF2563EB),
+                        color: AppColors.primary,
                         size: 24,
                       ),
                     ),
                   ),
                   const SizedBox(width: 14),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Quản lý Check in & Check Out',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F172A),
+                        color: AppColors.textDark,
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            Divider(height: 1, color: AppColors.border),
 
             Expanded(
               child: ListView(
@@ -652,10 +653,10 @@ class _HostCheckinCheckoutScreenState
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: AppColors.surface,
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
@@ -663,14 +664,14 @@ class _HostCheckinCheckoutScreenState
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFF2563EB),
+                                    color: AppColors.primary,
                                   ),
                                 ),
                                 SizedBox(width: 4),
                                 Icon(
                                   Icons.chevron_right,
                                   size: 16,
-                                  color: Color(0xFF2563EB),
+                                  color: AppColors.primary,
                                 ),
                               ],
                             ),
@@ -685,7 +686,7 @@ class _HostCheckinCheckoutScreenState
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE2E8F0),
+                      color: AppColors.border,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Row(
@@ -758,8 +759,8 @@ class _HostCheckinCheckoutScreenState
                 fontSize: 14,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                 color: isSelected
-                    ? const Color(0xFF2563EB)
-                    : const Color(0xFF64748B),
+                    ? AppColors.primary
+                    : AppColors.textMuted,
               ),
             ),
             const SizedBox(width: 6),
@@ -767,8 +768,8 @@ class _HostCheckinCheckoutScreenState
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? const Color(0xFF2563EB)
-                    : const Color(0xFFCBD5E1),
+                    ? AppColors.primary
+                    : AppColors.border,
                 shape: BoxShape.circle,
               ),
               child: Text(
@@ -810,13 +811,13 @@ class _HostCheckinCheckoutScreenState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Flexible(
+                  Flexible(
                     child: Text(
                       'DANH SÁCH CẦN XỬ LÝ',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF475569),
+                        color: AppColors.textMuted,
                         letterSpacing: 0.5,
                       ),
                       maxLines: 1,
@@ -826,9 +827,9 @@ class _HostCheckinCheckoutScreenState
                   const SizedBox(width: 8),
                   Text(
                     '${pending.length} phòng liên quan',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF64748B),
+                      color: AppColors.textMuted,
                     ),
                   ),
                 ],
@@ -854,12 +855,12 @@ class _HostCheckinCheckoutScreenState
             ],
             if (completed.isNotEmpty) ...[
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'PHÒNG ĐÃ HOÀN TẤT',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF475569),
+                  color: AppColors.textMuted,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -922,13 +923,13 @@ class _HostCheckinCheckoutScreenState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Flexible(
+                  Flexible(
                     child: Text(
                       'DANH SÁCH CẦN XỬ LÝ',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF475569),
+                        color: AppColors.textMuted,
                         letterSpacing: 0.5,
                       ),
                       maxLines: 1,
@@ -938,9 +939,9 @@ class _HostCheckinCheckoutScreenState
                   const SizedBox(width: 8),
                   Text(
                     '${pending.length} phòng liên quan',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF64748B),
+                      color: AppColors.textMuted,
                     ),
                   ),
                 ],
@@ -956,12 +957,12 @@ class _HostCheckinCheckoutScreenState
             ],
             if (completed.isNotEmpty) ...[
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'PHÒNG ĐÃ HOÀN TẤT',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF475569),
+                  color: AppColors.textMuted,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -1013,26 +1014,26 @@ class _HostCheckinCheckoutScreenState
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 36, color: const Color(0xFF64748B)),
+            child: Icon(icon, size: 36, color: AppColors.textMuted),
           ),
           const SizedBox(height: 16),
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1E293B),
+              color: AppColors.textDark,
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 6),
           Text(
             subtitle,
-            style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            style: TextStyle(fontSize: 13, color: AppColors.textMuted),
             textAlign: TextAlign.center,
           ),
         ],

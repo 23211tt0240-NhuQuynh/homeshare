@@ -136,7 +136,7 @@ class _HostRoomListScreenState extends ConsumerState<HostRoomListScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             '▦ Quản lý cơ sở',
                             style: TextStyle(
                               fontSize: 11,
@@ -171,7 +171,7 @@ class _HostRoomListScreenState extends ConsumerState<HostRoomListScreen> {
                         property.fullAddress,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
                         ),
@@ -230,7 +230,7 @@ class _HostRoomListScreenState extends ConsumerState<HostRoomListScreen> {
       );
     }
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FF),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: Row(
@@ -245,7 +245,7 @@ class _HostRoomListScreenState extends ConsumerState<HostRoomListScreen> {
               child: const Icon(Icons.home, color: Colors.white, size: 22),
             ),
             const SizedBox(width: 10),
-            const Text(
+            Text(
               'HomeShare',
               style: TextStyle(
                 fontSize: 20,
@@ -274,7 +274,7 @@ class _HostRoomListScreenState extends ConsumerState<HostRoomListScreen> {
     key: ValueKey('room_filter_$value'),
     selected: _filter == value,
     selectedColor: AppColors.primary,
-    backgroundColor: const Color(0xFFEDF2FF),
+    backgroundColor: AppColors.primaryContainer,
     showCheckmark: false,
     label: Text(
       '$label  $count',
@@ -292,7 +292,7 @@ class _HostRoomListScreenState extends ConsumerState<HostRoomListScreen> {
   Widget _roomCard(RoomModel room) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
     child: Material(
-      color: Colors.white,
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         key: ValueKey('host_room_${room.id}'),
@@ -350,7 +350,7 @@ class _HostRoomListScreenState extends ConsumerState<HostRoomListScreen> {
                     if (room.id.isNotEmpty)
                       Text(
                         'Mã: ${room.id}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           color: AppColors.textSecondary,
                         ),
@@ -371,7 +371,7 @@ class _HostRoomListScreenState extends ConsumerState<HostRoomListScreen> {
                           ),
                           TextSpan(
                             text: ' /tháng  • ${room.area} m²',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary,
                             ),
@@ -382,7 +382,7 @@ class _HostRoomListScreenState extends ConsumerState<HostRoomListScreen> {
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right,
                 size: 20,
                 color: AppColors.textSecondary,
@@ -397,7 +397,7 @@ class _HostRoomListScreenState extends ConsumerState<HostRoomListScreen> {
   // Chủ trọ - Bottom nav cơ sở - Luồng đi: Dấu cộng tạo phòng thuộc
   // nhà hiện tại; Quay lại/Thông tin chung về quản lý nhà, tab khác báo tạm.
   Widget _navigation(bool canCreate) => Container(
-    color: Colors.white,
+    color: AppColors.surface,
     child: SafeArea(
       top: false,
       child: Padding(

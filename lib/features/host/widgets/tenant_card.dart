@@ -1,3 +1,4 @@
+import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../repositories/tenant_repository.dart';
@@ -93,13 +94,13 @@ class TenantCard extends StatelessWidget {
               top: 2,
               child: CircleAvatar(
                 radius: 17,
-                backgroundColor: const Color(0xFFDBEAFE),
+                backgroundColor: AppColors.primaryContainer,
                 child: Text(
                   initial1,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1D4ED8),
+                    color: AppColors.primaryDark,
                   ),
                 ),
               ),
@@ -114,7 +115,7 @@ class TenantCard extends StatelessWidget {
                 ),
                 child: CircleAvatar(
                   radius: 16,
-                  backgroundColor: const Color(0xFFBAE6FD),
+                  backgroundColor: AppColors.primaryContainer,
                   child: Text(
                     initial2,
                     style: const TextStyle(
@@ -156,9 +157,9 @@ class TenantCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0A000000),
@@ -192,10 +193,10 @@ class TenantCard extends StatelessWidget {
                               Flexible(
                                 child: Text(
                                   tenant.displayName,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFF0F172A),
+                                    color: AppColors.textDark,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -209,15 +210,15 @@ class TenantCard extends StatelessWidget {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
+                                    color: AppColors.surfaceVariant,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
                                     '${tenant.memberCount} người',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF475569),
+                                      color: AppColors.textMuted,
                                     ),
                                   ),
                                 ),
@@ -229,9 +230,9 @@ class TenantCard extends StatelessWidget {
                             tenant.phone.isNotEmpty
                                 ? tenant.phone
                                 : 'Chưa cập nhật SĐT',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
-                              color: Color(0xFF64748B),
+                              color: AppColors.textMuted,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -241,7 +242,7 @@ class TenantCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 14),
-                const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                Divider(height: 1, color: AppColors.surfaceVariant),
                 const SizedBox(height: 12),
                 // Hàng 2: Phòng & Nhà trọ + Nút Gọi & SMS
                 Row(
@@ -250,18 +251,18 @@ class TenantCard extends StatelessWidget {
                     Expanded(
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.meeting_room_outlined,
                             size: 17,
-                            color: Color(0xFF64748B),
+                            color: AppColors.textMuted,
                           ),
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(
                               '${tenant.roomName} • ${tenant.propertyName}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
-                                color: Color(0xFF475569),
+                                color: AppColors.textMuted,
                                 fontWeight: FontWeight.w500,
                               ),
                               maxLines: 1,
@@ -282,16 +283,16 @@ class TenantCard extends StatelessWidget {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
+                          color: AppColors.primaryContainer,
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.phone,
                               size: 15,
-                              color: Color(0xFF2563EB),
+                              color: AppColors.primary,
                             ),
                             SizedBox(width: 4),
                             Text(
@@ -299,7 +300,7 @@ class TenantCard extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF2563EB),
+                                color: AppColors.primary,
                               ),
                             ),
                           ],
@@ -317,16 +318,16 @@ class TenantCard extends StatelessWidget {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
+                          color: AppColors.primaryContainer,
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.chat_bubble_outline,
                               size: 15,
-                              color: Color(0xFF2563EB),
+                              color: AppColors.primary,
                             ),
                             SizedBox(width: 4),
                             Text(
@@ -334,7 +335,7 @@ class TenantCard extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF2563EB),
+                                color: AppColors.primary,
                               ),
                             ),
                           ],

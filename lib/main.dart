@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
+import 'core/constants/app_colors.dart';
 import 'core/services/call_push_service.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/app_theme_controller.dart';
 import 'features/admin/screens/admin_main_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/providers/user_provider.dart';
@@ -26,17 +28,27 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeState = ref.watch(appThemeControllerProvider).value;
     return MaterialApp(
       title: 'HomeShare',
       debugShowCheckedModeBanner: false,
       // Để thông báo cuộc gọi mở IncomingCallScreen dù người dùng đang ở trang nào.
       navigatorKey: navigatorKey,
       theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeState?.mode ?? ThemeMode.light,
+      builder: (context, child) {
+        AppColors.bind(Theme.of(context).brightness);
+        return DefaultTextStyle.merge(
+          style: TextStyle(color: AppColors.textDark),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: const AuthGate(),
     );
   }
@@ -118,9 +130,9 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
         }
         return const RenterMainScreen();
       },
-      loading: () => const Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(
+      loading: () => Scaffold(
+        backgroundColor: AppColors.background,
+        body: const Center(
           child: CircularProgressIndicator(),
         ),
       ),

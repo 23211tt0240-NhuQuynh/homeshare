@@ -45,7 +45,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     if (!_agreeToTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
             'Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách của HomeShare.',
           ),
@@ -107,22 +107,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(
           'Tạo tài khoản',
           style: PhongSangText.roomName.copyWith(
             fontSize: 19,
             fontWeight: FontWeight.w700,
-            color: const Color(0xFF0F172A),
+            color: AppColors.textDark,
           ),
         ),
-        backgroundColor: const Color(0xFFF8FAFC),
+        backgroundColor: AppColors.background,
         elevation: 0,
         scrolledUnderElevation: 0,
         titleSpacing: 4,
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios_new_rounded,
             color: AppColors.textDark,
             size: 20,
@@ -149,7 +149,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       style: PhongSangText.screenTitle.copyWith(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF0F172A),
+                        color: AppColors.textDark,
                         letterSpacing: -0.4,
                       ),
                     ),
@@ -158,14 +158,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       'Chọn vai trò để bắt đầu cùng HomeShare.',
                       style: PhongSangText.body.copyWith(
                         fontSize: 14,
-                        color: const Color(0xFF64748B),
+                        color: AppColors.textMuted,
                       ),
                     ),
                     const SizedBox(height: 18),
                     Text(
                       'BẠN THAM GIA VỚI VAI TRÒ NÀO?',
                       style: PhongSangText.label(
-                        color: const Color(0xFF64748B),
+                        color: AppColors.textMuted,
                         fontSize: 12.5,
                       ),
                     ),
@@ -343,6 +343,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                     style: PhongSangText.body.copyWith(
                                       fontSize: 15,
                                       height: 1.4,
+                                      color: AppColors.textMuted,
                                     ),
                                   ),
                                 ),
@@ -392,14 +393,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       children: [
                         Text(
                           'Đã có tài khoản? ',
-                          style: PhongSangText.body.copyWith(fontSize: 16),
+                          style: PhongSangText.body.copyWith(
+                            fontSize: 16,
+                            color: AppColors.textMuted,
+                          ),
                         ),
                         GestureDetector(
                           onTap: () => Navigator.pop(context),
                           child: Text(
                             'Đăng nhập ngay',
                             style: PhongSangText.label(
-                              color: PhongSangColors.accent,
+                              color: AppColors.primary,
                               fontSize: 16,
                             ),
                           ),
@@ -445,7 +449,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.primaryContainer.withValues(alpha: 0.3)
-              : Colors.white,
+              : AppColors.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.border,

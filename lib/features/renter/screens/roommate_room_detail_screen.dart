@@ -285,8 +285,8 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: Container(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
@@ -303,7 +303,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
               const SizedBox(height: 16),
               const Text('Yêu cầu ghép nối', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'Lời nhắn này mở cuộc trò chuyện với người đăng phòng. Chưa ghi thành đơn riêng trên Firestore.',
                 style: TextStyle(fontSize: 15, color: AppColors.textSecondary, height: 1.4),
               ),
@@ -314,7 +314,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: AppColors.background,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
                 ),
               ),
               const SizedBox(height: 14),
@@ -354,7 +354,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        title: const Text(
+        title: Text(
           'Chi Tiết Phòng Ở ghép',
           style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: AppColors.textDark),
         ),
@@ -367,7 +367,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
               backgroundImage: (profile?.avatarUrl.startsWith('http') == true) ? NetworkImage(profile!.avatarUrl) : null,
               child: profile?.avatarUrl.startsWith('http') == true
                   ? null
-                  : const Icon(Icons.person, size: 18, color: AppColors.primary),
+                  : Icon(Icons.person, size: 18, color: AppColors.primary),
             ),
           ),
         ],
@@ -386,20 +386,20 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
           // Chỉ còn thời điểm đăng. Địa chỉ nằm một lần, ngay dưới tiêu đề.
           Text(
             _timeAgo(_createdAt),
-            style: const TextStyle(fontSize: 14.5, color: AppColors.textMuted),
+            style: TextStyle(fontSize: 14.5, color: AppColors.textMuted),
           ),
           const SizedBox(height: 16),
-          Text(_title, style: const TextStyle(fontSize: 24, height: 1.25, fontWeight: FontWeight.w800, color: AppColors.textDark)),
+          Text(_title, style: TextStyle(fontSize: 24, height: 1.25, fontWeight: FontWeight.w800, color: AppColors.textDark)),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 2),
                 child: Icon(Icons.location_on_outlined, size: 16, color: AppColors.textMuted),
               ),
               const SizedBox(width: 4),
-              Expanded(child: Text(_displayedAddress, style: const TextStyle(fontSize: 15.5, color: AppColors.textSecondary, height: 1.35))),
+              Expanded(child: Text(_displayedAddress, style: TextStyle(fontSize: 15.5, color: AppColors.textSecondary, height: 1.35))),
             ],
           ),
           const SizedBox(height: 14),
@@ -415,10 +415,10 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
           const SizedBox(height: 22),
           const Text('Tiêu chí Thói quen & Sở thích', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
-          const Text('Xem mức độ hòa hợp giữa bạn và người đăng', style: TextStyle(fontSize: 15, color: AppColors.textSecondary)),
+          Text('Xem mức độ hòa hợp giữa bạn và người đăng', style: TextStyle(fontSize: 15, color: AppColors.textSecondary)),
           const SizedBox(height: 10),
           if (_habits.isEmpty)
-            const Text('Người đăng chưa thêm thói quen.', style: TextStyle(fontSize: 15, color: AppColors.textSecondary))
+            Text('Người đăng chưa thêm thói quen.', style: TextStyle(fontSize: 15, color: AppColors.textSecondary))
           else
             ..._habits.map(_habitTile),
           const SizedBox(height: 18),
@@ -454,8 +454,8 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
       return Container(
         height: 280,
         alignment: Alignment.center,
-        decoration: BoxDecoration(color: const Color(0xFFE4E7EC), borderRadius: BorderRadius.circular(18)),
-        child: const Text('Bài này chưa có ảnh', style: TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+        decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(18)),
+        child: Text('Bài này chưa có ảnh', style: TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.w600)),
       );
     }
     return Column(
@@ -481,10 +481,28 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
           spacing: 6,
           runSpacing: 6,
           children: [
-            _pill(_statusLabel, const Color(0xFFE8F8EF), const Color(0xFF067647)),
-            _pill(_seekLabel, const Color(0xFFFFF1F3), const Color(0xFFE11D48), icon: Icons.female_rounded),
-            _pill(_verifiedLabel, const Color(0xFF101828), Colors.white, icon: Icons.verified_rounded),
-            _pill('${_photoIndex + 1}/${photos.length} ảnh thực tế', const Color(0xFF101828), Colors.white),
+            _pill(
+              _statusLabel,
+              AppColors.isDark ? const Color(0xFF14532D) : const Color(0xFFE8F8EF),
+              AppColors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF067647),
+            ),
+            _pill(
+              _seekLabel,
+              AppColors.isDark ? const Color(0xFF4C0519) : const Color(0xFFFFF1F3),
+              AppColors.isDark ? const Color(0xFFFDA4AF) : const Color(0xFFE11D48),
+              icon: Icons.female_rounded,
+            ),
+            _pill(
+              _verifiedLabel,
+              AppColors.surfaceVariant,
+              AppColors.textDark,
+              icon: Icons.verified_rounded,
+            ),
+            _pill(
+              '${_photoIndex + 1}/${photos.length} ảnh thực tế',
+              AppColors.surfaceVariant,
+              AppColors.textDark,
+            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -537,12 +555,12 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
           children: [
             CircleAvatar(
               radius: 24,
-              backgroundColor: const Color(0xFFE8F0FE),
+              backgroundColor: AppColors.primaryContainer,
               backgroundImage: _avatarProvider(_peerAvatar),
               child: _avatarProvider(_peerAvatar) == null
                   ? Text(
                       _posterName.isNotEmpty ? _posterName[0].toUpperCase() : '?',
-                      style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary),
+                      style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary),
                     )
                   : null,
             ),
@@ -574,15 +592,15 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
                     child: Text(_posterName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
                   ),
                   const SizedBox(width: 6),
-                  if (_ageLabel.isNotEmpty) Text(_ageLabel, style: const TextStyle(color: AppColors.textMuted, fontSize: 15)),
+                  if (_ageLabel.isNotEmpty) Text(_ageLabel, style: TextStyle(color: AppColors.textMuted, fontSize: 15)),
                 ],
               ),
               const SizedBox(height: 2),
               Row(
                 children: [
-                  const Icon(Icons.school_outlined, size: 14, color: AppColors.textMuted),
+                  Icon(Icons.school_outlined, size: 14, color: AppColors.textMuted),
                   const SizedBox(width: 4),
-                  Expanded(child: Text(_occupation, style: const TextStyle(fontSize: 14.5, color: AppColors.textSecondary))),
+                  Expanded(child: Text(_occupation, style: TextStyle(fontSize: 14.5, color: AppColors.textSecondary))),
                 ],
               ),
               Row(
@@ -610,19 +628,19 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
   /// Thẻ độ tương thích. Phần trăm lấy từ `matchRate`. Ba chip lối sống vẫn là chữ cố định.
   Widget _matchCard() {
     return _infoCard(
-      color: const Color(0xFFF3F7FF),
+      color: AppColors.isDark ? AppColors.primaryContainer : const Color(0xFFF3F7FF),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_awesome, color: AppColors.primary, size: 18),
+              Icon(Icons.auto_awesome, color: AppColors.primary, size: 18),
               const SizedBox(width: 6),
-              Text('$_matchRate%', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.primary)),
+              Text('$_matchRate%', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.isDark ? AppColors.textDark : AppColors.primary)),
               SizedBox(width: 8),
-              const Text('Tương\nthích', style: TextStyle(fontWeight: FontWeight.w700, height: 1.15)),
+              Text('Tương\nthích', style: TextStyle(fontWeight: FontWeight.w700, height: 1.15, color: AppColors.textDark)),
               const Spacer(),
-              const Text('Dựa trên lối sống\n& thói quen', textAlign: TextAlign.right, style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+              Text('Dựa trên lối sống\n& thói quen', textAlign: TextAlign.right, style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
             ],
           ),
         ],
@@ -631,14 +649,14 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
   }
 
   /// Khung thẻ trắng bo góc cho người đăng và độ tương thích.
-  Widget _infoCard({required Widget child, Color color = Colors.white}) {
+  Widget _infoCard({required Widget child, Color? color}) {
     return Card(
       margin: EdgeInsets.zero,
       elevation: 0,
-      color: color,
+      color: color ?? AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppColors.border),
+        side: BorderSide(color: AppColors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -660,20 +678,20 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('TIỀN PHÒNG MỖI NGƯỜI', style: TextStyle(fontSize: 13, letterSpacing: 0.4, color: AppColors.textMuted, fontWeight: FontWeight.w700)),
+          Text('TIỀN PHÒNG MỖI NGƯỜI', style: TextStyle(fontSize: 13, letterSpacing: 0.4, color: AppColors.textMuted, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           Text.rich(
             TextSpan(
               text: _money(_priceEach),
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.primary),
-              children: const [
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.primary),
+              children: [
                 TextSpan(text: ' / người / tháng', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.textMuted)),
               ],
             ),
           ),
           if (_post.hasRoom) ...[
             const SizedBox(height: 12),
-            const Divider(height: 1, color: AppColors.border),
+            Divider(height: 1, color: AppColors.border),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -700,15 +718,27 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
     );
   }
 
-  Widget _priceMeta(String label, String value, String extra, {Color valueColor = AppColors.textDark}) {
+  Widget _priceMeta(String label, String value, String extra, {Color? valueColor}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 14, color: AppColors.textMuted)),
+        Text(label, style: TextStyle(fontSize: 14, color: AppColors.textMuted)),
         const SizedBox(height: 2),
-        Text(value, style: TextStyle(fontWeight: FontWeight.w800, color: valueColor)),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: valueColor ?? AppColors.textDark,
+          ),
+        ),
         if (extra.isNotEmpty)
-          Text(extra, style: TextStyle(fontWeight: FontWeight.w700, color: valueColor)),
+          Text(
+            extra,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: valueColor ?? AppColors.textDark,
+            ),
+          ),
       ],
     );
   }
@@ -735,7 +765,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.receipt_long_rounded, size: 18, color: AppColors.primary),
               SizedBox(width: 8),
@@ -744,7 +774,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
           ),
           const SizedBox(height: 8),
           if (rows.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
                 'Phòng này chưa có khoản phí phát sinh trên hệ thống.',
@@ -758,7 +788,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('•  ', style: TextStyle(color: AppColors.textMuted)),
+                    Text('•  ', style: TextStyle(color: AppColors.textMuted)),
                     Expanded(child: Text(row.$1, style: const TextStyle(fontSize: 15, height: 1.3))),
                     const SizedBox(width: 8),
                     Text(row.$2, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
@@ -798,7 +828,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
         children: [
           Icon(icon, color: AppColors.primary, size: 20),
           const SizedBox(height: 8),
-          Text(label, style: const TextStyle(fontSize: 13, color: AppColors.textMuted)),
+          Text(label, style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
           const SizedBox(height: 2),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w800, height: 1.2)),
         ],
@@ -821,7 +851,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
               children: [
                 Text(item.tag, style: const TextStyle(fontWeight: FontWeight.w800)),
                 if (item.detail.isNotEmpty)
-                  Text(item.detail, style: const TextStyle(fontSize: 14.5, color: AppColors.textSecondary)),
+                  Text(item.detail, style: TextStyle(fontSize: 14.5, color: AppColors.textSecondary)),
               ],
             ),
           ),
@@ -842,13 +872,13 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
         children: [
           Row(
             children: [
-              const Text('“', style: TextStyle(fontSize: 28, height: 1, color: AppColors.primary, fontWeight: FontWeight.w800)),
+              Text('“', style: TextStyle(fontSize: 28, height: 1, color: AppColors.primary, fontWeight: FontWeight.w800)),
               const SizedBox(width: 6),
               Expanded(child: Text('Lời nhắn từ $_posterName', style: const TextStyle(fontWeight: FontWeight.w800))),
             ],
           ),
           const SizedBox(height: 8),
-          Text(_message, style: const TextStyle(fontSize: 16, height: 1.5, color: AppColors.textSecondary)),
+          Text(_message, style: TextStyle(fontSize: 16, height: 1.5, color: AppColors.textSecondary)),
         ],
       ),
     );
@@ -911,12 +941,12 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Chi phí ở ghép', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
+                Text('Chi phí ở ghép', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
                 Text.rich(
                   TextSpan(
                     text: _shortMoney(_priceEach),
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                    children: const [
+                    children: [
                       TextSpan(text: '/tháng', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textMuted)),
                     ],
                   ),
@@ -929,7 +959,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
                 onPressed: _openJoinRequest,
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(0, 46),
-                  side: const BorderSide(color: AppColors.primary),
+                  side: BorderSide(color: AppColors.primary),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: const Text('Yêu cầu ghép nối', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
@@ -980,7 +1010,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
         fit: fit,
         width: double.infinity,
         height: double.infinity,
-        errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFFE4E7EC), child: Icon(Icons.image_not_supported_outlined)),
+        errorBuilder: (_, _, _) => ColoredBox(color: AppColors.border, child: Icon(Icons.image_not_supported_outlined)),
       );
     }
     if (url.startsWith('data:image')) {
@@ -989,7 +1019,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
         return Image.memory(base64Decode(comma == -1 ? url : url.substring(comma + 1)), fit: fit);
       } catch (_) {}
     }
-    return const ColoredBox(color: Color(0xFFE4E7EC), child: Icon(Icons.photo_outlined));
+    return ColoredBox(color: AppColors.border, child: Icon(Icons.photo_outlined));
   }
 
   ImageProvider? _avatarProvider(String raw) {
@@ -1072,7 +1102,7 @@ class _AddressMapState extends State<_AddressMap> {
         height: 260,
         width: double.infinity,
         child: ColoredBox(
-          color: const Color(0xFFE4E7EC),
+          color: AppColors.border,
           child: Stack(
             children: [
               if (point != null)
@@ -1122,7 +1152,7 @@ class _AddressMapState extends State<_AddressMap> {
                 bottom: 10,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(10)),
                   child: Text(
                     _failed ? unresolvedMapAddressLabel : widget.address,
                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, height: 1.3),

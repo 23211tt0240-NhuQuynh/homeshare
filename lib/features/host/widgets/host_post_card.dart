@@ -52,7 +52,7 @@ class HostPostCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFFE2E8F0)),
+        side: BorderSide(color: AppColors.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -79,18 +79,18 @@ class HostPostCard extends StatelessWidget {
                             post.authorName.isNotEmpty
                                 ? post.authorName
                                 : 'Chủ trọ HomeShare',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF1E293B),
+                              color: AppColors.textDark,
                             ),
                           ),
                           if (post.isVerified)
-                            const Tooltip(
+                            Tooltip(
                               message: 'Đã xác minh danh tính',
                               child: Icon(
                                 Icons.verified,
-                                color: Color(0xFF1E60F2),
+                                color: AppColors.primary,
                                 size: 16,
                               ),
                             ),
@@ -124,19 +124,19 @@ class HostPostCard extends StatelessWidget {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEFF6FF),
+                                color: AppColors.primaryContainer,
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                  color: const Color(0xFFBFDBFE),
+                                  color: AppColors.primaryContainer,
                                   width: 0.8,
                                 ),
                               ),
-                              child: const Text(
+                              child: Text(
                                 'Bài của bạn',
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1E60F2),
+                                  color: AppColors.primary,
                                 ),
                               ),
                             ),
@@ -155,7 +155,7 @@ class HostPostCard extends StatelessWidget {
                             Flexible(
                               child: Text(
                                 locationText,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.w500,
@@ -164,20 +164,20 @@ class HostPostCard extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 6),
-                            const Text(
+                            Text(
                               '•',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF94A3B8),
+                                color: AppColors.textMuted,
                               ),
                             ),
                             const SizedBox(width: 6),
                           ],
                           Text(
                             _formatTimeAgo(post.ngayDang),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF64748B),
+                              color: AppColors.textMuted,
                             ),
                           ),
                         ],
@@ -198,20 +198,20 @@ class HostPostCard extends StatelessWidget {
                 if (post.tieuDe.isNotEmpty)
                   Text(
                     post.tieuDe,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                      color: AppColors.textDark,
                     ),
                   ),
                 if (post.moTa.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(
                     post.moTa,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       height: 1.5,
-                      color: Color(0xFF334155),
+                      color: AppColors.textMuted,
                     ),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
@@ -236,10 +236,10 @@ class HostPostCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.handshake_outlined,
                         size: 15,
-                        color: Color(0xFF16A34A),
+                        color: AppColors.success,
                       ),
                       const SizedBox(width: 6),
                       Flexible(
@@ -272,14 +272,14 @@ class HostPostCard extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
+                          color: AppColors.surfaceVariant,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           amenity,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF475569),
+                            color: AppColors.textMuted,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -294,15 +294,15 @@ class HostPostCard extends StatelessWidget {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFE2E8F0),
+                                    color: AppColors.border,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
                                     '+${post.amenities.length - 5}',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF475569),
+                                      color: AppColors.textMuted,
                                     ),
                                   ),
                                 ),
@@ -333,26 +333,26 @@ class HostPostCard extends StatelessWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
+                        color: AppColors.primaryContainer,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.square_foot_outlined,
                             size: 14,
-                            color: Color(0xFF1E60F2),
+                            color: AppColors.primary,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             post.roomArea > 0
                                 ? '${post.roomArea.toStringAsFixed(0)} m²'
                                 : '25 m²',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF1E60F2),
+                              color: AppColors.primary,
                             ),
                           ),
                         ],
@@ -403,7 +403,7 @@ class HostPostCard extends StatelessWidget {
             ),
           ),
 
-          const Divider(height: 20, color: Color(0xFFF1F5F9)),
+          Divider(height: 20, color: AppColors.surfaceVariant),
 
           // 5. Thao tác tương tác & Nút Nhắn tin trao đổi
           Padding(
@@ -429,7 +429,7 @@ class HostPostCard extends StatelessWidget {
                           size: 18,
                           color: post.isUserInterested
                               ? const Color(0xFFE11D48)
-                              : const Color(0xFF64748B),
+                              : AppColors.textMuted,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -439,7 +439,7 @@ class HostPostCard extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                             color: post.isUserInterested
                                 ? const Color(0xFFE11D48)
-                                : const Color(0xFF64748B),
+                                : AppColors.textMuted,
                           ),
                         ),
                       ],
@@ -457,18 +457,18 @@ class HostPostCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.chat_bubble_outline,
                         size: 17,
-                        color: Color(0xFF64748B),
+                        color: AppColors.textMuted,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         '${post.responseCount}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
+                          color: AppColors.textMuted,
                         ),
                       ),
                     ],
@@ -483,8 +483,8 @@ class HostPostCard extends StatelessWidget {
                       ? OutlinedButton.icon(
                           onPressed: onChatPressed,
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF1E60F2),
-                            side: const BorderSide(color: Color(0xFF1E60F2)),
+                            foregroundColor: AppColors.primary,
+                            side: BorderSide(color: AppColors.primary),
                             minimumSize: const Size(0, 36),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
@@ -508,7 +508,7 @@ class HostPostCard extends StatelessWidget {
                       : FilledButton.icon(
                           onPressed: onChatPressed,
                           style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E60F2),
+                            backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
                             minimumSize: const Size(0, 36),
                             padding: const EdgeInsets.symmetric(
@@ -549,7 +549,7 @@ class HostPostCard extends StatelessWidget {
     if (avatarUrl.startsWith('http')) {
       return CircleAvatar(
         radius: 20,
-        backgroundColor: const Color(0xFFE2E8F0),
+        backgroundColor: AppColors.border,
         child: ClipOval(
           child: Image.network(
             avatarUrl,
@@ -568,11 +568,11 @@ class HostPostCard extends StatelessWidget {
   Widget _fallbackAvatar(String initials) {
     return CircleAvatar(
       radius: 20,
-      backgroundColor: const Color(0xFFDBEAFE),
+      backgroundColor: AppColors.primaryContainer,
       child: Text(
         initials,
-        style: const TextStyle(
-          color: Color(0xFF1E60F2),
+        style: TextStyle(
+          color: AppColors.primary,
           fontWeight: FontWeight.bold,
           fontSize: 14,
         ),
@@ -611,7 +611,7 @@ class HostPostCard extends StatelessWidget {
       return Container(
         height: 180,
         width: double.infinity,
-        color: const Color(0xFFF1F5F9),
+        color: AppColors.surfaceVariant,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -656,30 +656,30 @@ class HostPostCard extends StatelessWidget {
     return Container(
       height: 140,
       width: double.infinity,
-      color: const Color(0xFFEFF6FF),
+      color: AppColors.primaryContainer,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.apartment_outlined,
             size: 48,
-            color: const Color(0xFF1E60F2).withValues(alpha: 0.6),
+            color: AppColors.primary.withValues(alpha: 0.6),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Ảnh cơ sở liên kết',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1E60F2),
+              color: AppColors.primary,
             ),
           ),
           const SizedBox(height: 2),
-          const Text(
+          Text(
             'Hệ thống kết nối chủ trọ HomeShare',
             style: TextStyle(
               fontSize: 10,
-              color: Color(0xFF64748B),
+              color: AppColors.textMuted,
             ),
           ),
         ],

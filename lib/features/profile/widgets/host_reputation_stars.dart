@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/firestore_collections.dart';
 import '../../../core/utils/host_reputation.dart';
 
@@ -53,9 +54,10 @@ class HostReputationStarLabel extends ConsumerWidget {
         Text(
           HostReputation.starsText(score),
           style: textStyle ??
-              const TextStyle(
+              TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
+                color: AppColors.of(context).textDark,
               ),
         ),
       ],

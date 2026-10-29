@@ -135,10 +135,11 @@ class _HostMainScreenState extends State<HostMainScreen> {
       Icons.credit_card,
       Icons.arrow_back,
     ];
+    final colors = AppColors.of(context);
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(top: BorderSide(color: colors.border)),
       ),
       child: SafeArea(
         top: false,
@@ -147,9 +148,7 @@ class _HostMainScreenState extends State<HostMainScreen> {
           child: Row(
             children: List.generate(labels.length, (index) {
               final selected = index == _managementIndex;
-              final color = selected
-                  ? const Color(0xFF2563EB)
-                  : const Color(0xFF64748B);
+              final color = selected ? colors.primary : colors.textMuted;
               return Expanded(
                 child: Semantics(
                   selected: selected,
@@ -164,17 +163,17 @@ class _HostMainScreenState extends State<HostMainScreen> {
                               width: 48,
                               height: 48,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB),
+                                color: colors.primary,
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: Colors.white,
+                                  color: colors.surface,
                                   width: 2,
                                 ),
-                                boxShadow: const [
+                                boxShadow: [
                                   BoxShadow(
-                                    color: Color(0x662563EB),
+                                    color: colors.primary.withValues(alpha: 0.4),
                                     blurRadius: 12,
-                                    offset: Offset(0, 4),
+                                    offset: const Offset(0, 4),
                                   ),
                                 ],
                               ),
@@ -220,6 +219,7 @@ class _HostMainScreenState extends State<HostMainScreen> {
   // IndexedStack giữ trạng thái giao diện khi chuyển qua lại giữa các tab.
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return PopScope(
       canPop: _currentIndex != 3,
       onPopInvokedWithResult: (didPop, result) {
@@ -253,9 +253,9 @@ class _HostMainScreenState extends State<HostMainScreen> {
         bottomNavigationBar: _currentIndex == 3
             ? _buildManagementNavigation()
             : Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(top: BorderSide(color: Color(0xFFE5EBF1))),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  border: Border(top: BorderSide(color: colors.border)),
                 ),
                 child: SafeArea(
                   top: false,
@@ -278,12 +278,12 @@ class _HostMainScreenState extends State<HostMainScreen> {
                                     Container(
                                       width: 46,
                                       height: 46,
-                                      decoration: const BoxDecoration(
+                                      decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         gradient: LinearGradient(
                                           colors: [
-                                            Color(0xFF1673C8),
-                                            AppColors.primary,
+                                            colors.primaryDark,
+                                            colors.primary,
                                           ],
                                         ),
                                       ),
@@ -297,8 +297,8 @@ class _HostMainScreenState extends State<HostMainScreen> {
                                     Icon(
                                       _icons[index],
                                       color: selected
-                                          ? AppColors.primary
-                                          : const Color(0xFF92A4BE),
+                                          ? colors.primary
+                                          : colors.textMuted,
                                     ),
                                   const SizedBox(height: 4),
                                   Text(
@@ -309,8 +309,8 @@ class _HostMainScreenState extends State<HostMainScreen> {
                                           ? FontWeight.w700
                                           : FontWeight.w400,
                                       color: selected
-                                          ? AppColors.primary
-                                          : const Color(0xFF92A4BE),
+                                          ? colors.primary
+                                          : colors.textMuted,
                                     ),
                                   ),
                                 ],
@@ -338,15 +338,22 @@ class _HostPlaceholderScreen extends StatelessWidget {
   // Chủ trọ - Hiển thị tab tạm - Luồng đi: Đứng tại tab đã chọn;
   // người dùng dùng bottom nav để trở về Dashboard hoặc chuyển tab khác.
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(title)),
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    return Scaffold(
+    backgroundColor: colors.background,
+    appBar: AppBar(
+      title: Text(title),
+      backgroundColor: colors.surface,
+      foregroundColor: colors.textDark,
+    ),
     body: Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 64, color: AppColors.primary),
+            Icon(icon, size: 64, color: AppColors.of(context).primary),
             const SizedBox(height: 16),
             Text(
               title,
@@ -362,5 +369,6 @@ class _HostPlaceholderScreen extends StatelessWidget {
         ),
       ),
     ),
-  );
+    );
+  }
 }

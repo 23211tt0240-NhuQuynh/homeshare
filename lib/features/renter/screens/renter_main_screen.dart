@@ -43,6 +43,7 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
   @override
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(renterBottomNavIndexProvider);
+    final colors = AppColors.of(context);
 
     return Scaffold(
       body: IndexedStack(
@@ -52,15 +53,16 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textMuted,
+        backgroundColor: colors.surface,
+        selectedItemColor: colors.primary,
+        unselectedItemColor: colors.textMuted,
         selectedFontSize: 11,
         unselectedFontSize: 11,
         onTap: (index) {
           ref.read(renterBottomNavIndexProvider.notifier).setIndex(index);
         },
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
             label: 'Trang chủ',
@@ -68,27 +70,27 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
           BottomNavigationBarItem(
             icon: Badge(
               smallSize: 8,
-              backgroundColor: AppColors.danger,
-              child: Icon(Icons.chat_bubble_outline),
+              backgroundColor: colors.danger,
+              child: const Icon(Icons.chat_bubble_outline),
             ),
             activeIcon: Badge(
               smallSize: 8,
-              backgroundColor: AppColors.danger,
-              child: Icon(Icons.chat_bubble),
+              backgroundColor: colors.danger,
+              child: const Icon(Icons.chat_bubble),
             ),
             label: 'Tin nhắn',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle, color: Color(0xFF155EEF), size: 28),
-            activeIcon: Icon(Icons.add_circle, color: Color(0xFF155EEF), size: 28),
+            icon: Icon(Icons.add_circle, color: colors.primary, size: 28),
+            activeIcon: Icon(Icons.add_circle, color: colors.primary, size: 28),
             label: 'Đăng bài',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.group_outlined),
             activeIcon: Icon(Icons.group),
             label: 'Tìm ở ghép',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
             activeIcon: Icon(Icons.person),
             label: 'Cá nhân',

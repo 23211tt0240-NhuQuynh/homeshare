@@ -1,3 +1,4 @@
+import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/user_provider.dart';
@@ -73,7 +74,7 @@ class _HostViolationManagementScreenState
           SnackBar(
             content: Text(
                 'Đã ghi nhận thu tiền mặt phòng ${record.roomCode} thành công!'),
-            backgroundColor: const Color(0xFF16A34A),
+            backgroundColor: AppColors.success,
           ),
         );
       } catch (e) {
@@ -81,7 +82,7 @@ class _HostViolationManagementScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Lỗi khi ghi nhận thanh toán: $e'),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppColors.danger,
           ),
         );
       }
@@ -104,7 +105,7 @@ class _HostViolationManagementScreenState
           SnackBar(
             content: Text(
                 'Đã cộng khoản phạt phòng ${record.roomCode} vào hóa đơn tháng sau!'),
-            backgroundColor: const Color(0xFF2563EB),
+            backgroundColor: AppColors.primary,
           ),
         );
       } catch (e) {
@@ -112,7 +113,7 @@ class _HostViolationManagementScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Lỗi khi trừ vào hóa đơn: $e'),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppColors.danger,
           ),
         );
       }
@@ -129,7 +130,7 @@ class _HostViolationManagementScreenState
         SnackBar(
           content: Text(
               'Đã gửi thông báo nhắc nộp phạt đến cư dân ${record.tenantName}!'),
-          backgroundColor: const Color(0xFF2563EB),
+          backgroundColor: AppColors.primary,
         ),
       );
     } catch (e) {
@@ -137,7 +138,7 @@ class _HostViolationManagementScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Lỗi khi gửi nhắc nộp tiền: $e'),
-          backgroundColor: const Color(0xFFDC2626),
+          backgroundColor: AppColors.danger,
         ),
       );
     }
@@ -155,12 +156,12 @@ class _HostViolationManagementScreenState
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF2563EB) : Colors.white,
+          color: isSelected ? AppColors.primary : AppColors.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF1D4ED8)
-                : const Color(0xFFE2E8F0),
+                ? AppColors.primaryDark
+                : AppColors.border,
           ),
           boxShadow: isSelected
               ? const [
@@ -177,7 +178,7 @@ class _HostViolationManagementScreenState
           style: TextStyle(
             fontSize: 12.5,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-            color: isSelected ? Colors.white : const Color(0xFF475569),
+            color: isSelected ? Colors.white : AppColors.textMuted,
           ),
         ),
       ),
@@ -194,32 +195,32 @@ class _HostViolationManagementScreenState
           Container(
             width: 72,
             height: 72,
-            decoration: const BoxDecoration(
-              color: Color(0xFFEFF6FF),
+            decoration: BoxDecoration(
+              color: AppColors.primaryContainer,
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.check_circle_outline,
               size: 40,
-              color: Color(0xFF2563EB),
+              color: AppColors.primary,
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Không có vi phạm nào trong tháng',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF1E293B),
+              color: AppColors.textDark,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Khu trọ hoạt động trật tự và không có khoản phạt nào được ghi nhận.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
-              color: Color(0xFF64748B),
+              color: AppColors.textMuted,
               height: 1.4,
             ),
           ),
@@ -236,7 +237,7 @@ class _HostViolationManagementScreenState
               ),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
+              backgroundColor: AppColors.primary,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -257,21 +258,21 @@ class _HostViolationManagementScreenState
     final recordsAsync = ref.watch(filteredViolationRecordsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         centerTitle: false,
         leading: IconButton(
-          icon: const Icon(Icons.menu_rounded, color: Color(0xFF1E293B)),
+          icon: Icon(Icons.menu_rounded, color: AppColors.textDark),
           onPressed: _openSwitcherMenu,
         ),
-        title: const Text(
+        title: Text(
           'Quản lý vi phạm',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF0F172A),
+            color: AppColors.textDark,
           ),
         ),
         actions: [
@@ -290,7 +291,7 @@ class _HostViolationManagementScreenState
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
+                  backgroundColor: AppColors.primary,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   elevation: 0,
@@ -302,9 +303,9 @@ class _HostViolationManagementScreenState
             ),
           ),
         ],
-        bottom: const PreferredSize(
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+          child: Divider(height: 1, color: AppColors.border),
         ),
       ),
       body: RefreshIndicator(
@@ -410,12 +411,12 @@ class _HostViolationManagementScreenState
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.error_outline,
-                            size: 40, color: Color(0xFFDC2626)),
+                        Icon(Icons.error_outline,
+                            size: 40, color: AppColors.danger),
                         const SizedBox(height: 12),
                         Text(
                           'Lỗi tải danh sách vi phạm: $err',
-                          style: const TextStyle(color: Color(0xFFDC2626)),
+                          style: TextStyle(color: AppColors.danger),
                         ),
                         const SizedBox(height: 12),
                         ElevatedButton(

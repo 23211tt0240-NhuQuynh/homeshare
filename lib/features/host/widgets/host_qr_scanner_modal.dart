@@ -1,3 +1,4 @@
+import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -96,8 +97,8 @@ class _HostQrScannerModalState extends State<HostQrScannerModal>
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F172A),
+      decoration: BoxDecoration(
+        color: AppColors.textDark,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -183,7 +184,7 @@ class _HostQrScannerModalState extends State<HostQrScannerModal>
                       },
                       errorBuilder: (ctx, error) {
                         return Container(
-                          color: const Color(0xFF1E293B),
+                          color: AppColors.textDark,
                           padding: const EdgeInsets.all(24),
                           child: Center(
                             child: Column(
@@ -239,7 +240,7 @@ class _HostQrScannerModalState extends State<HostQrScannerModal>
                               width: boxSize,
                               height: boxSize,
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: AppColors.surface,
                                 borderRadius: BorderRadius.circular(16),
                               ),
                             ),

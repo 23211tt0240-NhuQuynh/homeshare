@@ -106,8 +106,8 @@ class _HostReviewSheetState extends ConsumerState<HostReviewSheet> {
       padding: EdgeInsets.only(bottom: bottom),
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
@@ -127,14 +127,14 @@ class _HostReviewSheetState extends ConsumerState<HostReviewSheet> {
             const SizedBox(height: 16),
             Text(
               'Đánh giá ${widget.hostName.trim().isEmpty ? 'chủ trọ' : widget.hostName}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textDark,
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Chọn số sao. Nhận xét ngắn không bắt buộc.',
               style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
@@ -164,7 +164,7 @@ class _HostReviewSheetState extends ConsumerState<HostReviewSheet> {
                 fillColor: AppColors.background,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.border),
+                  borderSide: BorderSide(color: AppColors.border),
                 ),
               ),
             ),

@@ -24,7 +24,7 @@ class ProfileHeaderCard extends StatelessWidget {
     final initialWidget = Center(
       child: Text(
         initialLetter,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.bold,
           color: AppColors.primary,
@@ -93,10 +93,10 @@ class ProfileHeaderCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.border),
         ),
         elevation: 0,
-        color: Colors.white,
+        color: AppColors.surface,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
@@ -127,7 +127,7 @@ class ProfileHeaderCard extends StatelessWidget {
                                 ),
                                 child: Text(
                                   displayName,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.bold,
                                     color: AppColors.textDark,
@@ -147,7 +147,7 @@ class ProfileHeaderCard extends StatelessWidget {
                                 ),
                                 child: Text(
                                   roleBadgeText,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                     color: AppColors.primary,
@@ -180,7 +180,7 @@ class ProfileHeaderCard extends StatelessWidget {
                                   ),
                                   child: Text(
                                     'ID: $userCodeText',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                       color: AppColors.textDark,
@@ -194,7 +194,7 @@ class ProfileHeaderCard extends StatelessWidget {
                                 ),
                                 child: Text(
                                   emailText,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
                                     color: AppColors.textSecondary,
                                   ),
@@ -212,7 +212,7 @@ class ProfileHeaderCard extends StatelessWidget {
                               ),
                               child: Text(
                                 'SĐT: $phoneText',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   color: AppColors.textSecondary,
                                 ),
@@ -237,7 +237,7 @@ class ProfileHeaderCard extends StatelessWidget {
                                       color: AppColors.successContainer,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Icon(
@@ -279,7 +279,7 @@ class ProfileHeaderCard extends StatelessWidget {
                                           ),
                                         ),
                                       ),
-                                      child: const Row(
+                                      child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(
@@ -317,7 +317,7 @@ class ProfileHeaderCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Icon(
+                Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 14,
                   color: AppColors.textSecondary,

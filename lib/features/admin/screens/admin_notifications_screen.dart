@@ -1,3 +1,4 @@
+import '../theme/admin_colors.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -45,8 +46,8 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: AdminColors.card,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -85,12 +86,12 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Text(
+                        Text(
                           'Thông Báo Hệ Thống',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF101828),
+                            color: AdminColors.ink,
                           ),
                         ),
                         if (unreadDocs.isNotEmpty) ...[
@@ -101,15 +102,15 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFEF3F2),
+                              color: AdminColors.dangerContainer,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
                               '${unreadDocs.length} mới',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFFD92D20),
+                                color: AdminColors.danger,
                               ),
                             ),
                           ),
@@ -119,12 +120,12 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                     if (unreadDocs.isNotEmpty)
                       TextButton(
                         onPressed: () => _markAllAsRead(unreadDocs),
-                        child: const Text(
+                        child: Text(
                           'Đọc tất cả',
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF398FC0),
+                            color: AdminColors.accent,
                           ),
                         ),
                       ),
@@ -160,12 +161,12 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                           color: Colors.grey.shade300,
                         ),
                         const SizedBox(height: 12),
-                        const Text(
+                        Text(
                           'Chưa có thông báo nào',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF667085),
+                            color: AdminColors.muted,
                           ),
                         ),
                       ],
@@ -226,7 +227,7 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                         ),
                         color: isRead
                             ? Colors.transparent
-                            : const Color(0xFFF5F8FF),
+                            : AdminColors.paper,
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -248,15 +249,15 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                                             fontWeight: isRead
                                                 ? FontWeight.w600
                                                 : FontWeight.bold,
-                                            color: const Color(0xFF101828),
+                                            color: AdminColors.ink,
                                           ),
                                         ),
                                       ),
                                       Text(
                                         _formatTimestamp(timestamp),
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 10.5,
-                                          color: Color(0xFF98A2B3),
+                                          color: AdminColors.muted,
                                         ),
                                       ),
                                     ],
@@ -267,8 +268,8 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: isRead
-                                          ? const Color(0xFF667085)
-                                          : const Color(0xFF344054),
+                                          ? AdminColors.muted
+                                          : AdminColors.mutedStrong,
                                     ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
@@ -282,8 +283,8 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                                 width: 8,
                                 height: 8,
                                 margin: const EdgeInsets.only(top: 6),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF398FC0),
+                                decoration: BoxDecoration(
+                                  color: AdminColors.accent,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -312,23 +313,23 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
       case 'booking':
       case 'disbursement':
         iconData = Icons.account_balance_wallet_rounded;
-        iconColor = const Color(0xFF12B76A);
-        bgColor = const Color(0xFFECFDF3);
+        iconColor = AdminColors.success;
+        bgColor = AdminColors.successContainer;
         break;
       case 'post_approval':
         iconData = Icons.apartment_rounded;
-        iconColor = const Color(0xFF398FC0);
-        bgColor = const Color(0xFFF5F8FF);
+        iconColor = AdminColors.accent;
+        bgColor = AdminColors.paper;
         break;
       case 'report':
         iconData = Icons.report_problem_rounded;
-        iconColor = const Color(0xFFD92D20);
-        bgColor = const Color(0xFFFEF3F2);
+        iconColor = AdminColors.danger;
+        bgColor = AdminColors.dangerContainer;
         break;
       default:
         iconData = Icons.notifications_rounded;
-        iconColor = const Color(0xFFD97706);
-        bgColor = const Color(0xFFFFFBEB);
+        iconColor = AdminColors.warningInk;
+        bgColor = AdminColors.warningContainer;
     }
 
     return Container(

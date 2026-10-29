@@ -27,9 +27,9 @@ class ProfileCompletionCard extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: AppColors.border),
+        side: BorderSide(color: AppColors.border),
       ),
-      color: Colors.white,
+      color: AppColors.surface,
       child: Padding(
         padding: const EdgeInsets.all(14.0),
         child: Column(
@@ -37,13 +37,13 @@ class ProfileCompletionCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.assignment_turned_in_outlined,
                   size: 18,
                   color: AppColors.primary,
                 ),
                 const SizedBox(width: 6),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Hoàn thiện hồ sơ',
                     style: TextStyle(
@@ -90,7 +90,7 @@ class ProfileCompletionCard extends StatelessWidget {
                     completionPercentage >= 100
                         ? 'Hồ sơ đã đầy đủ 100%! Điểm tín nhiệm tối ưu.'
                         : 'Hồ sơ đầy đủ giúp duyệt thuê phòng và kết nối ở ghép nhanh hơn.',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
                       height: 1.3,
@@ -109,7 +109,7 @@ class ProfileCompletionCard extends StatelessWidget {
                       minimumSize: const Size(44, 32),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: const Text(
+                    child: Text(
                       'Cập nhật',
                       style: TextStyle(
                         fontSize: 12,

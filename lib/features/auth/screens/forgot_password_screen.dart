@@ -56,12 +56,18 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('Đặt lại mật khẩu', style: PhongSangText.roomName.copyWith(fontSize: 20)),
+        title: Text(
+          'Đặt lại mật khẩu',
+          style: PhongSangText.roomName.copyWith(
+            fontSize: 20,
+            color: AppColors.textDark,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textDark, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textDark, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -75,14 +81,20 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               children: [
                 Text(
                   _sent ? 'Kiểm tra Gmail' : 'Nhập email tài khoản cần đổi mật khẩu',
-                  style: PhongSangText.screenTitle.copyWith(fontSize: 24),
+                  style: PhongSangText.screenTitle.copyWith(
+                    fontSize: 24,
+                    color: AppColors.textDark,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   _sent
                       ? 'Firebase đã gửi link đổi mật khẩu tới $email. Mở thư, bấm link, đặt mật khẩu mới. Sau đó quay lại app và đăng nhập bằng mật khẩu vừa đổi.'
                       : 'Firebase sẽ gửi một link đổi mật khẩu vào email này. Mật khẩu mới có hiệu lực ngay khi bạn đăng nhập lại.',
-                  style: PhongSangText.body.copyWith(fontSize: 16),
+                  style: PhongSangText.body.copyWith(
+                    fontSize: 16,
+                    color: AppColors.textMuted,
+                  ),
                 ),
                 const SizedBox(height: 22),
                 if (!_sent)
@@ -109,7 +121,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                           child: ElevatedButton(
                             onPressed: _isLoading ? null : _sendResetLink,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: PhongSangColors.accent,
+                              backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -131,11 +143,14 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Icon(Icons.mark_email_read_outlined, size: 42, color: PhongSangColors.accent),
+                        Icon(Icons.mark_email_read_outlined, size: 42, color: AppColors.primary),
                         const SizedBox(height: 12),
                         Text(
                           'Nếu không thấy thư, hãy xem mục Spam. Link chỉ dùng cho đúng email đã đăng ký.',
-                          style: PhongSangText.body.copyWith(fontSize: 15),
+                          style: PhongSangText.body.copyWith(
+                            fontSize: 15,
+                            color: AppColors.textMuted,
+                          ),
                         ),
                         const SizedBox(height: 18),
                         SizedBox(
@@ -143,7 +158,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                           child: ElevatedButton(
                             onPressed: () => Navigator.pop(context),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: PhongSangColors.accent,
+                              backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

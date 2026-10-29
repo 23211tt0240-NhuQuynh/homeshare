@@ -1072,18 +1072,18 @@ void main() {
   group('Module 15: Nhận diện thương hiệu chuẩn từ PhongSangTheme & Chat Optimization (Tc_THEME_01 - 10)', () {
     test('Tc_THEME_01 & 02: Bảng màu cốt lõi chuẩn moodboard Phòng Sáng (phong_sang_theme.dart)', () {
       // 1. Primary color là màu xanh hành động --accent #155EEF của Phong Sáng
-      expect(AppColors.primary, equals(const Color(0xFF155EEF)));
+      expect(AppColors.primary, equals(Color(0xFF155EEF)));
       
       // 2. Text dark / chữ mực --ink #101828
-      expect(AppColors.textDark, equals(const Color(0xFF101828)));
-      expect(AppColors.borderDark, equals(const Color(0xFF101828)));
+      expect(AppColors.textDark, equals(Color(0xFF101828)));
+      expect(AppColors.borderDark, equals(Color(0xFF101828)));
       
       // 3. Surface variant (nền tag/chip lọc --price-soft #F2F4F7)
-      expect(AppColors.surfaceVariant, equals(const Color(0xFFF2F4F7)));
+      expect(AppColors.surfaceVariant, equals(Color(0xFFF2F4F7)));
       
       // 4. Note highlight & background (--paper #F3F6FB)
-      expect(AppColors.background, equals(const Color(0xFFF3F6FB)));
-      expect(AppColors.noteHighlight, equals(const Color(0xFFFEFFDD)));
+      expect(AppColors.background, equals(Color(0xFFF3F6FB)));
+      expect(AppColors.noteHighlight, equals(Color(0xFFFEFFDD)));
     });
 
     test('Tc_THEME_03 & 04: Cấu hình AppTheme.lightTheme đồng bộ ColorScheme Phòng Sáng', () {

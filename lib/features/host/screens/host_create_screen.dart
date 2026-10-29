@@ -618,7 +618,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                   _district == null
                       ? 'Chọn quận/huyện trước để xem danh sách phường/xã.'
                       : 'Khu vực này chưa có dữ liệu phường/xã. Bạn có thể bỏ qua và lưu cơ sở.',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.warning,
                   ),
@@ -643,7 +643,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                 ),
               ],
             ),
-            const Text(
+            Text(
               'Số phòng được tạo không được vượt quá tổng số phòng của cơ sở.',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
@@ -682,7 +682,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
           ]),
           if (!_editingProperty)
             _section('Giấy tờ pháp lý (tùy chọn)', Icons.security, [
-              const Text(
+              Text(
                 'Ảnh sổ hồng hoặc giấy phép kinh doanh. JPG/PNG, tối đa 15 MB.',
                 style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
               ),
@@ -701,7 +701,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                   _proof == null ? 'Chọn ảnh giấy tờ' : 'Đổi ảnh giấy tờ',
                 ),
               ),
-              const Text(
+              Text(
                 'Chỉ chủ tài khoản được truy cập. Tải lên không đồng nghĩa đã được xác minh.',
                 style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
               ),
@@ -763,7 +763,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     selected.fullAddress,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
                     ),
@@ -779,7 +779,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                 key: const ValueKey('host_field_code'),
                 controller: _fields['code'],
                 readOnly: true,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.1,
                   color: AppColors.primary,
@@ -790,7 +790,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                   prefixIcon: const Icon(Icons.vpn_key_outlined),
                   suffixIcon: const Icon(Icons.lock_outline),
                   filled: true,
-                  fillColor: const Color(0xFFF0F4FF),
+                  fillColor: AppColors.primaryContainer,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -968,12 +968,12 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             margin: const EdgeInsets.only(bottom: 8),
             decoration: BoxDecoration(
               color: _amenities.contains(value)
-                  ? const Color(0xFFE8FCF4)
-                  : Colors.white,
+                  ? AppColors.primaryContainer
+                  : AppColors.surface,
               border: Border.all(
                 color: _amenities.contains(value)
-                    ? const Color(0xFF8BD4B8)
-                    : const Color(0xFFE3E6EF),
+                    ? AppColors.primary
+                    : AppColors.border,
               ),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -1013,7 +1013,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
   }) => _section(title, Icons.photo_library_outlined, [
     Text(
       '${existingImages.length + images.length}/$max ảnh • JPG/PNG, tối đa 5 MB mỗi ảnh',
-      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
     ),
     const SizedBox(height: 12),
     Wrap(
@@ -1034,7 +1034,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                     existingImages[i],
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      color: const Color(0xFFEFF6FF),
+                      color: AppColors.primaryContainer,
                       child: const Icon(Icons.broken_image_outlined),
                     ),
                   ),
@@ -1149,7 +1149,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppColors.border),
         ),
@@ -1183,7 +1183,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     padding: const EdgeInsets.only(bottom: 12),
     child: Text(
       text,
-      style: const TextStyle(fontSize: 12, color: AppColors.warning),
+      style: TextStyle(fontSize: 12, color: AppColors.warning),
     ),
   );
   Widget _field(

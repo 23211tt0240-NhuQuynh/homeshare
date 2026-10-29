@@ -251,7 +251,7 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
   Widget build(BuildContext context) => PopScope(
     canPop: !_busy && !_picking,
     child: Scaffold(
-      backgroundColor: const Color(0xFFF7F8FF),
+      backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Chỉnh sửa phòng')),
       body: AbsorbPointer(
         absorbing: _busy || _picking,
@@ -298,10 +298,10 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                           child: Container(
                             margin: const EdgeInsets.only(right: 8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF0F4FF),
+                              color: AppColors.primaryContainer,
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Column(
+                            child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
@@ -497,12 +497,12 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                         margin: const EdgeInsets.only(bottom: 8),
                         decoration: BoxDecoration(
                           color: _amenities.contains(value)
-                              ? const Color(0xFFE8FCF4)
-                              : Colors.white,
+                              ? AppColors.primaryContainer
+                              : AppColors.surface,
                           border: Border.all(
                             color: _amenities.contains(value)
-                                ? const Color(0xFF8BD4B8)
-                                : const Color(0xFFE3E6EF),
+                                ? AppColors.primary
+                                : AppColors.border,
                           ),
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -550,7 +550,7 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
               HostRoomTenant(room: widget.room),
               TextButton(
                 onPressed: _delete,
-                child: const Text(
+                child: Text(
                   'Xóa phòng này',
                   style: TextStyle(color: AppColors.danger),
                 ),
@@ -612,7 +612,7 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
             ? 'ID phòng được giữ nguyên khi sửa.'
             : null,
         filled: true,
-        fillColor: const Color(0xFFF0F4FF),
+        fillColor: AppColors.primaryContainer,
       ),
       validator: (raw) {
         final value = raw?.trim() ?? '';

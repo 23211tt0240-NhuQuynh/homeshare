@@ -1,3 +1,4 @@
+import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import '../models/violation_record_model.dart';
 
@@ -54,11 +55,11 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
       bg = const Color(0xFFDCFCE7);
       text = const Color(0xFF15803D);
     } else if (record.isAddedToInvoice) {
-      bg = const Color(0xFFDBEAFE);
-      text = const Color(0xFF1D4ED8);
+      bg = AppColors.primaryContainer;
+      text = AppColors.primaryDark;
     } else if (record.isCancelled) {
-      bg = const Color(0xFFF1F5F9);
-      text = const Color(0xFF64748B);
+      bg = AppColors.surfaceVariant;
+      text = AppColors.textMuted;
     } else {
       bg = const Color(0xFFFEF3C7);
       text = const Color(0xFFB45309);
@@ -87,7 +88,7 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
@@ -96,7 +97,7 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
             offset: Offset(0, 3),
           ),
         ],
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -108,16 +109,16 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
+                  color: AppColors.primaryContainer,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                  border: Border.all(color: AppColors.primaryContainer),
                 ),
                 child: Text(
                   r.roomCode.isNotEmpty ? r.roomCode : 'P.---',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF1D4ED8),
+                    color: AppColors.primaryDark,
                   ),
                 ),
               ),
@@ -128,18 +129,18 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
                   children: [
                     Text(
                       r.tenantName.isNotEmpty ? r.tenantName : 'Cư dân',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F172A),
+                        color: AppColors.textDark,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       '${_formatDate(r.createdAt)}${r.propertyName.isNotEmpty ? ' • ${r.propertyName}' : ''}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
-                        color: Color(0xFF64748B),
+                        color: AppColors.textMuted,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -161,7 +162,7 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
+                    color: AppColors.surfaceVariant,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -175,10 +176,10 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
                       const SizedBox(width: 4),
                       Text(
                         t,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF334155),
+                          color: AppColors.textMuted,
                         ),
                       ),
                     ],
@@ -194,9 +195,9 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
               onTap: () => setState(() => _isExpanded = !_isExpanded),
               child: Text(
                 r.description,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  color: Color(0xFF475569),
+                  color: AppColors.textMuted,
                   height: 1.4,
                 ),
                 maxLines: _isExpanded ? 10 : 2,
@@ -213,20 +214,20 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
                 child: Wrap(
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Text(
+                    Text(
                       'Mức phạt: ',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF64748B),
+                        color: AppColors.textMuted,
                       ),
                     ),
                     Text(
                       _formatCurrency(r.totalFine),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFFDC2626),
+                        color: AppColors.danger,
                       ),
                     ),
                   ],
@@ -235,14 +236,14 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
               if (r.evidenceUrls.isNotEmpty)
                 Row(
                   children: [
-                    const Icon(Icons.attach_file,
-                        size: 14, color: Color(0xFF64748B)),
+                    Icon(Icons.attach_file,
+                        size: 14, color: AppColors.textMuted),
                     const SizedBox(width: 2),
                     Text(
                       '${r.evidenceUrls.length} bằng chứng',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF64748B),
+                        color: AppColors.textMuted,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -254,7 +255,7 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
 
           // 5. Nút xử lý (chỉ hiện khi chưa thanh toán / chờ nộp)
           if (r.isPending) ...[
-            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            Divider(height: 1, color: AppColors.border),
             const SizedBox(height: 10),
             Row(
               children: [
@@ -264,19 +265,19 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
                     onPressed: widget.onDeductInvoice,
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      side: BorderSide(color: AppColors.border),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: const FittedBox(
+                    child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
                         'Trừ hóa đơn',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF334155),
+                          color: AppColors.textMuted,
                         ),
                       ),
                     ),
@@ -288,7 +289,7 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
                   child: ElevatedButton(
                     onPressed: widget.onCollectCash,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF16A34A),
+                      backgroundColor: AppColors.success,
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -323,21 +324,21 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
+                      color: AppColors.primaryContainer,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                      border: Border.all(color: AppColors.primaryContainer),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
                         Icon(Icons.send_rounded,
-                            size: 14, color: Color(0xFF2563EB)),
+                            size: 14, color: AppColors.primary),
                         SizedBox(width: 4),
                         Text(
                           'Nhắc',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF2563EB),
+                            color: AppColors.primary,
                           ),
                         ),
                       ],
@@ -350,19 +351,19 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
+                color: AppColors.primaryContainer,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.info_outline, size: 14, color: Color(0xFF2563EB)),
+                  Icon(Icons.info_outline, size: 14, color: AppColors.primary),
                   SizedBox(width: 6),
                   Text(
                     'Đã ghi nhận cộng vào hóa đơn tiền phòng tháng sau',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1D4ED8),
+                      color: AppColors.primaryDark,
                     ),
                   ),
                 ],
@@ -375,10 +376,10 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
                 color: const Color(0xFFF0FDF4),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.check_circle_outline,
-                      size: 14, color: Color(0xFF16A34A)),
+                      size: 14, color: AppColors.success),
                   SizedBox(width: 6),
                   Text(
                     'Đã nộp tiền mặt và xuất biên lai',

@@ -1,3 +1,4 @@
+import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import '../repositories/violation_repository.dart';
 
@@ -50,16 +51,16 @@ class ViolationSummaryCard extends StatelessWidget {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFCBD5E1),
+                    color: AppColors.border,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
                 Text(
                   'Chọn tháng đối soát năm $currentYear',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1E293B),
+                    color: AppColors.textDark,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -80,8 +81,8 @@ class ViolationSummaryCard extends StatelessWidget {
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? const Color(0xFF2563EB)
-                              : const Color(0xFFF1F5F9),
+                              ? AppColors.primary
+                              : AppColors.surfaceVariant,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
@@ -91,7 +92,7 @@ class ViolationSummaryCard extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             color: isSelected
                                 ? Colors.white
-                                : const Color(0xFF1E293B),
+                                : AppColors.textDark,
                           ),
                         ),
                       ),
@@ -110,7 +111,7 @@ class ViolationSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: const [
           BoxShadow(
@@ -119,7 +120,7 @@ class ViolationSummaryCard extends StatelessWidget {
             offset: Offset(0, 4),
           ),
         ],
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -128,13 +129,13 @@ class ViolationSummaryCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'TỔNG QUAN THÁNG',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,
-                  color: Color(0xFF64748B),
+                  color: AppColors.textMuted,
                 ),
               ),
               InkWell(
@@ -144,25 +145,25 @@ class ViolationSummaryCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
+                    color: AppColors.surfaceVariant,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                    border: Border.all(color: AppColors.border),
                   ),
                   child: Row(
                     children: [
                       Text(
                         'Tháng ${selectedMonth.month}/${selectedMonth.year}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF1E293B),
+                          color: AppColors.textDark,
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(
+                      Icon(
                         Icons.keyboard_arrow_down,
                         size: 18,
-                        color: Color(0xFF64748B),
+                        color: AppColors.textMuted,
                       ),
                     ],
                   ),
@@ -177,8 +178,8 @@ class ViolationSummaryCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1E40AF), Color(0xFF2563EB)],
+              gradient: LinearGradient(
+                colors: [Color(0xFF1E40AF), AppColors.primary],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -197,11 +198,11 @@ class ViolationSummaryCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Tổng tiền phạt ghi nhận',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Color(0xFFBFDBFE),
+                        color: AppColors.primaryContainer,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -262,8 +263,8 @@ class ViolationSummaryCard extends StatelessWidget {
                             Container(
                               width: 8,
                               height: 8,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF16A34A),
+                              decoration: BoxDecoration(
+                                color: AppColors.success,
                                 shape: BoxShape.circle,
                               ),
                             ),

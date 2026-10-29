@@ -181,7 +181,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
     if (_isBlocked) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Không thể gửi tin nhắn do đối phương đã bị chặn.'),
           backgroundColor: AppColors.danger,
         ),
@@ -192,7 +192,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     // Kiểm tra bộ lọc từ ngữ vi phạm tiêu chuẩn cộng đồng (Tc_CHAT_49)
     if (ChatService.checkProfanity(text)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Tin nhắn vi phạm tiêu chuẩn cộng đồng về an toàn thông tin.'),
           backgroundColor: AppColors.danger,
         ),
@@ -339,7 +339,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               backgroundColor: AppColors.primaryContainer,
               child: Icon(Icons.phone, color: AppColors.primary),
             ),
@@ -367,10 +367,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 children: [
                   Text(
                     widget.receiverPhone,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.copy, size: 20, color: AppColors.textMuted),
+                    icon: Icon(Icons.copy, size: 20, color: AppColors.textMuted),
                     tooltip: 'Sao chép số',
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: widget.receiverPhone));
@@ -384,7 +384,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Hệ thống hỗ trợ gọi trực tiếp qua mạng di động của thiết bị.',
               style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
@@ -433,7 +433,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
             ),
             ListTile(
-              leading: const Icon(Icons.person_outline, color: AppColors.primary),
+              leading: Icon(Icons.person_outline, color: AppColors.primary),
               title: const Text('Xem hồ sơ đối tác'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -468,7 +468,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline, color: AppColors.textMuted),
+              leading: Icon(Icons.delete_outline, color: AppColors.textMuted),
               title: const Text('Xóa lịch sử cuộc trò chuyện'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -494,7 +494,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               backgroundColor: AppColors.primaryContainer,
               child: Text(
                 widget.receiverName.isNotEmpty ? widget.receiverName[0] : 'U',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+                style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
               ),
             ),
             const SizedBox(width: 12),
@@ -507,13 +507,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                       Text(widget.receiverName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       if (widget.isLandlord) ...[
                         const SizedBox(width: 4),
-                        const Icon(Icons.verified, color: AppColors.primary, size: 16),
+                        Icon(Icons.verified, color: AppColors.primary, size: 16),
                       ],
                     ],
                   ),
                   Text(
                     widget.isLandlord ? 'Chủ nhà trọ đã xác thực' : 'Người thuê / Tìm ở ghép',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                   ),
                 ],
               ),
@@ -532,7 +532,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               title: Text(widget.receiverPhone, style: const TextStyle(fontSize: 14)),
               subtitle: const Text('Số điện thoại liên hệ', style: TextStyle(fontSize: 11)),
             ),
-            const ListTile(
+            ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.shield_outlined, size: 20, color: AppColors.primary),
@@ -807,8 +807,20 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
     if (eligibility.blockReason == RoommateInvitationBlockReason.roleNotAllowed) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Tính năng mời ở ghép chỉ áp dụng khi hai người dùng (người thuê) trao đổi với nhau.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    if (eligibility.blockReason == RoommateInvitationBlockReason.roomAtCapacity) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Không gửi được lời mời ở ghép vì bạn đã có bạn cùng phòng và phòng đã đủ sức chứa.',
+          ),
           backgroundColor: AppColors.danger,
         ),
       );
@@ -840,7 +852,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.handshake_outlined, color: AppColors.primary),
             SizedBox(width: 8),
@@ -862,10 +874,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               sharePrice > 0
                   ? 'Chi phí dự kiến: ${NumberFormat("#,###", "vi_VN").format(sharePrice)} đ/tháng/người'
                   : 'Chi phí dự kiến: Chưa cập nhật',
-              style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 12),
+              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 12),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Sau khi đối phương chấp nhận, thông báo sẽ tự động được gửi tới Chủ trọ.',
               style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontStyle: FontStyle.italic),
             ),
@@ -898,7 +910,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           content: Text(
             eligibility.blockReason == RoommateInvitationBlockReason.roleNotAllowed
                 ? 'Lời mời ở ghép chỉ được gửi giữa hai người dùng (người thuê).'
-                : 'Không tìm thấy phòng đang thuê hợp lệ. Lời mời chưa được gửi.',
+                : eligibility.blockReason == RoommateInvitationBlockReason.roomAtCapacity
+                    ? 'Không gửi được lời mời ở ghép vì bạn đã có bạn cùng phòng và phòng đã đủ sức chứa.'
+                    : 'Không tìm thấy phòng đang thuê hợp lệ. Lời mời chưa được gửi.',
           ),
           backgroundColor: AppColors.danger,
         ),
@@ -993,7 +1007,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Đã chấp nhận lời mời ở ghép và gửi thông báo đến chủ nhà thành công!'),
             backgroundColor: AppColors.primary,
           ),
@@ -1114,13 +1128,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           children: [
             if (!isRevoked)
               ListTile(
-                leading: const Icon(Icons.reply_rounded, color: AppColors.primary),
+                leading: Icon(Icons.reply_rounded, color: AppColors.primary),
                 title: const Text('Trả lời tin nhắn', style: TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: Text(
                   msg.messageType == 'image' ? '📷 [Hình ảnh]' : (msg.text.isNotEmpty ? msg.text : 'Tin nhắn'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  style: TextStyle(fontSize: 11, color: AppColors.textMuted),
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -1129,7 +1143,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               ),
             if (!isRevoked)
               ListTile(
-                leading: const Icon(Icons.copy_outlined, color: AppColors.primary),
+                leading: Icon(Icons.copy_outlined, color: AppColors.primary),
                 title: const Text('Sao chép nội dung tin nhắn'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -1153,8 +1167,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             // Xóa tin nhắn ở cả 2 phía (Xóa vĩnh viễn khỏi cuộc trò chuyện của cả 2)
             if (isMe)
               ListTile(
-                leading: const Icon(Icons.delete_forever_outlined, color: AppColors.danger),
-                title: const Text(
+                leading: Icon(Icons.delete_forever_outlined, color: AppColors.danger),
+                title: Text(
                   'Xóa tin nhắn ở cả 2 bên',
                   style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.danger),
                 ),
@@ -1165,7 +1179,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 },
               ),
             ListTile(
-              leading: const Icon(Icons.delete_outline, color: Color(0xFF64748B)),
+              leading: Icon(Icons.delete_outline, color: AppColors.textMuted),
               title: const Text('Xóa ở phía tôi (Chỉ mình tôi)'),
               subtitle: const Text('Chỉ ẩn tin nhắn này trên thiết bị của bạn', style: TextStyle(fontSize: 11)),
               onTap: () {
@@ -1192,14 +1206,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             Text('Thu hồi tin nhắn?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: const Text(
+        content: Text(
           'Tin nhắn này sẽ bị thu hồi và hiển thị "Tin nhắn đã được thu hồi" ở cả phía bạn và đối phương.',
-          style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
+          style: TextStyle(fontSize: 13, color: AppColors.textMuted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy', style: TextStyle(color: Color(0xFF64748B))),
+            child: Text('Hủy', style: TextStyle(color: AppColors.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -1224,21 +1238,21 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.delete_forever_outlined, color: AppColors.danger),
             SizedBox(width: 8),
             Text('Xóa tin nhắn ở cả 2 bên?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: const Text(
+        content: Text(
           'Tin nhắn này sẽ bị xóa hoàn toàn khỏi cuộc trò chuyện của cả phía bạn và phía đối phương.',
-          style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
+          style: TextStyle(fontSize: 13, color: AppColors.textMuted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy', style: TextStyle(color: Color(0xFF64748B))),
+            child: Text('Hủy', style: TextStyle(color: AppColors.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -1312,6 +1326,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textDark,
         titleSpacing: 0,
         leading: Semantics(
           label: 'Quay lại danh sách tin nhắn',
@@ -1333,7 +1349,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                     backgroundColor: AppColors.primaryContainer,
                     child: Text(
                       widget.receiverName.isNotEmpty ? widget.receiverName[0] : 'U',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 16),
+                      style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 16),
                     ),
                   ),
                   Positioned(
@@ -1368,11 +1384,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                         ),
                         if (widget.isLandlord) ...[
                           const SizedBox(width: 4),
-                          const Icon(Icons.verified, color: AppColors.primary, size: 15),
+                          Icon(Icons.verified, color: AppColors.primary, size: 15),
                         ],
                       ],
                     ),
-                    const Row(
+                    Row(
                       children: [
                         CircleAvatar(radius: 3, backgroundColor: Colors.green),
                         SizedBox(width: 4),
@@ -1391,7 +1407,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             label: 'Gọi điện thoại cho ${widget.receiverName}',
             button: true,
             child: IconButton(
-              icon: const Icon(Icons.phone_outlined, color: AppColors.primary),
+              icon: Icon(Icons.phone_outlined, color: AppColors.primary),
               tooltip: 'Gọi thoại',
               onPressed: _makeAudioCall,
             ),
@@ -1401,7 +1417,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             label: 'Gọi video với ${widget.receiverName}',
             button: true,
             child: IconButton(
-              icon: const Icon(Icons.videocam_outlined, color: AppColors.primary),
+              icon: Icon(Icons.videocam_outlined, color: AppColors.primary),
               tooltip: 'Gọi video',
               onPressed: _makeVideoCall,
             ),
@@ -1463,10 +1479,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                             const SizedBox(height: 12),
                             Text(
                               'Bắt đầu cuộc trò chuyện với ${widget.receiverName}',
-                              style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                              style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
+                            Text(
                               'Nhấn vào các câu hỏi nhanh bên dưới để gửi ngay',
                               style: TextStyle(color: AppColors.textMuted, fontSize: 11),
                             ),
@@ -1519,7 +1535,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               right: 16,
               bottom: 120,
               child: FloatingActionButton.small(
-                backgroundColor: Colors.white,
+                backgroundColor: AppColors.surface,
                 foregroundColor: AppColors.primary,
                 tooltip: 'Cuộn xuống tin mới nhất',
                 onPressed: _scrollToBottom,
@@ -1575,7 +1591,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
         boxShadow: [
@@ -1613,13 +1629,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                     const SizedBox(height: 2),
                     Text(
                       '${NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(price)}/người',
-                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                      style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12),
                     ),
                   ],
                   if (address.isNotEmpty)
                     Text(
                       address,
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                      style: TextStyle(color: AppColors.textMuted, fontSize: 11),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1632,7 +1648,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             children: [
               InkWell(
                 onTap: () => setState(() => _showPinnedPost = false),
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.all(4),
                   child: Icon(Icons.close, size: 16, color: AppColors.textMuted),
                 ),
@@ -1662,7 +1678,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return Image.network(
         image,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => const ColoredBox(
+        errorBuilder: (context, error, stackTrace) => ColoredBox(
           color: AppColors.primaryContainer,
           child: Icon(Icons.article_outlined, color: AppColors.primary),
         ),
@@ -1675,7 +1691,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         return Image.memory(bytes, fit: BoxFit.cover);
       } catch (_) {}
     }
-    return const ColoredBox(
+    return ColoredBox(
       color: AppColors.primaryContainer,
       child: Icon(Icons.article_outlined, color: AppColors.primary),
     );
@@ -1686,7 +1702,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
         boxShadow: [
@@ -1710,9 +1726,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   ? Image.network(
                       room.images.first,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.home, color: AppColors.primary),
+                      errorBuilder: (context, error, stackTrace) => Icon(Icons.home, color: AppColors.primary),
                     )
-                  : const Icon(Icons.home, color: AppColors.primary),
+                  : Icon(Icons.home, color: AppColors.primary),
             ),
           ),
           const SizedBox(width: 10),
@@ -1737,11 +1753,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   const SizedBox(height: 2),
                   Text(
                     '${NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(room.price)}/tháng',
-                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                   Text(
                     room.address,
-                    style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 11),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1755,7 +1771,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             children: [
               InkWell(
                 onTap: () => setState(() => _showPinnedRoom = false),
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.all(4.0),
                   child: Icon(Icons.close, size: 16, color: AppColors.textMuted),
                 ),
@@ -1818,7 +1834,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           final isInviteChip = chip == '+ Mời vào ở ghép';
 
           return ActionChip(
-            backgroundColor: isInviteChip ? AppColors.primaryContainer : Colors.white,
+            backgroundColor: isInviteChip ? AppColors.primaryContainer : AppColors.surface,
             side: BorderSide(color: isInviteChip ? AppColors.primary : AppColors.border),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
             label: Text(
@@ -1848,7 +1864,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -1866,14 +1882,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             // Nút Thêm đính kèm (+) (Tc_CHAT_29)
             IconButton(
               tooltip: 'Đính kèm',
-              icon: const Icon(Icons.add_circle_outline, color: AppColors.primary, size: 26),
+              icon: Icon(Icons.add_circle_outline, color: AppColors.primary, size: 26),
               onPressed: _showAttachmentMenu,
             ),
 
             // Nút Chọn ảnh từ Album nhanh (Tc_CHAT_30)
             IconButton(
               tooltip: 'Chọn ảnh từ Album',
-              icon: const Icon(Icons.photo_library_outlined, color: AppColors.primary, size: 24),
+              icon: Icon(Icons.photo_library_outlined, color: AppColors.primary, size: 24),
               onPressed: _pickAndSendImageFromAlbum,
             ),
 
@@ -1896,7 +1912,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                       fontWeight: _isRecordingAudio ? FontWeight.bold : FontWeight.normal,
                     ),
                     filled: true,
-                    fillColor: const Color(0xFFF3F4F6),
+                    fillColor: AppColors.surfaceVariant,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
                       borderSide: BorderSide.none,
@@ -1924,7 +1940,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             Container(
               width: 44,
               height: 44,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.primary,
                 shape: BoxShape.circle,
               ),
@@ -1954,15 +1970,15 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       margin: const EdgeInsets.fromLTRB(4, 6, 4, 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: AppColors.surfaceVariant,
         borderRadius: BorderRadius.circular(10),
-        border: const Border(
+        border: Border(
           left: BorderSide(color: AppColors.primary, width: 3.5),
         ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.reply_rounded, color: AppColors.primary, size: 18),
+          Icon(Icons.reply_rounded, color: AppColors.primary, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -1971,7 +1987,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               children: [
                 Text(
                   'Đang trả lời $senderName',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
@@ -1982,13 +1998,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   previewText,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                  style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, size: 18, color: Color(0xFF94A3B8)),
+            icon: Icon(Icons.close, size: 18, color: AppColors.textMuted),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             tooltip: 'Hủy trả lời',
@@ -2007,7 +2023,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: isMe ? Colors.white.withValues(alpha: 0.18) : const Color(0xFFF1F5F9),
+        color: isMe ? Colors.white.withValues(alpha: 0.18) : AppColors.surfaceVariant,
         borderRadius: BorderRadius.circular(8),
         border: Border(
           left: BorderSide(
@@ -2050,7 +2066,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 11.5,
-              color: isMe ? Colors.white.withValues(alpha: 0.85) : const Color(0xFF475569),
+              color: isMe ? Colors.white.withValues(alpha: 0.85) : AppColors.textMuted,
             ),
           ),
         ],
@@ -2071,7 +2087,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       background: Container(
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 16),
-        child: const Icon(Icons.reply_rounded, color: AppColors.primary, size: 24),
+        child: Icon(Icons.reply_rounded, color: AppColors.primary, size: 24),
       ),
       child: GestureDetector(
       onLongPress: () => _showMessageContextMenu(msg, isMe),
@@ -2094,7 +2110,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 children: [
                   Text(
                     DateFormat('HH:mm').format(msg.timestamp),
-                    style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 10, color: AppColors.textMuted),
                   ),
                   if (isMe) ...[
                     const SizedBox(width: 4),
@@ -2111,7 +2127,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                         color: AppColors.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text(
+                      child: Text(
                         'Chưa đọc',
                         style: TextStyle(
                           fontSize: 9,
@@ -2139,21 +2155,21 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
+          color: AppColors.surfaceVariant,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(color: AppColors.border),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.block_outlined, size: 14, color: Color(0xFF94A3B8)),
+            Icon(Icons.block_outlined, size: 14, color: AppColors.textMuted),
             SizedBox(width: 6),
             Text(
               'Tin nhắn đã được thu hồi',
               style: TextStyle(
                 fontSize: 12.5,
                 fontStyle: FontStyle.italic,
-                color: Color(0xFF94A3B8),
+                color: AppColors.textMuted,
               ),
             ),
           ],
@@ -2166,7 +2182,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.primary, width: 1.5),
           boxShadow: [
@@ -2176,7 +2192,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
                 Icon(Icons.event_available, color: AppColors.primary, size: 20),
                 SizedBox(width: 6),
@@ -2188,12 +2204,12 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(Icons.location_on_outlined, size: 14, color: AppColors.textMuted),
+                Icon(Icons.location_on_outlined, size: 14, color: AppColors.textMuted),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     msg.extraData['address'] ?? 'Số 8, Linh Trung, TP. Thủ Đức',
-                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 11, color: AppColors.textMuted),
                     maxLines: 1,
                   ),
                 ),
@@ -2231,7 +2247,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: inviteStatus == 'accepted'
@@ -2284,7 +2300,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
-            Text('Chi phí: $priceStr', style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
+            Text('Chi phí: $priceStr', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
             const SizedBox(height: 10),
             if (inviteStatus == 'accepted')
               Container(
@@ -2294,7 +2310,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   color: AppColors.primaryContainer,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 16),
@@ -2356,7 +2372,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.danger,
-                        side: const BorderSide(color: AppColors.danger),
+                        side: BorderSide(color: AppColors.danger),
                         minimumSize: const Size.fromHeight(32),
                       ),
                       onPressed: () => _rejectRoommateInvite(msg),
@@ -2396,7 +2412,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.border),
           boxShadow: [
@@ -2412,7 +2428,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 color: Colors.teal.shade50,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Center(
+              child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -2450,7 +2466,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isMe ? AppColors.primary : Colors.white,
+          color: isMe ? AppColors.primary : AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2)),
@@ -2620,7 +2636,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         return Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: isMe ? AppColors.primary : Colors.white,
+            color: isMe ? AppColors.primary : AppColors.surface,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
@@ -2652,7 +2668,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: isMe ? AppColors.primary : Colors.white,
+        color: isMe ? AppColors.primary : AppColors.surface,
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(16),
           topRight: const Radius.circular(16),
@@ -2685,7 +2701,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 color: AppColors.primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text(
+              child: Text(
                 'TIN NHẮN CHƯA ĐỌC',
                 style: TextStyle(
                   color: AppColors.primary,

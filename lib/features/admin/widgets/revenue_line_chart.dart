@@ -1,3 +1,4 @@
+import '../theme/admin_colors.dart';
 import 'package:flutter/material.dart';
 
 class RevenueLineChart extends StatelessWidget {
@@ -29,12 +30,12 @@ class RevenueLineChart extends StatelessWidget {
                 ),
               ),
               if (weeklyData.every((v) => v <= 0))
-                const Text(
+                Text(
                   'Chưa có doanh thu',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF94A3B8),
+                    color: AdminColors.muted,
                   ),
                 ),
             ],
@@ -53,8 +54,8 @@ class RevenueLineChart extends StatelessWidget {
                   fontSize: 12.5,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   color: isSelected
-                      ? const Color(0xFF398FC0)
-                      : const Color(0xFF64748B),
+                      ? AdminColors.accent
+                      : AdminColors.muted,
                 ),
               );
             }),
@@ -84,7 +85,7 @@ class _SplineLineChartPainter extends CustomPainter {
 
     // Draw background horizontal grid lines
     final gridPaint = Paint()
-      ..color = const Color(0xFFE2E8F0)
+      ..color = AdminColors.border
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
@@ -147,9 +148,9 @@ class _SplineLineChartPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          const Color(0xFF398FC0).withValues(alpha: 0.28),
-          const Color(0xFF89CFF0).withValues(alpha: 0.12),
-          const Color(0xFF89CFF0).withValues(alpha: 0.0),
+          AdminColors.accent.withValues(alpha: 0.28),
+          AdminColors.accentLight.withValues(alpha: 0.12),
+          AdminColors.accentLight.withValues(alpha: 0.0),
         ],
       ).createShader(Rect.fromLTWH(0, paddingTop, size.width, chartHeight));
 
@@ -157,7 +158,7 @@ class _SplineLineChartPainter extends CustomPainter {
 
     // Draw main line stroke
     final strokePaint = Paint()
-      ..color = const Color(0xFF398FC0)
+      ..color = AdminColors.accent
       ..strokeWidth = 3.2
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -173,13 +174,13 @@ class _SplineLineChartPainter extends CustomPainter {
       if (isPeak) {
         // Outer halo / glow for active point
         final haloPaint = Paint()
-          ..color = const Color(0xFF398FC0).withValues(alpha: 0.2)
+          ..color = AdminColors.accent.withValues(alpha: 0.2)
           ..style = PaintingStyle.fill;
         canvas.drawCircle(p, 10.0, haloPaint);
 
         // Active outer ring
         final activeRingPaint = Paint()
-          ..color = const Color(0xFF398FC0)
+          ..color = AdminColors.accent
           ..strokeWidth = 2.5
           ..style = PaintingStyle.stroke;
         canvas.drawCircle(p, 6.5, activeRingPaint);
@@ -191,7 +192,7 @@ class _SplineLineChartPainter extends CustomPainter {
         canvas.drawCircle(p, 4.5, centerPaint);
 
         final dotCenter = Paint()
-          ..color = const Color(0xFF398FC0)
+          ..color = AdminColors.accent
           ..style = PaintingStyle.fill;
         canvas.drawCircle(p, 2.5, dotCenter);
       } else {
@@ -202,7 +203,7 @@ class _SplineLineChartPainter extends CustomPainter {
         canvas.drawCircle(p, 4.5, dotBg);
 
         final dotStroke = Paint()
-          ..color = const Color(0xFF398FC0)
+          ..color = AdminColors.accent
           ..strokeWidth = 2.0
           ..style = PaintingStyle.stroke;
         canvas.drawCircle(p, 4.5, dotStroke);

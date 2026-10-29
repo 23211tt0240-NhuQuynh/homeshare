@@ -132,7 +132,7 @@ class _ReportHostPostDialogState extends ConsumerState<ReportHostPostDialog> {
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
             'Báo cáo bài đăng đã được gửi tới ban quản trị HomeShare.',
           ),
@@ -149,7 +149,7 @@ class _ReportHostPostDialogState extends ConsumerState<ReportHostPostDialog> {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Gửi báo cáo thất bại. Vui lòng thử lại.'),
           backgroundColor: AppColors.danger,
         ),
@@ -172,7 +172,7 @@ class _ReportHostPostDialogState extends ConsumerState<ReportHostPostDialog> {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Báo cáo',
                       textAlign: TextAlign.center,
@@ -190,7 +190,7 @@ class _ReportHostPostDialogState extends ConsumerState<ReportHostPostDialog> {
                   ),
                 ],
               ),
-              const Align(
+              Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Tìm hỗ trợ hoặc báo cáo bài đăng',
@@ -202,7 +202,7 @@ class _ReportHostPostDialogState extends ConsumerState<ReportHostPostDialog> {
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Hãy giúp chúng tôi hiểu chuyện gì đang xảy ra.',
                 style: TextStyle(fontSize: 13, color: AppColors.textMuted),
               ),
@@ -229,15 +229,15 @@ class _ReportHostPostDialogState extends ConsumerState<ReportHostPostDialog> {
                   decoration: InputDecoration(
                     hintText: 'Mô tả vấn đề khác...',
                     filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
+                    fillColor: AppColors.background,
                     contentPadding: const EdgeInsets.all(12),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      borderSide: BorderSide(color: AppColors.border),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      borderSide: BorderSide(color: AppColors.border),
                     ),
                   ),
                 ),
@@ -307,7 +307,7 @@ class _ReportReasonChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.primary : const Color(0xFFF1F5F9),
+      color: selected ? AppColors.primary : AppColors.surfaceVariant,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,

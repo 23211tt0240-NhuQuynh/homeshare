@@ -506,7 +506,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(_viewOnly ? 'Hồ sơ' : 'Hồ sơ cá nhân'),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         foregroundColor: AppColors.textDark,
         elevation: 0,
         actions: [
@@ -557,8 +557,8 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                                   ),
                                   style: OutlinedButton.styleFrom(
                                     minimumSize: const Size.fromHeight(44),
-                                    side: const BorderSide(color: Color(0xFFFCA5A5)),
-                                    backgroundColor: const Color(0xFFFEF2F2),
+                                    side: BorderSide(color: AppColors.danger.withValues(alpha: 0.45)),
+                                    backgroundColor: AppColors.dangerContainer,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -711,7 +711,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
         Text(
           _nameController.text.trim().isEmpty ? 'Chưa cập nhật tên' : _nameController.text.trim(),
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 18, color: AppColors.textDark, fontWeight: FontWeight.w800),
+          style: TextStyle(fontSize: 18, color: AppColors.textDark, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
         InkWell(
@@ -761,7 +761,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
@@ -773,13 +773,13 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               Icon(icon, size: 18, color: AppColors.primary),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textDark)),
+                child: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textDark)),
               ),
             ],
           ),
           if (subtitle.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.35)),
+            Text(subtitle, style: TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.35)),
           ],
           const SizedBox(height: 14),
           child,
@@ -798,7 +798,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+            Text(label, style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
             const SizedBox(height: 3),
             Text(
               empty ? 'Chưa cập nhật' : value,
@@ -820,14 +820,14 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
       return Container(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
                 Icon(Icons.notes_rounded, size: 18, color: AppColors.primary),
                 SizedBox(width: 8),
@@ -836,7 +836,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
             ),
             const SizedBox(height: 14),
             _profileLine('Giới thiệu', _bioController.text),
-            const Text('Sở thích', style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+            Text('Sở thích', style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             if (_loadingInterests)
               const Padding(
@@ -844,7 +844,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                 child: LinearProgressIndicator(minHeight: 2),
               )
             else if (_interests.isEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(bottom: 14),
                 child: Text('Chưa có sở thích.', style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: AppColors.textMuted)),
               )
@@ -862,7 +862,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                           color: AppColors.primaryContainer,
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Text(interest, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+                        child: Text(interest, style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
                       ),
                   ],
                 ),
@@ -876,14 +876,14 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.notes_rounded, size: 18, color: AppColors.primary),
               SizedBox(width: 8),
@@ -896,7 +896,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               const Expanded(
                 child: Text('Đoạn giới thiệu ngắn', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               ),
-              Text('$length/500', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+              Text('$length/500', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
             ],
           ),
           const SizedBox(height: 6),
@@ -966,7 +966,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: selected ? AppColors.primaryContainer : Colors.white,
+        color: selected ? AppColors.primaryContainer : AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onChanged,
@@ -975,7 +975,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
             padding: const EdgeInsets.fromLTRB(14, 4, 6, 4),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: selected ? AppColors.primary : const Color(0xFFE2E8F0)),
+              border: Border.all(color: selected ? AppColors.primary : AppColors.border),
             ),
             child: Row(
               children: [
@@ -985,7 +985,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: selected ? AppColors.primary : const Color(0xFF0F172A),
+                      color: selected ? AppColors.primary : AppColors.textDark,
                     ),
                   ),
                 ),
@@ -1014,7 +1014,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
           : Column(
               children: [
                 if (_bankLoadFailed)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(bottom: 8),
                     child: Text(
                       'Không tải được tài khoản ngân hàng. Lần lưu này không đổi thông tin ngân hàng.',
@@ -1080,7 +1080,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Ngân hàng', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+        Text('Ngân hàng', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           key: const ValueKey('bank-account-name'),
@@ -1119,7 +1119,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Năm sinh / Tuổi *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+        Text('Năm sinh / Tuổi *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
         const SizedBox(height: 6),
         TextFormField(
           controller: _yearController,
@@ -1151,7 +1151,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Giới tính *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+        Text('Giới tính *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -1163,7 +1163,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
         ),
         if (_genderError != null) ...[
           const SizedBox(height: 6),
-          Text(_genderError!, style: const TextStyle(color: AppColors.danger, fontSize: 12)),
+          Text(_genderError!, style: TextStyle(color: AppColors.danger, fontSize: 12)),
         ],
       ],
     );
@@ -1183,7 +1183,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
         height: 42,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary : Colors.white,
+          color: selected ? AppColors.primary : AppColors.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: selected ? AppColors.primary : AppColors.border),
         ),
@@ -1213,7 +1213,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
@@ -1231,13 +1231,13 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     return InputDecoration(
       hintText: hint,
       filled: true,
-      fillColor: const Color(0xFFF8FAFC),
+      fillColor: AppColors.background,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.4)),
-      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.danger)),
-      focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.danger, width: 1.4)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.primary, width: 1.4)),
+      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.danger)),
+      focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.danger, width: 1.4)),
       errorMaxLines: 2,
     );
   }
@@ -1245,8 +1245,8 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   Widget _buildFooter() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
       child: SafeArea(
@@ -1258,10 +1258,10 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                 onPressed: _saving ? null : _cancelEditing,
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: const BorderSide(color: AppColors.border),
+                  side: BorderSide(color: AppColors.border),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Hủy bỏ', style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.w700)),
+                child: Text('Hủy bỏ', style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.w700)),
               ),
             ),
             const SizedBox(width: 12),

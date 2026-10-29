@@ -2439,3 +2439,29 @@ flutter test test/host_review_test.dart test/renter_dashboard_search_filter_test
 flutter test test/host_profile_test.dart test/profile_screen_test.dart test/role_routing_test.dart
 ```
 
+---
+
+### Phase 2.67: Ẩn tin ở ghép khi đủ sức chứa + chặn lời mời chat
+* **Ngày hoàn thành:** 28/10/2026
+* **Yêu cầu:** Tin tab **Đã có phòng** lấy sức chứa từ phòng đang ở. Khi đã có bạn ở ghép và **số người đang ở ≥ sức chứa**, tin đó phải ẩn (người khác không còn thấy để liên hệ). Lời mời ở ghép trên **tin nhắn** cũng bị chặn kèm cảnh báo. Sức chứa 3 thì tin vẫn hiện cho đến khi đủ 3 người. Nếu đăng 2 tin liên tiếp, **căn bài mới nhất**.
+
+#### 1. Công thức
+[roommate_capacity_policy.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/core/utils/roommate_capacity_policy.dart):
+
+* Sức chứa = `capacity` trên **bài đã có phòng mới nhất** (theo `createdAt`). Nếu bài không có số thì lấy `capacity` phòng (`posts` / `rooms` / `host_rooms`).
+* Người đang ở = UID unique từ `residents` đang ở (`dangO` / `active`) + `tenantIds` trên phòng, tối thiểu người đăng.
+* Đủ chỗ khi `occupantCount >= capacity` và `capacity > 0`.
+
+#### 2. Ẩn bài đăng
+Sau khi chủ trọ duyệt vào ở ghép, [tenant_repository.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/host/repositories/tenant_repository.dart) `addRoommateToRoom` gọi [roommate_capacity_service.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/core/services/roommate_capacity_service.dart): nếu đủ chỗ thì merge `roommate_posts.status = daDong` cho **mọi tin đã có phòng còn mở** của người đăng (ngưỡng sức chứa lấy từ bài mới nhất).
+
+Feed [roommate_service.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/core/services/roommate_service.dart) **không** trả tin `daDong`. Merge local/cloud: document Firestore thắng, tránh tin vừa đóng vẫn hiện từ cache phiên. Chi tiết tin đã đóng: ẩn nút gọi/nhắn/mời, hiện *Bài đăng đã ẩn vì phòng đã đủ người ở ghép.*
+
+#### 3. Chặn lời mời chat
+[roommate_invitation_eligibility_service.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/chat/services/roommate_invitation_eligibility_service.dart) thêm `roomAtCapacity`. [chat_detail_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/chat/screens/chat_detail_screen.dart) báo: *Không gửi được lời mời ở ghép vì bạn đã có bạn cùng phòng và phòng đã đủ sức chứa.* Không ghi tin `roommate_invitation`.
+
+```
+flutter test test/roommate_capacity_policy_test.dart test/roommate_invitation_policy_test.dart
+```
+
+
