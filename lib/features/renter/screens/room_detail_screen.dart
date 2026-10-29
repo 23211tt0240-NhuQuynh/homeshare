@@ -10,7 +10,9 @@ import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
 import '../../profile/screens/host_profile_screen.dart';
 import '../../../core/utils/host_post_report_policy.dart';
+import '../../../core/utils/host_report_policy.dart';
 import '../widgets/report_host_post_dialog.dart';
+import 'report_host_screen.dart';
 import 'room_booking_detail_screen.dart';
 
 class RoomDetailScreen extends ConsumerStatefulWidget {
@@ -129,7 +131,32 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
     );
   }
 
-  Future<void> _onReportPressed() async {
+  void _onReportHostPressed() {
+    final reporterId = ref.read(currentUserProvider)?.uid ?? '';
+    if (reporterId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng đăng nhập để báo cáo.')),
+      );
+      return;
+    }
+    if (!HostReportPolicy.canReport(
+      reporterId: reporterId,
+      hostId: _room.hostId,
+    )) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bạn không thể tự báo cáo chính mình.')),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReportHostScreen.fromRoom(_room),
+      ),
+    );
+  }
+
+  Future<void> _onReportPostPressed() async {
     final reporterId = ref.read(currentUserProvider)?.uid ?? '';
     if (reporterId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -314,6 +341,39 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                     ),
                   );
                 },
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0, top: 4.0, bottom: 4.0),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, color: AppColors.textDark, size: 20),
+                    tooltip: 'Tùy chọn',
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    onSelected: (value) {
+                      if (value == 'report_post') {
+                        _onReportPostPressed();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'report_post',
+                        child: Row(
+                          children: [
+                            Icon(Icons.flag_outlined, size: 18, color: Color(0xFFDC2626)),
+                            SizedBox(width: 8),
+                            Text('Báo cáo bài viết này', style: TextStyle(fontSize: 13)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
@@ -726,7 +786,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                 button: true,
                 excludeSemantics: true,
                 child: OutlinedButton.icon(
-                  onPressed: _onReportPressed,
+                  onPressed: _onReportHostPressed,
                   icon: const Icon(Icons.flag_outlined, color: Color(0xFFDC2626), size: 16),
                   label: const Text(
                     'Báo cáo chủ trọ',

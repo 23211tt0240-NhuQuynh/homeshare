@@ -23,6 +23,21 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.82 - Phân Tách Tuyệt Đối Giữa Báo Cáo / Đánh Giá Chủ Trọ & Báo Cáo Bài Viết Trong Quản Lý Người Dùng:**
+    - **Mục tiêu & Yêu cầu:** Đảm bảo trang Quản lý người dùng của Quản trị viên (AdminUsersScreen), đặc biệt là danh sách "Chờ xử lý" và "Đã xử lý", chỉ lấy và xử lý các báo cáo / đánh giá về người dùng / chủ trọ (không lẫn báo cáo bài viết).
+    - **Các điều chỉnh chi tiết:**
+      1. **Bộ lọc Báo cáo trong AdminUsersScreen (_recompute):**
+         - Thêm điều kiện sàng lọc triệt để loại bỏ toàn bộ các tài liệu báo cáo bài viết (targetType == 'post', reportType == 'post', id bắt đầu bằng 'BCB_', hoặc isPostReport == true).
+         - Đảm bảo các chỉ số thống kê (cPending, cHandled, reportCount, pendingCount) chỉ đo lường chính xác các báo cáo vi phạm liên quan đến tư cách người dùng / chủ trọ.
+      2. **Huy hiệu thông báo điều hướng AdminMainScreen:**
+         - Nâng cấp StreamBuilder tính toán số lượng báo cáo chờ xử lý gắn trên biểu tượng điều hướng 'Người dùng' (NavigationRail / BottomNavigationBar), đồng bộ loại bỏ các báo cáo bài viết để số lượng badge khớp 100% với số lượng của tab 'Chờ xử lý' trong AdminUsersScreen.
+      3. **Chuẩn hóa thao tác Báo cáo tại màn hình Chi tiết phòng (RoomDetailScreen):**
+         - Nút 'Báo cáo chủ trọ' ở thanh tác vụ chân trang (bottom sheet) được khôi phục điều hướng đến ReportHostScreen.fromRoom(_room), cho phép người thuê gửi báo cáo / đánh giá chính xác về chủ trọ kèm hình ảnh minh chứng.
+         - Tích hợp thêm nút menu ba chấm tại thanh tiêu đề (SliverAppBar actions) với tùy chọn 'Báo cáo bài viết này' gọi showReportHostPostDialog, giúp người dùng có đầy đủ cả 2 chức năng phân biệt rõ ràng: Báo cáo chủ trọ (về con người/hành vi) vs Báo cáo bài đăng (về thông tin bài viết sai sự thật, spam).
+    - **Kiểm định chất lượng:**
+      + Flutter analyze: 0 errors, 0 warnings (No issues found!).
+      + Test suite: Toàn bộ các kiểm thử host_report_test.dart, host_post_report_test.dart, host_review_test.dart đều vượt qua 100% (All tests passed!).
+
   * **Phase 2.81 - Tích Hợp Toàn Bộ Tính Năng & Nâng Cấp Từ Nhánh dev-THE (homeshare-dev-THE) Vào Dự Án:**
     - **Mục tiêu & Phạm vi:** Khảo sát, đối soát và đồng bộ hóa toàn bộ các tính năng, màn hình, dịch vụ và quy tắc nghiệp vụ mới nhất do Thế phát triển từ thư mục D:\homeshare-dev-THE (nhánh origin/dev-THE) vào dự án hiện tại d:\App\homeshare-dev-TOAN, đồng thời bảo toàn trọn vẹn toàn bộ các tính năng của Toàn (
 otification_user, PushNotificationService, cleanImageUrl, MyHomesScreen, ...).

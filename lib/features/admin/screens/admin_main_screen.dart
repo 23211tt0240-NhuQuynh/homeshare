@@ -339,7 +339,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                             );
                           },
                         ),
-                        // Badge số báo cáo user đang chờ xử lý
+                        // Badge số báo cáo user đang chờ xử lý (chỉ đếm báo cáo chủ trọ / user, không tính bài viết)
                         StreamBuilder<QuerySnapshot>(
                           stream: () {
                             try {
@@ -352,7 +352,12 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                             }
                           }(),
                           builder: (context, snapshot) {
-                            final count = snapshot.data?.docs.length ?? 0;
+                            final count = snapshot.data?.docs.where((d) {
+                              final data = d.data() as Map<String, dynamic>? ?? {};
+                              final targetType = (data['targetType'] ?? data['reportType'] ?? '').toString().toLowerCase();
+                              final isPost = targetType == 'post' || d.id.startsWith('BCB_') || data['isPostReport'] == true;
+                              return !isPost;
+                            }).length ?? 0;
                             return _buildNavItem(
                               index: 3,
                               icon: Icons.people_alt_rounded,

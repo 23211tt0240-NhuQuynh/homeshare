@@ -203,6 +203,16 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         d.data() as Map<String, dynamic>? ?? {},
       );
       data['id'] = d.id;
+      // CHỈ LẤY BÁO CÁO / ĐÁNH GIÁ CHỦ TRỌ & NGƯỜI DÙNG (KHÔNG LẤY BÁO CÁO BÀI VIẾT)
+      // Các báo cáo bài viết (targetType == 'post' hoặc id 'BCB_') không thuộc phạm vi duyệt tài khoản người dùng
+      final targetType = (data['targetType'] ?? data['reportType'] ?? '').toString().toLowerCase();
+      final isPostReport = targetType == 'post' ||
+          d.id.startsWith('BCB_') ||
+          (data['isPostReport'] == true);
+      if (isPostReport) {
+        continue;
+      }
+
       final uid = _s(data, [
         'reportedUserId',
         'targetUserId',
