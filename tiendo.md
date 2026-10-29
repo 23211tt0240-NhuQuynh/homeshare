@@ -24,6 +24,7 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 98%
 * **Chất lượng mã nguồn & Tiến độ mới nhất:**
+  * **Phase 2.68 - Theme Graphite tối / Phòng Sáng:** Tab Cá nhân **Giao diện** đổi `ThemeMode` toàn app. Sáng = `PhongSangTheme`, tối = Graphite. Users + host dùng `AppColors`; admin giữ layout gốc, chỉ map palette tối qua `AdminColors`; đăng nhập/đăng ký/quên mật khẩu theo cùng preference. Đã xóa các script đổi màu tạm thời (`tool_*.ps1`, `tool_theme_user_screens.py`) — không thuộc app, không đưa vào repo.
   * **Loại bỏ triệt để Hardcode:** Toàn bộ dữ liệu hồ sơ cá nhân, ảnh đính kèm, danh mục địa giới hành chính toàn quốc (Tỉnh/Thành, Quận/Huyện, Phường/Xã) và bộ lọc kết quả được nạp động 100% từ Firestore, Firebase Storage và `VietnamLocations`.
   * **Sửa lỗi crash BoxConstraints toàn cục:** Đã chuẩn hóa `minimumSize: const Size(64, 44)` trong `phong_sang_theme.dart`, loại bỏ hoàn toàn lỗi vỡ layout Flex / `BoxConstraints forces an infinite width`.
   * **Viết lại sạch (Clean Rewrite) `search_filter_screen.dart`:** Chuẩn 3 trạng thái Figma, hỗ trợ mở rộng dropdown nâng cao `#006948`, thanh lọc thu gọn và kết quả thời gian thực.
@@ -2462,6 +2463,47 @@ Feed [roommate_service.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/core/se
 
 ```
 flutter test test/roommate_capacity_policy_test.dart test/roommate_invitation_policy_test.dart
+```
+
+---
+
+### Phase 2.68: Giao diện Graphite tối & Phòng Sáng cho Users, Host, Admin, Đăng nhập
+* **Ngày hoàn thành:** 29/10/2026
+* **Yêu cầu:**
+  1. Gắn mẫu Graphite vào mục **Giao diện** tab Cá nhân: sáng = `phong_sang_theme`, tối = Graphite.
+  2. Áp dụng cho 3 role users / host / admin.
+  3. Role users: chữ phải đọc được trên nền tối; các màn sau khi nhấn nút (không chỉ 3 tab chính) cũng theo theme.
+  4. Admin giữ nguyên thiết kế ban đầu, không thêm màn hình, không đụng logic — chỉ đổi theme tối. Nút sáng/tối của admin gắn chung `ThemeMode` để users + host đổi theo. Tạm thời chưa cần luồng “đổi lại sáng” riêng cho admin.
+  5. Nếu users hoặc host đã chọn tối thì màn **Đăng nhập / Đăng ký** cũng tối theo.
+
+#### 1. Bộ điều khiển theme chung
+* [app_theme_controller.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/core/theme/app_theme_controller.dart): lưu `ThemeMode` (`light` / `dark` / `system`) vào SharedPreferences khóa `app_theme_mode`.
+* [main.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/main.dart): `theme` = Phòng Sáng, `darkTheme` = Graphite; `MaterialApp.builder` gọi `AppColors.bind(Theme.of(context).brightness)`.
+* [app_colors.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/core/constants/app_colors.dart): token tĩnh thành getter theo palette đang bind (sáng = Phòng Sáng, tối = Graphite `#111827` / `#1F2937` / accent `#3B82F6`, chữ `#F1F5F9`).
+* Tab Cá nhân [home_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/home/screens/home_screen.dart) mục **Giao diện** gọi `setMode` — users và host dùng chung màn này.
+
+#### 2. Users (Người thuê)
+* Đổi hex/`Colors.white` cứng trên các màn renter, chat, profile sang `AppColors` để theme tối thật sự sơn nền/chữ, không chỉ đổi `ThemeData`.
+* Sửa tương phản: 3 bước đăng tin ở ghép ([create_roommate_post_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/renter/screens/create_roommate_post_screen.dart)) chữ phụ `#CBD5E1` khi tối; chip chi tiết phòng ở ghép không còn trắng-trên-trắng.
+
+#### 3. Host (Chủ trọ)
+* [host_form_theme.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/host/widgets/host_form_theme.dart) `HostTheme` ủy quyền sang `AppColors` (không viết lại từng form).
+* Shell dashboard / phòng / bài / khách thuê / check-in / vi phạm: `Scaffold.backgroundColor` và chip/header dùng `AppColors.background` / `surface`.
+
+#### 4. Admin — giữ layout gốc
+* [admin_colors.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/admin/theme/admin_colors.dart): sáng = đúng hex thiết kế cyan/navy cũ; tối = cùng bố cục trên nền navy (`#0B1822` / `#132333`), không Graphite, không thêm tab/màn.
+* Nút trăng/nắng trên AppBar **Tổng quan** (cạnh chuông) ghi `appThemeControllerProvider` — users + host đổi theo. Không thêm màn Giao diện admin.
+* Sửa thẻ KPI **Doanh thu sàn** (hex trắng cứng) và chip **HỆ THỐNG** (chữ trắng trên nền gần trắng khi tối).
+
+#### 5. Đăng nhập / Đăng ký
+* [auth_form_card.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/auth/widgets/auth_form_card.dart), [login_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/auth/screens/login_screen.dart), [register_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/auth/screens/register_screen.dart), [forgot_password_screen.dart](file:///D:/Downloads/homeshare-dev-TOAN/lib/features/auth/screens/forgot_password_screen.dart) dùng `AppColors` thay `PhongSangColors` cứng. Preference tối đã lưu thì vào auth vẫn tối.
+
+#### 6. Dọn script đổi màu tạm thời
+* Đã xóa các file one-off ở root project: `tool_theme_user_screens.ps1`, `tool_theme_user_screens.py`, `tool_theme_host_screens.ps1`, `tool_theme_admin_screens.ps1`, `tool_strip_const.ps1`, `tool_strip_primary_blue.ps1`, `tool_strip_accent.ps1`, `tool_dedupe_host_imports.ps1`. Chỉ dùng lúc rewrite hex cứng sang token theme; không chạy trong app, không commit vào repo.
+
+```
+flutter analyze lib/features/admin lib/features/auth lib/features/host
+flutter test test/graphite_theme_test.dart test/xml_dark_theme_test.dart
 ```
 
 
