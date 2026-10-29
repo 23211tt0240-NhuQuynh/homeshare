@@ -23,6 +23,38 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.73 - Cập Nhật Bộ Lọc Theo Khu Vực Mới Gộp Của Việt Nam (34 Tỉnh/TP & Đơn Vị Sáp Nhập) Cho Role Chủ Trọ:**
+    - **Cập nhật danh mục Địa giới hành chính mới ([vietnam_locations.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/core/constants/vietnam_locations.dart)):**
+      + Tích hợp 34 Tỉnh và Thành phố trực thuộc Trung ương của Việt Nam theo Nghị quyết số 202/2025/QH15 (`provinces34`).
+      + Bổ sung danh sách các đơn vị cấp Thành phố / Quận / Huyện mới sáp nhập và thành lập nổi bật: `TP. Thủ Đức` (TP.HCM), `TP. Thủy Nguyên` (Hải Phòng), `Quận An Dương` (Hải Phòng), `TP. Bến Cát` (Bình Dương), `TP. Tân Uyên` (Bình Dương), `TP. Phú Mỹ` (Bà Rịa - Vũng Tàu), `Huyện Long Đất` (sáp nhập Long Điền & Đất Đỏ), `Huế` (TP trực thuộc Trung ương mới).
+    - **Nâng cấp Bộ lọc khu vực Role Chủ trọ ([HostDashboardScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_dashboard_screen.dart)):**
+      + **Ngoài sảnh (`_buildLocationCard` & `_buildStandaloneLocationDropdown`):**
+        * Thẻ khu vực hiển thị nhãn `Khu vực:` kèm huy hiệu xanh nổi bật `Mới gộp VN`.
+        * Bổ sung thanh Tab phân loại nhanh: `Tất cả`, `34 Tỉnh/TP mới`, `Khu vực mới gộp`.
+        * Mỗi đơn vị mới gộp hiển thị phụ đề giải thích chi tiết (như: *Sáp nhập Quận 2, Quận 9, Thủ Đức*, *TP mới trực thuộc Hải Phòng*, *Sáp nhập Long Điền & Đất Đỏ*) kèm badge trạng thái `Mới gộp` / `Trực thuộc TW`.
+        * Tìm kiếm tức thì không phân biệt dấu tiếng Việt.
+      + **Trong lọc nâng cao (`_buildAdvancedFilterPanel`):**
+        * Mục 1 Khu vực tìm kiếm gắn huy hiệu `34 Tỉnh/TP mới gộp`.
+        * Tái sử dụng đồng bộ toàn bộ widget chọn khu vực mới gộp với đầy đủ tính năng phân loại, tìm kiếm, checkbox đa chọn và nút bỏ chọn.
+    - **Xử lý lọc thông minh đối chiếu Firebase ([host_home_provider.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/providers/host_home_provider.dart)):**
+      + So sánh chuẩn hóa không phân biệt hoa/thường, có dấu/không dấu qua `normalizeVietnameseComparison`.
+      + **Tương thích ngược dữ liệu bài đăng:** Chủ trọ chọn `TP. Thủ Đức` tự động quét khớp bài đăng ghi `Quận 2`, `Quận 9`, `Thủ Đức`; chọn `Huyện Long Đất` tự động khớp `Long Điền` và `Đất Đỏ`; chọn `Huế` tự động khớp `Thừa Thiên Huế`.
+    - **Ràng buộc Quản lý Bài đăng ([host_post_management_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_post_management_screen.dart)):**
+      + Khóa chức năng chỉnh sửa đối với các bài đăng đã được duyệt (`approved` / `daDuyet`), bảo vệ dữ liệu đã qua kiểm duyệt.
+  * **Phase 2.72 - Hoàn Thiện Màn Hình Quản Lý Vi Phạm (Nội Quy & Tiền Phạt Ngoài App) & Chuẩn Hóa Thông Báo Chuẩn Tiếng Anh:**
+    - **Xây dựng Màn hình Quản lý Vi phạm nội quy trọ cho Chủ trọ ([HostViolationManagementScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_violation_management_screen.dart)):**
+      + Xử lý quan hệ trực tiếp giữa Chủ trọ và Người thuê theo nội quy nhà trọ (không thông qua Admin sàn).
+      + Cho phép chủ trọ lập biên bản vi phạm: chọn phòng, người thuê, lỗi vi phạm (tiếng ồn, rác thải, tụ tập trái phép, làm hư hại tài sản...), nhập số tiền phạt, tải lên bằng chứng hình ảnh (hỗ trợ Base64 & Network Image).
+      + Quy định hình thức nộp phạt: nộp phạt trực tiếp ở ngoài đời thực (tiền mặt / chuyển khoản riêng), không thanh toán qua cổng ứng dụng. Chủ trọ bấm xác nhận "Đã nộp phạt" sau khi người thuê hoàn tất đóng tiền.
+    - **Nâng cấp Repository Xử lý Vi phạm ([violation_repository.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/repositories/violation_repository.dart)):**
+      + Lưu trữ hồ sơ vi phạm trong collection `violations`.
+      + Tự động tạo và gửi thông báo hệ thống sang collection `notifications` cho người thuê bị phạt kèm số tiền, bằng chứng ảnh và điều khoản vi phạm.
+    - **Chuẩn hóa trường dữ liệu Thông báo & Vi phạm sang Tiếng Anh thuần túy (Firestore Schema Standard):**
+      + Loại bỏ toàn bộ các trường tiếng Việt hỗn hợp (`tieuDe`, `noiDung`, `daDoc`, `tongTienPhat`, `trangThai_id`) và trường `statusId` dư thừa.
+      + Sử dụng trường chuẩn `status: 'pending' | 'resolved' | 'paid' | 'cancelled'`.
+      + Chuẩn hóa đồng bộ các trường: `title`, `body`, `type`, `fineAmount`, `evidenceImages`, `violationType`, `ruleId`, `createdAt`, `updatedAt`, `isRead`.
+    - **Khôi phục nguyên bản Màn hình Thông báo Người thuê ([UserNotificationsScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/renter/screens/user_notifications_screen.dart)):**
+      + Khôi phục và bảo toàn 100% logic UI và luồng xử lý riêng của team Người thuê, đảm bảo chỉ cung cấp dữ liệu chuẩn tiếng Anh lên Firestore để các module khác lắng nghe và nạp xuống.
   * **Phase 2.71 - Tự Động Ẩn Bài Đăng Khi Nhận Thông Báo Chờ Xử Lý Đặt Phòng & Khóa Phòng Đã Có Người Ở Khi Đăng Bài:**
     - **Tự động ẩn bài đăng khi user đặt phòng gửi về thông báo đang chờ xử lý:**
       + **Nâng cấp `BookingService` ([booking_service.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/core/services/booking_service.dart)):**
