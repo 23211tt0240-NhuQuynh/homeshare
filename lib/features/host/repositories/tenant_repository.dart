@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import '../../../core/services/roommate_capacity_service.dart';
 import '../../../core/services/resident_service.dart';
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -553,5 +555,15 @@ class TenantRepository {
     });
 
     if (batch == null) await writes.commit();
+
+    try {
+      await RoommateCapacityService(firestore: _firestore).closeHasRoomPostsIfFull(
+        authorId: primaryTenantId,
+        roomId: roomId,
+        knownOccupantIds: [primaryTenantId, newRoommateId],
+      );
+    } catch (error) {
+      debugPrint('Ẩn tin ở ghép khi đủ sức chứa: $error');
+    }
   }
 }

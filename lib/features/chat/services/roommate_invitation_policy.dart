@@ -25,10 +25,12 @@ abstract final class RoommateInvitationPolicy {
     required String? senderRole,
     required String? receiverRole,
     required bool hasActiveRoom,
+    bool roomHasFreeCapacity = true,
   }) {
     return RoleResolver.normalizeRole(senderRole) == RoleResolver.renter &&
         RoleResolver.normalizeRole(receiverRole) == RoleResolver.renter &&
-        hasActiveRoom;
+        hasActiveRoom &&
+        roomHasFreeCapacity;
   }
 
   static bool isActiveBookingStatus(dynamic status) {

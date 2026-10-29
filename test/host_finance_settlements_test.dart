@@ -4,11 +4,11 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:home_share/features/host/providers/host_management_provider.dart';
 import 'package:home_share/features/host/screens/host_finance_screen.dart';
-import 'package:home_share/features/admin/widgets/revenue_line_chart.dart';
+import 'package:home_share/features/host/widgets/host_finance_style.dart';
 
 void main() {
   testWidgets(
-    'Totals use settlement net amount and successful orders await admin disbursement',
+    'Statistics use net settlements and count success only after admin disbursement',
     (tester) async {
       final now = DateTime.now();
       final settlements = StateProvider<List<Map<String, dynamic>>>(
@@ -74,10 +74,10 @@ void main() {
       expect(find.text('1 đơn'), findsOneWidget);
       expect(find.text('Bài viết Toan, Bài viết TTM'), findsOneWidget);
       expect(find.text('REC-TEST'), findsNothing);
-      final chart = tester.widget<RevenueLineChart>(
-        find.byType(RevenueLineChart),
+      final chart = tester.widget<HostCashflowChart>(
+        find.byType(HostCashflowChart),
       );
-      expect(chart.weeklyData.fold<double>(0, (a, b) => a + b), 95000000);
+      expect(chart.values.fold<double>(0, (a, b) => a + b), 95000000);
       expect(tester.takeException(), isNull);
     },
   );

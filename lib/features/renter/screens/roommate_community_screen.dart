@@ -10,7 +10,7 @@ import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
-import '../../profile/screens/personal_profile_screen.dart';
+import '../../profile/screens/role_aware_profile_screen.dart';
 import 'create_roommate_post_screen.dart';
 import 'roommate_room_detail_screen.dart';
 import 'roommate_search_screen.dart';
@@ -156,7 +156,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
     if (authorId.isEmpty) return;
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => PersonalProfileScreen(userId: authorId)),
+      MaterialPageRoute(builder: (_) => RoleAwareProfileScreen(userId: authorId)),
     );
   }
 
@@ -290,6 +290,25 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                 icon: const Icon(Icons.search_rounded, color: Color(0xFF334155), size: 26),
                 onPressed: _openRoommateSearch,
               ),
+              const SizedBox(width: 4),
+              // Profile Avatar
+              Builder(builder: (context) {
+                final raw = profile?.avatarUrl.trim() ?? '';
+                final avatar = raw.startsWith('http') ? NetworkImage(raw) : null;
+                return CircleAvatar(
+                  radius: 17,
+                  backgroundColor: const Color(0xFFE2E8F0),
+                  backgroundImage: avatar,
+                  child: avatar == null
+                      ? Text(
+                          (profile?.displayName.trim().isNotEmpty == true)
+                              ? profile!.displayName.trim()[0].toUpperCase()
+                              : 'U',
+                          style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF334155)),
+                        )
+                      : null,
+                );
+              }),
             ],
           ),
         ],

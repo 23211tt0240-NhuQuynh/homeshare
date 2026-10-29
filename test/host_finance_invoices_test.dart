@@ -7,7 +7,7 @@ import 'package:home_share/features/host/screens/host_finance_invoices.dart';
 void main() {
   for (final deposit in [true, false]) {
     testWidgets(
-      '${deposit ? 'Deposit' : 'Full'} invoices filter orders and show net estimate',
+      '${deposit ? 'Deposit' : 'Full'} invoice details and confirmation guard',
       (tester) async {
         tester.view.physicalSize = const Size(390, 1200);
         tester.view.devicePixelRatio = 1;
@@ -67,6 +67,8 @@ void main() {
           find.text(deposit ? '4.500.000 đ' : '4.750.000 đ'),
           findsWidgets,
         );
+        expect(find.text('Thực nhận dự kiến sau phí hoa hồng'), findsOneWidget);
+        expect(find.text('Đã trừ phí hoa hồng'), findsNothing);
         final confirm = tester.widget<FilledButton>(
           find.widgetWithText(FilledButton, 'Đã nhận tiền'),
         );

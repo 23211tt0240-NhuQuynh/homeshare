@@ -1,4 +1,3 @@
-import '../../../core/services/booking_service.dart';
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -427,10 +426,8 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
         'hostId': (data['hostId'] ?? data['chuNhaId'] ?? '').toString(),
         'roomId': (data['roomId'] ?? data['phongId'] ?? '').toString(),
         'roomCode': (data['roomCode'] ?? data['maPhong'] ?? '').toString(),
-        'roomFloorInfo': (data['roomFloorInfo'] ?? data['thongTinTang'] ?? '')
-            .toString(),
-        'checkInDate':
-            data['checkInDate'] ?? data['ngayNhanPhong'] ?? data['checkIn'],
+        'roomFloorInfo': (data['roomFloorInfo'] ?? data['thongTinTang'] ?? '').toString(),
+        'checkInDate': data['checkInDate'] ?? data['ngayNhanPhong'] ?? data['checkIn'],
         'subTag':
             data['subTag']?.toString() ??
             (targetTab == 'cancelled'
@@ -1436,9 +1433,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: isSelected
-                            ? Colors.white
-                            : const Color(0xFF344054),
+                        color: isSelected ? Colors.white : const Color(0xFF344054),
                       ),
                     ),
                     const SizedBox(width: 3.5),
@@ -2305,13 +2300,13 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
     final actionText = isFull ? 'thanh toán đủ' : 'tiền cọc';
 
     try {
-      await BookingService().confirmPayment(id, {
+      await FirebaseFirestore.instance.collection('bookings').doc(id).set({
         'status': targetStatus,
         'subTag': targetSubTag,
         'isPaid': true,
         'approvedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
 
       // Lấy thông tin booking bổ sung nếu item thiếu hostId
       String hostId = (item['hostId'] ?? '').toString();
@@ -2338,17 +2333,18 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
           roomCode = (bData['roomCode'] ?? bData['maPhong'] ?? '').toString();
         }
         if (roomTitle == 'Phòng trọ') {
-          roomTitle =
-              (bData['roomTitle'] ?? bData['tieuDePhong'] ?? 'Phòng trọ')
-                  .toString();
+          roomTitle = (bData['roomTitle'] ??
+                  bData['tieuDePhong'] ??
+                  'Phòng trọ')
+              .toString();
         }
         if (roomFloorInfo.isEmpty) {
           roomFloorInfo =
-              (bData['roomFloorInfo'] ?? bData['thongTinTang'] ?? '')
-                  .toString();
+              (bData['roomFloorInfo'] ?? bData['thongTinTang'] ?? '').toString();
         }
-        checkInDate ??=
-            bData['checkInDate'] ?? bData['ngayNhanPhong'] ?? bData['checkIn'];
+        checkInDate ??= bData['checkInDate'] ??
+            bData['ngayNhanPhong'] ??
+            bData['checkIn'];
       }
 
       // 1. Gửi thông báo đến người thuê

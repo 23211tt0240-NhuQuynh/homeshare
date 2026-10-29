@@ -1,5 +1,4 @@
-import 'resident_service.dart';
-import '../../data/models/room_model.dart';
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,10 +6,7 @@ import '../../data/models/booking_model.dart';
 import '../utils/id_generator.dart';
 
 class BookingService {
-  final FirebaseFirestore _firestore;
-
-  BookingService({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Gửi yêu cầu đặt thuê / hẹn xem phòng (Đơn đặt phòng, sinh Document ID chuẩn DP_...)
   Future<String> createBooking(
@@ -27,36 +23,46 @@ class BookingService {
     final expiresAt = (booking.createdAt.year > 2000)
         ? booking.createdAt.add(const Duration(hours: 6))
         : now.add(const Duration(hours: 6));
-    final roomId = await ResidentService(
-      _firestore,
-    ).resolveRoomId(booking.roomId);
-    final roomRef = _firestore.collection('host_rooms').doc(roomId);
-    await _firestore.runTransaction((transaction) async {
-      final room = await transaction.get(roomRef);
-      if (!room.exists || !RoomModel.fromFirestore(room).canBeListed) {
-        throw StateError('Phòng đã được đặt cọc hoặc không còn trống.');
-      }
-      transaction.set(_firestore.collection('bookings').doc(bookingId), {
-        ...booking.toMap(),
-        // Chủ trọ - Liên kết đơn thuê với cơ sở để lọc hóa đơn tiền cọc và trả hết.
-        if (propertyId != null && propertyId.isNotEmpty)
-          'propertyId': propertyId,
-        'id': bookingId,
-        'bookingCode': bookingId,
-        'roomId': roomId,
-        'expiresAt': Timestamp.fromDate(expiresAt),
-        'deadline': Timestamp.fromDate(expiresAt),
-      });
+    await _firestore.collection('bookings').doc(bookingId).set({
+      ...booking.toMap(),
+      if (propertyId != null && propertyId.isNotEmpty) 'propertyId': propertyId,
+      'id': bookingId,
+      'bookingCode': bookingId,
+      'expiresAt': Timestamp.fromDate(expiresAt),
+      'deadline': Timestamp.fromDate(expiresAt),
     });
     return bookingId;
   }
 
-  // Lấy chi tiết 1 đơn thuê theo bookingId
+  /// Tự động hủy 1 đơn đặt phòng nếu đã quá hạn thanh toán 6 tiếng
+  Future<void> autoCancelIfExpired(DocumentSnapshot doc) async {
+    try {
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final status = (data['status'] ?? '').toString().toLowerCase();
+      if (status != 'pending' && status != 'pending_payment') return;
+
+      Timestamp? exp = data['expiresAt'] as Timestamp? ?? data['deadline'] as Timestamp?;
+      if (exp == null) {
+        final createdAt = data['createdAt'] as Timestamp?;
+        if (createdAt != null) {
+          exp = Timestamp.fromDate(createdAt.toDate().add(const Duration(hours: 6)));
+        }
+      }
+      if (exp != null && exp.toDate().isBefore(DateTime.now())) {
+        await cancelBooking(doc.id, reason: 'Tự động hủy do quá thời gian thanh toán 6 tiếng');
+      }
+    } catch (e) {
+      debugPrint('Error auto-cancelling expired booking ${doc.id}: $e');
+    }
+  }
+
+  // Lấy chi tiết 1 đơn thuê theo bookingId (có tự động kiểm tra hết hạn 6 tiếng)
   Future<BookingRequestModel?> getBookingById(String bookingId) async {
     if (bookingId.isEmpty) return null;
     try {
       final doc = await _firestore.collection('bookings').doc(bookingId).get();
       if (!doc.exists) return null;
+      await autoCancelIfExpired(doc);
       return BookingRequestModel.fromFirestore(doc);
     } catch (e) {
       debugPrint('Error getting booking $bookingId: $e');
@@ -73,96 +79,19 @@ class BookingService {
     }, SetOptions(merge: true));
   }
 
-  /// Reserve the source room and hide all its listings in the same commit as
-  /// payment approval. Concurrent approvals contend on the same room document.
-  Future<void> confirmPayment(
-    String bookingId,
-    Map<String, dynamic> patch,
-  ) async {
-    final bookingRef = _firestore.collection('bookings').doc(bookingId);
-    final snapshot = await bookingRef.get();
-    if (!snapshot.exists) throw StateError('Không tìm thấy đơn đặt phòng');
-    final data = snapshot.data()!;
-    final reference = (data['roomId'] ?? data['phongId'] ?? '').toString();
-    final roomId = await ResidentService(_firestore).resolveRoomId(reference);
-    final roomRef = _firestore.collection('host_rooms').doc(roomId);
-    await _firestore.runTransaction((transaction) async {
-      final booking = await transaction.get(bookingRef);
-      final room = await transaction.get(roomRef);
-      if (!booking.exists || !room.exists) {
-        throw StateError('Không tìm thấy đơn đặt phòng hoặc phòng');
-      }
-      final bookingStatus = (booking.data()?['status'] ?? '')
-          .toString()
-          .toLowerCase();
-      if (const [
-        'cancelled',
-        'canceled',
-        'dahuy',
-        'expired',
-        'rejected',
-      ].contains(bookingStatus)) {
-        throw StateError('Không thể xác nhận cọc cho đơn đã hủy hoặc hết hạn.');
-      }
-      final owner = room.data()?['reservedBookingId'];
-      if (owner != bookingId &&
-          (owner != null || !RoomModel.fromFirestore(room).canBeListed)) {
-        throw StateError(
-          'Phòng đã được người khác đặt cọc hoặc không còn trống.',
-        );
-      }
-      final posts = <String, DocumentReference<Map<String, dynamic>>>{};
-      for (final collection in ['posts', 'bai_dang_cho_thue']) {
-        for (final field in ['roomId', 'phongId', 'room_id', 'phong_tro_id']) {
-          for (final id in {roomId, reference}) {
-            final result = await _firestore
-                .collection(collection)
-                .where(field, isEqualTo: id)
-                .get();
-            for (final doc in result.docs) {
-              posts[doc.reference.path] = doc.reference;
-            }
-          }
-        }
-      }
-      transaction.update(bookingRef, patch);
-      transaction.update(roomRef, {
-        'status': room.data()?['status'] == 'occupied'
-            ? 'occupied'
-            : 'reserved',
-        'isAvailable': false,
-        'reservedBookingId': bookingId,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-      for (final post in posts.values) {
-        transaction.update(post, {
-          'status': 'hidden',
-          'isAvailable': false,
-          'hiddenReason': 'room_reserved',
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      }
-    });
-  }
-
   // 1. DUYỆT ĐƠN (Chuyển sang Đã duyệt / approved)
   Future<void> approveBooking(String bookingId, {String? note}) async {
     if (bookingId.isEmpty) return;
     final now = DateTime.now();
 
-    final docSnap = await _firestore
-        .collection('bookings')
-        .doc(bookingId)
-        .get();
+    final docSnap = await _firestore.collection('bookings').doc(bookingId).get();
     final data = docSnap.data() ?? {};
     final renterId = (data['renterId'] ?? data['nguoiDungId'] ?? '').toString();
     final hostId = (data['hostId'] ?? data['chuNhaId'] ?? '').toString();
-    final roomTitle = (data['roomTitle'] ?? data['tieuDePhong'] ?? 'Phòng trọ')
-        .toString();
-    final renterName = (data['renterName'] ?? data['tenNguoiO'] ?? 'Khách thuê')
-        .toString();
+    final roomTitle = (data['roomTitle'] ?? data['tieuDePhong'] ?? 'Phòng trọ').toString();
+    final renterName = (data['renterName'] ?? data['tenNguoiO'] ?? 'Khách thuê').toString();
 
-    await confirmPayment(bookingId, {
+    await _firestore.collection('bookings').doc(bookingId).set({
       'status': 'approved',
       'subTag': 'Đã duyệt',
       'description': 'Đã duyệt cọc giữ phòng',
@@ -171,7 +100,7 @@ class BookingService {
       'updatedAt': Timestamp.fromDate(now),
       if (note != null && note.isNotEmpty) 'approvalNote': note,
       'trangThai': FieldValue.delete(),
-    });
+    }, SetOptions(merge: true));
 
     // Gửi thông báo đến người thuê
     if (renterId.isNotEmpty && renterId != 'guest') {
@@ -181,8 +110,7 @@ class BookingService {
         'recipientId': renterId,
         'recipientRole': 'renter',
         'title': 'Đơn thuê phòng đã được duyệt ✓',
-        'message':
-            'Đơn đặt phòng "$roomTitle" đã được duyệt thành công! Bạn có thể mở mã QR nhận phòng để chuẩn bị dọn vào.',
+        'message': 'Đơn đặt phòng "$roomTitle" đã được duyệt thành công! Bạn có thể mở mã QR nhận phòng để chuẩn bị dọn vào.',
         'notificationType': 'booking',
         'bookingId': bookingId,
         'isRead': false,
@@ -202,9 +130,7 @@ class BookingService {
         final dData = doc.data();
         final rRole = (dData['recipientRole'] ?? '').toString().toLowerCase();
         final recId = (dData['receiverId'] ?? '').toString();
-        if (rRole == 'host' ||
-            recId == hostId ||
-            dData.containsKey('roomFloorInfo')) {
+        if (rRole == 'host' || recId == hostId || dData.containsKey('roomFloorInfo')) {
           await doc.reference.set({
             'notificationType': 'deposit',
             'type': 'deposit',
@@ -247,8 +173,7 @@ class BookingService {
       'actor': 'Hệ thống / Admin',
       'category': 'quanLyDon',
       'target': 'Đơn $bookingId',
-      'details':
-          'Đã duyệt đơn $bookingId cho phòng $roomTitle của khách $renterName',
+      'details': 'Đã duyệt đơn $bookingId cho phòng $roomTitle của khách $renterName',
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -263,37 +188,16 @@ class BookingService {
     if (bookingId.isEmpty) return;
     final now = DateTime.now();
 
-    final docSnap = await _firestore
-        .collection('bookings')
-        .doc(bookingId)
-        .get();
+    final docSnap = await _firestore.collection('bookings').doc(bookingId).get();
     final data = docSnap.data() ?? {};
-    if (!docSnap.exists) throw StateError('Không tìm thấy đơn đặt phòng');
-    final residents = ResidentService(_firestore);
-    final finalRoomId = await residents.resolveRoomId(
-      roomId ?? (data['roomId'] ?? data['phongId'] ?? '').toString(),
-    );
+    final finalRoomId = roomId ?? (data['roomId'] ?? data['phongId'] ?? '').toString();
     final renterId = (data['renterId'] ?? data['nguoiDungId'] ?? '').toString();
-    final renterName = (data['renterName'] ?? data['tenNguoiO'] ?? 'Khách thuê')
-        .toString();
-    final renterPhone = (data['renterPhone'] ?? data['sdtNguoiO'] ?? '')
-        .toString();
-    final roomTitle = (data['roomTitle'] ?? data['tieuDePhong'] ?? 'Phòng trọ')
-        .toString();
-
-    final batch = _firestore.batch();
-    final periodId = await residents.preparePrimary(
-      batch: batch,
-      bookingId: bookingId,
-      roomId: finalRoomId,
-      userId: renterId,
-      fullName: renterName,
-      phone: renterPhone,
-      now: now,
-    );
+    final renterName = (data['renterName'] ?? data['tenNguoiO'] ?? 'Khách thuê').toString();
+    final renterPhone = (data['renterPhone'] ?? data['sdtNguoiO'] ?? '').toString();
+    final roomTitle = (data['roomTitle'] ?? data['tieuDePhong'] ?? 'Phòng trọ').toString();
 
     // Cập nhật booking sang trạng thái 'dangO'
-    batch.set(_firestore.collection('bookings').doc(bookingId), {
+    await _firestore.collection('bookings').doc(bookingId).set({
       'status': 'dangO',
       'subTag': 'Đang ở',
       'description': 'Đang ở (Đã bàn giao phòng)',
@@ -306,17 +210,41 @@ class BookingService {
       'trangThai': FieldValue.delete(),
     }, SetOptions(merge: true));
 
-    // Cập nhật phòng sang trạng thái 'occupied' (đang thuê)
+    // Cập nhật phòng sang trạng thái 'occupied' (đang thuê) - host_rooms chỉ lưu thông tin phòng
     if (finalRoomId.isNotEmpty) {
-      batch.update(_firestore.collection('host_rooms').doc(finalRoomId), {
+      await _firestore.collection('host_rooms').doc(finalRoomId).set({
         'status': 'occupied',
-        'contractId': periodId,
-        'contractStart': Timestamp.fromDate(now),
         'updatedAt': Timestamp.fromDate(now),
-      });
-    }
+      }, SetOptions(merge: true));
 
-    await batch.commit();
+      // Lưu thông tin người ở thực tế vào bảng residents (Single Source of Truth)
+      if (renterId.isNotEmpty && renterId != 'guest') {
+        final existingResident = await _firestore
+            .collection('residents')
+            .where('roomId', isEqualTo: finalRoomId)
+            .where('userId', isEqualTo: renterId)
+            .where('statusId', isEqualTo: 'dangO')
+            .limit(1)
+            .get();
+
+        if (existingResident.docs.isEmpty) {
+          final resRef = _firestore.collection('residents').doc();
+          await resRef.set({
+            'id': resRef.id,
+            'roomId': finalRoomId,
+            'userId': renterId,
+            'periodId': bookingId,
+            'fullName': renterName,
+            'phone': renterPhone,
+            'formId': 'chinh',
+            'status': 'active',
+            'statusId': 'dangO',
+            'moveInDate': Timestamp.fromDate(now),
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+    }
 
     // Thông báo cho người thuê
     if (renterId.isNotEmpty && renterId != 'guest') {
@@ -326,8 +254,7 @@ class BookingService {
         'recipientId': renterId,
         'recipientRole': 'renter',
         'title': 'Nhận phòng thành công! 🎉',
-        'message':
-            'Chủ trọ đã xác nhận bàn giao phòng "$roomTitle". Chúc bạn có khoảng thời gian sinh sống tiện nghi và thoải mái!',
+        'message': 'Chủ trọ đã xác nhận bàn giao phòng "$roomTitle". Chúc bạn có khoảng thời gian sinh sống tiện nghi và thoải mái!',
         'notificationType': 'booking',
         'bookingId': bookingId,
         'isRead': false,
@@ -341,8 +268,7 @@ class BookingService {
       'actor': hostId ?? 'Chủ trọ',
       'category': 'nhanPhong',
       'target': 'Đơn $bookingId',
-      'details':
-          'Khách $renterName đã nhận phòng $roomTitle thành công qua mã QR',
+      'details': 'Khách $renterName đã nhận phòng $roomTitle thành công qua mã QR',
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -352,16 +278,12 @@ class BookingService {
     if (bookingId.isEmpty) return;
     final now = DateTime.now();
 
-    final docSnap = await _firestore
-        .collection('bookings')
-        .doc(bookingId)
-        .get();
+    final docSnap = await _firestore.collection('bookings').doc(bookingId).get();
     final data = docSnap.data() ?? {};
     final renterId = (data['renterId'] ?? data['nguoiDungId'] ?? '').toString();
     final hostId = (data['hostId'] ?? data['chuNhaId'] ?? '').toString();
     final roomId = (data['roomId'] ?? data['phongId'] ?? '').toString();
-    final roomTitle = (data['roomTitle'] ?? data['tieuDePhong'] ?? 'Phòng trọ')
-        .toString();
+    final roomTitle = (data['roomTitle'] ?? data['tieuDePhong'] ?? 'Phòng trọ').toString();
 
     await _firestore.collection('bookings').doc(bookingId).set({
       'status': 'cancelled',
@@ -374,24 +296,12 @@ class BookingService {
       'ngayCapNhat': FieldValue.delete(),
     }, SetOptions(merge: true));
 
-    // Cancelling an older pending request must never unlock another tenant's room.
+    // Giải phóng phòng về available nếu phòng đang bị lock
     if (roomId.isNotEmpty) {
-      final resolvedId = await ResidentService(
-        _firestore,
-      ).resolveRoomId(roomId);
-      final roomRef = _firestore.collection('host_rooms').doc(resolvedId);
-      await _firestore.runTransaction((transaction) async {
-        final room = await transaction.get(roomRef);
-        if (room.data()?['reservedBookingId'] == bookingId &&
-            room.data()?['status'] == 'reserved') {
-          transaction.update(roomRef, {
-            'status': 'available',
-            'isAvailable': true,
-            'reservedBookingId': FieldValue.delete(),
-            'updatedAt': Timestamp.fromDate(now),
-          });
-        }
-      });
+      await _firestore.collection('host_rooms').doc(roomId).set({
+        'status': 'available',
+        'updatedAt': Timestamp.fromDate(now),
+      }, SetOptions(merge: true));
     }
 
     // Thông báo cho các bên
@@ -402,8 +312,7 @@ class BookingService {
         'recipientId': renterId,
         'recipientRole': 'renter',
         'title': 'Đơn thuê phòng đã bị hủy',
-        'message':
-            'Đơn đặt phòng "$roomTitle" đã được hủy.${reason != null && reason.isNotEmpty ? " Lý do: $reason" : ""}',
+        'message': 'Đơn đặt phòng "$roomTitle" đã được hủy.${reason != null && reason.isNotEmpty ? " Lý do: $reason" : ""}',
         'notificationType': 'booking',
         'bookingId': bookingId,
         'isRead': false,
@@ -418,8 +327,7 @@ class BookingService {
         'receiverId': hostId,
         'recipientRole': 'host',
         'title': 'Đơn đặt phòng đã bị hủy',
-        'message':
-            'Đơn phòng "$roomTitle" đã chuyển sang trạng thái đã hủy.${reason != null && reason.isNotEmpty ? " Lý do: $reason" : ""}',
+        'message': 'Đơn phòng "$roomTitle" đã chuyển sang trạng thái đã hủy.${reason != null && reason.isNotEmpty ? " Lý do: $reason" : ""}',
         'notificationType': 'booking',
         'bookingId': bookingId,
         'isRead': false,
@@ -440,12 +348,7 @@ class BookingService {
     if (s == 'daduyet' || s == 'approved' || s == 'deposit_paid') {
       await approveBooking(bookingId, note: reason);
     } else if (s == 'dango' || s == 'active' || s == 'danhanphong') {
-      await checkinBooking(
-        bookingId,
-        roomId: roomId,
-        hostId: hostId,
-        note: reason,
-      );
+      await checkinBooking(bookingId, roomId: roomId, hostId: hostId, note: reason);
     } else if (s == 'dahuy' || s == 'cancelled' || s == 'rejected') {
       await cancelBooking(bookingId, reason: reason);
     } else {
@@ -467,25 +370,31 @@ class BookingService {
     }
 
     return _firestore.collection('bookings').snapshots().map((snapshot) {
-      final list = snapshot.docs
-          .map((doc) {
-            try {
-              final data = doc.data();
-              final docRenterId =
-                  data['nguoiDungId'] ??
-                  data['nguoiDung_Id'] ??
-                  data['renterId'] ??
-                  data['khachXemId'] ??
-                  '';
-              if (docRenterId != renterId) return null;
-              return BookingRequestModel.fromFirestore(doc);
-            } catch (e) {
-              debugPrint('Error parsing booking ${doc.id}: $e');
-              return null;
+      final list = snapshot.docs.map((doc) {
+        try {
+          final data = doc.data();
+          final docRenterId = data['nguoiDungId'] ??
+              data['nguoiDung_Id'] ??
+              data['renterId'] ??
+              data['khachXemId'] ??
+              '';
+          if (docRenterId != renterId) return null;
+
+          // Tự động hủy nếu đơn quá hạn 6 tiếng
+          final status = (data['status'] ?? '').toString().toLowerCase();
+          if (status == 'pending' || status == 'pending_payment') {
+            final exp = data['expiresAt'] as Timestamp? ?? data['deadline'] as Timestamp?;
+            if (exp != null && exp.toDate().isBefore(DateTime.now())) {
+              unawaited(autoCancelIfExpired(doc));
             }
-          })
-          .whereType<BookingRequestModel>()
-          .toList();
+          }
+
+          return BookingRequestModel.fromFirestore(doc);
+        } catch (e) {
+          debugPrint('Error parsing booking ${doc.id}: $e');
+          return null;
+        }
+      }).whereType<BookingRequestModel>().toList();
 
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return list;
@@ -499,39 +408,67 @@ class BookingService {
     }
 
     return _firestore.collection('bookings').snapshots().map((snapshot) {
-      final list = snapshot.docs
-          .map((doc) {
-            try {
-              final data = doc.data();
-              final docHostId = data['hostId'] ?? data['chuNhaId'] ?? '';
-              if (docHostId != hostId) return null;
-              return BookingRequestModel.fromFirestore(doc);
-            } catch (e) {
-              debugPrint('Error parsing host booking ${doc.id}: $e');
-              return null;
+      final list = snapshot.docs.map((doc) {
+        try {
+          final data = doc.data();
+          final docHostId = data['hostId'] ?? data['chuNhaId'] ?? '';
+          if (docHostId != hostId) return null;
+
+          // Tự động hủy nếu đơn quá hạn 6 tiếng
+          final status = (data['status'] ?? '').toString().toLowerCase();
+          if (status == 'pending' || status == 'pending_payment') {
+            final exp = data['expiresAt'] as Timestamp? ?? data['deadline'] as Timestamp?;
+            if (exp != null && exp.toDate().isBefore(DateTime.now())) {
+              unawaited(autoCancelIfExpired(doc));
             }
-          })
-          .whereType<BookingRequestModel>()
-          .toList();
+          }
+
+          return BookingRequestModel.fromFirestore(doc);
+        } catch (e) {
+          debugPrint('Error parsing host booking ${doc.id}: $e');
+          return null;
+        }
+      }).whereType<BookingRequestModel>().toList();
 
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return list;
     });
   }
+
+  /// Đơn thuê đang ở hoặc đã duyệt của khách, dùng khi đăng tin ở ghép đã có phòng.
+  Future<BookingRequestModel?> findActiveBookingForRenter(String renterId) async {
+    if (renterId.isEmpty || renterId == 'guest') return null;
+    try {
+      final snapshot = await _firestore.collection('bookings').get();
+      BookingRequestModel? approved;
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final docRenterId = data['nguoiDungId'] ??
+            data['nguoiDung_Id'] ??
+            data['renterId'] ??
+            data['khachXemId'] ??
+            '';
+        if (docRenterId != renterId) continue;
+        final booking = BookingRequestModel.fromFirestore(doc);
+        if (booking.isActive) return booking;
+        if (approved == null && booking.isApproved) approved = booking;
+      }
+      return approved;
+    } catch (e) {
+      debugPrint('Error finding active booking for $renterId: $e');
+      return null;
+    }
+  }
 }
 
-final bookingServiceProvider = Provider<BookingService>(
-  (ref) => BookingService(),
-);
+final bookingServiceProvider = Provider<BookingService>((ref) => BookingService());
 
-final renterBookingsStreamProvider = StreamProvider.autoDispose
-    .family<List<BookingRequestModel>, String>((ref, renterId) {
-      final service = ref.watch(bookingServiceProvider);
-      return service.getRenterBookingsStream(renterId);
-    });
+final renterBookingsStreamProvider = StreamProvider.autoDispose.family<List<BookingRequestModel>, String>((ref, renterId) {
+  final service = ref.watch(bookingServiceProvider);
+  return service.getRenterBookingsStream(renterId);
+});
 
-final hostBookingsStreamProvider = StreamProvider.autoDispose
-    .family<List<BookingRequestModel>, String>((ref, hostId) {
-      final service = ref.watch(bookingServiceProvider);
-      return service.getHostBookingsStream(hostId);
-    });
+final hostBookingsStreamProvider = StreamProvider.autoDispose.family<List<BookingRequestModel>, String>((ref, hostId) {
+  final service = ref.watch(bookingServiceProvider);
+  return service.getHostBookingsStream(hostId);
+});

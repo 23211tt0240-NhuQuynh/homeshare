@@ -8,8 +8,10 @@ import '../../../core/services/image_storage_service.dart';
 import '../../../core/services/roommate_service.dart';
 import '../../../core/services/user_profile_service.dart';
 import '../../../core/services/booking_service.dart';
+import '../../../core/services/room_service.dart';
 import '../../../core/utils/vietnam_address_parser.dart';
 import '../../../data/models/booking_model.dart';
+import '../../../data/models/room_model.dart';
 import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
@@ -49,8 +51,8 @@ class _CreateRoommatePostScreenState
   final _priceController = TextEditingController();
   final _addressController = TextEditingController();
   String _selectedProvince = 'TP. Hồ Chí Minh';
-  String _selectedDistrict = '';
-  String _selectedWard = '';
+  String _selectedDistrict = 'TP. Thủ Đức';
+  String _selectedWard = 'Linh Trung';
   String _selectedPropertyType = 'Căn hộ chung cư';
   String _targetGender = 'Nữ';
 
@@ -61,6 +63,9 @@ class _CreateRoommatePostScreenState
   final List<String> _selectedImages = [];
   final ImagePicker _imagePicker = ImagePicker();
   bool _isSubmitting = false;
+  BookingRequestModel? _linkedBooking;
+  RoomModel? _linkedRoom;
+  bool _didFillFromRoom = false;
 
   final List<String> _commonHabits = [
     'Yên tĩnh sau 23h',
@@ -176,6 +181,71 @@ class _CreateRoommatePostScreenState
     );
   }
 
+  Future<void> _applyActiveRoom(
+    BookingRequestModel booking, {
+    bool showSnackBar = false,
+  }) async {
+    RoomModel? room;
+    if (booking.roomId.trim().isNotEmpty || booking.hostId.trim().isNotEmpty) {
+      room = await ref.read(roomServiceProvider).resolveRentedRoom(
+            roomId: booking.roomId.trim(),
+            hostId: booking.hostId.trim(),
+            roomCode: booking.roomCode.trim(),
+            title: booking.roomTitle.trim(),
+            price: booking.roomPrice,
+          );
+    }
+    if (!mounted) return;
+
+    final addressRaw = VietnamAddressParser.pickBest([
+      room?.address.trim() ?? '',
+      VietnamAddressParser.composeParts(
+        street: room?.address ?? '',
+        district: room?.district ?? '',
+        city: room?.city ?? '',
+      ),
+      booking.roomAddress.trim(),
+    ]);
+
+    setState(() {
+      _linkedBooking = booking;
+      _linkedRoom = room;
+      _didFillFromRoom = true;
+      _hasRoom = true;
+      if (booking.roomTitle.isNotEmpty && _titleController.text.trim().isEmpty) {
+        _titleController.text = 'Tìm bạn ở ghép - ${booking.roomTitle}';
+      } else if (booking.roomTitle.isNotEmpty && showSnackBar) {
+        _titleController.text = 'Tìm bạn ở ghép - ${booking.roomTitle}';
+      }
+      if (addressRaw.isNotEmpty) {
+        final address = VietnamAddressParser.resolve(
+          addressRaw,
+          fallbackProvince: _selectedProvince,
+          fallbackDistrict: _selectedDistrict,
+          fallbackWard: _selectedWard,
+        );
+        _selectedProvince = address.province;
+        _selectedDistrict = address.district;
+        _selectedWard = address.ward;
+        _addressController.text = address.specificAddress.isNotEmpty
+            ? address.specificAddress
+            : addressRaw;
+      }
+      final rent = (room?.price ?? 0) > 0 ? room!.price : booking.roomPrice;
+      if (rent > 0 && (_priceController.text.trim().isEmpty || showSnackBar)) {
+        _priceController.text = (rent / 2).round().toString();
+      }
+    });
+
+    if (showSnackBar && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã điền thông tin từ phòng đang thuê của bạn!'),
+        ),
+      );
+    }
+  }
+
   Future<void> _pickImage(ImageSource source) async {
     try {
       if (source == ImageSource.gallery) {
@@ -285,17 +355,8 @@ class _CreateRoommatePostScreenState
     return true;
   }
 
-  // Người thuê - Kiểm tra địa chỉ - Luồng đi: Chỉ cho đăng khi cấp xã đã
-  // chọn thuộc tỉnh/thành trong danh mục hiện hành, tránh lưu lại tên cũ.
   bool _validateStep2() {
-    if (!VietnamLocations.getWards(_selectedProvince).contains(_selectedWard)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng chọn phường/xã/đặc khu hiện hành.'),
-        ),
-      );
-      return false;
-    }
+    // Cho phép đăng linh hoạt, không chặn người dùng
     return true;
   }
 
@@ -377,13 +438,53 @@ class _CreateRoommatePostScreenState
           .read(imageStorageServiceProvider)
           .uploadRoommateImages(localPaths: _selectedImages, postId: postId);
 
-      // Người thuê - Ghép địa chỉ - Luồng đi: Lưu địa chỉ chi tiết, cấp xã
-      // và tỉnh/thành; không chèn quận/huyện vào địa chỉ bài đăng mới.
-      final fullAddress = [
-        specificAddress,
-        _selectedWard,
-        _selectedProvince,
-      ].where((part) => part.isNotEmpty).join(', ');
+      BookingRequestModel? linkedBooking = _hasRoom ? _linkedBooking : null;
+      if (_hasRoom && linkedBooking == null) {
+        for (final booking in bookings) {
+          if (booking.isActive) {
+            linkedBooking = booking;
+            break;
+          }
+          if (linkedBooking == null && booking.isApproved) {
+            linkedBooking = booking;
+          }
+        }
+      }
+      RoomModel? linkedRoom = _hasRoom ? _linkedRoom : null;
+      if (_hasRoom &&
+          linkedRoom == null &&
+          ((linkedBooking?.roomId.trim().isNotEmpty ?? false) ||
+              (linkedBooking?.hostId.trim().isNotEmpty ?? false))) {
+        linkedRoom = await ref.read(roomServiceProvider).resolveRentedRoom(
+              roomId: linkedBooking!.roomId.trim(),
+              hostId: linkedBooking.hostId.trim(),
+              roomCode: linkedBooking.roomCode.trim(),
+              title: linkedBooking.roomTitle.trim(),
+              price: linkedBooking.roomPrice,
+            );
+      }
+
+      final fullAddress = VietnamAddressParser.pickBest([
+        VietnamAddressParser.composeParts(
+          street: specificAddress,
+          ward: _selectedWard,
+          district: _selectedDistrict,
+          city: _selectedProvince,
+        ),
+        linkedRoom?.address.trim() ?? '',
+        VietnamAddressParser.composeParts(
+          street: linkedRoom?.address ?? '',
+          district: linkedRoom?.district ?? '',
+          city: linkedRoom?.city ?? '',
+        ),
+        linkedBooking?.roomAddress.trim() ?? '',
+      ]);
+      final deposit = (linkedRoom?.deposit ?? 0) > 0
+          ? linkedRoom!.deposit
+          : (linkedBooking?.deposit ?? 0);
+      final extraFees = linkedRoom == null
+          ? const <RoommateExtraFee>[]
+          : RoommateExtraFee.fromRoom(linkedRoom);
 
       final post = RoommatePostModel(
         id: postId,
@@ -391,7 +492,7 @@ class _CreateRoommatePostScreenState
         authorName: authorName,
         authorAge: authorAge,
         authorGender: _authorGender,
-        authorOccupation: '',
+        authorOccupation: profile?.occupation.trim() ?? '',
         authorAvatar: profile?.avatarUrl ?? user.photoURL ?? '',
         title: title,
         description: _descController.text.trim(),
@@ -401,11 +502,11 @@ class _CreateRoommatePostScreenState
         budgetMin: price > 500000 ? price - 500000 : price,
         budgetMax: price + 500000,
         address: fullAddress,
-        district: _selectedDistrict,
+        district: linkedRoom?.district.trim().isNotEmpty == true
+            ? linkedRoom!.district.trim()
+            : _selectedDistrict,
         targetGender: _targetGender,
-        habits: _selectedHabits.isNotEmpty
-            ? _selectedHabits
-            : ['Sạch sẽ', 'Hòa đồng'],
+        habits: _selectedHabits,
         images: uploadedUrls,
         imageCaptions: uploadedUrls.map((_) => 'Ảnh phòng').toList(),
         isVerified: profile?.isCccdVerified ?? false,
@@ -414,6 +515,14 @@ class _CreateRoommatePostScreenState
         contactPhone: _phoneController.text.trim().isNotEmpty
             ? _phoneController.text.trim()
             : (profile?.phoneNumber ?? ''),
+        roomId: linkedRoom?.id ?? linkedBooking?.roomId ?? '',
+        bookingId: linkedBooking?.id ?? '',
+        deposit: deposit,
+        moveInDate: linkedBooking?.moveInDate,
+        extraFees: extraFees,
+        area: linkedRoom?.area ?? 0,
+        capacity: linkedRoom?.capacity ?? 0,
+        amenities: linkedRoom?.amenities ?? const [],
         createdAt: DateTime.now(),
       );
 
@@ -515,8 +624,12 @@ class _CreateRoommatePostScreenState
     } else if (!_hasRoomInitChecked && hasRealRoom) {
       _hasRoomInitChecked = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_hasRoom) {
+        if (!mounted) return;
+        if (!_hasRoom) {
           setState(() => _hasRoom = true);
+        }
+        if (!_didFillFromRoom && activeBookings.isNotEmpty) {
+          _applyActiveRoom(activeBookings.first);
         }
       });
     }
@@ -765,6 +878,9 @@ class _CreateRoommatePostScreenState
     List<BookingRequestModel> activeBookings = const [],
   }) {
     final provinces = VietnamLocations.provinces;
+    final districts = VietnamLocations.getAdministrativeDistricts(
+      _selectedProvince,
+    );
     final wards = VietnamLocations.getWards(
       _selectedProvince,
       _selectedDistrict,
@@ -804,6 +920,9 @@ class _CreateRoommatePostScreenState
                         return;
                       }
                       setState(() => _hasRoom = true);
+                      if (activeBookings.isNotEmpty) {
+                        _applyActiveRoom(activeBookings.first);
+                      }
                     },
                   ),
                 ),
@@ -883,36 +1002,9 @@ class _CreateRoommatePostScreenState
                     ),
                     InkWell(
                       onTap: () {
-                        final b = activeBookings.first;
-                        setState(() {
-                          if (b.roomTitle.isNotEmpty) {
-                            _titleController.text =
-                                'Tìm bạn ở ghép - ${b.roomTitle}';
-                          }
-                          if (b.roomAddress.isNotEmpty) {
-                            final address = VietnamAddressParser.resolve(
-                              b.roomAddress,
-                              fallbackProvince: _selectedProvince,
-                              fallbackDistrict: _selectedDistrict,
-                              fallbackWard: _selectedWard,
-                            );
-                            _selectedProvince = address.province;
-                            _selectedDistrict = address.district;
-                            _selectedWard = address.ward;
-                            _addressController.text = address.specificAddress;
-                          }
-                          if (b.roomPrice > 0) {
-                            _priceController.text = (b.roomPrice / 2)
-                                .round()
-                                .toString();
-                          }
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Đã điền nhanh thông tin từ phòng đang thuê của bạn!',
-                            ),
-                          ),
+                        _applyActiveRoom(
+                          activeBookings.first,
+                          showSnackBar: true,
                         );
                       },
                       child: const Padding(
@@ -985,7 +1077,10 @@ class _CreateRoommatePostScreenState
                       .map(
                         (p) => DropdownMenuItem(
                           value: p,
-                          child: Text(p, style: const TextStyle(fontSize: 13)),
+                          child: Text(
+                            p,
+                            style: const TextStyle(fontSize: 13),
+                          ),
                         ),
                       )
                       .toList(),
@@ -1009,8 +1104,20 @@ class _CreateRoommatePostScreenState
                     if (val != null) {
                       setState(() {
                         _selectedProvince = val;
-                        _selectedDistrict = '';
-                        _selectedWard = '';
+                        final newDistricts =
+                            VietnamLocations.getAdministrativeDistricts(
+                              _selectedProvince,
+                            );
+                        _selectedDistrict = newDistricts.isNotEmpty
+                            ? newDistricts.first
+                            : '';
+                        final newWards = VietnamLocations.getWards(
+                          _selectedProvince,
+                          _selectedDistrict,
+                        );
+                        _selectedWard = newWards.isNotEmpty
+                            ? newWards.first
+                            : '';
                       });
                     }
                   },
@@ -1023,21 +1130,92 @@ class _CreateRoommatePostScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Phường / Xã / Đặc khu *',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                  'Quận / Huyện *',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   isExpanded: true,
-                  key: ValueKey('ward_${_selectedDistrict}_$_selectedWard'),
+                  key: ValueKey(
+                    'district_${_selectedProvince}_$_selectedDistrict',
+                  ),
+                  initialValue: districts.contains(_selectedDistrict)
+                      ? _selectedDistrict
+                      : (districts.isNotEmpty ? districts.first : null),
+                  items: districts
+                      .map(
+                        (d) => DropdownMenuItem(
+                          value: d,
+                          child: Text(
+                            d,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  selectedItemBuilder: (context) => districts
+                      .map(
+                        (d) => Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            d,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textPrimary,
+                            ),
+                            maxLines: 1,
+                            softWrap: false,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedDistrict = val ?? districts.first;
+                      final newWards = VietnamLocations.getWards(
+                        _selectedProvince,
+                        _selectedDistrict,
+                      );
+                      _selectedWard = newWards.isNotEmpty
+                          ? newWards.first
+                          : 'Linh Trung';
+                    });
+                  },
+                  decoration: _inputDecoration(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Phường / Xã',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  key: ValueKey(
+                    'ward_${_selectedDistrict}_$_selectedWard',
+                  ),
                   initialValue: wards.contains(_selectedWard)
                       ? _selectedWard
-                      : null,
+                      : (wards.isNotEmpty ? wards.first : 'Linh Trung'),
                   items: wards
                       .map(
                         (w) => DropdownMenuItem(
                           value: w,
-                          child: Text(w, style: const TextStyle(fontSize: 13)),
+                          child: Text(
+                            w,
+                            style: const TextStyle(fontSize: 13),
+                          ),
                         ),
                       )
                       .toList(),
@@ -1057,7 +1235,8 @@ class _CreateRoommatePostScreenState
                         ),
                       )
                       .toList(),
-                  onChanged: (val) => setState(() => _selectedWard = val ?? ''),
+                  onChanged: (val) =>
+                      setState(() => _selectedWard = val ?? 'Linh Trung'),
                   decoration: _inputDecoration(),
                 ),
               ],
@@ -1068,7 +1247,10 @@ class _CreateRoommatePostScreenState
               children: [
                 const Text(
                   'Loại hình nhà ở *',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
@@ -1078,7 +1260,10 @@ class _CreateRoommatePostScreenState
                       .map(
                         (t) => DropdownMenuItem(
                           value: t,
-                          child: Text(t, style: const TextStyle(fontSize: 13)),
+                          child: Text(
+                            t,
+                            style: const TextStyle(fontSize: 13),
+                          ),
                         ),
                       )
                       .toList(),
@@ -1099,7 +1284,8 @@ class _CreateRoommatePostScreenState
                       )
                       .toList(),
                   onChanged: (val) => setState(
-                    () => _selectedPropertyType = val ?? _propertyTypes.first,
+                    () => _selectedPropertyType =
+                        val ?? _propertyTypes.first,
                   ),
                   decoration: _inputDecoration(),
                 ),
@@ -1111,7 +1297,10 @@ class _CreateRoommatePostScreenState
               children: [
                 const Text(
                   'Giới tính tìm kiếm *',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
@@ -1121,7 +1310,10 @@ class _CreateRoommatePostScreenState
                       .map(
                         (g) => DropdownMenuItem(
                           value: g,
-                          child: Text(g, style: const TextStyle(fontSize: 13)),
+                          child: Text(
+                            g,
+                            style: const TextStyle(fontSize: 13),
+                          ),
                         ),
                       )
                       .toList(),

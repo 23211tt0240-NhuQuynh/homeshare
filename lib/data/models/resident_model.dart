@@ -92,27 +92,20 @@ class ResidentModel {
     return ResidentModel(
       id: id,
       periodId: data['periodId'] ?? data['kyThue_id'] ?? data['kyOId'] ?? '',
-      roomId:
-          data[CuDanDangOSqlFields.phongTroId] ??
-          data['roomId'] ??
-          data['phongId'] ??
-          '',
+      roomId: data[CuDanDangOSqlFields.phongTroId] ?? data['roomId'] ?? data['phongId'] ?? '',
       userId: data['userId'] ?? data['nguoiDungId'] ?? '',
       fullName:
-          data['fullName'] ??
-          data['hoTen'] ??
-          data['ten'] ??
-          data['name'] ??
+          data['fullName'] ?? data['hoTen'] ?? data['ten'] ?? data['name'] ?? '',
+      phone:
+          data['phone'] ??
+          data['soDienThoai'] ??
+          data['sdt'] ??
           '',
-      phone: data['phone'] ?? data['soDienThoai'] ?? data['sdt'] ?? '',
       avatar: data['avatar'] ?? data['anhDaiDien'] ?? '',
       roommateRequestId:
           data['roommateRequestId'] ?? data['yeuCauOGhepId'] ?? '',
       formId: data['formId'] ?? data['hinhThuc_id'] ?? 'chinh',
-      statusId:
-          data['statusId'] ??
-          data['trangThai_id'] ??
-          (data['status'] == 'moved_out' ? 'daRoi' : data['status'] ?? 'dangO'),
+      statusId: data['statusId'] ?? data['trangThai_id'] ?? 'dangO',
       moveInDate: (data['moveInDate'] is Timestamp)
           ? (data['moveInDate'] as Timestamp).toDate()
           : (data['ngayVao'] is Timestamp)
@@ -141,7 +134,7 @@ class ResidentModel {
     String roomId, [
     FirebaseFirestore? firestore,
   ]) => (firestore ?? FirebaseFirestore.instance)
-      .collection(FirestoreCollections.hostRooms)
+      .collection(FirestoreCollections.rooms)
       .doc(roomId)
       .collection(FirestoreCollections.residents);
 
@@ -153,16 +146,12 @@ class ResidentModel {
     CuDanDangOSqlFields.ngayBatDau: Timestamp.fromDate(moveInDate),
     if (moveOutDate != null)
       CuDanDangOSqlFields.ngayKetThuc: Timestamp.fromDate(moveOutDate!),
-    CuDanDangOSqlFields.trangThai: statusId == 'dangO'
-        ? 'DANG_O'
-        : 'DA_CHUYEN_DI',
+    CuDanDangOSqlFields.trangThai:
+        statusId == 'dangO' ? 'DANG_O' : 'DA_CHUYEN_DI',
   };
 
   /// Factory đọc từ dữ liệu bảng cu_dan_dang_o chuẩn SQL
-  factory ResidentModel.fromCuDanDangOSql(
-    Map<String, dynamic> data,
-    String id,
-  ) {
+  factory ResidentModel.fromCuDanDangOSql(Map<String, dynamic> data, String id) {
     return ResidentModel.fromMap(data, id);
   }
 
@@ -181,10 +170,12 @@ class ResidentModel {
       'status': statusId == 'dangO' ? 'active' : 'moved_out',
       'statusId': statusId,
       'moveInDate': Timestamp.fromDate(moveInDate),
-      if (moveOutDate != null) 'moveOutDate': Timestamp.fromDate(moveOutDate!),
+      if (moveOutDate != null)
+        'moveOutDate': Timestamp.fromDate(moveOutDate!),
       'createdAt': FieldValue.serverTimestamp(),
     };
   }
 
   Map<String, dynamic> toMap() => toFirestore();
 }
+

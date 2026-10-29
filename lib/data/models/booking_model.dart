@@ -10,6 +10,10 @@ class BookingRequestModel {
   final String renterName; // tenNguoiO / tenKhach
   final String renterPhone; // sdtNguoiO / sdtKhach
   final String renterGender; // gioiTinhNguoiO
+  final int? renterAge; // tuoiNguoiO / age
+  final bool isBookingForSelf; // true: tự thuê, false: đặt hộ người thân
+  final String? bookedByUserName; // tên người đặt hộ (nếu đặt hộ)
+  final String? bookedByUserPhone; // SĐT người đặt hộ (nếu đặt hộ)
   final String roomId; // phongId / baiDangId
   final String? _roomCode;
   final String roomTitle; // tieuDePhong
@@ -24,6 +28,7 @@ class BookingRequestModel {
   final String paymentOption; // 'deposit' (tiền cọc) | 'full' (trả hết)
   final String? transferNote; // ghi chú chuyển khoản / mã người dùng
   final DateTime moveInDate; // ngayVao / thoiDiem
+  final DateTime? moveOutDate; // ngayRoiDi / ngayKetThuc (dự kiến)
   final DateTime? acceptedDate; // ngayChapNhan
   final String note; // ghiChu
   final String? cancelReason; // lyDoHuy
@@ -150,6 +155,10 @@ class BookingRequestModel {
     required this.renterName,
     required this.renterPhone,
     this.renterGender = 'nam',
+    this.renterAge,
+    this.isBookingForSelf = true,
+    this.bookedByUserName,
+    this.bookedByUserPhone,
     required this.roomId,
     String? roomCode = '',
     required this.roomTitle,
@@ -164,6 +173,7 @@ class BookingRequestModel {
     this.paymentOption = 'deposit',
     this.transferNote,
     required this.moveInDate,
+    this.moveOutDate,
     this.acceptedDate,
     this.note = '',
     this.cancelReason,
@@ -178,6 +188,10 @@ class BookingRequestModel {
     String? renterName,
     String? renterPhone,
     String? renterGender,
+    int? renterAge,
+    bool? isBookingForSelf,
+    String? bookedByUserName,
+    String? bookedByUserPhone,
     String? roomId,
     String? roomCode,
     String? roomTitle,
@@ -192,6 +206,7 @@ class BookingRequestModel {
     String? paymentOption,
     String? transferNote,
     DateTime? moveInDate,
+    DateTime? moveOutDate,
     DateTime? acceptedDate,
     String? note,
     String? cancelReason,
@@ -204,6 +219,10 @@ class BookingRequestModel {
       renterName: renterName ?? this.renterName,
       renterPhone: renterPhone ?? this.renterPhone,
       renterGender: renterGender ?? this.renterGender,
+      renterAge: renterAge ?? this.renterAge,
+      isBookingForSelf: isBookingForSelf ?? this.isBookingForSelf,
+      bookedByUserName: bookedByUserName ?? this.bookedByUserName,
+      bookedByUserPhone: bookedByUserPhone ?? this.bookedByUserPhone,
       roomId: roomId ?? this.roomId,
       roomCode: roomCode ?? this.roomCode,
       roomTitle: roomTitle ?? this.roomTitle,
@@ -218,6 +237,7 @@ class BookingRequestModel {
       paymentOption: paymentOption ?? this.paymentOption,
       transferNote: transferNote ?? this.transferNote,
       moveInDate: moveInDate ?? this.moveInDate,
+      moveOutDate: moveOutDate ?? this.moveOutDate,
       acceptedDate: acceptedDate ?? this.acceptedDate,
       note: note ?? this.note,
       cancelReason: cancelReason ?? this.cancelReason,
@@ -237,6 +257,10 @@ class BookingRequestModel {
       renterName: data['tenNguoiO'] ?? data['renterName'] ?? data['tenKhach'] ?? '',
       renterPhone: data['sdtNguoiO'] ?? data['renterPhone'] ?? data['sdtKhach'] ?? '',
       renterGender: data['gioiTinhNguoiO'] ?? data['renterGender'] ?? 'nam',
+      renterAge: ((data['renterAge'] ?? data['tuoiNguoiO'] ?? data['age']) as num?)?.toInt(),
+      isBookingForSelf: data['isBookingForSelf'] ?? (data['datHo'] == null ? true : !(data['datHo'] as bool)),
+      bookedByUserName: data['bookedByUserName'] ?? data['tenNguoiDatHo'],
+      bookedByUserPhone: data['bookedByUserPhone'] ?? data['sdtNguoiDatHo'],
       roomId: data['phongId'] ?? data['roomId'] ?? data['baiDangId'] ?? '',
       roomCode: (data['roomCode'] ?? data['maPhong'] ?? '').toString(),
       roomTitle: data['tieuDePhong'] ?? data['roomTitle'] ?? data['tieuDe'] ?? '',
@@ -257,6 +281,11 @@ class BookingRequestModel {
               : (data['moveInDate'] is Timestamp)
                   ? (data['moveInDate'] as Timestamp).toDate()
                   : DateTime.now(),
+      moveOutDate: (data['ngayRoiDi'] is Timestamp)
+          ? (data['ngayRoiDi'] as Timestamp).toDate()
+          : (data['moveOutDate'] is Timestamp)
+              ? (data['moveOutDate'] as Timestamp).toDate()
+              : null,
       acceptedDate: (data['ngayChapNhan'] is Timestamp)
           ? (data['ngayChapNhan'] as Timestamp).toDate()
           : (data['acceptedDate'] is Timestamp)
@@ -282,6 +311,11 @@ class BookingRequestModel {
       'renterName': renterName,
       'renterPhone': renterPhone,
       'renterGender': renterGender,
+      if (renterAge != null) 'renterAge': renterAge,
+      if (renterAge != null) 'age': renterAge,
+      'isBookingForSelf': isBookingForSelf,
+      if (!isBookingForSelf && bookedByUserName != null) 'bookedByUserName': bookedByUserName,
+      if (!isBookingForSelf && bookedByUserPhone != null) 'bookedByUserPhone': bookedByUserPhone,
       'roomId': roomId,
       'roomCode': roomCode,
       'roomTitle': roomTitle,
@@ -296,6 +330,7 @@ class BookingRequestModel {
       'paymentOption': paymentOption,
       'transferNote': transferNote ?? renterUserCode,
       'moveInDate': Timestamp.fromDate(moveInDate),
+      if (moveOutDate != null) 'moveOutDate': Timestamp.fromDate(moveOutDate!),
       if (acceptedDate != null) 'acceptedDate': Timestamp.fromDate(acceptedDate!),
       'note': note,
       if (cancelReason != null) 'cancelReason': cancelReason,

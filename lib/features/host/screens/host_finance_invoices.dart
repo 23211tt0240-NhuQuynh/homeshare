@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/host_management_provider.dart';
 import '../utils/finance_property_utils.dart';
+import '../widgets/host_finance_style.dart';
 
 // Chủ trọ - Theo dõi bài đăng của tài khoản để nối hóa đơn với phòng và cơ sở.
 final hostFinancePostsProvider = StreamProvider<List<Map<String, dynamic>>>((
@@ -37,8 +38,8 @@ class HostFinanceInvoices extends ConsumerStatefulWidget {
 }
 
 class _HostFinanceInvoicesState extends ConsumerState<HostFinanceInvoices> {
-  static const _teal = Color(0xFF0D9488);
-  static const _muted = Color(0xFF8296A1);
+  static const _teal = Color(0xFF5B55CF);
+  static const _muted = Color(0xFF7C8193);
   String? _property;
   bool _newest = true;
   final Set<String> _saving = {};
@@ -127,168 +128,173 @@ class _HostFinanceInvoicesState extends ConsumerState<HostFinanceInvoices> {
     final gross = invoices.fold<double>(0, (s, b) => s + _gross(b));
     final fee = invoices.fold<double>(0, (s, b) => s + _fee(b));
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
+          constraints: const BoxConstraints(maxWidth: 900),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              HostFinanceStyle.heading(
+                widget.isDeposit
+                    ? 'GIỮ PHÒNG & BẢO ĐẢM'
+                    : 'TIỀN PHÒNG & DỊCH VỤ',
+                widget.isDeposit ? 'Sổ tiền cọc' : 'Hóa đơn trả hết',
+                trailing: '${invoices.length} hóa đơn',
+              ),
+              // Chủ trọ - Chọn cơ sở - Lọc danh sách và tổng tiền theo phòng thuộc cơ sở đã chọn.
               _card(
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    const Text(
-                      'CƠ SỞ CHO THUÊ',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: _muted,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1,
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0EFFB),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.apartment_outlined,
+                        color: _teal,
+                        size: 21,
                       ),
                     ),
-                    DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: selected?.id ?? '',
-                        isExpanded: true,
-                        icon: const Icon(
-                          Icons.keyboard_arrow_down,
-                          color: _muted,
-                        ),
-                        items: [
-                          const DropdownMenuItem(
-                            value: '',
-                            child: Text('Tất cả cơ sở'),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'CƠ SỞ CHO THUÊ',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: _muted,
+                              letterSpacing: 1.2,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                          ...?properties.value?.map(
-                            (p) => DropdownMenuItem(
-                              value: p.id,
-                              child: Text(
-                                p.name,
-                                overflow: TextOverflow.ellipsis,
+                          DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: selected?.id ?? '',
+                              isDense: true,
+                              isExpanded: true,
+                              padding: const EdgeInsets.only(top: 6),
+                              borderRadius: BorderRadius.circular(18),
+                              style: TextStyle(
+                                fontFamily: Theme.of(
+                                  context,
+                                ).textTheme.bodyMedium?.fontFamily,
+                                color: HostFinanceStyle.ink,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              items: [
+                                const DropdownMenuItem(
+                                  value: '',
+                                  child: Text('Tất cả cơ sở'),
+                                ),
+                                ...?properties.value?.map(
+                                  (p) => DropdownMenuItem(
+                                    value: p.id,
+                                    child: Text(
+                                      p.name,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              onChanged: (v) => setState(
+                                () => _property = v == '' ? null : v,
                               ),
                             ),
                           ),
                         ],
-                        onChanged: (v) =>
-                            setState(() => _property = v == '' ? null : v),
                       ),
                     ),
-                    if (properties.isLoading ||
-                        (_property != null &&
-                            (rooms.isLoading || posts.isLoading)))
-                      const LinearProgressIndicator(color: _teal),
-                    if (properties.hasError || rooms.hasError || posts.hasError)
-                      TextButton(
-                        onPressed: () {
-                          ref.invalidate(hostPropertiesProvider);
-                          ref.invalidate(hostRoomsProvider);
-                          ref.invalidate(hostFinancePostsProvider);
-                        },
-                        child: const Text(
-                          'Không tải được cơ sở/phòng. Thử lại',
-                        ),
-                      ),
                   ],
                 ),
               ),
-              const SizedBox(height: 22),
+              if (properties.isLoading ||
+                  (_property != null && (rooms.isLoading || posts.isLoading)))
+                const LinearProgressIndicator(color: _teal),
+              if (properties.hasError || rooms.hasError || posts.hasError)
+                TextButton(
+                  onPressed: () {
+                    ref.invalidate(hostPropertiesProvider);
+                    ref.invalidate(hostRoomsProvider);
+                    ref.invalidate(hostFinancePostsProvider);
+                  },
+                  child: const Text('Không tải được cơ sở/phòng. Thử lại'),
+                ),
               if (unresolved > 0 &&
                   !rooms.isLoading &&
                   !posts.isLoading &&
                   !posts.hasError &&
                   !rooms.hasError)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(top: 12),
                   child: Text(
                     '$unresolved hóa đơn chưa có liên kết cơ sở/phòng. Chọn “Tất cả cơ sở” để xem các đơn này.',
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: Color(0xFF9A6700),
                     ),
                   ),
                 ),
-              Text(
-                widget.isDeposit ? 'Hóa đơn tiền cọc' : 'Hóa đơn trả hết',
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF142D2B),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.isDeposit
-                    ? 'Quản lý cọc giữ phòng & bảo đảm'
-                    : 'Quản lý tiền phòng & dịch vụ theo đơn thuê',
-                style: const TextStyle(fontSize: 12, color: _muted),
-              ),
               const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF0D9488), Color(0xFF115E59)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x220D9488),
-                      blurRadius: 14,
-                      offset: Offset(0, 7),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+              HostFinanceWallet(
+                deposit: widget.isDeposit,
+                label: 'Thực nhận dự kiến sau phí hoa hồng',
+                amount: _money(gross - fee),
+                footer: Row(
                   children: [
-                    const Text(
-                      'Thực nhận dự kiến sau phí hoa hồng',
-                      style: TextStyle(color: Color(0xFFCCFBF1), fontSize: 12),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _money(gross - fee),
-                      style: const TextStyle(
-                        fontSize: 30,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.isDeposit
+                                ? 'Tổng cọc khách đóng'
+                                : 'Tổng khách thanh toán',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFFCFD0DF),
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            _money(gross),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    const Divider(color: Colors.white24),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 24,
-                      runSpacing: 12,
-                      children: [
-                        _summary(
-                          widget.isDeposit
-                              ? 'Tổng cọc khách đóng'
-                              : 'Tổng khách thanh toán',
-                          _money(gross),
-                        ),
-                      ],
+                    const Icon(
+                      Icons.receipt_long_outlined,
+                      color: Colors.white38,
+                      size: 28,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 24),
               Row(
                 children: [
-                  Expanded(
+                  const Expanded(
                     child: Text(
-                      'DANH SÁCH HÓA ĐƠN (${invoices.length})',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: _muted,
-                        fontWeight: FontWeight.w700,
+                      'Danh sách hóa đơn',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: HostFinanceStyle.ink,
                       ),
                     ),
                   ),
                   TextButton.icon(
+                    style: TextButton.styleFrom(foregroundColor: _teal),
                     onPressed: () => setState(() => _newest = !_newest),
                     icon: const Icon(Icons.swap_vert, size: 16),
                     label: Text(
@@ -298,21 +304,22 @@ class _HostFinanceInvoicesState extends ConsumerState<HostFinanceInvoices> {
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
               if (invoices.isEmpty)
                 _card(
                   const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 36),
+                    padding: EdgeInsets.symmetric(vertical: 26),
                     child: Column(
                       children: [
                         Icon(
                           Icons.receipt_long_outlined,
-                          size: 42,
-                          color: _teal,
+                          size: 40,
+                          color: _muted,
                         ),
                         SizedBox(height: 12),
                         Text(
                           'Chưa có hóa đơn phù hợp',
-                          style: TextStyle(color: _muted),
+                          style: TextStyle(color: _muted, fontSize: 12),
                         ),
                       ],
                     ),
@@ -320,7 +327,7 @@ class _HostFinanceInvoicesState extends ConsumerState<HostFinanceInvoices> {
                 ),
               ...invoices.map(
                 (b) => Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.only(bottom: 16),
                   child: _invoice(b),
                 ),
               ),
@@ -331,76 +338,96 @@ class _HostFinanceInvoicesState extends ConsumerState<HostFinanceInvoices> {
     );
   }
 
-  // Chủ trọ - Hiển thị từng hóa đơn - Chi tiết mở bảng thông tin;
-  // Đã nhận tiền mở hộp xác nhận khi sàn đã giải ngân.
+  // Chủ trọ - Phiếu hóa đơn - Chi tiết mở thông tin; Đã nhận tiền mở xác nhận sau giải ngân.
   Widget _invoice(Map<String, dynamic> b) {
     final received = b['hostReceiptConfirmedAt'] != null;
     final disbursed = b['isDisbursed'] == true;
     final id = '${b['id']}';
-    return _card(
-      Column(
+    final tone = widget.isDeposit ? const Color(0xFFA7743F) : _teal;
+    final wash = widget.isDeposit
+        ? const Color(0xFFFBF1E6)
+        : const Color(0xFFF0EFFB);
+    final status = received
+        ? 'Đã nhận tiền'
+        : disbursed
+        ? 'Đã giải ngân'
+        : widget.isDeposit && b['isCheckIn'] != true
+        ? 'Chờ check-in'
+        : 'Chờ giải ngân';
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFEBECF3)),
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              Text(
-                '${b['roomTitle'] ?? b['roomCode'] ?? 'Phòng thuê'}',
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            color: wash,
+            child: Row(
+              children: [
+                Icon(
+                  widget.isDeposit
+                      ? Icons.shield_outlined
+                      : Icons.receipt_outlined,
+                  size: 16,
+                  color: tone,
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    widget.isDeposit ? 'PHIẾU TIỀN CỌC' : 'PHIẾU THANH TOÁN',
+                    style: TextStyle(
+                      fontSize: 9,
+                      letterSpacing: 1.1,
+                      fontWeight: FontWeight.w800,
+                      color: tone,
+                    ),
+                  ),
                 ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE6F7F2),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  received
-                      ? 'Đã nhận tiền'
-                      : disbursed
-                      ? 'Đã giải ngân'
-                      : widget.isDeposit && b['isCheckIn'] != true
-                      ? 'Chờ check-in'
-                      : 'Chờ giải ngân',
-                  style: const TextStyle(
+                Text(
+                  status,
+                  style: TextStyle(
                     fontSize: 10,
-                    color: _teal,
+                    color: tone,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Khách: ${b['renterName'] ?? 'Chưa cập nhật'}',
-            style: const TextStyle(fontSize: 13),
-          ),
-          const SizedBox(height: 12),
-          _inset(
-            Column(
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                Text(
+                  '${b['roomTitle'] ?? b['roomCode'] ?? 'Phòng thuê'}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: HostFinanceStyle.ink,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Khách: ${b['renterName'] ?? 'Chưa cập nhật'}',
+                  style: const TextStyle(fontSize: 12, color: _muted),
+                ),
+                const SizedBox(height: 16),
                 _line('Mã hóa đơn', '${b['orderCode'] ?? id}'),
                 _line('Ngày tạo', _day(b['createdAt'])),
                 _line(
                   widget.isDeposit ? 'Ngày nhận phòng' : 'Kỳ thuê bắt đầu',
                   _day(b['moveInDate']),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          _inset(
-            Column(
-              children: [
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Divider(height: 1, color: Color(0xFFEBECF3)),
+                ),
                 _line(
                   widget.isDeposit ? 'Tiền cọc khách đóng' : 'Khách thanh toán',
                   _money(_gross(b)),
@@ -408,55 +435,89 @@ class _HostFinanceInvoicesState extends ConsumerState<HostFinanceInvoices> {
                 _line(
                   b['platformFee'] == null ? 'Phí sàn (ước tính)' : 'Phí sàn',
                   '-${_money(_fee(b))}',
-                  color: const Color(0xFFE05264),
+                  color: const Color(0xFFC27972),
                 ),
-                const Divider(height: 20),
-                _line(
-                  'Thực nhận dự kiến',
-                  _money(_gross(b) - _fee(b)),
-                  color: _teal,
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: wash,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Thực nhận dự kiến',
+                        style: TextStyle(color: tone, fontSize: 10),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        _money(_gross(b) - _fee(b)),
+                        style: TextStyle(
+                          fontSize: 23,
+                          fontWeight: FontWeight.w800,
+                          color: tone,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: HostFinanceStyle.ink,
+                          side: const BorderSide(color: Color(0xFFE1E2EC)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => _details(b),
+                        child: const Text(
+                          'Chi tiết',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: tone,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed:
+                            received || !disbursed || _saving.contains(id)
+                            ? null
+                            : () => _confirm(b),
+                        child: Text(
+                          _saving.contains(id)
+                              ? 'Đang lưu…'
+                              : received
+                              ? 'Đã nhận'
+                              : 'Đã nhận tiền',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (!disbursed)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Có thể xác nhận nhận tiền sau khi sàn giải ngân.',
+                      style: TextStyle(fontSize: 10, color: _muted),
+                    ),
+                  ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _details(b),
-                  icon: const Icon(Icons.visibility_outlined, size: 16),
-                  label: const Text('Chi tiết', style: TextStyle(fontSize: 12)),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(backgroundColor: _teal),
-                  onPressed: received || !disbursed || _saving.contains(id)
-                      ? null
-                      : () => _confirm(b),
-                  icon: Icon(received ? Icons.done_all : Icons.check, size: 16),
-                  label: Text(
-                    _saving.contains(id)
-                        ? 'Đang lưu…'
-                        : received
-                        ? 'Đã nhận'
-                        : 'Đã nhận tiền',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (!disbursed)
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text(
-                'Có thể xác nhận nhận tiền sau khi sàn giải ngân.',
-                style: TextStyle(fontSize: 10, color: _muted),
-              ),
-            ),
         ],
       ),
     );
@@ -577,25 +638,10 @@ class _HostFinanceInvoicesState extends ConsumerState<HostFinanceInvoices> {
     }
   }
 
-  // Chủ trọ - Hiển thị thẻ cơ sở cho thuê và thẻ hóa đơn.
-  Widget _card(Widget child) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: const Color(0xFFE5EFEB)),
-    ),
-    child: child,
-  );
-  // Chủ trọ - Hiển thị khung thông tin và số tiền bên trong hóa đơn.
-  Widget _inset(Widget child) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: const Color(0xFFF5F9F8),
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: child,
-  );
+  // Chủ trọ - Hiển thị thẻ cơ sở cho thuê và trạng thái danh sách hóa đơn.
+  Widget _card(Widget child) =>
+      HostFinanceStyle.surface(child, padding: const EdgeInsets.all(16));
+
   // Chủ trọ - Hiển thị nhãn và giá trị chi tiết hóa đơn.
   Widget _line(String label, String value, {Color? color}) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 5),
@@ -622,24 +668,5 @@ class _HostFinanceInvoicesState extends ConsumerState<HostFinanceInvoices> {
         ),
       ],
     ),
-  );
-  // Chủ trọ - Hiển thị tổng tiền khách đóng và phí sàn trên thẻ tổng hợp.
-  Widget _summary(String label, String value) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        label,
-        style: const TextStyle(color: Color(0xFFCCFBF1), fontSize: 11),
-      ),
-      const SizedBox(height: 5),
-      Text(
-        value,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-          fontSize: 15,
-        ),
-      ),
-    ],
   );
 }

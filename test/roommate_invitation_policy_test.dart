@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:home_share/features/chat/services/roommate_invitation_eligibility_service.dart';
 import 'package:home_share/features/chat/services/roommate_invitation_policy.dart';
 
 void main() {
@@ -120,5 +121,36 @@ void main() {
         isFalse,
       );
     });
+  });
+
+  test('đơn dangO lấy được phòng từ chính booking khi rooms/posts thiếu', () {
+    final room = roomFromActiveBooking({
+      'status': 'dangO',
+      'renterId': 'tX2g6Pdk05MA44YkREEU5s74zTn1',
+      'hostId': '2WRf5Owyi0ale2BGxzACLC1KfOz1',
+      'hostName': 'Trần Trà Quốc Mẫn',
+      'roomId': '0lV2xMQBgSWFEE6aBTN6',
+      'roomTitle': 'Toan',
+      'rentalPrice': 500000000,
+      'roomAddress': '',
+    }, 'DP_20261025_0lV2xMQBgSWFEE6aBTN6_NT968');
+    expect(room, isNotNull);
+    expect(room!.id, '0lV2xMQBgSWFEE6aBTN6');
+    expect(room.hostId, '2WRf5Owyi0ale2BGxzACLC1KfOz1');
+    expect(room.title, 'Toan');
+    expect(room.price, 500000000);
+  });
+
+  test('chấp nhận lời mời dùng hostId đã gắn lúc gửi khi rooms thiếu', () {
+    final room = roomFromInvitationPayload(
+      roomId: '0lV2xMQBgSWFEE6aBTN6',
+      hostId: '2WRf5Owyi0ale2BGxzACLC1KfOz1',
+      roomTitle: 'Toan',
+      roomCode: 'PWFFQHMBU783',
+      hostName: 'Trần Trà Quốc Mẫn',
+    );
+    expect(room, isNotNull);
+    expect(room!.hostId, '2WRf5Owyi0ale2BGxzACLC1KfOz1');
+    expect(room.title, 'Toan');
   });
 }

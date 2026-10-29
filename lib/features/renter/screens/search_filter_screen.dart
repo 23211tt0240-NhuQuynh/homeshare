@@ -1,3 +1,4 @@
+import '../../profile/widgets/host_reputation_stars.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -92,9 +93,19 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
   // Sắp xếp
   String _selectedSort = 'newest';
 
-  List<String> get _wards => _selectedCity == 'Tất cả'
-      ? const ['Tất cả']
-      : ['Tất cả', ...VietnamLocations.getWards(_selectedCity)];
+  List<String> get _districts {
+    if (_selectedCity == 'Tất cả') return const ['Tất cả'];
+    final list = VietnamLocations.getAdministrativeDistricts(_selectedCity);
+    return ['Tất cả', ...list];
+  }
+
+  List<String> get _wards {
+    if (_selectedCity == 'Tất cả' || _selectedDistrict == 'Tất cả') {
+      return const ['Tất cả'];
+    }
+    final list = VietnamLocations.getWards(_selectedCity, _selectedDistrict);
+    return ['Tất cả', ...list];
+  }
 
   @override
   void initState() {
@@ -127,7 +138,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
       builder: (ctx) => LocationSearchBottomSheet(
         title: 'Chọn Tỉnh / Thành phố',
         searchHint: 'Tìm kiếm tỉnh hoặc thành phố...',
-        items: ['Tất cả', ...VietnamLocations.provinces],
+        items: const ['Tất cả', ...VietnamLocations.provinces],
         selectedItem: _selectedCity,
         allLabel: 'Tất cả Tỉnh / Thành phố',
         onSelected: (val) {
@@ -141,13 +152,46 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
     );
   }
 
+  void _showDistrictPicker() {
+    if (_selectedCity == 'Tất cả') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng chọn Tỉnh / Thành phố trước'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      _showCityPicker();
+      return;
+    }
+
+    final districts = _districts;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => LocationSearchBottomSheet(
+        title: 'Chọn Quận / Huyện ($_selectedCity)',
+        searchHint: 'Tìm quận, huyện, thị xã...',
+        items: districts,
+        selectedItem: _selectedDistrict,
+        allLabel: 'Tất cả Quận / Huyện',
+        onSelected: (dist) {
+          setState(() {
+            _selectedDistrict = dist;
+            _selectedWard = 'Tất cả';
+          });
+        },
+      ),
+    );
+  }
+
   void _showWardPicker() {
     if (_selectedCity == 'Tất cả') {
       _showCityPicker();
       return;
     }
-    if (_selectedCity == 'Tất cả') {
-      _showCityPicker();
+    if (_selectedDistrict == 'Tất cả') {
+      _showDistrictPicker();
       return;
     }
 
@@ -157,8 +201,8 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => LocationSearchBottomSheet(
-        title: 'Chọn Phường / Xã / Đặc khu ($_selectedCity)',
-        searchHint: 'Tìm phường, xã, đặc khu...',
+        title: 'Chọn Phường / Xã ($_selectedDistrict)',
+        searchHint: 'Tìm phường, xã, thị trấn...',
         items: wards,
         selectedItem: _selectedWard,
         allLabel: 'Tất cả Phường / Xã',
@@ -491,16 +535,23 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Người thuê - Chọn cấp xã - Luồng đi: Lấy phường/xã/đặc khu
-          // trực tiếp theo tỉnh/thành đã chọn, không qua bước quận/huyện.
+          // 2. Dropdown Phường/Xã
           _buildFieldLabel('Phường / Xã'),
           const SizedBox(height: 6),
           _buildLocationDropdown(
-            label: _selectedWard == 'Tất cả'
-                ? 'Chọn Phường / Xã / Đặc khu'
-                : _selectedWard,
+            label: _selectedDistrict == 'Tất cả'
+                ? 'Chọn Phường / Xã'
+                : (_selectedWard == 'Tất cả'
+                      ? _selectedDistrict
+                      : '$_selectedWard, $_selectedDistrict'),
             icon: Icons.map_outlined,
-            onTap: _showWardPicker,
+            onTap: () {
+              if (_selectedDistrict == 'Tất cả') {
+                _showDistrictPicker();
+              } else {
+                _showWardPicker();
+              }
+            },
           ),
           const SizedBox(height: 14),
 
@@ -1339,9 +1390,9 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
     final rentalLabel = _rentalType == 'single'
         ? 'Ở 1 mình'
         : (_rentalType == 'shared' ? 'Ở ghép' : 'Tất cả');
-    final locationLabel = _selectedWard == 'Tất cả'
+    final locationLabel = _selectedDistrict == 'Tất cả'
         ? _selectedCity
-        : '$_selectedWard, $_selectedCity';
+        : '$_selectedDistrict, $_selectedCity';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1736,8 +1787,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
 
   // WIDGET: Thẻ phòng trọ dạng ngang chuẩn 100% Figma & tiendo.md
   // Bên trái: Ảnh 95x95dp + Huy hiệu Chính chủ/Mới
-  // Bên phải: Tiêu đề, giá thuê, diện tích, loại phòng, khu vực và tiện ích.
-  // Trường district của RoomModel có thể chứa cấp xã mới hoặc quận/huyện từ dữ liệu cũ.
+  // Bên phải: Tiêu đề, Giá to xanh, Diện tích • Loại phòng • Quận huyện, Chip tiện ích, Nút gọi & chat
   Widget _buildHorizontalRoomCard(RoomModel room) {
     final priceStr = '${currencyFormatter.format(room.price)} đ/tháng';
     final imageUrl = room.images.isNotEmpty
@@ -1824,15 +1874,23 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Tiêu đề phòng
-                  Text(
-                    room.title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          room.title,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      HostReputationStarLabel(hostId: room.hostId),
+                    ],
                   ),
                   const SizedBox(height: 3),
 
@@ -1847,8 +1905,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   ),
                   const SizedBox(height: 3),
 
-                  // Người thuê - Thông số phòng - Luồng đi: Hiển thị diện tích,
-                  // loại phòng và khu vực đang lưu trong model để hỗ trợ dữ liệu cũ.
+                  // Thông số: Diện tích • Loại phòng • Quận huyện
                   Text(
                     '${room.area.toInt()} m² • ${room.roomType} • ${room.district}',
                     style: const TextStyle(
@@ -2073,15 +2130,11 @@ class LocationSearchBottomSheetState extends State<LocationSearchBottomSheet> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: Text(
-                    widget.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                Text(
+                  widget.title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 IconButton(
@@ -2118,33 +2171,30 @@ class LocationSearchBottomSheetState extends State<LocationSearchBottomSheet> {
                 final isSelected = item == widget.selectedItem;
                 final displayName = item == 'Tất cả' ? widget.allLabel : item;
 
-                return Material(
-                  color: Colors.white,
-                  child: ListTile(
-                    title: Text(
-                      displayName,
-                      style: TextStyle(
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.textDark,
-                        fontSize: 14,
-                      ),
+                return ListTile(
+                  title: Text(
+                    displayName,
+                    style: TextStyle(
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.textDark,
+                      fontSize: 14,
                     ),
-                    trailing: isSelected
-                        ? const Icon(
-                            Icons.check,
-                            color: AppColors.primary,
-                            size: 20,
-                          )
-                        : null,
-                    onTap: () {
-                      widget.onSelected(item);
-                      Navigator.pop(context);
-                    },
                   ),
+                  trailing: isSelected
+                      ? const Icon(
+                          Icons.check,
+                          color: AppColors.primary,
+                          size: 20,
+                        )
+                      : null,
+                  onTap: () {
+                    widget.onSelected(item);
+                    Navigator.pop(context);
+                  },
                 );
               },
             ),

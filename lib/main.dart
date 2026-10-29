@@ -2,39 +2,49 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
-import 'core/constants/vietnam_locations.dart';
+import 'core/constants/app_colors.dart';
 import 'core/services/call_push_service.dart';
+import 'core/services/push_notification_service.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/app_theme_controller.dart';
 import 'features/admin/screens/admin_main_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/providers/user_provider.dart';
 import 'features/auth/screens/login_screen.dart';
-import 'features/chat/screens/call_screen.dart';
 import 'features/host/screens/host_main_screen.dart';
 import 'features/renter/screens/renter_main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Ứng dụng - Nạp địa chỉ - Luồng đi: Đọc cache và cập nhật API trước
-  // khi mở các màn hình dùng chung danh mục tỉnh/thành và cấp xã.
-  await VietnamLocations.initialize();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   // Tạo kênh chuông "Cuộc gọi" và đăng ký handler khi app ở nền hoặc đã tắt.
   await CallPushService.prepare();
+  // Khởi tạo hệ thống Push Notification & Local Notifications toàn diện
+  await PushNotificationService.initialize();
   runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeState = ref.watch(appThemeControllerProvider).value;
     return MaterialApp(
       title: 'HomeShare',
       debugShowCheckedModeBanner: false,
       // Để thông báo cuộc gọi mở IncomingCallScreen dù người dùng đang ở trang nào.
       navigatorKey: navigatorKey,
       theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeState?.mode ?? ThemeMode.light,
+      builder: (context, child) {
+        AppColors.bind(Theme.of(context).brightness);
+        return DefaultTextStyle.merge(
+          style: TextStyle(color: AppColors.textDark),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: const AuthGate(),
     );
   }
@@ -67,7 +77,6 @@ class AuthGate extends ConsumerWidget {
 /// và gắn mã thông báo của máy vào user đang đăng nhập.
 class _SignedInShell extends ConsumerStatefulWidget {
   final String uid;
-
   const _SignedInShell({required this.uid});
 
   @override
@@ -80,6 +89,12 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       CallPushService.bindUser(widget.uid);
+      PushNotificationService.bindUser(widget.uid);
+      if (PushNotificationService.pendingPayload != null) {
+        final payload = PushNotificationService.pendingPayload!;
+        PushNotificationService.pendingPayload = null;
+        PushNotificationService.handlePayloadNavigation(payload);
+      }
       ref.read(renterBottomNavIndexProvider.notifier).setIndex(0);
     });
   }
@@ -87,32 +102,24 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
-    // Người thuê, chủ trọ và quản trị đều nhận cuộc gọi. Trước đây chỉ màn người thuê nghe chuông.
-    ref.listen(incomingCallProvider, (prev, next) {
-      final call = next.value;
-      if (call == null) return;
-      IncomingCallRouter.show(call);
-    });
 
     return profileAsync.when(
       data: (profile) {
-        if (profile?.isAdmin == true ||
-            profile?.role == 'admin' ||
-            profile?.role == 'administrator' ||
-            profile?.role == 'quantri') {
+        final role = profile?.role.toLowerCase() ?? 'renter';
+
+        if (role == 'admin') {
           return const AdminMainScreen();
         }
-        if (profile?.isHost == true ||
-            profile?.role == 'host' ||
-            profile?.role == 'landlord' ||
-            profile?.role == 'chutro') {
+
+        if (role == 'host' || role == 'chutro' || role == 'landlord') {
           return const HostMainScreen();
         }
+
         return const RenterMainScreen();
       },
-      loading: () => const Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(child: CircularProgressIndicator()),
+      loading: () => Scaffold(
+        backgroundColor: AppColors.background,
+        body: const Center(child: CircularProgressIndicator()),
       ),
       error: (error, stack) => Scaffold(
         body: Center(child: Text('Lỗi tải thông tin tài khoản: $error')),

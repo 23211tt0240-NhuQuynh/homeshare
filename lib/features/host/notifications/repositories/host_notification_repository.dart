@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/constants/firestore_collections.dart';
 import '../../repositories/tenant_repository.dart';
 import '../models/host_notification_model.dart';
@@ -62,13 +63,12 @@ class HostNotificationRepository {
   ) async {
     final bookingIds = <String>{};
     for (final doc in snapshot.docs) {
-      final bId =
-          (doc.data()[NotificationFields.bookingId] ??
-                  doc.data()['bookingId'] ??
-                  doc.data()['donDatPhongId'] ??
-                  '')
-              .toString()
-              .trim();
+      final bId = (doc.data()[NotificationFields.bookingId] ??
+              doc.data()['bookingId'] ??
+              doc.data()['donDatPhongId'] ??
+              '')
+          .toString()
+          .trim();
       if (bId.isNotEmpty) bookingIds.add(bId);
     }
 
@@ -100,34 +100,27 @@ class HostNotificationRepository {
     final list = <HostNotificationModel>[];
     for (final doc in snapshot.docs) {
       final data = Map<String, dynamic>.from(doc.data());
-      final bId =
-          (data[NotificationFields.bookingId] ??
-                  data['bookingId'] ??
-                  data['donDatPhongId'] ??
-                  '')
-              .toString()
-              .trim();
+      final bId = (data[NotificationFields.bookingId] ??
+              data['bookingId'] ??
+              data['donDatPhongId'] ??
+              '')
+          .toString()
+          .trim();
 
       if (bId.isNotEmpty && bookingDataMap.containsKey(bId)) {
         final bData = bookingDataMap[bId]!;
         final bStatus = (bData['status'] ?? '').toString().toLowerCase();
         final isPaid = bData['isPaid'] == true;
-        final paymentOption = (bData['paymentOption'] ?? '')
-            .toString()
-            .toLowerCase();
-        final isFull =
-            paymentOption == 'full' ||
+        final paymentOption = (bData['paymentOption'] ?? '').toString().toLowerCase();
+        final isFull = paymentOption == 'full' ||
             paymentOption == 'toanbo' ||
             bData['isFullPayment'] == true ||
             bStatus == 'paid';
 
-        if (bStatus == 'dango' ||
-            bStatus == 'active' ||
-            bStatus == 'danhanphong') {
+        if (bStatus == 'dango' || bStatus == 'active' || bStatus == 'danhanphong') {
           data['statusId'] = 'approved';
           data['status'] = 'dango';
-          data[NotificationFields.notificationType] =
-              HostNotificationType.staying.code;
+          data[NotificationFields.notificationType] = HostNotificationType.staying.code;
         } else if (bStatus == 'approved' ||
             bStatus == 'daduyet' ||
             bStatus == 'dacoc' ||
@@ -147,23 +140,20 @@ class HostNotificationRepository {
           data[NotificationFields.notificationType] = targetType.code;
 
           // Tự động chuẩn hóa bản ghi trên Firestore nếu còn sót 'pendingAction' hoặc 'booking'
-          final curNotifType =
-              (doc.data()[NotificationFields.notificationType] ??
-                      doc.data()['type'] ??
-                      '')
-                  .toString();
+          final curNotifType = (doc.data()[NotificationFields.notificationType] ??
+                  doc.data()['type'] ??
+                  '')
+              .toString();
           if (curNotifType == 'pendingAction' || curNotifType == 'booking') {
-            doc.reference
-                .set({
-                  NotificationFields.notificationType: targetType.code,
-                  NotificationFields.statusId: targetStatus,
-                  'status': bStatus,
-                  'title': isFull
-                      ? 'Khách đã thanh toán đủ toàn bộ'
-                      : 'Đã duyệt tiền cọc thành công',
-                  'updatedAt': FieldValue.serverTimestamp(),
-                }, SetOptions(merge: true))
-                .catchError((_) {});
+            doc.reference.set({
+              NotificationFields.notificationType: targetType.code,
+              NotificationFields.statusId: targetStatus,
+              'status': bStatus,
+              'title': isFull
+                  ? 'Khách đã thanh toán đủ toàn bộ'
+                  : 'Đã duyệt tiền cọc thành công',
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true)).catchError((_) {});
           }
         }
       }
@@ -326,8 +316,19 @@ class HostNotificationRepository {
     final batch = fs.batch();
 
     // 1. Cập nhật booking gốc
+    String renterId = '';
+    String currentRoomCode = '';
     if (bookingId.isNotEmpty) {
       final bookingRef = bCol.doc(bookingId);
+      try {
+        final bDoc = await bookingRef.get();
+        if (bDoc.exists && bDoc.data() != null) {
+          final bData = bDoc.data()!;
+          renterId = (bData['userId'] ?? bData['renterId'] ?? bData['nguoiThueId'] ?? '').toString();
+          currentRoomCode = (bData['roomCode'] ?? bData['maPhong'] ?? '').toString();
+        }
+      } catch (_) {}
+
       batch.set(bookingRef, {
         'newRoomId': newRoomId,
         'newRoomTitle': newRoomTitle,
@@ -349,6 +350,31 @@ class HostNotificationRepository {
         NotificationFields.statusId: 'choXacNhanThayDoi',
         NotificationFields.updatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+    }
+
+    // 3. Gửi thông báo đến chuông người thuê (Renter) để người thuê có thể Đồng ý hoặc Từ chối
+    if (renterId.isNotEmpty) {
+      final dateStr = DateFormat('dd/MM/yyyy').format(newCheckInDate);
+      final renterNotifRef = nCol.doc();
+      batch.set(renterNotifRef, {
+        'id': renterNotifRef.id,
+        'receiverId': renterId,
+        'recipientRole': 'renter',
+        'title': 'Chủ trọ yêu cầu đổi lịch dọn vào',
+        'message': 'Chủ trọ đề xuất chuyển ngày nhận phòng sang $dateStr.${adjustmentReason.isNotEmpty ? " Lý do: $adjustmentReason" : ""}',
+        'notificationType': 'booking_adjustment',
+        'type': 'booking_adjustment',
+        'bookingId': bookingId,
+        'hostNotificationId': notificationId,
+        'roomId': newRoomId,
+        'roomTitle': newRoomTitle,
+        'roomCode': currentRoomCode,
+        'newCheckInDate': Timestamp.fromDate(newCheckInDate),
+        'adjustmentReason': adjustmentReason,
+        'status': 'pending',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
     }
 
     await batch.commit();
@@ -446,20 +472,19 @@ class HostNotificationRepository {
     if (roomId.isEmpty) {
       throw StateError('Yêu cầu ở ghép chưa liên kết với phòng');
     }
+
     final batch = _firestore!.batch();
 
     // 1. Thực hiện thêm người ở ghép vào phòng chính thức
     final tenantRepo = TenantRepository(firestore: _firestore);
-    if (roomId.isNotEmpty) {
-      await tenantRepo.addRoommateToRoom(
-        roomId: roomId,
-        primaryTenantId: primaryTenantId,
-        primaryTenantName: primaryTenantName,
-        newRoommateId: newRoommateId,
-        newRoommateName: newRoommateName,
-        batch: batch,
-      );
-    }
+    await tenantRepo.addRoommateToRoom(
+      roomId: roomId,
+      primaryTenantId: primaryTenantId,
+      primaryTenantName: primaryTenantName,
+      newRoommateId: newRoommateId,
+      newRoommateName: newRoommateName,
+      batch: batch,
+    );
 
     // 2. Cập nhật thông báo của Chủ trọ thành approved và chuyển loại sang "Đang ở" (staying)
     if (notificationId.isNotEmpty) {
@@ -597,6 +622,7 @@ class HostNotificationRepository {
 
     await batch.commit();
   }
+
 
   /// Xác nhận đồng ý thay đổi đặt chỗ (Màn hình Figma: Xác nhận thay đổi)
   Future<void> confirmBookingChange({

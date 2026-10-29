@@ -180,6 +180,12 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             .collection(FirestoreCollections.hostRooms)
             .doc(room.id)
             .get();
+        if (!doc.exists) {
+          doc = await db
+              .collection(FirestoreCollections.publicRooms)
+              .doc(room.id)
+              .get();
+        }
         if (doc.exists && mounted && _selectedRoom?.id == room.id) {
           final data = doc.data() ?? {};
           final rawDeposit =
@@ -600,9 +606,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
 
     // Lọc danh sách phòng theo nhaTroId đã chọn
     final propertyRooms = _property != null
-        ? allRooms
-              .where((r) => r.propertyId == _property!.id && r.canBeListed)
-              .toList()
+        ? allRooms.where((r) => r.propertyId == _property!.id).toList()
         : <RoomModel>[];
 
     return PopScope(

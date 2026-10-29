@@ -40,14 +40,10 @@ class HostPostRepository {
     }
 
     // Lắng nghe realtime từ collection 'posts' (fallback 'bai_dang_cho_thue' nếu còn tài liệu cũ)
-    return db.collection(FirestoreCollections.posts).snapshots().asyncMap((
-      snapshot,
-    ) async {
+    return db.collection(FirestoreCollections.posts).snapshots().asyncMap((snapshot) async {
       var docs = snapshot.docs;
       if (docs.isEmpty) {
-        final fallbackSnap = await db
-            .collection(FirestoreCollections.baiDangChoThue)
-            .get();
+        final fallbackSnap = await db.collection(FirestoreCollections.baiDangChoThue).get();
         docs = fallbackSnap.docs;
       }
 
@@ -81,7 +77,6 @@ class HostPostRepository {
         RoomModel? room;
         if (post.phongId.isNotEmpty) {
           room = await getRoom(post.phongId);
-          if (room != null && !room.canBeListed) continue;
           if (room != null) {
             enriched = enriched.withRoom(room);
           }
@@ -101,18 +96,13 @@ class HostPostRepository {
           if (prop != null) {
             enriched = enriched.copyWith(
               propertyName: prop.name,
-              address: enriched.address.isNotEmpty
-                  ? enriched.address
-                  : prop.address,
+              address: enriched.address.isNotEmpty ? enriched.address : prop.address,
               city: enriched.city.isNotEmpty ? enriched.city : prop.city,
-              district: enriched.district.isNotEmpty
-                  ? enriched.district
-                  : prop.district,
+              district: enriched.district.isNotEmpty ? enriched.district : prop.district,
             );
           }
         }
-        if (post.diaDiemId.isNotEmpty &&
-            (enriched.city.isEmpty || enriched.district.isEmpty)) {
+        if (post.diaDiemId.isNotEmpty && (enriched.city.isEmpty || enriched.district.isEmpty)) {
           final loc = await getLocation(post.diaDiemId);
           if (loc != null) {
             enriched = enriched.withLocation(
@@ -132,9 +122,7 @@ class HostPostRepository {
   Future<HostProperty?> getProperty(String propertyId) async {
     final db = _db;
     if (propertyId.isEmpty || db == null) return null;
-    if (_propertyCache.containsKey(propertyId)) {
-      return _propertyCache[propertyId];
-    }
+    if (_propertyCache.containsKey(propertyId)) return _propertyCache[propertyId];
 
     try {
       for (final col in [
@@ -159,11 +147,13 @@ class HostPostRepository {
   Future<RoomModel?> getRoom(String roomId) async {
     final db = _db;
     if (roomId.isEmpty || db == null) return null;
+    if (_roomCache.containsKey(roomId)) return _roomCache[roomId];
 
     try {
       DocumentSnapshot? doc;
       for (final col in [
         FirestoreCollections.hostRooms,
+        FirestoreCollections.publicRooms,
         FirestoreCollections.phongTro,
       ]) {
         final d = await db.collection(col).doc(roomId).get();
@@ -208,6 +198,7 @@ class HostPostRepository {
         for (final roomCol in [
           FirestoreCollections.phongTro,
           FirestoreCollections.hostRooms,
+          FirestoreCollections.publicRooms,
         ]) {
           final subSnap = await db
               .collection(roomCol)
@@ -217,30 +208,25 @@ class HostPostRepository {
           if (subSnap.docs.isNotEmpty) {
             final docs = subSnap.docs.toList()
               ..sort((a, b) {
-                final oa =
-                    (a.data()['thu_tu'] ??
-                            a.data()['sortOrder'] ??
-                            a.data()['thuTu'])
-                        as num? ??
+                final oa = (a.data()['thu_tu'] ??
+                        a.data()['sortOrder'] ??
+                        a.data()['thuTu']) as num? ??
                     0;
-                final ob =
-                    (b.data()['thu_tu'] ??
-                            b.data()['sortOrder'] ??
-                            b.data()['thuTu'])
-                        as num? ??
+                final ob = (b.data()['thu_tu'] ??
+                        b.data()['sortOrder'] ??
+                        b.data()['thuTu']) as num? ??
                     0;
                 return oa.compareTo(ob);
               });
             for (final doc in docs) {
               final data = doc.data();
-              final url =
-                  (data['url_anh'] ??
-                          data['url'] ??
-                          data['duongDan'] ??
-                          data['image'] ??
-                          '')
-                      .toString()
-                      .trim();
+              final url = (data['url_anh'] ??
+                      data['url'] ??
+                      data['duongDan'] ??
+                      data['image'] ??
+                      '')
+                  .toString()
+                  .trim();
               if (url.isNotEmpty && !results.contains(url)) {
                 results.add(url);
               }
@@ -263,30 +249,19 @@ class HostPostRepository {
               .get();
           final docs = snap.docs.toList()
             ..sort((a, b) {
-              final oa =
-                  (a.data()['sortOrder'] ??
-                          a.data()['thu_tu'] ??
-                          a.data()['thuTu'])
-                      as num? ??
-                  0;
-              final ob =
-                  (b.data()['sortOrder'] ??
-                          b.data()['thu_tu'] ??
-                          b.data()['thuTu'])
-                      as num? ??
-                  0;
+              final oa = (a.data()['sortOrder'] ?? a.data()['thu_tu'] ?? a.data()['thuTu']) as num? ?? 0;
+              final ob = (b.data()['sortOrder'] ?? b.data()['thu_tu'] ?? b.data()['thuTu']) as num? ?? 0;
               return oa.compareTo(ob);
             });
           for (final doc in docs) {
             final data = doc.data();
-            final url =
-                (data['url'] ??
-                        data['url_anh'] ??
-                        data['duongDan'] ??
-                        data['image'] ??
-                        '')
-                    .toString()
-                    .trim();
+            final url = (data['url'] ??
+                    data['url_anh'] ??
+                    data['duongDan'] ??
+                    data['image'] ??
+                    '')
+                .toString()
+                .trim();
             if (url.isNotEmpty && !results.contains(url)) {
               results.add(url);
             }
@@ -318,14 +293,13 @@ class HostPostRepository {
               .get();
           for (final d in snap.docs) {
             final data = d.data();
-            final name =
-                (data['amenityName'] ??
-                        data['name'] ??
-                        data['ten_tien_ich'] ??
-                        data['tenTienIch'] ??
-                        '')
-                    .toString()
-                    .trim();
+            final name = (data['amenityName'] ??
+                    data['name'] ??
+                    data['ten_tien_ich'] ??
+                    data['tenTienIch'] ??
+                    '')
+                .toString()
+                .trim();
             if (name.isNotEmpty && !results.contains(name)) {
               results.add(name);
             }
@@ -347,7 +321,10 @@ class HostPostRepository {
 
     try {
       DocumentSnapshot? doc;
-      for (final col in [FirestoreCollections.nguoiDung, 'users']) {
+      for (final col in [
+        FirestoreCollections.nguoiDung,
+        'users',
+      ]) {
         final d = await db.collection(col).doc(hostId).get();
         if (d.exists && d.data() != null) {
           doc = d;
@@ -360,14 +337,12 @@ class HostPostRepository {
         final profile = UserProfile(
           uid: hostId,
           email: data['email'] ?? '',
-          displayName:
-              data['ho_ten'] ??
+          displayName: data['ho_ten'] ??
               data['displayName'] ??
               data['hoTen'] ??
               data['name'] ??
               'Chủ trọ',
-          phoneNumber:
-              data['so_dien_thoai'] ??
+          phoneNumber: data['so_dien_thoai'] ??
               data['phoneNumber'] ??
               data['soDienThoai'] ??
               data['phone'] ??
@@ -377,24 +352,21 @@ class HostPostRepository {
           gender: data['gender'] ?? 'nam',
           address: data['address'] ?? data['diaChi'] ?? '',
           hometown: data['hometown'] ?? data['queQuan'] ?? '',
-          reputationScore:
-              (data['diem_uy_tin'] ??
-                      data['reputationScore'] ??
-                      data['diemUyTin'] ??
-                      100 as num)
-                  .toInt(),
+          reputationScore: (data['diem_uy_tin'] ??
+                  data['reputationScore'] ??
+                  data['diemUyTin'] ??
+                  100 as num)
+              .toInt(),
           occupation: data['occupation'] ?? 'Chủ nhà trọ',
           hobbies: const [],
-          isCccdVerified:
-              data['isCccdVerified'] == true || data['daXacThucCccd'] == true,
+          isCccdVerified: data['isCccdVerified'] == true ||
+              data['daXacThucCccd'] == true,
           cccdNumber: data['so_cccd'] ?? data['cccdNumber'] ?? '',
           cccdFullName: data['ho_ten_cccd'] ?? data['cccdFullName'] ?? '',
           cccdIssueDate: data['cccdIssueDate'] ?? '',
           cccdHometown: data['cccdHometown'] ?? '',
-          cccdFrontImageUrl:
-              data['anh_mat_truoc'] ?? data['cccdFrontImageUrl'] ?? '',
-          cccdBackImageUrl:
-              data['anh_mat_sau'] ?? data['cccdBackImageUrl'] ?? '',
+          cccdFrontImageUrl: data['anh_mat_truoc'] ?? data['cccdFrontImageUrl'] ?? '',
+          cccdBackImageUrl: data['anh_mat_sau'] ?? data['cccdBackImageUrl'] ?? '',
         );
         _hostCache[hostId] = profile;
         return profile;
@@ -416,10 +388,9 @@ class HostPostRepository {
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
         final result = {
-          'city': (data['city'] ?? data['province'] ?? data['thanhPho'] ?? '')
-              .toString(),
-          'district': (data['district'] ?? data['quanHuyen'] ?? diaDiemId)
-              .toString(),
+          'city': (data['city'] ?? data['province'] ?? data['thanhPho'] ?? '').toString(),
+          'district':
+              (data['district'] ?? data['quanHuyen'] ?? diaDiemId).toString(),
           'ward': (data['ward'] ?? data['phuongXa'] ?? '').toString(),
           'address': (data['address'] ?? data['diaChi'] ?? '').toString(),
         };
@@ -446,11 +417,10 @@ class HostPostRepository {
       final doc = await db.collection('posts').doc(postId).get();
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
-        final interested =
-            (data['interestedCount'] ??
-                    (data['interestedUsers'] as List?)?.length ??
-                    0 as num)
-                .toInt();
+        final interested = (data['interestedCount'] ??
+                (data['interestedUsers'] as List?)?.length ??
+                0 as num)
+            .toInt();
         final responses = (data['responseCount'] ?? 0 as num).toInt();
         return {'interestedCount': interested, 'responseCount': responses};
       }
@@ -520,8 +490,7 @@ class HostPostRepository {
       return;
     }
 
-    final roomToPin =
-        post.joinedRoom ??
+    final roomToPin = post.joinedRoom ??
         RoomModel(
           id: post.phongId.isNotEmpty ? post.phongId : post.id,
           title: post.tieuDe,
@@ -547,9 +516,8 @@ class HostPostRepository {
       MaterialPageRoute(
         builder: (_) => ChatDetailScreen(
           receiverId: post.chuNhaId,
-          receiverName: post.authorName.isNotEmpty
-              ? post.authorName
-              : 'Chủ trọ',
+          receiverName:
+              post.authorName.isNotEmpty ? post.authorName : 'Chủ trọ',
           receiverAvatar: post.authorAvatar,
           receiverPhone: post.soDienThoaiLienHe.isNotEmpty
               ? post.soDienThoaiLienHe

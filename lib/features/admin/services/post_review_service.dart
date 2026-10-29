@@ -89,17 +89,40 @@ class PostReviewService {
       }
     }
 
+    final currentStatus = (data['status'] ?? 'pending').toString().toLowerCase();
+    if (approved &&
+        (currentStatus == 'rejected' || currentStatus == 'tuchoi') &&
+        data['hostResubmittedAt'] == null) {
+      throw StateError('Chủ trọ cần chỉnh sửa và gửi lại bài trước khi duyệt.');
+    }
+
     final statusValue = approved ? 'active' : 'rejected';
 
     // 1) Cập nhật bài đăng (chủ trọ và dashboard đọc các field này ngay trên post)
     batch.update(postRef, {
       'status': statusValue,
       'isAvailable': approved,
+      if (!approved) 'hostResubmittedAt': FieldValue.delete(),
       'rejectReason': approved ? FieldValue.delete() : cleanReason,
       'reviewedBy': performer,
       'reviewedAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // 1b) Cập nhật đồng bộ document phòng nếu có liên kết roomId
+    if (roomId.isNotEmpty) {
+      for (final col in const ['rooms', 'host_rooms']) {
+        batch.set(
+          _db.collection(col).doc(roomId),
+          {
+            'status': statusValue,
+            'isAvailable': approved,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      }
+    }
 
     // 2) Thông báo cho chủ trọ
     if (hostId.isNotEmpty) {

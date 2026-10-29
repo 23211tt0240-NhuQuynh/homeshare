@@ -49,6 +49,59 @@ Set<String> soThichIdsToUnlink({
   return currentSoThichIds.difference(desiredSoThichIds);
 }
 
+/// Payload merge lên `users/{uid}` khi chủ trọ lưu hồ sơ.
+/// Chỉ thông tin cơ bản & liên hệ. Không đụng nghề, bio, sở thích, uy tín, role.
+Map<String, dynamic> hostProfileUsersPatch({
+  required String displayName,
+  required String phoneNumber,
+  required String gender,
+  required String hometown,
+  DateTime? birthDate,
+  bool clearAvatarUrl = false,
+}) {
+  final data = <String, dynamic>{
+    'displayName': displayName,
+    'phoneNumber': phoneNumber,
+    'gender': gender,
+    'hometown': hometown,
+    'hoTen': FieldValue.delete(),
+    'soDienThoai': FieldValue.delete(),
+    'gioiTinh': FieldValue.delete(),
+    'queQuan': FieldValue.delete(),
+    'ngaySinh': FieldValue.delete(),
+  };
+  if (birthDate != null) {
+    data['birthDate'] = Timestamp.fromDate(birthDate);
+  } else {
+    data['birthDate'] = FieldValue.delete();
+  }
+  if (clearAvatarUrl) {
+    data['avatarUrl'] = FieldValue.delete();
+    data['anhDaiDien'] = FieldValue.delete();
+  }
+  return data;
+}
+
+/// Payload merge lên `bank_accounts/{uid}`. Document ID = UID người dùng.
+Map<String, dynamic> hostBankAccountPatch({
+  required String uid,
+  required String accountNumber,
+  required String accountHolder,
+  required String bankName,
+}) {
+  return {
+    'id': uid,
+    'userId': uid,
+    'accountNumber': accountNumber,
+    'accountHolder': accountHolder,
+    'bankName': bankName,
+    'nguoiDungId': FieldValue.delete(),
+    'soTaiKhoan': FieldValue.delete(),
+    'chuTaiKhoan': FieldValue.delete(),
+    'tenNganHang': FieldValue.delete(),
+  };
+}
+
 /// Lưu hồ sơ một tài khoản và sở thích theo quan hệ nhiều-nhiều.
 ///
 /// `hobbies` lưu `name`. `user_hobbies` nối bằng `userId` và `hobbyId`.
@@ -211,6 +264,69 @@ class UserProfileService {
     }
   }
 
+  /// Hồ sơ chủ trọ: `users/{uid}` (cơ bản & liên hệ) + `bank_accounts/{uid}`.
+  /// Không ghi occupation / workplace / bio / hobbies / reputation.
+  Future<void> saveHostProfile({
+    required String uid,
+    required String displayName,
+    required String phoneNumber,
+    required String gender,
+    required String hometown,
+    DateTime? birthDate,
+    List<int>? avatarBytes,
+    String accountNumber = '',
+    String accountHolder = '',
+    String bankName = '',
+    bool updateBankAccount = true,
+  }) async {
+    var uploadedAvatar = false;
+    if (avatarBytes != null && avatarBytes.isNotEmpty) {
+      await _images.uploadImageBytes(
+        bytes: Uint8List.fromList(avatarBytes),
+        folder: 'avatars/$uid',
+        fileName: 'avatar.jpg',
+      );
+      uploadedAvatar = true;
+    }
+
+    final data = hostProfileUsersPatch(
+      displayName: displayName,
+      phoneNumber: phoneNumber,
+      gender: gender,
+      hometown: hometown,
+      birthDate: birthDate,
+      clearAvatarUrl: uploadedAvatar,
+    );
+
+    try {
+      await _users.doc(uid).set(data, SetOptions(merge: true)).timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      throw Exception('Lưu hồ sơ quá lâu. Kiểm tra mạng rồi thử lại.');
+    }
+
+    if (updateBankAccount) {
+      try {
+        await saveBankAccount(
+          uid: uid,
+          accountNumber: accountNumber,
+          accountHolder: accountHolder,
+          bankName: bankName,
+        ).timeout(const Duration(seconds: 15));
+      } on TimeoutException {
+        throw Exception(
+          'Đã lưu thông tin chủ trọ, nhưng tài khoản ngân hàng chưa kịp đồng bộ. Hãy bấm Lưu thay đổi lần nữa.',
+        );
+      }
+    }
+
+    final authUser = _auth.currentUser;
+    if (authUser != null && authUser.uid == uid) {
+      try {
+        await authUser.updateDisplayName(displayName);
+      } catch (_) {}
+    }
+  }
+
   /// Đọc tài khoản ngân hàng theo mã người dùng. Không có bản ghi thì trả về trường trống.
   Future<BankAccount> loadBankAccount(String uid) async {
     final id = uid.trim();
@@ -239,17 +355,15 @@ class UserProfileService {
       if (existing.exists) await ref.delete();
       return;
     }
-    await ref.set({
-      'id': id,
-      'userId': id,
-      'accountNumber': number,
-      'accountHolder': holder,
-      'bankName': bank,
-      'nguoiDungId': FieldValue.delete(),
-      'soTaiKhoan': FieldValue.delete(),
-      'chuTaiKhoan': FieldValue.delete(),
-      'tenNganHang': FieldValue.delete(),
-    }, SetOptions(merge: true));
+    await ref.set(
+      hostBankAccountPatch(
+        uid: id,
+        accountNumber: number,
+        accountHolder: holder,
+        bankName: bank,
+      ),
+      SetOptions(merge: true),
+    );
   }
 
   Future<void> syncInterests({
