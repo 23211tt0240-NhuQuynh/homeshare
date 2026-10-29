@@ -11,7 +11,7 @@ service cloud.firestore {
     function admin() { return profileExists() && role() == 'admin'; }
     function str(value) { return value is string ? value : ''; }
 
-    // Đánh giá chủ trọ. Document ID = bookingId. Client không ghi điểm trung bình.
+    // Đánh giá chủ trọ. Document ID = bookingId (người thuê chính) hoặc residentId (ở ghép).
     // Tách khỏi rule dev còn lại vì rule trùng nhau thì OR — không tách thì host_reviews vẫn mở hết.
     match /host_reviews/{bookingId} {
       function hostReviewKeys() {
@@ -19,6 +19,9 @@ service cloud.firestore {
       }
       function hostReviewBooking() {
         return get(/databases/$(database)/documents/bookings/$(bookingId)).data;
+      }
+      function hostReviewResident() {
+        return get(/databases/$(database)/documents/residents/$(bookingId)).data;
       }
       // Rules so khớp nguyên văn; app check-in ghi 'dangO', cọc ghi 'daCoc' / 'approved'.
       function hostReviewableStatus(status) {
@@ -45,6 +48,49 @@ service cloud.firestore {
         return hostReviewableStatus(str(booking.get('status', '')))
           || hostReviewableStatus(str(booking.get('trangThai', '')));
       }
+      function residentBelongsToReviewer(resident) {
+        return str(resident.get('userId', '')) == request.auth.uid
+          || str(resident.get('nguoiDungId', '')) == request.auth.uid;
+      }
+      function residentIsActive(resident) {
+        return str(resident.get('statusId', '')) in ['dangO', 'dango', 'dang_o', 'active']
+          || str(resident.get('status', '')) in ['dangO', 'dango', 'dang_o', 'active']
+          || str(resident.get('trangThai_id', '')) in ['dangO', 'dango', 'dang_o', 'active'];
+      }
+      function residentRoomId(resident) {
+        return str(resident.get('roomId', '')) != ''
+          ? str(resident.get('roomId', ''))
+          : str(resident.get('phongId', '')) != ''
+            ? str(resident.get('phongId', ''))
+            : str(resident.get('phongTroId', ''));
+      }
+      function docHostMatches(col, roomId, hostId) {
+        return roomId.size() > 0
+          && exists(/databases/$(database)/documents/$(col)/$(roomId))
+          && (
+            str(get(/databases/$(database)/documents/$(col)/$(roomId)).data.get('hostId', '')) == hostId
+            || str(get(/databases/$(database)/documents/$(col)/$(roomId)).data.get('chuNhaId', '')) == hostId
+            || str(get(/databases/$(database)/documents/$(col)/$(roomId)).data.get('landlordId', '')) == hostId
+            || str(get(/databases/$(database)/documents/$(col)/$(roomId)).data.get('userId', '')) == hostId
+          );
+      }
+      function residentRoomMatchesHost(resident) {
+        return docHostMatches('posts', residentRoomId(resident), request.resource.data.hostId)
+          || docHostMatches('rooms', residentRoomId(resident), request.resource.data.hostId)
+          || docHostMatches('host_rooms', residentRoomId(resident), request.resource.data.hostId);
+      }
+      function isBookingReview() {
+        return exists(/databases/$(database)/documents/bookings/$(bookingId))
+          && bookingBelongsToReviewer(hostReviewBooking())
+          && bookingBelongsToHost(hostReviewBooking())
+          && bookingIsReviewable(hostReviewBooking());
+      }
+      function isResidentReview() {
+        return exists(/databases/$(database)/documents/residents/$(bookingId))
+          && residentBelongsToReviewer(hostReviewResident())
+          && residentIsActive(hostReviewResident())
+          && residentRoomMatchesHost(hostReviewResident());
+      }
       allow read: if signedIn();
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly(hostReviewKeys())
@@ -60,10 +106,7 @@ service cloud.firestore {
         && request.resource.data.comment is string
         && request.resource.data.comment.size() <= 500
         && request.resource.data.createdAt is timestamp
-        && exists(/databases/$(database)/documents/bookings/$(bookingId))
-        && bookingBelongsToReviewer(hostReviewBooking())
-        && bookingBelongsToHost(hostReviewBooking())
-        && bookingIsReviewable(hostReviewBooking());
+        && (isBookingReview() || isResidentReview());
       allow update: if false;
       allow delete: if admin();
     }

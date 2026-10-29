@@ -105,6 +105,14 @@ class RoomModel {
   String get soPhong => maPhong;
   String get maNhaTro => propertyId;
 
+  bool get canBeListed {
+    final s = status.toLowerCase().trim();
+    if (s == 'occupied' || s == 'dathue' || s == 'da_thue' || s == 'deleted' || s == 'daxoa') {
+      return false;
+    }
+    return isAvailable;
+  }
+
   bool get isApproved {
     final s = status.toLowerCase().trim();
     return s == 'active' ||

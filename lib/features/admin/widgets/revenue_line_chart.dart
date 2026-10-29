@@ -4,12 +4,16 @@ class RevenueLineChart extends StatelessWidget {
   final List<double> weeklyData;
   final List<String> labels;
   final int activeIndex;
+  final Color? color;
+  final String? emptyText;
 
   const RevenueLineChart({
     super.key,
     this.weeklyData = const [0, 0, 0, 0, 0, 0, 0],
     this.labels = const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
     this.activeIndex = 0, // điểm được nhấn mạnh (vd: hôm nay)
+    this.color,
+    this.emptyText,
   });
 
   @override
@@ -29,8 +33,8 @@ class RevenueLineChart extends StatelessWidget {
                 ),
               ),
               if (weeklyData.every((v) => v <= 0))
-                const Text(
-                  'Chưa có doanh thu',
+                Text(
+                  emptyText ?? 'Chưa có doanh thu',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,

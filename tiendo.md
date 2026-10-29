@@ -23,6 +23,41 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.81 - Tích Hợp Toàn Bộ Tính Năng & Nâng Cấp Từ Nhánh dev-THE (homeshare-dev-THE) Vào Dự Án:**
+    - **Mục tiêu & Phạm vi:** Khảo sát, đối soát và đồng bộ hóa toàn bộ các tính năng, màn hình, dịch vụ và quy tắc nghiệp vụ mới nhất do Thế phát triển từ thư mục D:\homeshare-dev-THE (nhánh origin/dev-THE) vào dự án hiện tại d:\App\homeshare-dev-TOAN, đồng thời bảo toàn trọn vẹn toàn bộ các tính năng của Toàn (
+otification_user, PushNotificationService, cleanImageUrl, MyHomesScreen, ...).
+    - **Các hạng mục tính năng & module được tích hợp thành công:**
+      1. **Hệ thống Giao diện Tối Graphite & Sáng (Dark Mode & Light Mode):**
+         - Thêm tệp định nghĩa tài nguyên giao diện ssets/themes/dark_themes.xml (đăng ký trong pubspec.yaml).
+         - Cung cấp bộ giải mã theme XML XmlDarkThemeParser và GraphiteTheme.
+         - Triển khai Riverpod StateNotifier AppThemeController lưu trữ trạng thái theme chế độ hệ thống (system, light, dark).
+         - Mở rộng bảng màu AppColors với AppPalette, AppPalette.light, AppPalette.graphite, hàm AppColors.bind() và AppColors.of(context) trong khi giữ nguyên các hằng số static const Color để tương thích 100% với các widget const hiện có.
+         - Thêm bảng màu quản trị tối AdminColors và nút chuyển theme nhanh tại AppBar của AdminDashboardScreen.
+      2. **Kiểm Soát Sức Chứa Phòng Ở Ghép & Tự Động Đóng Tin Khi Đã Đủ Chỗ:**
+         - Thêm chính sách nghiệp vụ RoommateCapacityPolicy và dịch vụ RoommateCapacityService.
+         - Cập nhật RoommatePostModel hỗ trợ trạng thái status, isOpen, isClosed.
+         - Nâng cấp RoommateService với markLocalPostClosed, bộ lọc tin mở isOpenStatus và đồng bộ chống trùng lặp dữ liệu.
+         - Tích hợp vào TenantRepository.approveRoommateRequest: Khi chủ trọ duyệt thành viên ở ghép khiến phòng đạt sức chứa tối đa, hệ thống tự động đóng toàn bộ các bài đăng tìm người ở ghép liên quan đến phòng đó.
+         - Tích hợp điều kiện kiểm tra sức chứa phòng 
+oomHasFreeCapacity vào RoommateInvitationPolicy.
+      3. **Báo Cáo Bài Đăng Phòng Trọ Của Chủ Nhà (Host Post Report):**
+         - Thêm quy tắc chính sách HostPostReportPolicy và dịch vụ HostPostReportService.
+         - Xây dựng hộp thoại chọn lý do đa lựa chọn vi phạm ReportHostPostDialog.
+         - Tích hợp nút báo cáo vi phạm bài đăng tại màn hình chi tiết phòng RoomDetailScreen.
+         - Bổ sung postId, postTitle vào HostReportFields và các mã định danh IdGenerator.hostReport(), IdGenerator.postReport().
+      4. **Nhãn Sao Uy Tín Chủ Trọ Trên Thẻ Danh Sách Phòng:**
+         - Xây dựng widget hiển thị sao và điểm trung bình uy tín HostReputationStars và HostReputationStarLabel.
+         - Bổ sung hàm tiện ích quy đổi sao uy tín starsFromScore và starsText trong HostReputation.
+         - Tích hợp nhãn sao uy tín chủ trọ trực tiếp vào các thẻ phòng tại RenterDashboardScreen, FavoriteRoomsScreen và SearchFilterScreen.
+      5. **Phân Tách Hồ Sơ Chủ Trọ & Chế Độ Xem Trang Cá Nhân:**
+         - Tích hợp màn hình xem hồ sơ công khai của chủ trọ HostProfileScreen hiển thị đánh giá cư dân, thống kê sao, danh sách phòng trọ đang cho thuê.
+         - Nâng cấp PersonalProfileScreen: Mặc định ở chế độ xem an toàn (view-only), người dùng bấm biểu tượng bút chì để chuyển sang chế độ chỉnh sửa thông tin.
+      6. **Đánh Giá Chủ Trọ & Bảo Mật Firestore Security Rules:**
+         - Nâng cấp HostReviewPolicy với hàm irstEligibleResident, kiểm tra hợp lệ việc cư dân đang ở được phép đánh giá chủ trọ.
+         - Cập nhật irestore.rules với collection host_reviews cho phép người thuê và người ở ghép hợp lệ gửi đánh giá.
+    - **Kiểm định mã nguồn & Bộ kiểm thử:**
+      + Phân tích mã nguồn tĩnh: lutter analyze lib đạt **No issues found!** (0 errors, 0 warnings).
+      + Bộ kiểm thử tự động: Toàn bộ 99/99 test case trong toàn bộ dự án đều chạy thành công 100% (**All tests passed!**).
   * **Phase 2.80 - Tách Biệt Bảng Thông Báo Người Dùng (`notification_user`) Khỏi Bảng Thông Báo Chung (`notifications`):**
     - **Vấn đề giải quyết:** Trước đây tất cả vai trò (Host, Admin, Renter/User) đều ghi chung vào bảng `notifications`. Khi một tài khoản vừa là Renter vừa tham gia quản trị hoặc thao tác các phòng, việc truy vấn lọc theo role dễ bị rối, trùng lặp hoặc xung đột notification types.
     - **Giải pháp kiến trúc & Triển khai:**

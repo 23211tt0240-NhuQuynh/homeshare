@@ -68,11 +68,10 @@ void main() {
       final theme = AppTheme.darkTheme;
       expect(theme.brightness, Brightness.dark);
       expect(theme.colorScheme.brightness, Brightness.dark);
-      // Nền tối chuẩn tông Deep Midnight / Slate cao cấp, không dùng màu xám xỉn nhạt nhẽo
-      expect(theme.scaffoldBackgroundColor, const Color(0xFF0B0F17));
-      expect(theme.cardColor, const Color(0xFF151C28));
-      expect(theme.colorScheme.surface, const Color(0xFF151C28));
-      expect(theme.colorScheme.primary, const Color(0xFF10B981)); // Emerald xanh ngọc sang trọng
+      // Nền tối chuẩn Graphite dark cao cấp
+      expect(theme.scaffoldBackgroundColor, const Color(0xFF111827));
+      expect(theme.cardColor, const Color(0xFF1F2937));
+      expect(theme.colorScheme.surface, const Color(0xFF1F2937));
     });
   });
 }

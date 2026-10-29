@@ -5,6 +5,7 @@ import '../../data/models/roommate_post_model.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../constants/firestore_collections.dart';
 import '../constants/vietnam_locations.dart';
+import '../utils/roommate_capacity_policy.dart';
 import '../utils/vietnamese_utils.dart';
 import 'image_storage_service.dart';
 import 'user_profile_service.dart';
@@ -111,6 +112,17 @@ class RoommateService {
   static final List<RoommatePostModel> _localCreatedPosts = [];
   static bool _authorRepairStarted = false;
 
+  static void markLocalPostClosed(String postId) {
+    final id = postId.trim();
+    if (id.isEmpty) return;
+    final index = _localCreatedPosts.indexWhere((post) => post.id == id);
+    if (index < 0) return;
+    _localCreatedPosts[index] = _localCreatedPosts[index].copyWith(
+      status: 'daDong',
+      updatedAt: DateTime.now(),
+    );
+  }
+
   // Stream bài đăng tìm ở ghép (an toàn bộ lọc, in-memory filter & sort)
   Stream<List<RoommatePostModel>> getRoommatePostsStream({
     String? district,
@@ -150,16 +162,13 @@ class RoommateService {
         list = [];
       }
 
-      // Hợp nhất bài đăng tạo trong phiên (Local) và Cloud Firestore (Local ưu tiên trên đầu)
+      // Cloud thắng khi đã có document (để ẩn tin daDong). Local chỉ giữ bài chưa lên Firestore.
       final merged = <RoommatePostModel>[];
+      final cloudIds = list.map((post) => post.id).toSet();
       for (final p in _localCreatedPosts) {
-        merged.add(p);
+        if (!cloudIds.contains(p.id)) merged.add(p);
       }
-      for (final p in list) {
-        if (!merged.any((item) => item.id == p.id)) {
-          merged.add(p);
-        }
-      }
+      merged.addAll(list);
 
       // Bỏ các bài mẫu cũ. Bài thật, gồm bài mới nhất của Trần Thanh Anh Toàn, vẫn giữ.
       const obsoleteSampleIds = {
@@ -184,6 +193,10 @@ class RoommateService {
           : hydrated.where((post) => post.authorId == viewerId).toList();
 
       final filtered = hydrated.where((post) {
+        if (!RoommateCapacityPolicy.isOpenStatus(post.status)) {
+          return false;
+        }
+
         // 1. Tình trạng phòng (Đã có phòng / Chưa có phòng)
         if (hasRoom != null && post.hasRoom != hasRoom) {
           return false;

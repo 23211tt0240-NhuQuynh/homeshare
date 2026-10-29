@@ -338,7 +338,7 @@ class _RoomBookingDetailScreenState
       final finalBooking = booking.copyWith(id: createdBookingId);
 
       if (mounted) {
-        // Chuyển sang Màn hình thanh toán chuẩn Figma với mã QR VietQR MBBank 0382542737
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(

@@ -571,6 +571,8 @@ abstract final class RoommatePostImageFields {
 
 /// Schema collection `reports`. Báo cáo chủ trọ gửi tới Admin, status = pending.
 abstract final class HostReportFields {
+  static const String postId = 'postId';
+  static const String postTitle = 'postTitle';
   static const id = 'id';
   static const targetType = 'targetType';
   static const hostId = 'hostId';

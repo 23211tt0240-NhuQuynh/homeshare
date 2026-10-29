@@ -94,7 +94,7 @@ class RoommatePostModel {
   final bool isVerified; // daXacThuc
   final int matchRate; // doTuongThich (AI Match Rate 0-100%)
   final bool hasRoom; // true = daCoPhong (timNguoiOGhep), false = dangTimPhong
-  final String status; // trangThai: dangMo | daDong
+  final String status; // trangThai: dangMo | daDong (đủ sức chứa thì daDong)
   final String contactPhone; // soDienThoai / sdtLienHe
   final String roomId;
   final String bookingId;
@@ -124,6 +124,16 @@ class RoommatePostModel {
   List<String> get thoiQuen => habits;
   List<String> get anhTinOGhep => images;
   String get trangThai => status;
+  bool get isClosed {
+    final normalized =
+        status.toLowerCase().trim().replaceAll(RegExp(r'[\s_-]+'), '');
+    return normalized == 'dadong' ||
+        normalized == 'closed' ||
+        normalized == 'hidden' ||
+        normalized == 'inactive';
+  }
+
+  bool get isOpen => !isClosed;
   String get soDienThoai => contactPhone;
   DateTime get ngayTao => createdAt;
   DateTime get ngayCapNhat => updatedAt;

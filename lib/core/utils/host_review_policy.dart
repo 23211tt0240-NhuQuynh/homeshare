@@ -1,4 +1,5 @@
 import '../../data/models/booking_model.dart';
+import '../../data/models/resident_model.dart';
 
 /// Điều kiện gửi đánh giá chủ trọ. Rules Firestore phải kiểm tra lại, không tin client.
 abstract final class HostReviewPolicy {
@@ -23,6 +24,11 @@ abstract final class HostReviewPolicy {
     return reviewableStatuses.contains(status.toLowerCase().trim());
   }
 
+  static bool isReviewableResidentStatus(String status) {
+    final normalized = status.toLowerCase().trim().replaceAll(RegExp(r'[\s_-]+'), '');
+    return normalized == 'dango' || normalized == 'active';
+  }
+
   static bool isValidRating(int rating) => rating >= 1 && rating <= 5;
 
   static bool canReviewOwnHost(String reviewerId, String hostId) {
@@ -36,6 +42,33 @@ abstract final class HostReviewPolicy {
     }
     if (booking.isCancelled) return false;
     return booking.isApproved || booking.isActive || isReviewableStatus(booking.status);
+  }
+
+  static bool isReviewableResident(ResidentModel resident) {
+    if (resident.id.isEmpty || resident.userId.isEmpty) return false;
+    if (resident.moveOutDate != null) return false;
+    return isReviewableResidentStatus(resident.statusId);
+  }
+
+  static BookingRequestModel stayFromResident(
+    ResidentModel resident, {
+    required String hostId,
+  }) {
+    return BookingRequestModel(
+      id: resident.id,
+      renterId: resident.userId,
+      renterName: resident.fullName,
+      renterPhone: resident.phone,
+      roomId: resident.roomId,
+      roomTitle: '',
+      roomAddress: '',
+      roomPrice: 0,
+      hostId: hostId,
+      hostName: '',
+      status: 'dangO',
+      moveInDate: resident.moveInDate,
+      createdAt: resident.moveInDate,
+    );
   }
 
   static BookingRequestModel? firstEligibleBooking({
@@ -55,5 +88,26 @@ abstract final class HostReviewPolicy {
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     if (matches.isEmpty) return null;
     return matches.first;
+  }
+
+  /// Người ở ghép không có đơn `bookings` riêng; dùng bản ghi `residents` đang ở.
+  static BookingRequestModel? firstEligibleResident({
+    required String reviewerId,
+    required String hostId,
+    required List<ResidentModel> residents,
+    required Map<String, String> roomHostByRoomId,
+    required Set<String> reviewedBookingIds,
+  }) {
+    if (!canReviewOwnHost(reviewerId, hostId)) return null;
+    final matches = residents.where((resident) {
+      if (resident.userId != reviewerId) return false;
+      if (!isReviewableResident(resident)) return false;
+      if (reviewedBookingIds.contains(resident.id)) return false;
+      final roomHost = roomHostByRoomId[resident.roomId] ?? '';
+      return roomHost == hostId;
+    }).toList()
+      ..sort((a, b) => b.moveInDate.compareTo(a.moveInDate));
+    if (matches.isEmpty) return null;
+    return stayFromResident(matches.first, hostId: hostId);
   }
 }
