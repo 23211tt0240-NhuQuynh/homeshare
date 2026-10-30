@@ -55,6 +55,45 @@ class BookingService {
     }, SetOptions(merge: true));
   }
 
+  /// Tìm đúng ID phòng thực tế từ collection host_rooms hoặc rooms
+  Future<String?> _resolveRealRoomId(String inputId) async {
+    if (inputId.trim().isEmpty) return null;
+    final cleanId = inputId.trim();
+
+    // 1. Kiểm tra trực tiếp trong host_rooms
+    try {
+      final hostDoc =
+          await _firestore.collection('host_rooms').doc(cleanId).get();
+      if (hostDoc.exists) return cleanId;
+    } catch (_) {}
+
+    // 2. Kiểm tra trực tiếp trong rooms
+    try {
+      final roomDoc = await _firestore.collection('rooms').doc(cleanId).get();
+      if (roomDoc.exists) return cleanId;
+    } catch (_) {}
+
+    // 3. Nếu inputId là postId, tìm trường roomId / phongId từ document posts
+    try {
+      final postDoc = await _firestore.collection('posts').doc(cleanId).get();
+      if (postDoc.exists && postDoc.data() != null) {
+        final pData = postDoc.data()!;
+        final linkedId = (pData['roomId'] ??
+                pData['phongId'] ??
+                pData['phong_tro_id'] ??
+                '')
+            .toString()
+            .trim();
+        if (linkedId.isNotEmpty && linkedId != cleanId) {
+          final resolved = await _resolveRealRoomId(linkedId);
+          if (resolved != null) return resolved;
+        }
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
   // 1. DUYỆT ĐƠN (Chuyển sang Đã duyệt / approved)
   Future<void> approveBooking(String bookingId, {String? note}) async {
     if (bookingId.isEmpty) return;
@@ -186,15 +225,26 @@ class BookingService {
       'trangThai': FieldValue.delete(),
     }, SetOptions(merge: true));
 
-    // Cập nhật phòng sang trạng thái 'occupied' (đang thuê)
-    if (finalRoomId.isNotEmpty) {
-      await _firestore.collection('host_rooms').doc(finalRoomId).set({
+    // Cập nhật phòng sang trạng thái 'occupied' (đang thuê) - chỉ cập nhật khi phòng thực sự tồn tại
+    final realRoomId = await _resolveRealRoomId(finalRoomId);
+    if (realRoomId != null && realRoomId.isNotEmpty) {
+      await _firestore.collection('host_rooms').doc(realRoomId).set({
         'status': 'occupied',
         'tenantName': renterName,
         'tenantPhone': renterPhone,
         'contractStart': Timestamp.fromDate(now),
         'updatedAt': Timestamp.fromDate(now),
       }, SetOptions(merge: true));
+
+      try {
+        await _firestore.collection('rooms').doc(realRoomId).set({
+          'status': 'occupied',
+          'tenantName': renterName,
+          'tenantPhone': renterPhone,
+          'contractStart': Timestamp.fromDate(now),
+          'updatedAt': Timestamp.fromDate(now),
+        }, SetOptions(merge: true));
+      } catch (_) {}
     }
 
     // Thông báo cho người thuê
@@ -278,13 +328,25 @@ class BookingService {
     }, SetOptions(merge: true));
 
     // Giải phóng phòng về available nếu phòng đang bị lock và khôi phục bài đăng
-    if (roomId.isNotEmpty) {
-      await _firestore.collection('host_rooms').doc(roomId).set({
+    final realRoomId = await _resolveRealRoomId(roomId);
+    if (realRoomId != null && realRoomId.isNotEmpty) {
+      await _firestore.collection('host_rooms').doc(realRoomId).set({
         'status': 'available',
         'isAvailable': true,
         'bookingStatus': 'available',
         'updatedAt': Timestamp.fromDate(now),
       }, SetOptions(merge: true));
+
+      try {
+        await _firestore.collection('rooms').doc(realRoomId).set({
+          'status': 'available',
+          'isAvailable': true,
+          'bookingStatus': 'available',
+          'updatedAt': Timestamp.fromDate(now),
+        }, SetOptions(merge: true));
+      } catch (_) {}
+    }
+    if (roomId.isNotEmpty) {
       await restorePostOnCancelledBooking(roomId);
     }
 
@@ -430,22 +492,25 @@ class BookingService {
         debugPrint('Error hiding posts by id $roomId: $e');
       }
 
-      // 5. Cập nhật khóa phòng trong host_rooms và rooms
-      try {
-        await _firestore.collection('host_rooms').doc(roomId).set({
-          'isAvailable': false,
-          'bookingStatus': 'pending_approval',
-          'updatedAt': Timestamp.fromDate(now),
-        }, SetOptions(merge: true));
-      } catch (_) {}
+      // 5. Cập nhật khóa phòng trong host_rooms và rooms CHỈ KHI phòng thực sự tồn tại
+      final realRoomId = await _resolveRealRoomId(roomId);
+      if (realRoomId != null && realRoomId.isNotEmpty) {
+        try {
+          await _firestore.collection('host_rooms').doc(realRoomId).set({
+            'isAvailable': false,
+            'bookingStatus': 'pending_approval',
+            'updatedAt': Timestamp.fromDate(now),
+          }, SetOptions(merge: true));
+        } catch (_) {}
 
-      try {
-        await _firestore.collection('rooms').doc(roomId).set({
-          'isAvailable': false,
-          'bookingStatus': 'pending_approval',
-          'updatedAt': Timestamp.fromDate(now),
-        }, SetOptions(merge: true));
-      } catch (_) {}
+        try {
+          await _firestore.collection('rooms').doc(realRoomId).set({
+            'isAvailable': false,
+            'bookingStatus': 'pending_approval',
+            'updatedAt': Timestamp.fromDate(now),
+          }, SetOptions(merge: true));
+        } catch (_) {}
+      }
 
       debugPrint('Đã ẩn bài đăng cho phòng $roomId (Lý do: $hiddenReason)');
     } catch (e) {
@@ -527,24 +592,27 @@ class BookingService {
         }
       } catch (_) {}
 
-      // 5. Khôi phục phòng trong host_rooms và rooms
-      try {
-        await _firestore.collection('host_rooms').doc(roomId).set({
-          'status': 'available',
-          'isAvailable': true,
-          'bookingStatus': 'available',
-          'updatedAt': Timestamp.fromDate(now),
-        }, SetOptions(merge: true));
-      } catch (_) {}
+      // 5. Khôi phục phòng trong host_rooms và rooms CHỈ KHI phòng thực sự tồn tại
+      final realRoomId = await _resolveRealRoomId(roomId);
+      if (realRoomId != null && realRoomId.isNotEmpty) {
+        try {
+          await _firestore.collection('host_rooms').doc(realRoomId).set({
+            'status': 'available',
+            'isAvailable': true,
+            'bookingStatus': 'available',
+            'updatedAt': Timestamp.fromDate(now),
+          }, SetOptions(merge: true));
+        } catch (_) {}
 
-      try {
-        await _firestore.collection('rooms').doc(roomId).set({
-          'status': 'available',
-          'isAvailable': true,
-          'bookingStatus': 'available',
-          'updatedAt': Timestamp.fromDate(now),
-        }, SetOptions(merge: true));
-      } catch (_) {}
+        try {
+          await _firestore.collection('rooms').doc(realRoomId).set({
+            'status': 'available',
+            'isAvailable': true,
+            'bookingStatus': 'available',
+            'updatedAt': Timestamp.fromDate(now),
+          }, SetOptions(merge: true));
+        } catch (_) {}
+      }
 
       debugPrint('Đã khôi phục bài đăng thành công cho phòng: $roomId');
     } catch (e) {

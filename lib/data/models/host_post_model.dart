@@ -672,9 +672,12 @@ class HostPostModel {
 
   /// Chuyển đổi sang RoomModel để mở trực tiếp màn hình chi tiết RoomDetailScreen
   RoomModel toRoomModel() {
+    final effectiveRoomId = roomId.trim().isNotEmpty
+        ? roomId.trim()
+        : ((joinedRoom?.id.trim().isNotEmpty == true) ? joinedRoom!.id.trim() : id);
     return RoomModel(
-      id: id,
-      propertyId: joinedRoom?.propertyId ?? '',
+      id: effectiveRoomId,
+      propertyId: propertyId.isNotEmpty ? propertyId : (joinedRoom?.propertyId ?? ''),
       roomCode: joinedRoom?.roomCode ?? (roomId.isNotEmpty ? roomId : 'P001'),
       status: status.isNotEmpty ? status : statusId,
       title: title.isNotEmpty ? title : (joinedRoom?.title ?? ''),

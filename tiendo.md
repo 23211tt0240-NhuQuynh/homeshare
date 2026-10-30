@@ -2509,5 +2509,8 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
        - Hỗ trợ kéo chuột qua lại trên Web Desktop và vuốt chạm trên Mobile.
        - Tích hợp 2 nút điều hướng `<` / `>`, dải chấm indicator và badge đếm số ảnh.
        - Xử lý render an toàn cho cả URL ảnh mạng và chuỗi dữ liệu ảnh Base64.
-  5. **Kiểm tra chất lượng mã nguồn:**
-     - `flutter analyze lib/features/host/widgets/host_post_card.dart lib/features/host/screens/host_post_detail_screen.dart`: **No issues found (0 errors, 0 warnings)**.
+  5. **Ngăn chặn triệt để lỗi sinh document rác trong `host_rooms`:**
+     - Chuẩn hóa hàm [HostPostModel.toRoomModel()](file:///d:/DownLoad/homeshare-dev-TOAN/lib/data/models/host_post_model.dart) ưu tiên lấy đúng mã phòng thực tế (`roomId` / `joinedRoom.id`) thay vì lấy nhầm `id` của bài đăng.
+     - Bổ sung hàm kiểm tra và truy vết phòng thực `_resolveRealRoomId` trong [booking_service.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/core/services/booking_service.dart), chỉ cập nhật trạng thái khi phòng thực sự tồn tại trong `host_rooms` / `rooms`, loại bỏ hoàn toàn hiện tượng tự sinh document mồ côi.
+  6. **Kiểm tra chất lượng mã nguồn:**
+     - `flutter analyze lib/features/host/widgets/host_post_card.dart lib/features/host/screens/host_post_detail_screen.dart lib/core/services/booking_service.dart lib/data/models/host_post_model.dart`: **No issues found (0 errors, 0 warnings)**.
