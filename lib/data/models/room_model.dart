@@ -332,7 +332,13 @@ class RoomModel {
         return (data['isAvailable'] == false) ? 'unavailable' : 'available';
       }(),
       title: data['title'] ?? data['tieuDe'] ?? '',
-      description: data['description'] ?? data['noiDung'] ?? data['moTa'] ?? '',
+      description:
+          data['description'] ??
+          data['notes'] ??
+          data['ghiChu'] ??
+          data['noiDung'] ??
+          data['moTa'] ??
+          '',
       price: () {
         final val =
             data['price'] ??
@@ -870,6 +876,14 @@ class RoomModel {
       rejectReason: rejectReason ?? this.rejectReason,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RoomModel && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 double? _readPositiveDouble(dynamic raw) {

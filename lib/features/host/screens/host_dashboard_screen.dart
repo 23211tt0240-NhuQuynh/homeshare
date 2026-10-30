@@ -42,28 +42,11 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
   static const Color _textSecondary = Color(0xFF475569);
   static const Color _textMuted = Color(0xFF94A3B8);
 
-  // Danh sách các khu vực theo bản đồ Việt Nam mới gộp (Nghị quyết 202/2025/QH15)
-  // Gồm 34 Tỉnh/Thành phố mới và các Đơn vị cấp TP / Quận / Huyện mới sáp nhập / thành lập
-  static const List<String> _newlyMergedUnits = [
-    'TP. Thủ Đức', // TP.HCM: Sáp nhập Quận 2, Quận 9, Thủ Đức
-    'TP. Thủy Nguyên', // Hải Phòng: Lên thành phố trực thuộc
-    'Quận An Dương', // Hải Phòng: Lên quận
-    'TP. Bến Cát', // Bình Dương: Lên thành phố
-    'TP. Tân Uyên', // Bình Dương: Lên thành phố
-    'TP. Phú Mỹ', // Bà Rịa - Vũng Tàu: Lên thành phố
-    'Huyện Long Đất', // Bà Rịa - Vũng Tàu: Sáp nhập Long Điền & Đất Đỏ
-  ];
-
+  // Danh sách 34 Tỉnh / Thành phố mới của Việt Nam theo Nghị quyết 202/2025/QH15
   static const List<String> _hardcodedLocations = [
     'Tất cả khu vực (Toàn quốc)',
-    // 34 Tỉnh / Thành phố mới gộp
     ...VietnamLocations.provinces34,
-    // Các TP / Quận / Huyện mới sáp nhập
-    ..._newlyMergedUnits,
   ];
-
-  // Tab phân loại lọc khu vực: 'all', 'provinces', 'merged'
-  String _selectedLocationTab = 'all';
 
   final _searchController = TextEditingController();
   final _locationSearchController = TextEditingController();
@@ -240,7 +223,6 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
       _isAmenitiesExpanded = false;
       _locationSearchController.clear();
       _customRequirementController.clear();
-      _selectedLocationTab = 'all';
     });
 
     ref.read(hostHomeFilterProvider.notifier).resetFilters();
@@ -624,7 +606,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                     border: Border.all(color: const Color(0xFFB2DDFF)),
                   ),
                   child: const Text(
-                    'Mới gộp VN',
+                    '34 Tỉnh mới',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -692,68 +674,14 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
     );
   }
 
-  Widget _buildCategoryChip({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-    bool isHighlight = false,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? _primaryBlue
-              : (isHighlight
-                    ? const Color(0xFFEFF8FF)
-                    : const Color(0xFFF1F5F9)),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected
-                ? _primaryBlue
-                : (isHighlight
-                      ? const Color(0xFFB2DDFF)
-                      : const Color(0xFFE2E8F0)),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-            color: isSelected
-                ? Colors.white
-                : (isHighlight ? const Color(0xFF175CD3) : _textSecondary),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Thành phần lọc khu vực dùng chung cho cả Dropdown ngoài (Ảnh 1)
-  /// và Bộ lọc nâng cao (Ảnh 2).
-  /// Hiển thị 34 tỉnh/thành mới gộp của Việt Nam và các đơn vị cấp TP/Quận/Huyện mới sáp nhập.
+  /// Thành phần lọc khu vực dùng chung cho cả Dropdown ngoài và Bộ lọc nâng cao.
+  /// Hiển thị 34 tỉnh/thành mới của Việt Nam theo Nghị quyết 202/2025/QH15.
   Widget _buildLocationSelectorWidget({required bool isInsideAdvancedFilter}) {
     final query = _locationSearchController.text.trim().toLowerCase();
     final queryNorm = normalizeVietnameseComparison(query);
 
     final filteredLocations = _hardcodedLocations.where((loc) {
       if (loc.contains('Toàn quốc')) return true;
-
-      // Lọc theo tab phân loại
-      if (_selectedLocationTab == 'provinces') {
-        if (_newlyMergedUnits.contains(loc) ||
-            !VietnamLocations.provinces34.contains(loc)) {
-          return false;
-        }
-      } else if (_selectedLocationTab == 'merged') {
-        if (!_newlyMergedUnits.contains(loc)) {
-          return false;
-        }
-      }
-
       if (query.isEmpty) return true;
       final locNorm = normalizeVietnameseComparison(loc);
       return locNorm.contains(queryNorm) || loc.toLowerCase().contains(query);
@@ -766,7 +694,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Ô tìm nhanh tỉnh/thành phố hoặc khu vực mới gộp
+        // Ô tìm nhanh tỉnh/thành phố (34 tỉnh mới)
         Container(
           height: 42,
           decoration: BoxDecoration(
@@ -779,7 +707,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             onChanged: (val) => setState(() {}),
             textAlignVertical: TextAlignVertical.center,
             decoration: InputDecoration(
-              hintText: 'Tìm nhanh tỉnh/thành hoặc khu vực mới gộp...',
+              hintText: 'Tìm nhanh tỉnh/thành (34 tỉnh mới)...',
               hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
               prefixIcon: const Icon(
                 Icons.search_rounded,
@@ -801,40 +729,11 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
 
-        // Tabs phân loại nhóm khu vực nhanh
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _buildCategoryChip(
-                label: 'Tất cả (${_hardcodedLocations.length - 1})',
-                isSelected: _selectedLocationTab == 'all',
-                onTap: () => setState(() => _selectedLocationTab = 'all'),
-              ),
-              const SizedBox(width: 6),
-              _buildCategoryChip(
-                label:
-                    '34 Tỉnh/TP mới (${VietnamLocations.provinces34.length})',
-                isSelected: _selectedLocationTab == 'provinces',
-                onTap: () => setState(() => _selectedLocationTab = 'provinces'),
-              ),
-              const SizedBox(width: 6),
-              _buildCategoryChip(
-                label: 'Khu vực mới gộp (${_newlyMergedUnits.length})',
-                isSelected: _selectedLocationTab == 'merged',
-                onTap: () => setState(() => _selectedLocationTab = 'merged'),
-                isHighlight: true,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        // Danh sách các khu vực có checkbox (Đầy đủ tất cả khu vực VN mới gộp)
+        // Danh sách 34 tỉnh/thành có checkbox
         ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 260),
+          constraints: const BoxConstraints(maxHeight: 280),
           child: Scrollbar(
             controller: _locationScrollController,
             thumbVisibility: true,
@@ -854,32 +753,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 Color badgeBorder = const Color(0xFFB2DDFF);
                 Color badgeText = const Color(0xFF175CD3);
 
-                if (_newlyMergedUnits.contains(location)) {
-                  badgeLabel = 'Mới gộp';
-                  badgeBg = const Color(0xFFECFDF5);
-                  badgeBorder = const Color(0xFFA7F3D0);
-                  badgeText = const Color(0xFF047857);
-                  if (location == 'TP. Thủ Đức') {
-                    subtitle = 'Sáp nhập Quận 2, Quận 9, Thủ Đức';
-                  } else if (location == 'TP. Thủy Nguyên') {
-                    subtitle = 'Thành phố mới trực thuộc Hải Phòng';
-                  } else if (location == 'Quận An Dương') {
-                    subtitle = 'Quận mới trực thuộc Hải Phòng';
-                  } else if (location == 'TP. Bến Cát') {
-                    subtitle = 'Thành phố mới trực thuộc Bình Dương';
-                  } else if (location == 'TP. Tân Uyên') {
-                    subtitle = 'Thành phố mới trực thuộc Bình Dương';
-                  } else if (location == 'TP. Phú Mỹ') {
-                    subtitle = 'Thành phố mới trực thuộc BR - Vũng Tàu';
-                  } else if (location == 'Huyện Long Đất') {
-                    subtitle = 'Sáp nhập H. Long Điền & H. Đất Đỏ';
-                  }
-                } else if (location == 'Huế') {
+                if (location == 'Huế') {
                   badgeLabel = 'Trực thuộc TW';
                   subtitle = 'TP trực thuộc TW mới theo NQ 202/2025';
-                } else if (!isAll &&
-                    VietnamLocations.provinces34.contains(location)) {
-                  badgeLabel = '34 Tỉnh/TP';
                 }
 
                 return InkWell(
@@ -1122,7 +998,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                       border: Border.all(color: const Color(0xFFB2DDFF)),
                     ),
                     child: const Text(
-                      '34 Tỉnh/TP mới gộp',
+                      '34 Tỉnh/TP mới',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,

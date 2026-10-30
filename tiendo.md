@@ -2481,3 +2481,33 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
 
 
 
+
+---
+
+### Phase 2.66: Chuẩn Hóa Phân Hệ Đăng Tin Chủ Trọ, Bộ Lọc Địa Điểm & Trải Nghiệm Lướt Ảnh Đa Nền Tảng (Nhánh `dev-T.ANH`)
+* **Ngày hoàn thành:** 30/10/2026
+* **Yêu cầu & Chi tiết thực hiện:**
+  1. **Khắc phục lỗi biên dịch danh mục địa điểm & chuẩn hóa 34 tỉnh/thành:**
+     - Sửa lỗi cú pháp Dart (`return const [];`) trong [vietnam_locations.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/core/constants/vietnam_locations.dart) giúp ứng dụng chạy `flutter run` trơn tru.
+     - Chuẩn hóa danh sách tỉnh/thành phố chỉ giữ lại 34 tỉnh/thành phố theo quy hoạch hành chính mới.
+  2. **Tinh giản giao diện Dashboard Chủ trọ ([host_dashboard_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_dashboard_screen.dart)):**
+     - Loại bỏ icon dấu cộng `+` ở góc trên bên phải thanh AppBar.
+     - Loại bỏ nút Floating Action Button (Đăng bài mới) ở góc dưới bên phải màn hình để tránh thừa thãi và tập trung vào luồng chính.
+  3. **Hoàn thiện luồng Đăng bài & Chỉnh sửa bài đăng ([host_create_post_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_create_post_screen.dart)):**
+     - Sửa lỗi tải ảnh: hỗ trợ thêm nhiều ảnh khi tạo bài đăng, chuẩn hóa lưu trữ và giải mã danh sách ảnh Base64 / Network URL.
+     - Sửa lỗi liên kết Nhà trọ & Phòng trọ: tự động load và đồng bộ chính xác dữ liệu phòng đã chọn từ collection `host_rooms`.
+     - Tự động lấy ghi chú / mô tả của phòng trọ điền vào phần mô tả chi tiết bài đăng và cho phép chủ trọ chỉnh sửa linh hoạt trước khi gửi duyệt.
+  4. **Cơ chế lướt chuyển nhiều ảnh (Image Slider / Carousel) trên Dashboard & Màn chi tiết bài:**
+     - **Không can thiệp file `main.dart` toàn cục**: Giữ nguyên vẹn cấu hình ban đầu của `lib/main.dart` theo đúng yêu cầu phân vùng.
+     - **Tại thẻ bài đăng Dashboard ([host_post_card.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/widgets/host_post_card.dart)):**
+       - Chuyển thành `StatefulWidget` với `PageController`.
+       - Bọc `PageView.builder` trong `ScrollConfiguration` hỗ trợ kéo chuột trên Web Desktop + cảm ứng trên Mobile (`dragDevices: touch, mouse, trackpad, stylus`).
+       - Bổ sung 2 nút điều hướng mũi tên `<` và `>` với `MouseRegion(cursor: SystemMouseCursors.click)` và `GestureDetector(behavior: HitTestBehavior.opaque)` chuyển ảnh mượt mà mà không kích hoạt sự kiện mở chi tiết bài đăng.
+       - Hiển thị badge chỉ số ảnh động (`1/n`, `2/n`) và dải chấm indicator ở đáy ảnh.
+     - **Tại màn Chi tiết bài đăng ([host_post_detail_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_post_detail_screen.dart)):**
+       - Tích hợp `PageController` kèm hàm giải phóng `dispose`.
+       - Hỗ trợ kéo chuột qua lại trên Web Desktop và vuốt chạm trên Mobile.
+       - Tích hợp 2 nút điều hướng `<` / `>`, dải chấm indicator và badge đếm số ảnh.
+       - Xử lý render an toàn cho cả URL ảnh mạng và chuỗi dữ liệu ảnh Base64.
+  5. **Kiểm tra chất lượng mã nguồn:**
+     - `flutter analyze lib/features/host/widgets/host_post_card.dart lib/features/host/screens/host_post_detail_screen.dart`: **No issues found (0 errors, 0 warnings)**.

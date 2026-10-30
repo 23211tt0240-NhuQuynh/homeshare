@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,12 +40,20 @@ class _HostPostDetailScreenState extends ConsumerState<HostPostDetailScreen> {
   int _currentImageIndex = 0;
   HostPostModel? _currentPost;
   bool _isLoading = true;
+  late final PageController _imagePageController;
 
   @override
   void initState() {
     super.initState();
+    _imagePageController = PageController();
     _currentPost = widget.post;
     _listenToPost();
+  }
+
+  @override
+  void dispose() {
+    _imagePageController.dispose();
+    super.dispose();
   }
 
   void _listenToPost() {
@@ -163,7 +172,8 @@ class _HostPostDetailScreenState extends ConsumerState<HostPostDetailScreen> {
               cleaned.startsWith('https://') ||
               cleaned.startsWith('blob:') ||
               cleaned.startsWith('data:') ||
-              cleaned.startsWith('base64,'))) {
+              cleaned.startsWith('base64,') ||
+              (!cleaned.startsWith('http') && cleaned.length > 100))) {
         list.add(cleaned);
       }
     }
@@ -180,11 +190,13 @@ class _HostPostDetailScreenState extends ConsumerState<HostPostDetailScreen> {
     }
 
     // 1. Base64 Data URI hoặc chuỗi Base64
-    if (clean.startsWith('data:image') || clean.startsWith('base64,')) {
+    if (clean.startsWith('data:image') ||
+        clean.startsWith('base64,') ||
+        (!clean.startsWith('http') && clean.length > 100)) {
       try {
         final commaIdx = clean.indexOf(',');
         final base64Str = commaIdx != -1 ? clean.substring(commaIdx + 1) : clean;
-        final bytes = base64Decode(base64Str.trim());
+        final bytes = base64Decode(base64Str.trim().replaceAll(RegExp(r'\s+'), ''));
         return Image.memory(
           bytes,
           fit: BoxFit.cover,
@@ -387,13 +399,118 @@ class _HostPostDetailScreenState extends ConsumerState<HostPostDetailScreen> {
                   background: images.isNotEmpty
                       ? Stack(
                           children: [
-                            PageView.builder(
-                              itemCount: images.length,
-                              onPageChanged: (idx) => setState(() => _currentImageIndex = idx),
-                              itemBuilder: (context, index) {
-                                return _buildPostImage(images[index]);
-                              },
+                            ScrollConfiguration(
+                              behavior: ScrollConfiguration.of(context).copyWith(
+                                dragDevices: {
+                                  PointerDeviceKind.touch,
+                                  PointerDeviceKind.mouse,
+                                  PointerDeviceKind.trackpad,
+                                  PointerDeviceKind.stylus,
+                                },
+                              ),
+                              child: PageView.builder(
+                                controller: _imagePageController,
+                                itemCount: images.length,
+                                physics: const BouncingScrollPhysics(),
+                                onPageChanged: (idx) => setState(() => _currentImageIndex = idx),
+                                itemBuilder: (context, index) {
+                                  return _buildPostImage(images[index]);
+                                },
+                              ),
                             ),
+                            // Nút mũi tên lùi
+                            if (images.length > 1 && _currentImageIndex > 0)
+                              Positioned(
+                                left: 16,
+                                top: 0,
+                                bottom: 0,
+                                child: Center(
+                                  child: MouseRegion(
+                                    cursor: SystemMouseCursors.click,
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () {
+                                        _imagePageController.previousPage(
+                                          duration: const Duration(milliseconds: 250),
+                                          curve: Curves.easeInOut,
+                                        );
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(alpha: 0.55),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.chevron_left_rounded,
+                                          color: Colors.white,
+                                          size: 24,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            // Nút mũi tên tiến
+                            if (images.length > 1 && _currentImageIndex < images.length - 1)
+                              Positioned(
+                                right: 16,
+                                top: 0,
+                                bottom: 0,
+                                child: Center(
+                                  child: MouseRegion(
+                                    cursor: SystemMouseCursors.click,
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () {
+                                        _imagePageController.nextPage(
+                                          duration: const Duration(milliseconds: 250),
+                                          curve: Curves.easeInOut,
+                                        );
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(alpha: 0.55),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.chevron_right_rounded,
+                                          color: Colors.white,
+                                          size: 24,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            // Chấm tròn indicator (dots)
+                            if (images.length > 1)
+                              Positioned(
+                                bottom: 16,
+                                left: 0,
+                                right: 0,
+                                child: Center(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: List.generate(images.length, (idx) {
+                                      final isSelected = idx == _currentImageIndex;
+                                      return AnimatedContainer(
+                                        duration: const Duration(milliseconds: 200),
+                                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                                        width: isSelected ? 16 : 6,
+                                        height: 6,
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? Colors.white
+                                              : Colors.white.withValues(alpha: 0.5),
+                                          borderRadius: BorderRadius.circular(3),
+                                        ),
+                                      );
+                                    }),
+                                  ),
+                                ),
+                              ),
                             // Chỉ số ảnh 1/n
                             Positioned(
                               bottom: 16,

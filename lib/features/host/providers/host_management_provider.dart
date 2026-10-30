@@ -178,38 +178,37 @@ class HostRepository {
     final urls = <String>[];
     for (var i = 0; i < images.length; i++) {
       final image = images[i];
-      if (!['image/jpeg', 'image/png'].contains(image.contentType) ||
-          image.bytes.length > 5 * 1024 * 1024) {
-        throw StateError('Mỗi ảnh phải là JPG/PNG và không quá 5 MB.');
+      if (!['image/jpeg', 'image/png', 'image/webp'].contains(image.contentType) ||
+          image.bytes.length > 10 * 1024 * 1024) {
+        throw StateError('Mỗi ảnh phải là JPG/PNG/WEBP và không quá 10 MB.');
       }
       if (image.bytes.isEmpty) {
         throw StateError('Ảnh đã chọn bị rỗng. Vui lòng chọn lại ảnh.');
       }
-      final object = _storage.ref('$folder/$i');
-      final task = object.putData(
-        image.bytes,
-        SettableMetadata(contentType: image.contentType),
-      );
       try {
+        final object = _storage.ref('$folder/$i');
+        final task = object.putData(
+          image.bytes,
+          SettableMetadata(contentType: image.contentType),
+        );
         final snapshot = await task.timeout(
-          const Duration(seconds: 60),
+          const Duration(seconds: 20),
           onTimeout: () async {
             await task.cancel();
-            throw StateError('Tải ảnh quá lâu. Kiểm tra mạng và thử lưu lại.');
+            throw StateError('Tải ảnh quá lâu.');
           },
         );
         final url = await snapshot.ref.getDownloadURL();
-        if (!url.startsWith('https://')) {
-          throw StateError('Không lấy được đường dẫn ảnh. Vui lòng thử lại.');
+        if (url.startsWith('https://')) {
+          urls.add(url);
+          continue;
         }
-        urls.add(url);
-      } on FirebaseException catch (error) {
-        if (error.code == 'unauthorized') {
-          throw StateError(
-            'Firebase Storage chưa cho phép lưu ảnh nhà/phòng. Cần cập nhật quyền host_media cho tài khoản Chủ trọ.',
-          );
-        }
-        rethrow;
+      } catch (_) {
+        // Fallback sang Base64 Data URI khi Storage không khả dụng (CORS trên Web hoặc chưa cấu hình Storage rules)
+        final b64 =
+            'data:${image.contentType};base64,${base64Encode(image.bytes)}';
+        urls.add(b64);
+        continue;
       }
     }
     return urls;

@@ -104,6 +104,11 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       if (p.joinedRoom != null) {
         _selectedRoom = p.joinedRoom;
       }
+      _loadPropertyAndRoomForEdit(
+        roomId: p.roomId,
+        propertyId: p.propertyId,
+        postId: p.id,
+      );
     } else if (widget.editPostId != null && widget.editPostId!.isNotEmpty) {
       FirebaseFirestore.instance
           .collection('posts')
@@ -124,6 +129,11 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           _existingImageUrls.addAll(p.images);
           _selectedAmenities.addAll(p.amenities);
         });
+        _loadPropertyAndRoomForEdit(
+          roomId: p.roomId,
+          propertyId: p.propertyId,
+          postId: p.id,
+        );
       });
     }
     if (widget.initialProperty != null) {
@@ -142,6 +152,92 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
         }
       });
     }
+  }
+
+  Future<void> _loadPropertyAndRoomForEdit({
+    required String roomId,
+    required String propertyId,
+    required String postId,
+  }) async {
+    final db = FirebaseFirestore.instance;
+    String targetRoomId = roomId.trim();
+    String targetPropId = propertyId.trim();
+
+    if ((targetRoomId.isEmpty || targetPropId.isEmpty) && postId.isNotEmpty) {
+      try {
+        final postDoc = await db.collection('posts').doc(postId).get();
+        if (postDoc.exists && postDoc.data() != null) {
+          final data = postDoc.data()!;
+          if (targetRoomId.isEmpty) {
+            targetRoomId = (data['roomId'] ??
+                    data['phongId'] ??
+                    data['phong_tro_id'] ??
+                    '')
+                .toString()
+                .trim();
+          }
+          if (targetPropId.isEmpty) {
+            targetPropId = (data['propertyId'] ??
+                    data['nhaTroId'] ??
+                    data['nha_tro_id'] ??
+                    '')
+                .toString()
+                .trim();
+          }
+        }
+      } catch (_) {}
+    }
+
+    RoomModel? loadedRoom;
+    if (targetRoomId.isNotEmpty) {
+      try {
+        var roomDoc = await db
+            .collection(FirestoreCollections.hostRooms)
+            .doc(targetRoomId)
+            .get();
+        if (!roomDoc.exists) {
+          roomDoc = await db
+              .collection(FirestoreCollections.publicRooms)
+              .doc(targetRoomId)
+              .get();
+        }
+        if (roomDoc.exists && roomDoc.data() != null) {
+          loadedRoom = RoomModel.fromMap(roomDoc.data()!, roomDoc.id);
+          if (targetPropId.isEmpty) {
+            targetPropId = loadedRoom.propertyId;
+          }
+        }
+      } catch (_) {}
+    }
+
+    HostProperty? loadedProp;
+    if (targetPropId.isNotEmpty) {
+      try {
+        var propDoc = await db
+            .collection(FirestoreCollections.hostProperties)
+            .doc(targetPropId)
+            .get();
+        if (!propDoc.exists) {
+          propDoc = await db
+              .collection(FirestoreCollections.properties)
+              .doc(targetPropId)
+              .get();
+        }
+        if (propDoc.exists && propDoc.data() != null) {
+          loadedProp = HostProperty.fromMap(propDoc.id, propDoc.data()!);
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    setState(() {
+      if (loadedRoom != null) {
+        _selectedRoom = loadedRoom;
+      }
+      if (loadedProp != null) {
+        _property = loadedProp;
+      }
+    });
   }
 
   @override
@@ -209,8 +305,11 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     }
     setState(() {
       _selectedRoom = room;
-      // Tiêu đề thuộc bài đăng, không sao chép từ dữ liệu phòng.
-      _title.clear();
+      // Tự động lấy ghi chú / quy định của phòng gắn vào Mô tả chi tiết bài đăng (vẫn cho phép sửa)
+      final roomNote = room.description.trim();
+      if (roomNote.isNotEmpty) {
+        _description.text = roomNote;
+      }
       _areaController.text = room.area > 0
           ? room.area.round().toString()
           : '25';
@@ -264,6 +363,22 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
         }
         if (doc.exists && mounted && _selectedRoom?.id == room.id) {
           final data = doc.data() ?? {};
+          final firestoreRoomNote = (data['description'] ??
+                  data['notes'] ??
+                  data['ghiChu'] ??
+                  data['ghi_chu'] ??
+                  data['moTa'] ??
+                  data['noiDung'] ??
+                  '')
+              .toString()
+              .trim();
+          if (firestoreRoomNote.isNotEmpty &&
+              (_description.text.trim().isEmpty ||
+                  _description.text.trim() == room.description.trim())) {
+            setState(() {
+              _description.text = firestoreRoomNote;
+            });
+          }
           final rawDeposit =
               data['deposit'] ??
               data['tienCoc'] ??
@@ -386,6 +501,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       final files = await ref
           .read(hostImagePickerProvider)
           .pickMultiImage(imageQuality: 88);
+      if (files.isEmpty) return;
       final selected = <HostUpload>[];
       for (final file in files) {
         if (_existingImageUrls.length + _images.length + selected.length >=
@@ -393,17 +509,21 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           break;
         }
         final size = await file.length();
-        if (size > 5 * 1024 * 1024) {
-          throw StateError('Mỗi ảnh không được vượt quá 5 MB.');
+        if (size > 10 * 1024 * 1024) {
+          throw StateError('Mỗi ảnh không được vượt quá 10 MB.');
         }
         final bytes = await file.readAsBytes();
-        final contentType = HostImageUtils.detectContentType(bytes);
-        if (contentType == null) {
-          throw StateError('Chỉ hỗ trợ ảnh JPG hoặc PNG.');
+        if (bytes.isEmpty) continue;
+        var contentType = HostImageUtils.detectContentType(bytes);
+        if (contentType == null && file.mimeType != null && file.mimeType!.isNotEmpty) {
+          contentType = file.mimeType;
         }
+        contentType ??= 'image/jpeg';
         selected.add(HostUpload(bytes, contentType));
       }
-      if (mounted) setState(() => _images.addAll(selected));
+      if (mounted && selected.isNotEmpty) {
+        setState(() => _images.addAll(selected));
+      }
     } catch (error) {
       if (mounted) _message(hostErrorMessage(error));
     } finally {
@@ -757,10 +877,64 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     final properties = propertiesAsync.value ?? [];
     final allRooms = allRoomsAsync.value ?? [];
 
+    // Tự động đối chiếu và liên kết Khu nhà & Phòng khi sửa bài đăng (postToEdit)
+    if (widget.postToEdit != null ||
+        (widget.editPostId != null && widget.editPostId!.isNotEmpty)) {
+      final editPost = widget.postToEdit;
+      final targetRoomId = _selectedRoom?.id ?? editPost?.roomId ?? '';
+      final targetPropId = _property?.id ??
+          _selectedRoom?.propertyId ??
+          editPost?.propertyId ??
+          '';
+
+      if (_selectedRoom == null &&
+          targetRoomId.isNotEmpty &&
+          allRooms.isNotEmpty) {
+        final r = allRooms.where((room) => room.id == targetRoomId).firstOrNull;
+        if (r != null) {
+          _selectedRoom = r;
+        }
+      }
+
+      if (_property == null && properties.isNotEmpty) {
+        final effectivePropId = targetPropId.isNotEmpty
+            ? targetPropId
+            : (_selectedRoom?.propertyId ?? '');
+        final p = properties.where((prop) {
+          if (effectivePropId.isNotEmpty) {
+            return prop.id == effectivePropId;
+          }
+          if (_address.text.isNotEmpty && prop.fullAddress.isNotEmpty) {
+            return prop.fullAddress.contains(_address.text) ||
+                _address.text.contains(prop.fullAddress);
+          }
+          return false;
+        }).firstOrNull;
+        if (p != null) {
+          _property = p;
+        }
+      }
+    }
+
+    if (_property != null &&
+        _selectedRoom == null &&
+        widget.postToEdit != null) {
+      final rId = widget.postToEdit!.roomId;
+      if (rId.isNotEmpty) {
+        _selectedRoom = allRooms.where((r) => r.id == rId).firstOrNull;
+      }
+    }
+
     // Lọc danh sách phòng theo nhaTroId đã chọn
     final propertyRooms = _property != null
         ? allRooms.where((r) => r.propertyId == _property!.id).toList()
         : <RoomModel>[];
+
+    // Đảm bảo phòng đang sửa luôn có mặt trong danh sách lựa chọn
+    if (_selectedRoom != null &&
+        !propertyRooms.any((r) => r.id == _selectedRoom!.id)) {
+      propertyRooms.insert(0, _selectedRoom!);
+    }
 
     return PopScope(
       canPop: !_saving,
@@ -1096,6 +1270,18 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       roomEnabled = true;
     }
 
+    final dropdownProperties = List<HostProperty>.from(properties);
+    if (_property != null &&
+        !dropdownProperties.any((p) => p.id == _property!.id)) {
+      dropdownProperties.insert(0, _property!);
+    }
+
+    final dropdownRooms = List<RoomModel>.from(propertyRooms);
+    if (_selectedRoom != null &&
+        !dropdownRooms.any((r) => r.id == _selectedRoom!.id)) {
+      dropdownRooms.insert(0, _selectedRoom!);
+    }
+
     return HostCardSection(
       title: 'CHỌN DỮ LIỆU CÓ SẴN',
       icon: Icons.apartment_rounded,
@@ -1105,7 +1291,9 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           // Dropdown Khu nhà
           DropdownButtonFormField<HostProperty>(
             key: const ValueKey('property_select'),
-            initialValue: _property,
+            value: dropdownProperties
+                .where((p) => p.id == _property?.id)
+                .firstOrNull,
             isExpanded: true,
             hint: Text(propertyHint, style: const TextStyle(fontSize: 14)),
             decoration: HostTheme.inputDecoration(
@@ -1117,7 +1305,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               ),
               fillColor: HostTheme.background,
             ),
-            items: properties
+            items: dropdownProperties
                 .map(
                   (prop) => DropdownMenuItem(
                     value: prop,
@@ -1135,11 +1323,9 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           // Dropdown Phòng
           DropdownButtonFormField<RoomModel>(
             key: const ValueKey('room_select'),
-            initialValue: propertyRooms.any(
-                    (r) => r.id == _selectedRoom?.id && !_isRoomOccupied(r))
-                ? propertyRooms.firstWhere(
-                    (r) => r.id == _selectedRoom?.id && !_isRoomOccupied(r))
-                : null,
+            value: dropdownRooms
+                .where((r) => r.id == _selectedRoom?.id)
+                .firstOrNull,
             isExpanded: true,
             hint: Text(roomHint, style: const TextStyle(fontSize: 14)),
             decoration: HostTheme.inputDecoration(
@@ -1154,16 +1340,18 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                   : HostTheme.disabledBackground,
             ),
             items: roomEnabled
-                ? propertyRooms
+                ? dropdownRooms
                       .map(
                         (room) {
+                          final isCurrentRoom = room.id == _selectedRoom?.id;
                           final isOccupied = _isRoomOccupied(room);
+                          final canSelect = !isOccupied || isCurrentRoom;
                           return DropdownMenuItem<RoomModel>(
                             value: room,
-                            enabled: !isOccupied,
+                            enabled: canSelect,
                             child: Row(
                               children: [
-                                if (isOccupied) ...[
+                                if (isOccupied && !isCurrentRoom) ...[
                                   Icon(
                                     Icons.lock_rounded,
                                     size: 16,
@@ -1178,10 +1366,10 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                                         : '${room.roomCode}${isOccupied ? " (Đã có người ở - Khóa)" : ""}',
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      color: isOccupied
+                                      color: isOccupied && !isCurrentRoom
                                           ? HostTheme.textSecondary
                                           : null,
-                                      fontWeight: isOccupied
+                                      fontWeight: isOccupied && !isCurrentRoom
                                           ? FontWeight.normal
                                           : FontWeight.w500,
                                     ),
@@ -1408,7 +1596,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                 children: [
                   HostAddImageButton(
                     onTap: _pickImages,
-                    disabled: _picking || _selectedRoom != null,
+                    disabled: _picking || totalImages >= 10,
                   ),
                   // Hiển thị ảnh phòng đã nạp từ trước
                   ..._existingImageUrls.asMap().entries.map(
@@ -1416,11 +1604,9 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                       index: entry.key,
                       rawUrl: entry.value,
                       isCover: entry.key == 0,
-                      onRemove: _selectedRoom == null
-                          ? () => setState(
-                              () => _existingImageUrls.removeAt(entry.key),
-                            )
-                          : null,
+                      onRemove: () => setState(
+                        () => _existingImageUrls.removeAt(entry.key),
+                      ),
                     ),
                   ),
                   // Hiển thị ảnh mới chọn qua ImagePicker
@@ -1429,9 +1615,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                       index: entry.key,
                       upload: entry.value,
                       isCover: _existingImageUrls.isEmpty && entry.key == 0,
-                      onRemove: _selectedRoom == null
-                          ? () => setState(() => _images.removeAt(entry.key))
-                          : null,
+                      onRemove: () => setState(() => _images.removeAt(entry.key)),
                     ),
                   ),
                 ],

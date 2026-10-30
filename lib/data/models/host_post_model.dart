@@ -11,6 +11,7 @@ class HostPostModel {
   // Các trường cốt lõi trong Schema Firestore
   final String id; // postId / baiDangId
   final String roomId; // phongId [FK -> rooms]
+  final String propertyId; // nhaTroId [FK -> properties]
   final String hostId; // chuNhaId [FK -> users]
   final String locationId; // diaDiemId [FK -> locations]
   final String rentalTypeId; // loaiThue_id
@@ -51,6 +52,7 @@ class HostPostModel {
   HostPostModel({
     required this.id,
     String? roomId,
+    String? propertyId,
     String? hostId,
     String? locationId,
     String? rentalTypeId,
@@ -88,6 +90,7 @@ class HostPostModel {
     this.joinedHost,
     // Vietnamese legacy named parameters
     String? phongId,
+    String? nhaTroId,
     String? chuNhaId,
     String? diaDiemId,
     String? loaiThueId,
@@ -101,6 +104,7 @@ class HostPostModel {
     DateTime? ngayDang,
     String? lyDoTuChoi,
   }) : roomId = roomId ?? phongId ?? '',
+       propertyId = propertyId ?? nhaTroId ?? joinedRoom?.propertyId ?? '',
        hostId = hostId ?? chuNhaId ?? '',
        locationId = locationId ?? diaDiemId ?? '',
        rentalTypeId = rentalTypeId ?? loaiThueId ?? 'thang',
@@ -118,6 +122,7 @@ class HostPostModel {
 
   // Vietnamese Schema Aliases for backward compatibility in code
   String get phongId => roomId;
+  String get nhaTroId => propertyId;
   String get chuNhaId => hostId;
   String get diaDiemId => locationId;
   String get loaiThueId => rentalTypeId;
@@ -134,7 +139,6 @@ class HostPostModel {
   DateTime get ngayDang => createdAt;
   String get trangThai => status;
   String get lyDoTuChoi => rejectReason;
-  String get propertyId => joinedRoom?.propertyId ?? '';
 
   bool get isRejected {
     final s = status.toLowerCase().trim();
@@ -221,6 +225,7 @@ class HostPostModel {
     return {
       'id': id,
       'roomId': roomId,
+      'propertyId': propertyId,
       'hostId': hostId,
       'title': title,
       'description': description,
@@ -360,6 +365,14 @@ class HostPostModel {
                   data[PostFields.roomId] ??
                   data['roomId'] ??
                   data['phongId'] ??
+                  '')
+              .toString()
+              .trim(),
+      propertyId:
+          (data['propertyId'] ??
+                  data['nhaTroId'] ??
+                  data['nha_tro_id'] ??
+                  data['nhaId'] ??
                   '')
               .toString()
               .trim(),

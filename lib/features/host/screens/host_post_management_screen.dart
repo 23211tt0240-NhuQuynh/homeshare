@@ -833,13 +833,6 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
         elevation: 0,
         backgroundColor: Colors.white,
         iconTheme: const IconThemeData(color: AppColors.textDark),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline, color: AppColors.primary, size: 24),
-            tooltip: 'Đăng bài mới',
-            onPressed: _openCreatePost,
-          ),
-        ],
       ),
       body: postsAsync.when(
         loading: () => const Center(
@@ -1044,13 +1037,6 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
             ],
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openCreatePost,
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Đăng bài mới', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }
