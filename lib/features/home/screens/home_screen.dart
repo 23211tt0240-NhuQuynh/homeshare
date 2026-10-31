@@ -526,8 +526,8 @@ class HomeScreen extends ConsumerWidget {
                                   const SizedBox(width: 4),
                                   Flexible(
                                     child: Text(
-                                      profile?.cccdNumber.trim().isNotEmpty == true
-                                          ? 'Đã xác thực CCCD (${profile!.maskedCccdNumber}) ✓'
+                                      profile?.cccdNumber.isNotEmpty == true
+                                          ? 'Đã xác thực CCCD (${profile!.cccdNumber.substring(0, 4)}****${profile.cccdNumber.substring(profile.cccdNumber.length - 2)}) ✓'
                                           : 'Đã xác thực CCCD (eKYC) ✓',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,

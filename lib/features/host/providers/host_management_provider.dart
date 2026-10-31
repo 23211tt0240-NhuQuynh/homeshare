@@ -843,36 +843,6 @@ class HostRepository {
             }, SetOptions(merge: true));
       }
     }
-
-    // Nếu phòng đang gắn với tin đã bị từ chối, lần lưu chỉnh sửa của chủ
-    // trọ là thao tác gửi lại để admin kiểm duyệt. Tin được mở khóa duyệt lại
-    // chỉ sau khi bộ dữ liệu sửa đã đồng bộ lên chính document posts.
-    final linkedPosts = <QueryDocumentSnapshot<Map<String, dynamic>>>{};
-    for (final field in const ['roomId', 'room_id', 'phongId']) {
-      final query = await _db
-          .collection(FirestoreCollections.posts)
-          .where(field, isEqualTo: base.id)
-          .get();
-      linkedPosts.addAll(query.docs);
-    }
-    for (final post in linkedPosts) {
-      final postData = post.data();
-      final status = (postData['status'] ?? '').toString().toLowerCase();
-      if (status != 'rejected' && status != 'tuchoi') continue;
-      await post.reference.update({
-        'title': title,
-        'description': patch['description'],
-        'rentalPrice': patch['price'],
-        'depositAmount': patch['deposit'],
-        'area': patch['area'],
-        'amenities': patch['amenities'],
-        'images': images,
-        'status': 'pending',
-        'rejectReason': FieldValue.delete(),
-        'hostResubmittedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    }
   }
 
   // Chủ trọ - Xóa phòng khỏi quản lý - Luồng đi: Sau xác nhận, đánh
