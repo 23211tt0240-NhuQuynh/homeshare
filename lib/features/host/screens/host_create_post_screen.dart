@@ -1291,6 +1291,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           // Dropdown Khu nhà
           DropdownButtonFormField<HostProperty>(
             key: const ValueKey('property_select'),
+            // ignore: deprecated_member_use
             value: dropdownProperties
                 .where((p) => p.id == _property?.id)
                 .firstOrNull,
@@ -1323,6 +1324,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           // Dropdown Phòng
           DropdownButtonFormField<RoomModel>(
             key: const ValueKey('room_select'),
+            // ignore: deprecated_member_use
             value: dropdownRooms
                 .where((r) => r.id == _selectedRoom?.id)
                 .firstOrNull,

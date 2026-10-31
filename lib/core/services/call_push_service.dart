@@ -79,17 +79,14 @@ class CallPushService {
   }
 
   /// Gọi sau khi đăng nhập, trong _SignedInShell.
-  /// Máy phải mở app ít nhất một lần để lưu fcmToken, nếu không
-  /// Cloud Function không biết gửi chuông tới đâu khi app đã tắt.
+  /// Quyền thông báo và lắng nghe mở cuộc gọi từ background / terminated.
+  /// Vòng đời lưu / làm mới FCM token do PushNotificationService quản lý duy nhất.
   static Future<void> bindUser(String uid) async {
     // Android 13 trở lên cần quyền POST_NOTIFICATIONS.
     await Permission.notification.request();
     final messaging = FirebaseMessaging.instance;
     // Quyền thông báo trên iOS và một số máy Android.
     await messaging.requestPermission(alert: true, badge: true, sound: true);
-    await _saveToken(uid, await messaging.getToken());
-    // Firebase đôi khi cấp mã mới. Ghi đè mã cũ trên cùng user.
-    messaging.onTokenRefresh.listen((token) => _saveToken(uid, token));
     // App đang ở nền, người dùng bấm thông báo để mở lại.
     FirebaseMessaging.onMessageOpenedApp.listen(openFromMessage);
     // App đã bị tắt hẳn, người dùng bấm thông báo để khởi động app.
@@ -97,16 +94,6 @@ class CallPushService {
     if (initial != null) {
       await openFromMessage(initial);
     }
-  }
-
-  /// Ghi mã thiết bị vào users/{uid}.fcmToken.
-  /// merge: true để không xóa các field khác của user.
-  /// Đăng xuất thì auth_service xóa field này, tránh chuông nhầm tài khoản cũ.
-  static Future<void> _saveToken(String uid, String? token) async {
-    if (token == null || token.isEmpty) return;
-    await FirebaseFirestore.instance.collection('users').doc(uid).set({
-      'fcmToken': token,
-    }, SetOptions(merge: true));
   }
 
   /// Đọc thông báo cuộc gọi rồi mở màn hình nhận nếu cuộc gọi còn đổ chuông.

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../features/auth/providers/user_provider.dart';
+import 'push_notification_service.dart';
 
 class AuthService {
   static const lockedAccountMessage =
@@ -112,13 +113,14 @@ class AuthService {
     }
   }
 
-  // Đăng xuất. Xóa fcmToken trước để máy này không còn nhận chuông của tài khoản vừa thoát.
+  // Đăng xuất. Gỡ token của thiết bị hiện tại qua PushNotificationService.
+  // Không xóa vô điều kiện fcmToken để bảo toàn cho các thiết bị khác đang đăng nhập.
   Future<void> signOut() async {
     final uid = _auth.currentUser?.uid;
     if (uid != null) {
-      await _firestore.collection('users').doc(uid).set({
-        'fcmToken': FieldValue.delete(),
-      }, SetOptions(merge: true));
+      try {
+        await PushNotificationService.unbindUser(uid);
+      } catch (_) {}
     }
     await _auth.signOut();
   }

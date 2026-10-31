@@ -1,10 +1,10 @@
+import '../../../core/services/resident_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/constants/firestore_collections.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/checkin_model.dart';
 import '../../../data/models/handover_item_model.dart';
 import '../../../data/models/period_model.dart';
-import '../../../data/models/resident_model.dart';
 import '../../../data/models/room_model.dart';
 
 /// Dữ liệu tổng hợp để hiển thị màn hình Bàn giao & Chốt chỉ số
@@ -67,7 +67,9 @@ class HandoverRepository {
           .doc(roomId)
           .get();
       if (roomDoc.exists) {
-        room = RoomModel.fromFirestore(roomDoc);
+        room = await ResidentService(
+          _firestore,
+        ).hydrateRoom(RoomModel.fromFirestore(roomDoc));
       }
     }
 
@@ -210,9 +212,20 @@ class HandoverRepository {
     final batch = _firestore.batch();
     final now = DateTime.now();
 
-    // 1. Tạo hoặc lấy Period
-    final periodRef = _firestore.collection(FirestoreCollections.periods).doc();
-    final periodId = periodRef.id;
+    final residentService = ResidentService(_firestore);
+    roomId = await residentService.resolveRoomId(roomId);
+    final periodId = await residentService.preparePrimary(
+      batch: batch,
+      bookingId: bookingId,
+      roomId: roomId,
+      userId: renterId,
+      fullName: renterName,
+      phone: renterPhone,
+      now: now,
+    );
+    final periodRef = _firestore
+        .collection(FirestoreCollections.periods)
+        .doc(periodId);
 
     final period = PeriodModel(
       id: periodId,
@@ -249,22 +262,6 @@ class HandoverRepository {
       createdAt: now,
     );
     batch.set(checkinRef, checkin.toMap());
-
-    // 3. Tạo cư dân (resident)
-    final residentRef = _firestore
-        .collection(FirestoreCollections.residents)
-        .doc();
-    final resident = ResidentModel(
-      id: residentRef.id,
-      periodId: periodId,
-      userId: renterId,
-      fullName: renterName,
-      phone: renterPhone,
-      formId: 'chinh',
-      statusId: 'dangO',
-      moveInDate: now,
-    );
-    batch.set(residentRef, resident.toMap());
 
     // 4. Lưu từng hạng mục bàn giao (handover_items)
     for (final item in items) {
@@ -332,8 +329,6 @@ class HandoverRepository {
           .doc(roomId);
       batch.update(roomRef, {
         'status': 'occupied',
-        'tenantName': renterName,
-        'tenantPhone': renterPhone,
         'contractId': periodId,
         'contractStart': Timestamp.fromDate(now),
         'electricityRate': electricityRate,

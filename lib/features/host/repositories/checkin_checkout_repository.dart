@@ -1,3 +1,4 @@
+import '../../../core/services/resident_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/constants/firestore_collections.dart';
 import '../../../data/models/booking_model.dart';
@@ -68,10 +69,12 @@ class CheckinCheckoutRepository {
         .where('hostId', isEqualTo: hostId)
         .snapshots()
         .asyncMap((roomSnap) async {
-          final hostRooms = roomSnap.docs
-              .map(RoomModel.fromFirestore)
-              .where((r) => r.status != 'deleted')
-              .toList();
+          final hostRooms = await Future.wait(
+            roomSnap.docs
+                .map(RoomModel.fromFirestore)
+                .where((r) => r.status != 'deleted')
+                .map(ResidentService(_firestore).hydrateRoom),
+          );
 
           if (hostRooms.isEmpty) return <CheckinCheckoutItem>[];
           final roomMap = {for (var r in hostRooms) r.id: r};
@@ -188,10 +191,12 @@ class CheckinCheckoutRepository {
         .where('hostId', isEqualTo: hostId)
         .snapshots()
         .asyncMap((roomSnap) async {
-          final hostRooms = roomSnap.docs
-              .map(RoomModel.fromFirestore)
-              .where((r) => r.status != 'deleted')
-              .toList();
+          final hostRooms = await Future.wait(
+            roomSnap.docs
+                .map(RoomModel.fromFirestore)
+                .where((r) => r.status != 'deleted')
+                .map(ResidentService(_firestore).hydrateRoom),
+          );
 
           if (hostRooms.isEmpty) return <CheckinCheckoutItem>[];
           final roomMap = {for (var r in hostRooms) r.id: r};
@@ -382,6 +387,7 @@ class CheckinCheckoutRepository {
       for (final d in resSnap.docs) {
         batch.update(d.reference, {
           'statusId': 'daRoi',
+          'status': 'moved_out',
           'moveOutDate': FieldValue.serverTimestamp(),
         });
       }
@@ -393,14 +399,84 @@ class CheckinCheckoutRepository {
         .doc(roomId);
     batch.update(roomRef, {
       'status': 'available',
-      'tenantName': '',
-      'tenantPhone': '',
-      'tenantAvatar': '',
       'contractId': '',
       'contractStart': null,
       'contractEnd': null,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // 4. Cập nhật đơn đặt phòng sang Đã hủy / Trả phòng
+    final checkoutBookingIds = <String>{};
+    if (periodId.isNotEmpty && !periodId.startsWith('room_')) {
+      if (periodId.startsWith('checkin_')) {
+        checkoutBookingIds.add(periodId.substring('checkin_'.length));
+      }
+      try {
+        final periodDoc = await _firestore
+            .collection(FirestoreCollections.periods)
+            .doc(periodId)
+            .get();
+        if (periodDoc.exists) {
+          final pData = periodDoc.data();
+          final bId =
+              (pData?['bookingId'] ?? pData?['donId'] ?? '').toString();
+          if (bId.isNotEmpty) checkoutBookingIds.add(bId);
+        }
+      } catch (_) {}
+    }
+
+    try {
+      final bQuery = await _firestore
+          .collection('bookings')
+          .get();
+      for (final bDoc in bQuery.docs) {
+        final bData = bDoc.data();
+        final bRenter =
+            (bData['renterId'] ?? bData['nguoiDungId'] ?? bData['userId'] ?? '').toString();
+        final bRoom =
+            (bData['roomId'] ?? bData['phongId'] ?? '').toString();
+        final bStatus = (bData['status'] ?? '').toString().toLowerCase();
+
+        if (checkoutBookingIds.contains(bDoc.id)) {
+          checkoutBookingIds.add(bDoc.id);
+        } else if (bRenter == renterId && bRenter.isNotEmpty) {
+          if (bRoom == roomId || bRoom.isEmpty) {
+            checkoutBookingIds.add(bDoc.id);
+          } else if (bStatus != 'cancelled' && bStatus != 'dahuy') {
+            try {
+              final postDoc = await _firestore.collection('posts').doc(bRoom).get();
+              if (postDoc.exists) {
+                final pData = postDoc.data() ?? {};
+                final linked = (pData['hostRoomId'] ?? pData['roomId'] ?? pData['phongId'] ?? '').toString();
+                if (linked == roomId) {
+                  checkoutBookingIds.add(bDoc.id);
+                }
+              }
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (_) {}
+
+    for (final bId in checkoutBookingIds) {
+      if (bId.isEmpty) continue;
+      batch.set(
+        _firestore.collection('bookings').doc(bId),
+        {
+          'status': 'checked_out',
+          'subTag': 'Đã trả phòng',
+          'description': 'Đã hoàn tất trả phòng / Kết thúc đơn thuê',
+          'trangThai': 'daKetThuc',
+          'isCheckIn': false,
+          'daNhanPhong': false,
+          'checkoutRecordId': recordRef.id,
+          'checkoutAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          if (note.isNotEmpty) 'checkoutNote': note,
+        },
+        SetOptions(merge: true),
+      );
+    }
 
     await batch.commit();
   }

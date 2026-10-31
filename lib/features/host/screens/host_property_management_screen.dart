@@ -12,7 +12,8 @@ enum _PropertyAction { edit, delete }
 // Chủ trọ - Quản lý cơ sở Firebase - Luồng đi: Mở từ Dashboard;
 // properties và rooms của tài khoản cập nhật danh sách và tổng quan tự động.
 class HostPropertyManagementScreen extends ConsumerWidget {
-  const HostPropertyManagementScreen({super.key});
+  const HostPropertyManagementScreen({super.key, this.onManagementSelected});
+  final ValueChanged<int>? onManagementSelected;
   static const _blue = AppColors.primary;
   static const _muted = AppColors.textSecondary;
   String _money(num value) => NumberFormat.decimalPattern('vi').format(value);
@@ -553,7 +554,10 @@ class HostPropertyManagementScreen extends ConsumerWidget {
   void _showRooms(BuildContext context, PropertySummary summary) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => HostRoomListScreen(propertyId: summary.property.id),
+        builder: (_) => HostRoomListScreen(
+          propertyId: summary.property.id,
+          onManagementSelected: onManagementSelected,
+        ),
       ),
     );
   }

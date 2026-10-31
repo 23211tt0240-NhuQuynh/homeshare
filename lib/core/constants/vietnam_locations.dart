@@ -1089,11 +1089,21 @@ class VietnamLocations {
     return fallback.where((d) => d != 'Tất cả' && !d.startsWith('Phường ')).toList();
   }
 
-  /// Lấy danh sách đầy đủ Phường / Xã / Thị trấn theo Tỉnh / Thành phố và Quận / Huyện
-  static List<String> getWards(String province, String district) {
+  /// Lấy danh sách đầy đủ Phường / Xã / Thị trấn theo Tỉnh / Thành phố và Quận / Huyện (hoặc tất cả phường/xã của Tỉnh)
+  static List<String> getWards(String province, [String? district]) {
     _ensureLoaded();
     final distMap = _fullHierarchy?[province];
     if (distMap == null || distMap.isEmpty) return const [];
+
+    if (district == null || district.trim().isEmpty) {
+      final allWards = <String>{};
+      for (final wards in distMap.values) {
+        allWards.addAll(wards);
+      }
+      final list = allWards.toList();
+      list.sort((a, b) => a.compareTo(b));
+      return list;
+    }
 
     // Tìm kiếm trực tiếp theo tên quận huyện
     if (distMap.containsKey(district)) {

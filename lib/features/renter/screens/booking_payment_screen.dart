@@ -108,10 +108,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           ? widget.room.id
           : widget.booking.roomId;
       if (targetDocId.isNotEmpty) {
-        var roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(targetDocId).get();
-        if (!roomDoc.exists) {
-          roomDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(targetDocId).get();
-        }
+        final roomDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(targetDocId).get();
         if (roomDoc.exists) {
           final newContent = IdGenerator.transferContent(
             renterCode: renterCode,

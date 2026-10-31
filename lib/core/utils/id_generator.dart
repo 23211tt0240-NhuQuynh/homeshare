@@ -137,4 +137,10 @@ class IdGenerator {
   static String roomAmenity(String roomId, String amenityId) {
     return '${roomId}_$amenityId';
   }
+
+  /// Sinh Document ID Báo cáo bài đăng chủ trọ (reports):
+  /// BCB_1729837200000
+  static String postReport() {
+    return 'BCB_${DateTime.now().millisecondsSinceEpoch}';
+  }
 }

@@ -1,30 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'core/providers/app_settings_provider.dart';
+import 'core/constants/app_colors.dart';
 import 'core/services/call_push_service.dart';
+import 'core/services/push_notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/admin/screens/admin_main_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/providers/user_provider.dart';
 import 'features/auth/screens/login_screen.dart';
-import 'features/chat/screens/call_screen.dart';
 import 'features/host/screens/host_main_screen.dart';
 import 'features/renter/screens/renter_main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Nạp sẵn tùy chọn theme ban đầu để giao diện sáng/tối chuẩn xác ngay khung hình đầu tiên
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final savedTheme = prefs.getString('app_theme_mode') ?? prefs.getString('app_theme_mode_preference');
+    if (savedTheme == 'dark') {
+      AppThemeModeNotifier.initialMode = ThemeMode.dark;
+    } else if (savedTheme == 'system') {
+      AppThemeModeNotifier.initialMode = ThemeMode.system;
+    } else if (savedTheme == 'light') {
+      AppThemeModeNotifier.initialMode = ThemeMode.light;
+    }
+  } catch (_) {}
+
   // Tạo kênh chuông "Cuộc gọi" và đăng ký handler khi app ở nền hoặc đã tắt.
   await CallPushService.prepare();
-  runApp(
-    const ProviderScope(
-      child: MyApp(),
-    ),
-  );
+  // Khởi tạo hệ thống Push Notification & Local Notifications toàn diện
+  await PushNotificationService.initialize();
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends ConsumerWidget {
@@ -41,6 +53,18 @@ class MyApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
+      builder: (context, child) {
+        final brightness = Theme.of(context).brightness;
+        AppColors.bind(brightness);
+        return DefaultTextStyle.merge(
+          style: TextStyle(
+            color: brightness == Brightness.dark
+                ? const Color(0xFFF1F5F9)
+                : const Color(0xFF101828),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: const AuthGate(),
     );
   }
@@ -61,16 +85,10 @@ class AuthGate extends ConsumerWidget {
         }
         return const LoginScreen();
       },
-      loading: () => const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      ),
-      error: (error, stack) => Scaffold(
-        body: Center(
-          child: Text('Lỗi xác thực: $error'),
-        ),
-      ),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (error, stack) =>
+          Scaffold(body: Center(child: Text('Lỗi xác thực: $error'))),
     );
   }
 }
@@ -79,7 +97,6 @@ class AuthGate extends ConsumerWidget {
 /// và gắn mã thông báo của máy vào user đang đăng nhập.
 class _SignedInShell extends ConsumerStatefulWidget {
   final String uid;
-
   const _SignedInShell({required this.uid});
 
   @override
@@ -92,6 +109,12 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       CallPushService.bindUser(widget.uid);
+      PushNotificationService.bindUser(widget.uid);
+      if (PushNotificationService.pendingPayload != null) {
+        final payload = PushNotificationService.pendingPayload!;
+        PushNotificationService.pendingPayload = null;
+        PushNotificationService.handlePayloadNavigation(payload);
+      }
       ref.read(renterBottomNavIndexProvider.notifier).setIndex(0);
     });
   }
@@ -99,39 +122,27 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
-    // Người thuê, chủ trọ và quản trị đều nhận cuộc gọi. Trước đây chỉ màn người thuê nghe chuông.
-    ref.listen(incomingCallProvider, (prev, next) {
-      final call = next.value;
-      if (call == null) return;
-      IncomingCallRouter.show(call);
-    });
 
     return profileAsync.when(
       data: (profile) {
-        if (profile?.isAdmin == true ||
-            profile?.role == 'admin' ||
-            profile?.role == 'administrator' ||
-            profile?.role == 'quantri') {
+        final role = profile?.role.toLowerCase() ?? 'renter';
+
+        if (role == 'admin') {
           return const AdminMainScreen();
         }
-        if (profile?.isHost == true ||
-            profile?.role == 'host' ||
-            profile?.role == 'landlord' ||
-            profile?.role == 'chutro') {
+
+        if (role == 'host' || role == 'chutro' || role == 'landlord') {
           return const HostMainScreen();
         }
+
         return const RenterMainScreen();
       },
-      loading: () => const Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
+      loading: () => Scaffold(
+        backgroundColor: AppColors.background,
+        body: const Center(child: CircularProgressIndicator()),
       ),
       error: (error, stack) => Scaffold(
-        body: Center(
-          child: Text('Lỗi tải thông tin tài khoản: $error'),
-        ),
+        body: Center(child: Text('Lỗi tải thông tin tài khoản: $error')),
       ),
     );
   }

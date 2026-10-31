@@ -5,13 +5,18 @@ import '../../auth/services/role_resolver.dart';
 /// Mặc định chặn (fail-closed): chỉ khi xác định được cả hai bên đều là
 /// người thuê và người gửi có một phòng đang hoạt động thì mới cho phép.
 abstract final class RoommateInvitationPolicy {
-  // Chỉ chấp nhận các trạng thái thực tế đã nhận phòng và đang ở trong trọ
   static const Set<String> _activeBookingStatuses = {
+    'approved',
+    'depositpaid',
+    'paid',
+    'completed',
     'active',
     'rented',
     'dango',
     'danhanphong',
-    'completed',
+    'dacoc',
+    'daduyet',
+    'chonhanphong',
   };
 
   static const Set<String> _activeResidentStatuses = {'active', 'dango'};
@@ -20,10 +25,12 @@ abstract final class RoommateInvitationPolicy {
     required String? senderRole,
     required String? receiverRole,
     required bool hasActiveRoom,
+    bool roomHasFreeCapacity = true,
   }) {
     return RoleResolver.normalizeRole(senderRole) == RoleResolver.renter &&
         RoleResolver.normalizeRole(receiverRole) == RoleResolver.renter &&
-        hasActiveRoom;
+        hasActiveRoom &&
+        roomHasFreeCapacity;
   }
 
   static bool isActiveBookingStatus(dynamic status) {

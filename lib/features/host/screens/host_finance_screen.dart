@@ -2,11 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../admin/utils/booking_utils.dart';
+import '../../admin/widgets/revenue_line_chart.dart';
 import '../providers/host_management_provider.dart';
 import 'host_finance_invoices.dart';
 
 // Chủ trọ - Theo dõi đơn thuê của tài khoản đang đăng nhập từ Firebase.
-final _financeBookingsProvider = StreamProvider<List<Map<String, dynamic>>>((
+final hostFinanceBookingsProvider = StreamProvider<List<Map<String, dynamic>>>((
   ref,
 ) {
   final uid = ref.watch(hostSessionProvider).value;
@@ -21,6 +22,22 @@ final _financeBookingsProvider = StreamProvider<List<Map<String, dynamic>>>((
             .toList(),
       );
 });
+
+// Chủ trọ - Theo dõi tiền thực nhận - Admin giải ngân tạo bản ghi trong disbursements.
+final hostFinanceDisbursementsProvider =
+    StreamProvider<List<Map<String, dynamic>>>((ref) {
+      final uid = ref.watch(hostSessionProvider).value;
+      if (uid == null) return Stream.value([]);
+      return FirebaseFirestore.instance
+          .collection('disbursements')
+          .where('hostId', isEqualTo: uid)
+          .snapshots()
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => {...doc.data(), 'id': doc.id})
+                .toList(),
+          );
+    });
 
 // Chủ trọ - Quản lý tiền tệ - Từ tab QL Tiền tệ mở Thống kê;
 // chuyển sang HĐ Tiền cọc hoặc HĐ Trả hết bằng thanh tab phía trên.
@@ -41,7 +58,7 @@ class _HostFinanceScreenState extends ConsumerState<HostFinanceScreen> {
   String _money(num value) =>
       '${value.toStringAsFixed(0).replaceAll(RegExp(r'\B(?=(\d{3})+(?!\d))'), '.')} đ';
 
-  // Chủ trọ - Xác định ngày ghi nhận thanh toán để thống kê theo kỳ.
+  // Chủ trọ - Xác định ngày xác nhận thanh toán để lọc đơn chờ giải ngân theo kỳ.
   DateTime? _date(Map<String, dynamic> data) {
     final value =
         data['approvedAt'] ?? data['confirmedAt'] ?? data['createdAt'];
@@ -50,24 +67,29 @@ class _HostFinanceScreenState extends ConsumerState<HostFinanceScreen> {
     return DateTime.tryParse('$value');
   }
 
-  // Chủ trọ - Đọc số tiền khách thanh toán theo hình thức cọc hoặc trả hết.
+  // Chủ trọ - Đọc tiền thực nhận sau phí từ phiếu giải ngân của admin.
   double _amount(Map<String, dynamic> data) {
-    final value =
-        data['paymentAmount'] ??
-        (data['paymentOption'] == 'full'
-            ? data['totalPayable']
-            : data['depositAmount']);
-    return value is num
-        ? value.toDouble()
-        : double.tryParse('$value') ?? BookingUtils.amount(data);
+    final value = data['totalAmount'];
+    return value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
+  }
+
+  // Chủ trọ - Xác định ngày admin giải ngân từ createdAt của phiếu disbursements.
+  DateTime? _settledDate(Map<String, dynamic> data) {
+    final value = data['createdAt'];
+    return value is Timestamp
+        ? value.toDate()
+        : value is DateTime
+        ? value
+        : DateTime.tryParse('$value');
   }
 
   // Chủ trọ - Hiển thị quản lý tiền tệ - Chọn tab để mở Thống kê,
   // danh sách hóa đơn tiền cọc hoặc danh sách hóa đơn trả hết.
   @override
   Widget build(BuildContext context) {
-    final bookings = ref.watch(_financeBookingsProvider);
+    final bookings = ref.watch(hostFinanceBookingsProvider);
     final session = ref.watch(hostSessionProvider);
+    final settlements = ref.watch(hostFinanceDisbursementsProvider);
     return Scaffold(
       backgroundColor: const Color(0xFFF3F8F7),
       appBar: AppBar(
@@ -105,9 +127,14 @@ class _HostFinanceScreenState extends ConsumerState<HostFinanceScreen> {
           ),
         ],
       ),
-      body: session.isLoading || bookings.isLoading
+      body:
+          session.isLoading ||
+              bookings.isLoading ||
+              (_tab == 0 && settlements.isLoading)
           ? const Center(child: CircularProgressIndicator(color: _accent))
-          : session.hasError || bookings.hasError
+          : session.hasError ||
+                bookings.hasError ||
+                (_tab == 0 && settlements.hasError)
           ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -116,7 +143,8 @@ class _HostFinanceScreenState extends ConsumerState<HostFinanceScreen> {
                   TextButton(
                     onPressed: () {
                       ref.invalidate(hostSessionProvider);
-                      ref.invalidate(_financeBookingsProvider);
+                      ref.invalidate(hostFinanceBookingsProvider);
+                      ref.invalidate(hostFinanceDisbursementsProvider);
                     },
                     child: const Text('Thử lại'),
                   ),
@@ -186,7 +214,7 @@ class _HostFinanceScreenState extends ConsumerState<HostFinanceScreen> {
                 ),
                 Expanded(
                   child: _tab == 0
-                      ? _content(bookings.value ?? [])
+                      ? _content(bookings.value ?? [], settlements.value ?? [])
                       : HostFinanceInvoices(
                           key: ValueKey(_tab),
                           bookings: bookings.value ?? [],
@@ -198,9 +226,12 @@ class _HostFinanceScreenState extends ConsumerState<HostFinanceScreen> {
     );
   }
 
-  // Chủ trọ - Thống kê thanh toán theo tuần, tháng, năm;
-  // tổng hợp số đơn, trạng thái giải ngân, biểu đồ và giao dịch gần đây.
-  Widget _content(List<Map<String, dynamic>> all) {
+  // Chủ trọ - Thống kê thực nhận theo tuần, tháng, năm từ disbursements.totalAmount;
+  // tổng hợp đơn thành công, đơn chờ giải ngân, biểu đồ và phiếu giải ngân gần đây.
+  Widget _content(
+    List<Map<String, dynamic>> all,
+    List<Map<String, dynamic>> settlements,
+  ) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final start = _range == 0
@@ -208,26 +239,46 @@ class _HostFinanceScreenState extends ConsumerState<HostFinanceScreen> {
         : _range == 1
         ? DateTime(now.year, now.month)
         : DateTime(now.year);
-    final paid =
-        all
-            .where(
-              (b) => const [
+    bool inPeriod(DateTime? date) =>
+        date != null && !date.isBefore(start) && !date.isAfter(now);
+    // Chủ trọ - Tổng tiền và biểu đồ chỉ ghi nhận phiếu admin đã giải ngân trong kỳ.
+    final paid = settlements.where((s) => inPeriod(_settledDate(s))).toList()
+      ..sort((a, b) => _settledDate(b)!.compareTo(_settledDate(a)!));
+    final total = paid.fold<double>(0, (subtotal, s) => subtotal + _amount(s));
+    final settledIds = settlements
+        .expand((s) => (s['bookingIds'] as List?) ?? const [])
+        .map((id) => id.toString())
+        .toSet();
+    final successfulIds = paid
+        .expand((s) => (s['bookingIds'] as List?) ?? const [])
+        .map((id) => id.toString())
+        .toSet();
+    // Chủ trọ - Đếm đơn thành công từ bookingIds của phiếu đã giải ngân trong kỳ,
+    // loại mã đơn trùng; phiếu thiếu danh sách mã đơn dùng itemCount.
+    final successfulCount =
+        successfulIds.length +
+        paid
+            .where((s) => ((s['bookingIds'] as List?) ?? const []).isEmpty)
+            .fold<int>(
+              0,
+              (subtotal, s) =>
+                  subtotal + ((s['itemCount'] as num?)?.toInt() ?? 0),
+            );
+    // Chủ trọ - Đếm đơn đã xác nhận thanh toán trong kỳ nhưng chưa được admin giải ngân.
+    final pendingCount = all
+        .where(
+          (b) =>
+              const [
                 'approved',
                 'paid',
                 'active',
                 'completed',
-              ].contains(b['status']),
-            )
-            .where((b) {
-              final date = _date(b);
-              return date != null &&
-                  !date.isBefore(start) &&
-                  !date.isAfter(now);
-            })
-            .toList()
-          ..sort((a, b) => _date(b)!.compareTo(_date(a)!));
-    final total = paid.fold<double>(0, (subtotal, b) => subtotal + _amount(b));
-    final disbursed = paid.where((b) => b['isDisbursed'] == true).length;
+              ].contains(b['status']) &&
+              b['isDisbursed'] != true &&
+              !settledIds.contains(b['id']) &&
+              inPeriod(_date(b)),
+        )
+        .length;
     final bins = List<double>.filled(
       _range == 0
           ? 7
@@ -237,7 +288,7 @@ class _HostFinanceScreenState extends ConsumerState<HostFinanceScreen> {
       0,
     );
     for (final b in paid) {
-      final date = _date(b)!;
+      final date = _settledDate(b)!;
       final index = _range == 0
           ? date.weekday - 1
           : _range == 1
@@ -253,31 +304,6 @@ class _HostFinanceScreenState extends ConsumerState<HostFinanceScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Wrap(
-                alignment: WrapAlignment.end,
-                spacing: 8,
-                children: List.generate(
-                  3,
-                  (i) => ChoiceChip(
-                    label: Text(['Tuần', 'Tháng', 'Năm'][i]),
-                    selected: _range == i,
-                    selectedColor: const Color(0xFF0F766E),
-                    backgroundColor: Colors.white,
-                    labelStyle: TextStyle(
-                      color: _range == i ? Colors.white : _ink,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    side: BorderSide(
-                      color: _range == i
-                          ? const Color(0xFF0F766E)
-                          : const Color(0xFFCBD5E1),
-                    ),
-                    checkmarkColor: Colors.white,
-                    onSelected: (_) => setState(() => _range = i),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
               LayoutBuilder(
                 builder: (context, constraints) {
                   final width = (constraints.maxWidth - 12) / 2;
@@ -287,32 +313,24 @@ class _HostFinanceScreenState extends ConsumerState<HostFinanceScreen> {
                     children: [
                       _kpi(
                         width,
-                        'TỔNG THANH TOÁN',
+                        'TỔNG THỰC NHẬN',
                         _money(total),
-                        'Đã được xác nhận trong kỳ',
+                        'Tiền admin đã giải ngân trong kỳ',
                         Icons.payments_outlined,
                         _accent,
                       ),
                       _kpi(
                         width,
                         'GIAO DỊCH THÀNH CÔNG',
-                        '${paid.length} đơn',
-                        'Đã cọc hoặc thanh toán đủ',
+                        '$successfulCount đơn',
+                        'Đơn đã được admin giải ngân',
                         Icons.task_alt,
                         const Color(0xFF7C3AED),
                       ),
                       _kpi(
                         width,
-                        'ĐÃ GIẢI NGÂN',
-                        '$disbursed đơn',
-                        'Sàn đã chuyển tiền cho bạn',
-                        Icons.account_balance_outlined,
-                        const Color(0xFF0284C7),
-                      ),
-                      _kpi(
-                        width,
                         'CHỜ GIẢI NGÂN',
-                        '${paid.length - disbursed} đơn',
+                        '$pendingCount đơn',
                         'Đơn xác nhận chưa giải ngân',
                         Icons.schedule,
                         const Color(0xFFD97706),
@@ -326,8 +344,34 @@ class _HostFinanceScreenState extends ConsumerState<HostFinanceScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Chủ trọ - Chọn kỳ thống kê - Đổi tuần/tháng/năm để cập nhật biểu đồ và số liệu.
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      children: List.generate(
+                        3,
+                        (i) => ChoiceChip(
+                          label: Text(['Tuần', 'Tháng', 'Năm'][i]),
+                          selected: _range == i,
+                          selectedColor: const Color(0xFF0F766E),
+                          backgroundColor: Colors.white,
+                          labelStyle: TextStyle(
+                            color: _range == i ? Colors.white : _ink,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          side: BorderSide(
+                            color: _range == i
+                                ? const Color(0xFF0F766E)
+                                : const Color(0xFFCBD5E1),
+                          ),
+                          checkmarkColor: Colors.white,
+                          onSelected: (_) => setState(() => _range = i),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     const Text(
-                      'THỐNG KÊ THANH TOÁN',
+                      'THỐNG KÊ THỰC NHẬN',
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         color: _ink,
@@ -345,67 +389,29 @@ class _HostFinanceScreenState extends ConsumerState<HostFinanceScreen> {
                         fontSize: 12,
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    if (total == 0)
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 12),
-                        child: Text(
-                          'Chưa có thanh toán trong kỳ này.',
-                          style: TextStyle(color: Colors.blueGrey),
-                        ),
+                    const SizedBox(height: 20),
+                    // Chủ trọ - Biểu đồ tiền thực nhận theo ngày admin giải ngân.
+                    RevenueLineChart(
+                      weeklyData: bins,
+                      labels: List.generate(
+                        bins.length,
+                        (i) => _range == 0
+                            ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'][i]
+                            : _range == 1
+                            ? 'Tuần ${i + 1}'
+                            : '${i + 1}',
                       ),
-                    SizedBox(
-                      height: 170,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: List.generate(bins.length, (i) {
-                          final maximum = bins.fold<double>(
-                            1,
-                            (a, b) => a > b ? a : b,
-                          );
-                          final label = _range == 0
-                              ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'][i]
-                              : _range == 1
-                              ? 'T${i + 1}'
-                              : '${i + 1}';
-                          return Expanded(
-                            child: Tooltip(
-                              message: '$label: ${_money(bins[i])}',
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    Container(
-                                      height: 4 + bins[i] / maximum * 134,
-                                      decoration: BoxDecoration(
-                                        color: bins[i] > 0
-                                            ? _accent
-                                            : const Color(0xFFE2EFEC),
-                                        borderRadius: BorderRadius.circular(5),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      label,
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.blueGrey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
+                      activeIndex: _range == 0
+                          ? now.weekday - 1
+                          : _range == 1
+                          ? (now.day - 1) ~/ 7
+                          : now.month - 1,
+                      color: _accent,
+                      emptyText: 'Chưa có giải ngân trong kỳ này',
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Số tiền khách thanh toán • Đơn vị: đồng',
+                      'Tiền thực nhận sau phí • Đơn vị: đồng',
                       style: TextStyle(fontSize: 11, color: Colors.blueGrey),
                     ),
                   ],
@@ -435,7 +441,23 @@ class _HostFinanceScreenState extends ConsumerState<HostFinanceScreen> {
                         ),
                       ),
                     ...paid.take(10).map((b) {
-                      final date = _date(b)!;
+                      final date = _settledDate(b)!;
+                      // Chủ trọ - Hiển thị tên bài viết từ đơn thuê của phiếu giải ngân;
+                      // phiếu gộp nhiều bài hiển thị các tên, không lặp tên trùng.
+                      final bookingIds =
+                          ((b['bookingIds'] as List?) ?? const [])
+                              .map((id) => id.toString())
+                              .toSet();
+                      final titles = all
+                          .where(
+                            (booking) => bookingIds.contains(booking['id']),
+                          )
+                          .map(
+                            (booking) =>
+                                (booking['roomTitle'] ?? '').toString().trim(),
+                          )
+                          .where((title) => title.isNotEmpty)
+                          .toSet();
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: const CircleAvatar(
@@ -447,7 +469,9 @@ class _HostFinanceScreenState extends ConsumerState<HostFinanceScreen> {
                           ),
                         ),
                         title: Text(
-                          '${b['roomTitle'] ?? b['orderCode'] ?? 'Đơn thuê'}',
+                          titles.isEmpty
+                              ? 'Bài viết không còn thông tin'
+                              : titles.join(', '),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -456,7 +480,7 @@ class _HostFinanceScreenState extends ConsumerState<HostFinanceScreen> {
                           ),
                         ),
                         subtitle: Text(
-                          '${date.day}/${date.month}/${date.year} · ${b['isDisbursed'] == true ? 'Đã giải ngân' : 'Chờ giải ngân'}',
+                          '${date.day}/${date.month}/${date.year} · Admin đã giải ngân',
                           style: const TextStyle(fontSize: 11),
                         ),
                         trailing: Text(

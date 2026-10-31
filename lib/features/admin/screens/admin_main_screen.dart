@@ -339,20 +339,23 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                             );
                           },
                         ),
-                        // Badge số báo cáo user đang chờ xử lý
+                        // Badge số đánh giá chủ trọ đang chờ xử lý
                         StreamBuilder<QuerySnapshot>(
                           stream: () {
                             try {
                               return FirebaseFirestore.instance
-                                  .collection('reports')
-                                  .where('status', isEqualTo: 'pending')
+                                  .collection('host_reviews')
                                   .snapshots();
                             } catch (_) {
                               return const Stream<QuerySnapshot>.empty();
                             }
                           }(),
                           builder: (context, snapshot) {
-                            final count = snapshot.data?.docs.length ?? 0;
+                            final count = snapshot.data?.docs.where((d) {
+                              final data = d.data() as Map<String, dynamic>? ?? {};
+                              final status = (data['status'] ?? 'pending').toString().toLowerCase();
+                              return status == 'pending';
+                            }).length ?? 0;
                             return _buildNavItem(
                               index: 3,
                               icon: Icons.people_alt_rounded,
