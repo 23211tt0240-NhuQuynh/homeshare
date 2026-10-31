@@ -23,6 +23,145 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.88 - Chuẩn Hóa Phân Loại Đơn Thuê Sau Check-out (Chuyển Vào "Lịch Sử Đã Ở", Không Vào "Đã Hủy"):**
+    - **Tách biệt ranh giới nghiệp vụ Đã Hủy vs Check-out:**
+      + *Đã hủy (`cancelled` / `rejected` / `isCancelled == true`):* Áp dụng riêng cho các đơn bị hủy cọc, người thuê chủ động hủy hoặc chủ trọ từ chối trước/trong giao dịch thuê phòng. Xuất hiện tại tab "Đã hủy" của `RenterBookingsScreen`.
+      + *Lịch sử đã ở (`checked_out` / `completed` / `moved_out` / `daRoi` / `isCheckedOut == true`):* Áp dụng cho các kỳ ở đã kết thúc, khách đã nhận phòng, hoàn tất thời gian thuê và thực hiện thủ tục trả phòng thành công.
+    - **Cập nhật Model & Service:**
+      + `BookingRequestModel`: Bổ sung getter `isCheckedOut` (nhận diện `completed`, `checked_out`, `moved_out`, `daroi`, `daketthuc`, `traphong`, `dacheckout`). Loại bỏ triệt để các trạng thái check-out khỏi `isCancelled`. Điều chỉnh `isActive`: `if (isCancelled || isCheckedOut) return false;`. Trạng thái hiển thị `statusDisplayVi`: `'Đã trả phòng'`.
+      + `BookingService._buildRenterStayList`: Khi phát hiện cư dân đã rời/check-out trong bảng `residents`, đồng bộ hóa đơn sang `status: 'checked_out'`, `trangThai: 'daKetThuc'`, `subTag: 'Đã trả phòng'`.
+      + `BookingService.mergeRenterStayLists`: Stay checkout từ `residents` được giữ lại chuyển vào lịch sử đã ở (`MyHomesScreen`), tự động loại trừ trùng lặp phòng nếu `bookings` đã có bản ghi checkout cho phòng đó.
+      + `CheckinCheckoutRepository.completeCheckout`: Cập nhật đơn trong Firestore sang `status: 'checked_out'`, `subTag: 'Đã trả phòng'`, `trangThai: 'daKetThuc'`.
+    - **Màn hình Quản lý Đơn Thuê (`RenterBookingsScreen`) & Phòng Của Tôi (`MyHomesScreen`):**
+      + `RenterBookingsScreen`: Tab "Đã hủy" (`b.isCancelled`) chỉ lọc đơn hủy thực sự, hoàn toàn loại bỏ các đơn đã check-out. Tại tab "Tất cả", đơn check-out hiển thị badge xám thanh lịch: *"Đã hoàn tất kỳ ở • Đã trả phòng"*.
+      + `MyHomesScreen`: Tab "Lịch sử đã ở" hiển thị đầy đủ, chính xác các đơn/phòng đã check-out với tên phòng chuẩn hóa từ `host_rooms` (ví dụ `"QM08-1"`).
+    - **Kiểm định chất lượng:**
+      + Flutter analyze: `No issues found!` trên toàn bộ `lib/`.
+      + Flutter test: 15/15 unit tests trong `my_homes_screen_test.dart` đạt 100% kết quả xanh.
+
+  * **Phase 2.87 - Khắc Phục Triệt Để Luồng Đơn Check-out Vào Tab Đã Hủy & Chuẩn Hóa Tiêu Đề Phòng Từ host_rooms:**
+    - **Hiển thị đầy đủ đơn đã check-out tại mục "Đã hủy" (`RenterBookingsScreen`):**
+      + Phát hiện và loại bỏ điều kiện nghẽn `booking.isActive`: Đổi sang `isMatchingCheckout && !booking.isCancelled`, đảm bảo mọi đơn thuê có cư dân đã check-out khỏi phòng trong bảng `residents` (`status: 'moved_out'`, `statusId: 'daRoi'`) đều lập tức chuyển sang trạng thái `cancelled`, gán lý do `'Đã hoàn tất check-out'` và đồng bộ lên Firestore `bookings/{id}`.
+      + Tối ưu hóa `mergeRenterStayLists`: Không drop các đợt ở checkout từ `residents` (người ở ghép / đơn check-out), đảm bảo nếu `bookings` chưa có đơn cancelled của phòng đó thì stay vẫn được giữ lại hiển thị ở tab "Đã hủy".
+      + Đồng bộ hóa tức thời tại `CheckinCheckoutRepository.completeCheckout`: Quét toàn diện các đơn `bookings` liên kết với phòng/người thuê để chuyển `status: 'cancelled'`, `subTag: 'Đã trả phòng'`, `trangThai: 'daHuy'`, `checkoutRecordId: recordRef.id`.
+    - **Chuẩn hóa nguồn chân lý Tiêu đề phòng (Title lấy từ `host_rooms`, không lấy từ Post):**
+      + Nâng cấp `_loadRoomData` trong `BookingService`: Luôn ưu tiên tra cứu trực tiếp trong collection `host_rooms`. Nếu `roomId` là ID bài đăng (`posts` hoặc `rooms`), tự động truy vết trường liên kết `hostRoomId` / `phongId` / `roomCode` để đọc document phòng thật từ `host_rooms` (`_isHostRoom: true`).
+      + Nâng cấp `resolveLiveRoomTitle`: Ngăn chặn hoàn toàn việc lấy `title` bài đăng quảng cáo dài dòng của post. Khi dữ liệu đến từ post chỉ trích xuất `roomCode` / `maPhong` hoặc fallback an toàn, còn khi có `host_rooms` thì lấy đúng tên phòng thật (ví dụ "QM08-01").
+      + Chuẩn hóa hậu tố số phòng qua `formatRoomTitle`: Chuyển định dạng `-01` thành `-1` (và `-002` thành `-2`), giữ nguyên các tên không có số 0 đầu, áp dụng đồng bộ cho toàn bộ đơn thuê và màn hình "Phòng của tôi" (`my_homes_screen.dart`).
+    - **Kiểm định chất lượng:**
+      + Flutter analyze: 0 errors, 0 warnings (100% clean).
+      + Flutter test: 36/36 unit tests đạt 100% kết quả xanh.
+
+  * **Phase 2.66: Chuẩn Hóa Phân Hệ Đăng Tin Chủ Trọ, Bộ Lọc Địa Điểm & Trải Nghiệm Lướt Ảnh Đa Nền Tảng (Nhánh dev-T.ANH):**
+    - **Khắc phục lỗi biên dịch & lọc 34 tỉnh/thành:**
+      + Sửa lỗi cú pháp Dart (`return const [];`) trong `vietnam_locations.dart` giúp ứng dụng chạy `flutter run` ổn định.
+      + Chuẩn hóa bộ lọc địa điểm giữ lại đúng 34 tỉnh/thành phố theo quy hoạch hành chính mới (`VietnamLocations.provinces34`).
+    - **Tinh giản giao diện Dashboard Chủ trọ (`host_dashboard_screen.dart`):**
+      + Loại bỏ icon dấu cộng `+` ở góc trên bên phải thanh AppBar.
+      + Loại bỏ nút Floating Action Button (Đăng bài mới) ở góc dưới bên phải màn hình.
+    - **Hoàn thiện luồng Đăng bài & Sửa bài đăng (`host_create_post_screen.dart`):**
+      + Sửa lỗi tải ảnh: hỗ trợ thêm nhiều ảnh khi tạo bài đăng, đồng bộ danh sách ảnh Base64 / Network URL (hỗ trợ tối đa 10 ảnh).
+      + Sửa lỗi liên kết Nhà trọ & Phòng trọ: tự động load và đồng bộ dữ liệu phòng từ collection `host_rooms`, cảnh báo và chặn phòng đang có người ở (`_isRoomOccupied`).
+      + Tự động lấy ghi chú / mô tả của phòng trọ điền vào phần mô tả chi tiết của bài đăng và cho phép chủ trọ chỉnh sửa linh hoạt.
+    - **Cơ chế lướt chuyển nhiều ảnh (Image Slider / Carousel) trên Dashboard & Màn chi tiết bài:**
+      + Giữ nguyên vẹn `lib/main.dart`, không can thiệp toàn cục.
+      + Tại thẻ bài đăng Dashboard (`host_post_card.dart`): Chuyển sang `StatefulWidget` với `PageController`, tích hợp `ScrollConfiguration` hỗ trợ kéo chuột trên Web Desktop + vuốt cảm ứng trên Mobile, thêm 2 nút mũi tên `<` và `>` độc lập với `MouseRegion` và `GestureDetector`, badge đếm ảnh `1/n` và dải chấm indicator ở đáy ảnh.
+      + Tại màn Chi tiết bài đăng (`host_post_detail_screen.dart`): Quản lý `PageController` và giải phóng bộ nhớ `dispose()`, hỗ trợ kéo chuột trên Web Desktop và vuốt chạm trên Mobile, bổ sung 2 nút điều hướng `< / >`, dải chấm indicator và badge đếm số ảnh, hỗ trợ decode hiển thị chuẩn cho cả ảnh Base64 lẫn URL mạng.
+    - **Chuẩn hóa luồng Điều chỉnh ngày Check-in (Đổi ngày dọn vào / nhận phòng):**
+      + **Collection `bookings/{bookingId}`:**
+        * Khi Chủ trọ gửi đề xuất đổi ngày: Cập nhật `newCheckInDate: Timestamp`, `adjustmentReason: String`, `adjustmentStatus: 'pending'`, `status: 'choXacNhanThayDoi'`.
+        * Khi Người thuê bấm "Đồng ý": Cập nhật `checkInDate: newCheckInDate`, `adjustmentStatus: 'accepted'`, `status: 'daCoc'` / `'approved'`.
+      + **Collection `notifications`:**
+        * Thông báo Chủ trọ (`notifications/{hostNotifId}`): `newCheckInDate`, `statusId: 'choXacNhanThayDoi'`, `adjustmentStatus: 'accepted'` / `'rejected'` khi khách phản hồi.
+        * Thông báo Người thuê (`notifications/{renterNotifId}`): `recipientRole: 'renter'`, `notificationType: 'booking_adjustment'`, `oldCheckInDate`, `newCheckInDate`, `status: 'pending'` (dùng hiển thị hộp thoại xác nhận 2 nút Đồng ý / Từ chối trên màn hình thông báo của khách).
+
+  * **Phase 2.86 - Khắc Phục Triệt Để Cơ Chế Chuyển Đổi Giao Diện Tối (Dark Theme Toggle Fix):**
+    - **Nguyên nhân cốt lõi phát hiện:**
+      1. `main.dart` chỉ theo dõi `appThemeControllerProvider` (từ `app_theme_controller.dart`), trong khi Menu Cài đặt giao diện trong Drawer của Người dùng (`home_screen.dart`) lại ghi vào `appThemeModeProvider` (từ `app_settings_provider.dart`).
+      2. Hai provider hoạt động độc lập với hai khóa SharedPreferences khác nhau (`app_theme_mode` vs `app_theme_mode_preference`), khiến sự kiện chọn "Tối" từ User Drawer không kích hoạt rebuild `MaterialApp`.
+      3. `main.dart` bọc `DefaultTextStyle.merge(style: TextStyle(color: AppColors.textDark))` với `AppColors.textDark` là hằng số màu đen cố định (`#101828`), khiến chữ toàn app bị ép đen trên nền đen khi bật dark theme.
+    - **Giải pháp hoàn thiện:**
+      1. **Đồng bộ hóa 100% hai Provider:** `AppThemeModeNotifier` làm Single Source of Truth, lưu đồng thời 2 khóa SharedPreferences; `AppThemeController` đồng bộ 2 chiều với `appThemeModeProvider`.
+      2. **Khởi tạo mượt mà không nhấp nháy:** Bổ sung `AppThemeModeNotifier.initialMode` nạp sẵn theme từ `SharedPreferences` trong `main()` trước khi `runApp()`.
+      3. **Tối ưu màu chữ & liên kết `MaterialApp`:** `DefaultTextStyle.merge` tự đổi chữ trắng sáng `#F1F5F9` khi tối và `#101828` khi sáng. `MaterialApp.themeMode` theo dõi trực tiếp `appThemeModeProvider`.
+      4. **Tối ưu hóa Dark Theme cho phân hệ Thông báo:** `user_notifications_screen.dart` và `admin_notifications_screen.dart` tự động đổi màu nền thẻ (`#1E293B / #243048`), viền và văn bản tương phản cao khi ở giao diện tối.
+    - **Kiểm định chất lượng:**
+      + Flutter analyze: 0 errors, 0 warnings (100% clean).
+      + Flutter test: 46/46 unit tests (`settings_and_localization_test.dart`, `graphite_theme_test.dart`, `host_review_test.dart`, `host_report_test.dart`, `host_post_report_test.dart`) vượt qua 100%.
+
+  * **Phase 2.85 - Bổ Sung Icon Trực Quan & Category Badges Cho Mỗi Thông Báo (Rich Notification Icons):**
+    - **Mục tiêu & Yêu cầu:** Thiết kế icon trực quan, phân loại màu sắc chuyên biệt và gắn badge danh mục cho từng thẻ thông báo ở cả màn hình người dùng (`user_notifications_screen.dart`) và quản trị viên (`admin_notifications_screen.dart`).
+    - **Bộ nhận diện trực quan hoàn thiện:**
+      + Nhận phòng: Icon chìa khóa `Icons.vpn_key_rounded` (Teal #0D9488), badge "Nhận phòng".
+      + Đã duyệt: Icon kiểm duyệt `Icons.check_circle_rounded` (Green #16A34A), badge "Đã duyệt".
+      + Đã hủy / Hoàn tiền: Icon hủy `Icons.cancel_outlined` (Rose #E11D48), badge "Đã hủy".
+      + Thanh toán / Cọc: Icon thẻ `Icons.payments_rounded` (Emerald #059669), badge "Thanh toán".
+      + Ở ghép: Icon người ghép `Icons.how_to_reg_rounded` (Purple #7C3AED), badge "Ở ghép".
+      + Đổi lịch / Lịch hẹn: Icon lịch `Icons.event_available_rounded` (Blue #2563EB), badge "Lịch hẹn".
+      + Tin nhắn mới: Icon chat `Icons.chat_bubble_rounded` (Indigo #4F46E5), badge "Tin nhắn".
+      + Điểm uy tín: Icon xu hướng `Icons.trending_up_rounded` (Green #16A34A), badge "+ Uy tín".
+      + Cảnh báo / Nhắc nhở: Icon cảnh báo `Icons.warning_amber_rounded` (Amber #D97706), badge "Cảnh báo".
+      + Sự cố / Khiếu nại: Icon nguy hiểm `Icons.error_outline_rounded` (Red #DC2626), badge "Sự cố".
+      + Hệ thống: Icon chuông `Icons.notifications_active_rounded` (Sky #0284C7), badge "Hệ thống".
+
+  * **Phase 2.84 - Hoàn Thiện Toàn Diện 100% Chức Năng Phân Hệ Quản Lý Người Dùng (Admin Users Full Suite):**
+    - **Mục tiêu & Yêu cầu:** Triển khai trọn vẹn toàn bộ các tính năng quản trị người dùng cho Ban Quản Trị theo yêu cầu "làm hết chức năng của quản lý user": từ hồ sơ người dùng 4 tab chuyên sâu, bảng điều khiển KPI, bộ lọc & sắp xếp linh hoạt, công cụ quản trị (đổi vai trò, điều chỉnh uy tín, gửi thông báo cá nhân, reset mật khẩu, khóa/mở khóa) đến tạo tài khoản mới trực tiếp.
+    - **Các hạng mục chi tiết hoàn thành:**
+      1. **Hồ sơ chi tiết người dùng toàn diện (`AdminUserDetailSheet`):**
+         - Mở bottom sheet chi tiết khi nhấn vào bất kỳ thẻ người dùng nào trong tab "Người dùng", hoặc khi nhấn vào chủ trọ / người đánh giá / tác giả repost trong các tab kiểm duyệt.
+         - **Header:** Hiển thị Avatar (hỗ trợ ảnh mạng/ký tự, viền trạng thái), họ tên, badge trạng thái (Hoạt động / Đã khóa), chip vai trò, ID người dùng kèm nút sao chép nhanh 1 chạm.
+         - **Thanh đo Uy tín hệ thống:** Thước đo trực quan 0-100 điểm với thanh tiến trình gradient đổi màu theo ngưỡng uy tín (xanh lá >=80, vàng cam >=50, đỏ <50), nút "Chỉnh điểm" tức thời.
+         - **Hệ thống 4 Tab chuyên sâu:**
+           + *Tab 1: Hồ sơ & Liên hệ:* Email, Số điện thoại, Giới tính, Quê quán, Nghề nghiệp, Ngày tham gia, Thông tin ngân hàng giải ngân/cọc (`bank_accounts`), lịch sử và lý do cảnh cáo gần nhất.
+           + *Tab 2: Lịch sử Vi phạm:* Danh sách thời gian thực các biên bản vi phạm & khen thưởng từ collection `violations`, các lỗi vi phạm, điểm thưởng/phạt, lời nhắn Admin.
+           + *Tab 3: Phòng trọ:* Danh sách tất cả phòng trọ do chủ trọ này đăng tải (`rooms`), giá thuê, địa chỉ, trạng thái, hỗ trợ nhấn vào xem chi tiết bài đăng (`RoomDetailScreen`).
+           + *Tab 4: Đánh giá:* Danh sách toàn bộ đánh giá đã nhận từ người thuê (`host_reviews`), điểm sao, nhận xét, người thuê, thời gian.
+         - **Thanh tác vụ Quản trị nhanh (Action Bar):**
+           + *Khóa / Mở khóa tài khoản:* Có hộp thoại xác nhận và nhập lý do, cập nhật trạng thái `isBanned` và ghi `audit_logs`.
+           + *Điều chỉnh điểm Uy tín:* Cộng điểm thưởng hoặc trừ điểm phạt trực tiếp, tự động cập nhật `users`, lưu vết vào `violations` và gửi thông báo `notifications` tới user.
+           + *Đổi vai trò tài khoản:* Hỗ trợ đổi vai trò giữa Người thuê (Renter) ↔ Chủ trọ (Host) ↔ Quản trị viên (Admin).
+           + *Gửi thông báo cá nhân:* Soạn và gửi thông báo trực tiếp đến hộp thư ứng dụng của người dùng đó.
+           + *Reset mật khẩu:* Gửi email đặt lại mật khẩu tự động qua `FirebaseAuth.sendPasswordResetEmail`.
+      2. **Thêm tài khoản người dùng mới (`AdminCreateUserDialog`):**
+         - Nút thêm người dùng mới trên thanh tiêu đề AppBar của màn hình Quản lý người dùng.
+         - Form tạo tài khoản hoàn chỉnh: Họ tên, Email, Số điện thoại, Vai trò (Người thuê / Chủ trọ / Admin), Mật khẩu khởi tạo, Điểm uy tín ban đầu.
+         - Tự động tạo bản ghi trong collection `users` và ghi nhật ký kiểm toán `audit_logs`.
+      3. **Bảng điều khiển KPI & Bộ lọc, Sắp xếp tab Người dùng:**
+         - Thanh KPI tổng quan: Tổng user, Số chủ trọ, Số người thuê, Số tài khoản bị khóa, Số tài khoản uy tín thấp (< 80đ).
+         - Thanh chip lọc nhanh: `Tất cả`, `Chủ trọ`, `Người thuê`, `Bị khóa`, `Uy tín < 80đ`.
+         - Menu sắp xếp danh sách: Mặc định, Uy tín: Thấp ➔ Cao, Uy tín: Cao ➔ Thấp, Tên: A ➔ Z, Mới đăng ký nhất.
+      4. **Nâng cấp trải nghiệm tương tác các Tab Kiểm duyệt:**
+         - Tab "Chờ xử lý" & "Đã xử lý": Bổ sung thanh chip lọc theo số sao đánh giá (`Tất cả sao`, `1-2 sao (Cần can thiệp)`, `3 sao`, `4-5 sao`); cho phép nhấn trực tiếp vào Tên/Avatar chủ trọ và Tên người đánh giá để mở hồ sơ chi tiết.
+         - Tab "Duyệt Repost": Bổ sung thanh chip lọc trạng thái (`Tất cả`, `Chờ duyệt`, `Đã duyệt`, `Đã từ chối`); cho phép nhấn vào tên người đăng bài repost để mở hồ sơ chi tiết.
+      5. **Thẻ người dùng (`_userCard`) tối ưu:**
+         - Hỗ trợ xem nhanh trạng thái tài khoản, chip vai trò, điểm uy tín, nút xem chi tiết và menu tác vụ nhanh `...`.
+    - **Kiểm định chất lượng:**
+      + Flutter analyze: 0 errors, 0 warnings (100% clean).
+      + Flutter test: 34/34 tests đều vượt qua thành công.
+
+  * **Phase 2.83 - Chuyển Đổi Quản Lý Chờ Xử Lý Người Dùng Sang Đánh Giá Chủ Trọ (host_reviews):**
+    - **Mục tiêu & Yêu cầu:** Theo chỉ đạo mới nhất từ người dùng, màn hình Quản lý người dùng của Admin (`AdminUsersScreen`), các tab "Chờ xử lý" và "Đã xử lý" chuyển sang lấy và kiểm duyệt trực tiếp từ tập dữ liệu **Đánh giá chủ trọ** (`host_reviews` collection) - phản ánh đánh giá (1-5 sao, nhận xét) do người thuê phòng gửi sau khi hoàn tất trải nghiệm đặt phòng, thay vì duyệt báo cáo vi phạm chung (`reports`).
+    - **Các điều chỉnh chi tiết:**
+      1. **Cập nhật Firestore Security Rules:**
+         - Cho phép Admin cập nhật tài liệu trong collection `match /host_reviews/{bookingId}` (`allow update: if admin();`), đảm bảo Admin có thể cập nhật trạng thái kiểm duyệt (`status: 'resolved' / 'dismissed'`), cách giải quyết (`resolution`), ghi chú xử lý (`adminNote`) và thời gian xử lý (`handledAt`).
+      2. **Tái cấu trúc luồng dữ liệu AdminUsersScreen:**
+         - Thay thế Stream `reports` bằng Stream `host_reviews`, kết hợp Stream `bookings` để tự động truy vết thông tin phòng trọ liên quan (`roomId`, `roomTitle`, `roomPrice`, `roomAddress`) theo `bookingId`.
+         - Trích xuất điểm đánh giá `rating` (1-5 sao), nội dung nhận xét `comment`, tên người đánh giá, người bị đánh giá (chủ trọ) cùng điểm uy tín và số lượt đánh giá.
+      3. **Thiết kế lại giao diện thẻ kiểm duyệt (_reportCard):**
+         - Đổi nhãn sang "Đánh giá chủ trọ", kèm chip hiển thị sao nổi bật "⭐ X/5 sao".
+         - Khối nội dung nổi bật: "NỘI DUNG ĐÁNH GIÁ CHỦ TRỌ (X/5 SAO):" hiển thị nhận xét thực tế của người thuê.
+         - Thẻ phòng trọ liên quan: "PHÒNG LIÊN QUAN ĐẾN ĐÁNH GIÁ" với đầy đủ giá tiền, địa chỉ và nút xem chi tiết bài đăng.
+         - Chân thẻ hiển thị tên người gửi đánh giá và thời điểm đánh giá.
+      4. **Xử lý các hành động Admin:**
+         - "Bỏ qua": cập nhật `host_reviews` thành `status: 'dismissed'`, ghi nhận biên bản xử lý.
+         - "Cảnh cáo": cập nhật `host_reviews` thành `status: 'resolved'`, `resolution: 'warned'`, gửi thông báo cảnh cáo tới chủ trọ và trừ điểm uy tín nếu vi phạm.
+         - "Khóa TK": cập nhật tài khoản chủ trọ thành bị vô hiệu hóa / khóa, đóng đồng loạt các đánh giá liên quan thành `status: 'resolved'`.
+      5. **Đồng bộ hóa Badge thông báo AdminMainScreen:**
+         - Huy hiệu đỏ trên tab "Người dùng" tại thanh điều hướng chính được chuyển sang đếm số lượng đánh giá chờ duyệt từ `host_reviews` (`status == 'pending'`).
+    - **Kiểm định chất lượng:**
+      + Flutter analyze: 0 errors, 0 warnings (100% clean).
+      + Flutter test: Toàn bộ 34/34 tests (`host_review_test.dart`, `host_report_test.dart`, `host_post_report_test.dart`) đều vượt qua thành công.
+
   * **Phase 2.82 - Phân Tách Tuyệt Đối Giữa Báo Cáo / Đánh Giá Chủ Trọ & Báo Cáo Bài Viết Trong Quản Lý Người Dùng:**
     - **Mục tiêu & Yêu cầu:** Đảm bảo trang Quản lý người dùng của Quản trị viên (AdminUsersScreen), đặc biệt là danh sách "Chờ xử lý" và "Đã xử lý", chỉ lấy và xử lý các báo cáo / đánh giá về người dùng / chủ trọ (không lẫn báo cáo bài viết).
     - **Các điều chỉnh chi tiết:**
@@ -2727,4 +2866,91 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
   8. **Kiểm tra chất lượng:**
      - `dart analyze lib/features/renter/screens/room_booking_detail_screen.dart lib/core/services/booking_service.dart lib/data/models/booking_model.dart`: **No issues found! (0 errors, 0 warnings)**.
 
+---
 
+### Phase 2.84: Hoàn Thiện Toàn Diện Phân Hệ Quản Lý Người Dùng & Điểm Uy Tín Quản Trị Viên (Admin User Management)
+* **Ngày hoàn thành:** 29/10/2026
+* **Yêu cầu & Thực hiện:**
+  1. **Chuyển đổi nguồn dữ liệu bắt vi phạm sang Đánh giá Chủ trọ (`host_reviews`):**
+     - Tại `lib/features/admin/screens/admin_users_screen.dart`:
+       + Thay đổi logic tab "Chờ xử lý": Bắt nguồn vi phạm từ đánh giá chủ trọ (`host_reviews`) theo đúng yêu cầu nghiệp vụ, tập trung vào các đánh giá có số sao thấp (1-2 sao) hoặc có nội dung phản ánh tiêu cực về chủ trọ.
+       + Hiển thị đầy đủ thông tin phòng trọ liên quan, mã phòng, người đánh giá và ảnh minh chứng vi phạm (nếu có).
+  2. **Xây dựng Sheet Chi tiết Hồ sơ Toàn diện (`lib/features/admin/widgets/admin_user_detail_sheet.dart`):**
+     - Cung cấp giao diện 4 tab chuyên sâu:
+       + Tab 1 `Hồ sơ & Tài khoản`: Hiển thị thông tin cá nhân, CCCD, trạng thái khóa, số tài khoản ngân hàng thụ hưởng, nút gọi điện / sao chép SĐT nhanh.
+       + Tab 2 `Lịch sử Vi phạm & Uy tín`: Timeline trừ/cộng điểm uy tín, lịch sử xử phạt từ Admin với mốc thời gian rõ ràng.
+       + Tab 3 `Phòng & Tin đăng`: Danh sách phòng trọ do Host quản lý kèm trạng thái phòng, hoặc phòng Renter đang thuê/đã cọc.
+       + Tab 4 `Đánh giá`: Toàn bộ các đánh giá mà người dùng này nhận được kèm số sao và bình luận chi tiết.
+     - Bộ hành động quản trị viên trực tiếp:
+       + Khóa / Mở khóa tài khoản người dùng kèm ghi chú lý do vi phạm.
+       + Điều chỉnh điểm uy tín (+/- điểm) linh hoạt, tự động gửi thông báo đến chuông người dùng.
+       + Chuyển đổi vai trò người dùng (Renter / Host / Admin) an toàn.
+       + Gửi thông báo trực tiếp từ Admin tới chuông thông báo của tài khoản.
+       + Gửi email yêu cầu đặt lại mật khẩu cho người dùng.
+  3. **Hộp thoại Khởi Tạo Người Dùng Trực Tiếp (`lib/features/admin/widgets/admin_create_user_dialog.dart`):**
+     - Cho phép Admin tạo mới tài khoản trực tiếp vào Firestore `users` với đầy đủ trường thông tin (họ tên, email, SĐT, vai trò, mật khẩu ban đầu, điểm uy tín khởi tạo 100).
+  4. **Nâng cấp Bộ Lọc, Tìm Kiếm & KPI Header:**
+     - KPI Header đếm realtime: Tổng người dùng, Chủ trọ, Người thuê, Đang bị khóa, Điểm uy tín thấp < 80.
+     - Chip lọc nhanh theo vai trò và tình trạng tài khoản.
+     - Menu sắp xếp đa chiều (Uy tín thấp nhất, Uy tín cao nhất, Tên A-Z, Mới nhất).
+     - Bộ lọc sao đánh giá (1-2 sao, 3 sao, 4-5 sao) và lọc trạng thái bài repost.
+  5. **Kiểm tra chất lượng:**
+     - `flutter test test/host_review_test.dart test/host_report_test.dart test/host_post_report_test.dart`: **34/34 PASSED (100%)**.
+     - `flutter analyze`: **No issues found! (0 errors, 0 warnings)**.
+
+---
+
+### Phase 2.85: Phân Tách Bảng Thông Báo Riêng Biệt Cho Người Thuê (`notification_user`)
+* **Ngày hoàn thành:** 29/10/2026
+* **Yêu cầu & Thực hiện:**
+  1. **Khởi tạo Hằng số Collection Chuẩn:**
+     - Bổ sung `static const notificationUser = 'notification_user';` trong `lib/core/constants/firestore_collections.dart`.
+  2. **Nâng cấp Provider Lắng Nghe Thông Báo Hợp Nhất (`lib/features/renter/screens/user_notifications_screen.dart`):**
+     - Triển khai cơ chế Dual-Stream Merge: Lắng nghe đồng thời cả `notification_user` và `notifications` cũ, khử trùng lặp theo ID document (`doc.id`), ưu tiên cập nhật từ `notification_user`.
+     - Bảo đảm tuyệt đối không thất thoát thông báo lịch sử của người dùng cũ.
+     - Tự động hủy đăng ký an toàn bằng `ref.onDispose` chống memory leak.
+  3. **Đồng bộ Toàn Bộ Các Điểm Ghi Thông Báo Của Người Thuê Sang `notification_user`:**
+     - `lib/core/services/booking_service.dart`: Ghi nhận thông báo duyệt đơn cọc, nhận phòng thành công và hủy đơn thuê vào `notification_user`.
+     - `lib/core/services/chat_service.dart`: Ghi nhận thông báo lời mời ở ghép (`notifyUserRoommateInvitation`) vào `notification_user`.
+     - `lib/features/host/notifications/repositories/host_notification_repository.dart`: Ghi nhận thông báo duyệt vào phòng / từ chối ở ghép cho người thuê chính và người ở ghép vào `notification_user`.
+     - `lib/features/admin/screens/admin_orders_screen.dart`: Ghi nhận thông báo xác nhận thanh toán/duyệt cọc ngoài app từ Admin cho người thuê vào `notification_user`.
+     - `lib/features/admin/widgets/admin_user_detail_sheet.dart`: Ghi nhận thông báo điều chỉnh điểm uy tín và thông báo trực tiếp từ Admin vào `notification_user` khi đối tượng nhận là người thuê (`renter`).
+     - `lib/features/admin/screens/admin_users_screen.dart`: Ghi nhận cảnh báo vi phạm của Admin vào `notification_user` khi đối tượng là người thuê.
+  4. **Kiểm tra chất lượng & Đóng gói:**
+     - `flutter analyze`: **0 errors, 0 warnings (No issues found!)**.
+     - `flutter test`: **100% Passed**.
+     - Đóng gói APK Release cập nhật vào `D:\App\HomeShare.apk` và `D:\App\app-release.apk`.
+
+---
+
+### Phase 2.86: Thiết Kế & Nâng Cấp Hệ Thống Biểu Tượng (Icon) và Huy Hiệu (Badge) Trực Quan Cho Toàn Bộ Thông Báo
+* **Ngày hoàn thành:** 29/10/2026
+* **Yêu cầu & Thực hiện:**
+  1. **Khởi tạo Bộ Cấu Hình Trực Quan (`_NotificationVisualConfig`):**
+     - Tại `lib/features/renter/screens/user_notifications_screen.dart`:
+       + Thiết lập lớp cấu hình gồm: icon, màu icon, màu nền container, tiêu đề huy hiệu danh mục (category badge), màu nền badge và màu chữ badge.
+  2. **Bộ Nhận Diện Phân Loại Thông Minh 15 Danh Mục Thông Báo (`_resolveVisualConfig`):**
+     - `Nhận phòng`: Icon chìa khóa `Icons.vpn_key_rounded` (Xanh ngọc Teal `#0D9488`, nền `#CCFBF1`).
+     - `Đã duyệt`: Icon duyệt thành công `Icons.task_alt_rounded` (Xanh lá Forest `#16A34A`, nền `#DCFCE7`).
+     - `Đã hủy`: Icon hủy bỏ `Icons.cancel_outlined` (Đỏ Rose `#E11D48`, nền `#FFE4E6`).
+     - `Thanh toán`: Icon ví tiền / thanh toán `Icons.account_balance_wallet_rounded` (Xanh dương Royal `#2563EB`, nền `#DBEAFE`).
+     - `Ở ghép`: Icon cư dân `Icons.how_to_reg_rounded` (Tím Violet `#7C3AED`, nền `#F3E8FF`) khi được duyệt và `Icons.person_off_rounded` khi bị từ chối.
+     - `Đổi lịch`: Icon lịch hẹn `Icons.edit_calendar_rounded` (Cam Amber `#D97706`, nền `#FEF3C7`).
+     - `Tin nhắn`: Icon trò chuyện `Icons.chat_bubble_rounded` (Xanh trời Sky `#0284C7`, nền `#E0F2FE`).
+     - `Cảnh báo`: Icon cảnh báo `Icons.warning_amber_rounded` (Đỏ Crimson `#DC2626`, nền `#FEE2E2`).
+     - `+ Uy tín`: Icon huân chương `Icons.military_tech_rounded` (Vàng Gold `#CA8A04`, nền `#FEF9C3`).
+     - `Sự cố`: Icon sửa chữa `Icons.handyman_rounded` (Cam đất `#C2410C`, nền `#FFEDD5`).
+     - `Hệ thống`: Icon quản trị `Icons.admin_panel_settings_rounded` (Xanh Indigo `#4F46E5`, nền `#EEF2FF`).
+     - `Chờ xử lý`: Icon đồng hồ cát `Icons.hourglass_top_rounded` (Cam hổ phách `#D97706`, nền `#FEF3C7`).
+     - `Đặt phòng`: Icon nhà trọ `Icons.home_work_rounded` (Xanh dương `#2563EB`, nền `#DBEAFE`).
+  3. **Nâng Cấp Thiết Kế Thẻ Thông Báo (Card UI):**
+     - Container Icon squircle 44x44 bo tròn 14px mềm mại, viền và shadow nhẹ theo đúng tông màu icon.
+     - Chip huy hiệu phân loại danh mục hiển thị trực quan ngay đầu thẻ, giúp người dùng phân biệt loại thông báo chỉ trong 1 giây.
+     - Huy hiệu `Mới` với chấm tròn dạ quang nổi bật cho các thông báo chưa đọc.
+     - Biểu tượng đồng hồ nhỏ xinh kèm định dạng ngày giờ chi tiết.
+  4. **Nâng Cấp Đồng Bộ Cho Admin Notifications:**
+     - Mở rộng phân loại icon trong `lib/features/admin/screens/admin_notifications_screen.dart` cho các dạng `repost`, `warning`, `host_review`, `user_banned`, `disbursement`, v.v.
+  5. **Kiểm tra chất lượng & Đóng gói:**
+     - `flutter analyze`: **0 errors, 0 warnings (No issues found!)**.
+     - `flutter test`: **34/34 tests Passed (100%)**.
+     - Đóng gói APK Release cập nhật vào `D:\App\HomeShare.apk` và `D:\App\app-release.apk`.

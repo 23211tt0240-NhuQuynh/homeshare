@@ -59,12 +59,32 @@ class BookingRequestModel {
         s == 'chonhanphong';
   }
 
+  bool get isCheckedOut {
+    final s = status.toLowerCase();
+    return s == 'completed' ||
+        s == 'checked_out' ||
+        s == 'moved_out' ||
+        s == 'daroi' ||
+        s == 'da_roi' ||
+        s == 'daketthuc' ||
+        s == 'da_ket_thuc' ||
+        s == 'traphong' ||
+        s == 'tra_phong' ||
+        s == 'dacheckout';
+  }
+
   bool get isActive {
+    if (isCancelled || isCheckedOut) return false;
     final s = status.toLowerCase();
     return s == 'active' ||
         s == 'dango' ||
         s == 'dang_o' ||
-        s == 'danhanphong';
+        s == 'danhanphong' ||
+        s == 'da_nhan_phong' ||
+        s == 'checkin' ||
+        s == 'checked_in' ||
+        s == 'staying' ||
+        s == 'occupied';
   }
 
   bool get isCancelled {
@@ -73,11 +93,15 @@ class BookingRequestModel {
         s == 'dahuy' ||
         s == 'da_huy' ||
         s == 'rejected' ||
-        s == 'tuchoi';
+        s == 'tuchoi' ||
+        s == 'tu_choi' ||
+        s == 'bituchoi' ||
+        s == 'bi_tu_choi';
   }
 
   String get normalizedStatus {
     if (isCancelled) return 'daHuy';
+    if (isCheckedOut) return 'daKetThuc';
     if (isActive) return 'dangO';
     if (isApproved) return 'daDuyet';
     return 'choDuyet';
@@ -85,6 +109,7 @@ class BookingRequestModel {
 
   String get statusDisplayVi {
     if (isCancelled) return 'Đã hủy';
+    if (isCheckedOut) return 'Đã trả phòng';
     if (isActive) return 'Đang ở';
     if (isApproved) return 'Đã duyệt';
     return 'Chờ duyệt';

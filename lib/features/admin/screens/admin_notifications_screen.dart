@@ -43,11 +43,12 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         children: [
@@ -85,12 +86,12 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Text(
+                        Text(
                           'Thông Báo Hệ Thống',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF101828),
+                            color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF101828),
                           ),
                         ),
                         if (unreadDocs.isNotEmpty) ...[
@@ -226,7 +227,7 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                         ),
                         color: isRead
                             ? Colors.transparent
-                            : const Color(0xFFF5F8FF),
+                            : (isDark ? const Color(0xFF243048) : const Color(0xFFF5F8FF)),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -248,7 +249,7 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                                             fontWeight: isRead
                                                 ? FontWeight.w600
                                                 : FontWeight.bold,
-                                            color: const Color(0xFF101828),
+                                            color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF101828),
                                           ),
                                         ),
                                       ),
@@ -266,9 +267,11 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                                     body,
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: isRead
-                                          ? const Color(0xFF667085)
-                                          : const Color(0xFF344054),
+                                      color: isDark
+                                          ? const Color(0xFF94A3B8)
+                                          : (isRead
+                                              ? const Color(0xFF667085)
+                                              : const Color(0xFF344054)),
                                     ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
@@ -308,22 +311,56 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
     Color iconColor;
     Color bgColor;
 
-    switch (type) {
+    switch (type.toLowerCase()) {
       case 'booking':
       case 'disbursement':
+      case 'deposit':
+      case 'payment':
         iconData = Icons.account_balance_wallet_rounded;
         iconColor = const Color(0xFF12B76A);
         bgColor = const Color(0xFFECFDF3);
         break;
       case 'post_approval':
+      case 'post_review':
         iconData = Icons.apartment_rounded;
         iconColor = const Color(0xFF398FC0);
         bgColor = const Color(0xFFF5F8FF);
         break;
+      case 'repost':
+        iconData = Icons.published_with_changes_rounded;
+        iconColor = const Color(0xFF7C3AED);
+        bgColor = const Color(0xFFF4EBFF);
+        break;
+      case 'host_review':
+      case 'review':
+        iconData = Icons.star_rate_rounded;
+        iconColor = const Color(0xFFF79009);
+        bgColor = const Color(0xFFFEF0C7);
+        break;
+      case 'cancellation_invoice':
+      case 'refund':
+        iconData = Icons.receipt_long_rounded;
+        iconColor = const Color(0xFF2563EB);
+        bgColor = const Color(0xFFEFF8FF);
+        break;
       case 'report':
+      case 'warning':
+      case 'penalty':
         iconData = Icons.report_problem_rounded;
         iconColor = const Color(0xFFD92D20);
         bgColor = const Color(0xFFFEF3F2);
+        break;
+      case 'user_banned':
+      case 'banned':
+        iconData = Icons.gavel_rounded;
+        iconColor = const Color(0xFF7A271A);
+        bgColor = const Color(0xFFFEE4E2);
+        break;
+      case 'system_admin':
+      case 'admin':
+        iconData = Icons.shield_outlined;
+        iconColor = const Color(0xFF4F46E5);
+        bgColor = const Color(0xFFEEF2FF);
         break;
       default:
         iconData = Icons.notifications_rounded;
@@ -332,13 +369,21 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
     }
 
     return Container(
-      width: 40,
-      height: 40,
+      width: 42,
+      height: 42,
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: iconColor.withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: iconColor.withValues(alpha: 0.08),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Icon(iconData, color: iconColor, size: 20),
+      child: Icon(iconData, color: iconColor, size: 22),
     );
   }
 }

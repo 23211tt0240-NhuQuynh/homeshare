@@ -58,6 +58,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
 
   Color _getStatusTextColor(BookingRequestModel b) {
     if (b.isCancelled) return const Color(0xFFB42318);
+    if (b.isCheckedOut) return const Color(0xFF475467);
     if (b.isActive) return const Color(0xFF027A48);
     if (b.isApproved) return const Color(0xFF175CD3);
     if (b.status == 'pending_payment') return const Color(0xFFB54708);
@@ -66,6 +67,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
 
   Color _getStatusBgColor(BookingRequestModel b) {
     if (b.isCancelled) return const Color(0xFFFEF3F2);
+    if (b.isCheckedOut) return const Color(0xFFF2F4F7);
     if (b.isActive) return const Color(0xFFECFDF3);
     if (b.isApproved) return const Color(0xFFEFF8FF);
     if (b.status == 'pending_payment') return const Color(0xFFFEF0C7);
@@ -75,6 +77,9 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
   String _getStatusText(BookingRequestModel b) {
     if (b.isCancelled) {
       return 'Đã hủy';
+    }
+    if (b.isCheckedOut) {
+      return 'Đã hoàn tất kỳ ở • Đã trả phòng';
     }
     if (b.isActive) {
       return 'Đang ở (Active)';
@@ -512,6 +517,30 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                   color: AppColors.textDark,
                                 ),
                               ),
+                              if (b.note == 'Ở ghép') ...[
+                                const SizedBox(height: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF8FF),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: const Color(0xFFB2DDFF),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Ở ghép',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF175CD3),
+                                    ),
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 4),
                               Text(
                                 b.roomAddress,

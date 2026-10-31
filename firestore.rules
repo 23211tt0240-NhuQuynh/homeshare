@@ -107,7 +107,7 @@ service cloud.firestore {
         && request.resource.data.comment.size() <= 500
         && request.resource.data.createdAt is timestamp
         && (isBookingReview() || isResidentReview());
-      allow update: if false;
+      allow update: if admin();
       allow delete: if admin();
     }
 

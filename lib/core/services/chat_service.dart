@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../constants/firestore_collections.dart';
 import '../../data/models/chat_model.dart';
 import '../../features/chat/services/roommate_invitation_eligibility_service.dart';
 
@@ -557,7 +558,7 @@ class ChatService {
       );
     }
 
-    final notifRef = _firestore.collection('notifications').doc();
+    final notifRef = _firestore.collection(FirestoreCollections.notificationUser).doc();
     final customMessage = note.trim().isNotEmpty
         ? note.trim()
         : '$senderName đã gửi lời mời bạn cùng ở ghép tại phòng $roomTitle.';
@@ -566,6 +567,10 @@ class ChatService {
       'notificationId': notifRef.id,
       'id': notifRef.id,
       'receiverId': cleanReceiverId,
+      'recipientId': cleanReceiverId,
+      'userId': cleanReceiverId,
+      'nguoiNhanId': cleanReceiverId,
+      'recipientRole': 'renter',
       'senderId': cleanSenderId,
       'senderName': senderName,
       'hostId': hostId,

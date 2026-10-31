@@ -93,25 +93,38 @@ final pastRentalHomesProvider = FutureProvider.autoDispose.family<List<PastRenta
       DateTime moveIn = record.checkoutTime.subtract(const Duration(days: 30));
 
       try {
-        final roomDoc = await firestore.collection('rooms').doc(record.roomId).get();
-        if (roomDoc.exists) {
-          final data = roomDoc.data() ?? {};
-          title = data['title'] ?? data['tieuDe'] ?? title;
+        final hostRoomDoc = await firestore.collection('host_rooms').doc(record.roomId).get();
+        if (hostRoomDoc.exists) {
+          final data = hostRoomDoc.data() ?? {};
+          final rawT = (data['title'] ?? data['roomTitle'] ?? data['roomCode'] ?? data['maPhong'] ?? '').toString();
+          if (rawT.isNotEmpty) title = BookingService.formatRoomTitle(rawT);
           address = data['address'] ?? data['diaChi'] ?? address;
           hostName = data['hostName'] ?? data['tenChuNha'] ?? hostName;
           hostId = data['hostId'] ?? data['chuNhaId'] ?? '';
           hostPhone = data['hostPhone'] ?? data['sdtChuNha'] ?? '';
-          price = ((data['price'] ?? data['giaThue']) as num?)?.toDouble() ?? 0.0;
+          price = ((data['price'] ?? data['roomPrice'] ?? data['giaThue']) as num?)?.toDouble() ?? 0.0;
         } else {
-          final hostRoomDoc = await firestore.collection('host_rooms').doc(record.roomId).get();
-          if (hostRoomDoc.exists) {
-            final data = hostRoomDoc.data() ?? {};
-            title = data['roomCode'] ?? data['title'] ?? title;
-            address = data['address'] ?? address;
-            hostName = data['hostName'] ?? hostName;
-            hostId = data['hostId'] ?? '';
-            hostPhone = data['hostPhone'] ?? '';
-            price = ((data['price'] ?? data['roomPrice']) as num?)?.toDouble() ?? 0.0;
+          final roomDoc = await firestore.collection('rooms').doc(record.roomId).get();
+          if (roomDoc.exists) {
+            final data = roomDoc.data() ?? {};
+            final linkedId = (data['hostRoomId'] ?? data['roomId'] ?? '').toString().trim();
+            if (linkedId.isNotEmpty) {
+              final linkedDoc = await firestore.collection('host_rooms').doc(linkedId).get();
+              if (linkedDoc.exists) {
+                final lData = linkedDoc.data() ?? {};
+                final rawT = (lData['title'] ?? lData['roomTitle'] ?? lData['roomCode'] ?? '').toString();
+                if (rawT.isNotEmpty) title = BookingService.formatRoomTitle(rawT);
+              }
+            }
+            if (title.isEmpty) {
+              final rawCode = (data['roomCode'] ?? data['maPhong'] ?? '').toString();
+              title = rawCode.isNotEmpty ? BookingService.formatRoomTitle(rawCode) : (data['title'] ?? data['tieuDe'] ?? title);
+            }
+            address = data['address'] ?? data['diaChi'] ?? address;
+            hostName = data['hostName'] ?? data['tenChuNha'] ?? hostName;
+            hostId = data['hostId'] ?? data['chuNhaId'] ?? '';
+            hostPhone = data['hostPhone'] ?? data['sdtChuNha'] ?? '';
+            price = ((data['price'] ?? data['giaThue']) as num?)?.toDouble() ?? 0.0;
           }
         }
       } catch (_) {}
@@ -163,12 +176,18 @@ final pastRentalHomesProvider = FutureProvider.autoDispose.family<List<PastRenta
     for (final doc in bookingSnap.docs) {
       final b = BookingRequestModel.fromFirestore(doc);
       final s = b.status.toLowerCase();
+      final data = doc.data();
+      final hasStayRecord = (data['isCheckIn'] == true) ||
+          (data['daNhanPhong'] == true) ||
+          (data['checkoutRecordId'] != null) ||
+          (data['checkedInAt'] != null);
       final isEnded = s == 'completed' ||
           s == 'checked_out' ||
           s == 'traphong' ||
           s == 'daketthuc' ||
           s == 'daroi' ||
-          s == 'ended';
+          s == 'ended' ||
+          ((s == 'cancelled' || s == 'dahuy') && hasStayRecord);
 
       if (isEnded) {
         // Tránh trùng lặp nếu đã có bản ghi checkout_records
@@ -197,7 +216,40 @@ final pastRentalHomesProvider = FutureProvider.autoDispose.family<List<PastRenta
       }
     }
 
-    // 3. Sắp xếp theo ngày kết thúc mới nhất lên đầu
+    // 3. Người ở ghép đã rời phòng, không có đơn bookings riêng
+    try {
+      final endedStays = await BookingService(firestore: firestore)
+          .loadResidentStays(userId, activeOnly: false);
+      for (final stay in endedStays) {
+        if (stay.roomId.isEmpty || processedRoomIds.contains(stay.roomId)) {
+          continue;
+        }
+        processedRoomIds.add(stay.roomId);
+        items.add(
+          PastRentalHomeItem(
+            id: stay.id,
+            roomId: stay.roomId,
+            roomTitle: stay.roomTitle.isNotEmpty ? stay.roomTitle : 'Phòng đã thuê',
+            roomAddress: stay.roomAddress.isNotEmpty ? stay.roomAddress : 'Địa chỉ phòng trọ',
+            hostId: stay.hostId,
+            hostName: stay.hostName.isNotEmpty ? stay.hostName : 'Chủ nhà',
+            roomPrice: stay.roomPrice,
+            depositAmount: stay.deposit,
+            refundAmount: stay.deposit,
+            moveInDate: stay.moveInDate,
+            moveOutDate: stay.moveOutDate ?? stay.createdAt,
+            status: stay.note == 'Ở ghép' ? 'Đã kết thúc ở ghép' : 'Đã hoàn tất kỳ ở',
+            note: stay.note,
+            hasCheckoutRecord: false,
+            booking: stay,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error fetching past resident stays: $e');
+    }
+
+    // 4. Sắp xếp theo ngày kết thúc mới nhất lên đầu
     items.sort((a, b) {
       final dateA = a.moveOutDate ?? a.moveInDate;
       final dateB = b.moveOutDate ?? b.moveInDate;
@@ -1026,6 +1078,25 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                 color: textDark,
               ),
             ),
+            if (b.note == 'Ở ghép') ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF8FF),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFB2DDFF)),
+                ),
+                child: const Text(
+                  'Ở ghép',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF175CD3),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 4),
 
             // Địa chỉ

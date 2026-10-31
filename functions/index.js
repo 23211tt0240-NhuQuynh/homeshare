@@ -50,7 +50,7 @@ exports.createRtcToken = onCall(
 
 // Chạy khi có document mới trong calls/{callId}.
 // Gửi thông báo ưu tiên cao tới máy người nhận nếu cuộc gọi đang đổ chuông.
-// App đang mở vẫn hiện màn hình qua Firestore; thông báo này dành cho lúc app tắt hoặc ở nền.
+// Hỗ trợ đa thiết bị: gửi multicast tới toàn bộ token qua getUserFcmTokens và dọn dẹp token lỗi qua pruneInvalidTokens.
 exports.notifyIncomingCall = onDocumentCreated(
   { document: "calls/{callId}", region: "asia-southeast1" },
   async (event) => {
@@ -58,16 +58,14 @@ exports.notifyIncomingCall = onDocumentCreated(
     // Bỏ qua cuộc gọi không còn ở trạng thái ringing.
     if (!call || call.status !== "ringing" || !call.calleeId) return;
 
-    // fcmToken do app ghi vào users/{uid} lúc người nhận đăng nhập.
-    const user = await admin.firestore().collection("users").doc(call.calleeId).get();
-    const token = user.data()?.fcmToken;
-    if (!token) return;
+    const tokens = await getUserFcmTokens(call.calleeId);
+    if (!tokens || tokens.length === 0) return;
 
     const isVideo = call.type === "video";
     const callerName = call.callerName || "Người dùng";
     try {
-      await admin.messaging().send({
-        token,
+      const response = await admin.messaging().sendEachForMulticast({
+        tokens,
         // Phần hệ thống tự hiện trên màn hình khi app không mở.
         notification: {
           title: isVideo ? "Cuộc gọi video" : "Cuộc gọi thoại",
@@ -76,7 +74,7 @@ exports.notifyIncomingCall = onDocumentCreated(
         // Phần app đọc khi người dùng bấm thông báo để mở đúng cuộc gọi.
         data: {
           type: "incoming_call",
-          callId: event.params.callId,
+          callId: String(event.params.callId),
         },
         android: {
           priority: "high",
@@ -90,16 +88,27 @@ exports.notifyIncomingCall = onDocumentCreated(
           },
         },
       });
-    } catch (error) {
-      const code = String(error.code || "");
-      // Mã máy đã hết hạn hoặc không hợp lệ thì xóa, tránh gửi lại mã chết.
-      if (code.includes("registration-token-not-registered") || code.includes("invalid-argument")) {
-        await user.ref.set(
-          { fcmToken: admin.firestore.FieldValue.delete() },
-          { merge: true },
-        );
-        return;
+
+      if (response.failureCount > 0) {
+        const invalidTokens = [];
+        response.responses.forEach((resp, idx) => {
+          if (!resp.success) {
+            const code = String(resp.error?.code || "");
+            if (
+              code.includes("registration-token-not-registered") ||
+              code.includes("invalid-argument") ||
+              code.includes("invalid-registration-token")
+            ) {
+              invalidTokens.push(tokens[idx]);
+            }
+          }
+        });
+        if (invalidTokens.length > 0) {
+          await pruneInvalidTokens(call.calleeId, invalidTokens);
+        }
       }
+    } catch (error) {
+      console.error("[FCM] Lỗi khi gửi incoming call multicast:", error);
       throw error;
     }
   },

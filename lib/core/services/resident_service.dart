@@ -7,9 +7,26 @@ class ResidentService {
   final FirebaseFirestore firestore;
   ResidentService(this.firestore);
 
-  static bool isActive(ResidentModel resident) =>
-      resident.moveOutDate == null &&
-      const ['dango', 'active'].contains(resident.statusId.toLowerCase());
+  static bool isActive(ResidentModel resident) {
+    if (resident.moveOutDate != null &&
+        resident.moveOutDate!.isBefore(DateTime.now())) {
+      return false;
+    }
+    final s = resident.statusId.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    if (const ['daroi', 'movedout', 'daketthuc', 'cancelled', 'dahuy'].contains(s)) {
+      return false;
+    }
+    return const [
+      'dango',
+      'active',
+      'danhanphong',
+      'checkin',
+      'checkedin',
+      'dacheckin',
+      'staying',
+      'occupied',
+    ].contains(s);
+  }
 
   static List<ResidentModel> activeMembers(Iterable<ResidentModel> residents) {
     final unique = <String, ResidentModel>{};
@@ -33,13 +50,65 @@ class ResidentService {
     if ((room.data()?['propertyId'] ?? '').toString().isNotEmpty) {
       return reference;
     }
-    final post = await firestore.collection('posts').doc(reference).get();
-    final data = post.data() ?? {};
-    for (final key in ['roomId', 'room_id', 'phongId', 'phong_tro_id']) {
-      final value = (data[key] ?? '').toString().trim();
-      if (value.isNotEmpty) return value;
+    for (final collection in ['posts', 'rooms']) {
+      final linked = await firestore
+          .collection(collection)
+          .doc(reference)
+          .get();
+      final data = linked.data() ?? {};
+      for (final key in [
+        'hostRoomId',
+        'roomId',
+        'room_id',
+        'phongId',
+        'phong_tro_id',
+      ]) {
+        final value = (data[key] ?? '').toString().trim();
+        if (value.isNotEmpty && value != reference) return value;
+      }
     }
     return reference;
+  }
+
+  /// Hồ sơ cư dân của một tài khoản, kể cả người ở ghép không có đơn `bookings`.
+  Future<List<ResidentModel>> forUser(String userId) async {
+    if (userId.isEmpty || userId == 'guest') return [];
+    final residents = <String, ResidentModel>{};
+    Future<void> read(String field) async {
+      final snapshot = await firestore
+          .collection('residents')
+          .where(field, isEqualTo: userId)
+          .get();
+      for (final doc in snapshot.docs) {
+        residents[doc.id] = ResidentModel.fromFirestore(doc);
+      }
+    }
+
+    await read('userId');
+    await read('nguoiDungId');
+    return residents.values.toList();
+  }
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchUserDocs(String userId) {
+    if (userId.isEmpty || userId == 'guest') {
+      return Stream<QuerySnapshot<Map<String, dynamic>>>.empty();
+    }
+    try {
+      return firestore
+          .collection('residents')
+          .where(
+            Filter.or(
+              Filter('userId', isEqualTo: userId),
+              Filter('nguoiDungId', isEqualTo: userId),
+            ),
+          )
+          .snapshots();
+    } catch (_) {
+      return firestore
+          .collection('residents')
+          .where('userId', isEqualTo: userId)
+          .snapshots();
+    }
   }
 
   Future<List<ResidentModel>> forRoom(String roomId, {String? periodId}) async {
@@ -54,16 +123,34 @@ class ResidentService {
       }
     }
 
-    await read('roomId', roomId);
+    final canonicalRoomId = await resolveRoomId(roomId);
+    final references = <String>{roomId, canonicalRoomId};
+    // Old quick-check-in builds wrote the listing ID into residents.roomId.
+    for (final field in ['roomId', 'hostRoomId', 'phongId']) {
+      final posts = await firestore
+          .collection('posts')
+          .where(field, isEqualTo: canonicalRoomId)
+          .get();
+      references.addAll(posts.docs.map((doc) => doc.id));
+    }
+    for (final reference in references) {
+      await read('roomId', reference);
+    }
     final periodIds = <String>{
       if (periodId != null && periodId.isNotEmpty) periodId,
     };
-    final periods = await firestore
-        .collection('periods')
-        .where('roomId', isEqualTo: roomId)
-        .get();
+    final periodDocs = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
+    for (final reference in references) {
+      final periods = await firestore
+          .collection('periods')
+          .where('roomId', isEqualTo: reference)
+          .get();
+      for (final doc in periods.docs) {
+        periodDocs[doc.id] = doc;
+      }
+    }
     final endedPeriods = <String>{};
-    for (final doc in periods.docs) {
+    for (final doc in periodDocs.values) {
       final status = (doc.data()['status'] ?? doc.data()['trangThai'] ?? '')
           .toString()
           .toLowerCase();
@@ -154,7 +241,20 @@ class ResidentService {
         continue;
       }
       final members = await forRoom(roomId);
-      if (members.any((r) => r.userId == userId)) continue;
+      final matchingMembers = members.where((r) => r.userId == userId).toList();
+      if (matchingMembers.isNotEmpty) {
+        final existingPeriod = matchingMembers.first.periodId.isEmpty
+            ? null
+            : await firestore
+                  .collection('periods')
+                  .doc(matchingMembers.first.periodId)
+                  .get();
+        if (existingPeriod?.exists == true) continue;
+        if (matchingMembers.first.periodId != booking.id) {
+          skipped++;
+          continue;
+        }
+      }
       if (members.any((r) => r.formId == 'chinh' && r.userId != userId)) {
         skipped++;
         continue;
@@ -177,6 +277,17 @@ class ResidentService {
           legacyAt.toDate().difference(at.toDate()).inSeconds.abs() <= 120;
       if (roomData['status'] != 'occupied' && !legacyConfirmed) {
         skipped++;
+        continue;
+      }
+      if (matchingMembers.isNotEmpty) {
+        final repair = firestore.batch();
+        await ensureActivePeriodForResident(
+          batch: repair,
+          resident: matchingMembers.first,
+          roomId: roomId,
+        );
+        await repair.commit();
+        created++;
         continue;
       }
       final periods = await firestore
@@ -281,6 +392,62 @@ class ResidentService {
     return (created: created, skipped: skipped);
   }
 
+  /// Upgrade the merged quick-check-in shape where periodId points to a
+  /// booking instead of a periods document. Reuse the original resident ID.
+  Future<String> ensureActivePeriodForResident({
+    required WriteBatch batch,
+    required ResidentModel resident,
+    required String roomId,
+  }) async {
+    if (resident.periodId.isEmpty) {
+      throw StateError('Hồ sơ người thuê chính thiếu mã kỳ ở');
+    }
+    final period = await firestore
+        .collection('periods')
+        .doc(resident.periodId)
+        .get();
+    if (period.exists) {
+      final data = period.data()!;
+      final status = (data['status'] ?? data['trangThai'] ?? '')
+          .toString()
+          .toLowerCase();
+      final reference = (data['roomId'] ?? data['phongId'] ?? '').toString();
+      if (!const ['dango', 'active'].contains(status) ||
+          reference.isEmpty ||
+          await resolveRoomId(reference) != roomId) {
+        throw StateError(
+          'Kỳ ở của người thuê chính đã kết thúc hoặc không thuộc phòng này',
+        );
+      }
+      return period.id;
+    }
+    final booking = await firestore
+        .collection('bookings')
+        .doc(resident.periodId)
+        .get();
+    final data = booking.data() ?? {};
+    final userId = (data['renterId'] ?? data['nguoiDungId'] ?? '').toString();
+    final reference = (data['roomId'] ?? data['phongId'] ?? '').toString();
+    final status = (data['status'] ?? '').toString().toLowerCase();
+    if (!booking.exists ||
+        userId != resident.userId ||
+        reference.isEmpty ||
+        !const ['dango', 'active', 'danhanphong'].contains(status) ||
+        await resolveRoomId(reference) != roomId) {
+      throw StateError('Không xác minh được kỳ ở từ đơn nhận phòng cũ');
+    }
+    return preparePrimary(
+      batch: batch,
+      bookingId: booking.id,
+      roomId: roomId,
+      userId: resident.userId,
+      fullName: resident.fullName,
+      phone: resident.phone,
+      now: resident.moveInDate,
+      legacyResident: resident,
+    );
+  }
+
   /// Reuses existing occupancy, including records created before this change.
   /// All writes commit with the calling check-in batch.
   Future<String> preparePrimary({
@@ -291,6 +458,7 @@ class ResidentService {
     required String fullName,
     required String phone,
     required DateTime now,
+    ResidentModel? legacyResident,
   }) async {
     if (userId.isEmpty || userId == 'guest') {
       throw StateError('Thiếu tài khoản cư dân');
@@ -317,9 +485,22 @@ class ResidentService {
     final primary = existing.docs
         .where((doc) => doc.data()['userId'] == userId)
         .toList();
-    final residentRef = primary.isEmpty
+    final related = primary.isEmpty
+        ? (await forRoom(roomId))
+              .where(
+                (r) =>
+                    r.userId == userId &&
+                    (r.periodId == bookingId || r.periodId == periodRef.id),
+              )
+              .toList()
+        : primary.map(ResidentModel.fromFirestore).toList();
+    final previous = related.isNotEmpty ? related.first : legacyResident;
+    if (previous != null && previous.userId != userId) {
+      throw StateError('Hồ sơ cư dân không khớp tài khoản');
+    }
+    final residentRef = previous == null
         ? firestore.collection('residents').doc('${periodRef.id}_$userId')
-        : primary.first.reference;
+        : firestore.collection('residents').doc(previous.id);
     if (active.isEmpty) {
       batch.set(periodRef, {
         'id': periodRef.id,
@@ -334,21 +515,20 @@ class ResidentService {
     if (active.isNotEmpty) {
       batch.update(periodRef, {'roomId': roomId});
     }
-    batch.set(
-      residentRef,
-      ResidentModel(
-        id: residentRef.id,
-        periodId: periodRef.id,
-        roomId: roomId,
-        userId: userId,
-        fullName: fullName,
-        phone: phone,
-        moveInDate: primary.isEmpty
-            ? now
-            : ResidentModel.fromFirestore(primary.first).moveInDate,
-      ).toMap(),
-      SetOptions(merge: true),
-    );
+    final payload = ResidentModel(
+      id: residentRef.id,
+      periodId: periodRef.id,
+      roomId: roomId,
+      userId: userId,
+      fullName: fullName,
+      phone: phone,
+      avatar: previous?.avatar ?? '',
+      moveInDate: previous?.moveInDate ?? now,
+    ).toMap();
+    if (previous != null) payload.remove('createdAt');
+    payload['moveOutDate'] = FieldValue.delete();
+    payload['ngayRoi'] = FieldValue.delete();
+    batch.set(residentRef, payload, SetOptions(merge: true));
     return periodRef.id;
   }
 }

@@ -2349,8 +2349,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
 
       // 1. Gửi thông báo đến người thuê
       if (renterId.isNotEmpty && renterId != 'guest') {
-        await FirebaseFirestore.instance.collection('notifications').add({
+        await FirebaseFirestore.instance.collection('notification_user').add({
           'recipientId': renterId,
+          'receiverId': renterId,
+          'userId': renterId,
           'recipientRole': 'renter',
           'title': isFull
               ? 'Thanh toán thành công'

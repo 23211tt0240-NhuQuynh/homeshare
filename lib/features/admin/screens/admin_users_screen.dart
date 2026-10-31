@@ -9,6 +9,9 @@ import '../../../core/services/violation_rules_service.dart';
 import '../../../data/models/room_model.dart';
 import '../../../data/models/violation_rule_model.dart';
 import '../widgets/violation_rules_sheet.dart';
+import '../widgets/admin_user_detail_sheet.dart';
+import '../widgets/admin_create_user_dialog.dart';
+
 
 /// 3 chế độ xem của trang Quản lý người dùng.
 enum _UsersView { pendingReports, handledReports, reposts, allUsers }
@@ -43,11 +46,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   final DateFormat _dateFmt = DateFormat('dd/MM/yyyy HH:mm');
 
   StreamSubscription<QuerySnapshot>? _usersSub;
-  StreamSubscription<QuerySnapshot>? _reportsSub;
+  StreamSubscription<QuerySnapshot>? _reviewsSub;
+  StreamSubscription<QuerySnapshot>? _bookingsSub;
   StreamSubscription<QuerySnapshot>? _repostSub;
   StreamSubscription<QuerySnapshot>? _repostsSub;
   List<QueryDocumentSnapshot> _userDocs = [];
-  List<QueryDocumentSnapshot> _reportDocs = [];
+  List<QueryDocumentSnapshot> _reviewDocs = [];
+  List<QueryDocumentSnapshot> _bookingDocs = [];
   List<QueryDocumentSnapshot> _repostDocs = [];
   List<QueryDocumentSnapshot> _repostsPluralDocs = [];
 
@@ -56,6 +61,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   List<Map<String, dynamic>> _repostItems = [];
   bool _isLoading = true;
   _UsersView _view = _UsersView.pendingReports;
+
+  // Bộ lọc & Sắp xếp chuyên sâu
+  String _userRoleFilter = 'all'; // 'all', 'host', 'renter', 'banned', 'low_rep'
+  String _userSort = 'default'; // 'default', 'rep_asc', 'rep_desc', 'name_az', 'newest'
+  int? _reviewStarFilter; // null = all, 1 = 1-2 sao, 3 = 3 sao, 4 = 4-5 sao
+  String _repostStatusFilter = 'all'; // 'all', 'pending', 'approved', 'rejected'
 
   @override
   void initState() {
@@ -71,19 +82,30 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         onError: (e) => debugPrint('Lỗi tải users: $e'),
       );
 
-      _reportsSub = FirebaseFirestore.instance
-          .collection('reports')
+      _reviewsSub = FirebaseFirestore.instance
+          .collection('host_reviews')
           .snapshots()
           .listen(
             (snap) {
-              _reportDocs = snap.docs;
+              _reviewDocs = snap.docs;
               _isLoading = false;
               _recompute();
             },
             onError: (e) {
-              debugPrint('Lỗi tải reports: $e');
+              debugPrint('Lỗi tải host_reviews: $e');
               if (mounted) setState(() => _isLoading = false);
             },
+          );
+
+      _bookingsSub = FirebaseFirestore.instance
+          .collection('bookings')
+          .snapshots()
+          .listen(
+            (snap) {
+              _bookingDocs = snap.docs;
+              _recompute();
+            },
+            onError: (e) => debugPrint('Lỗi tải bookings: $e'),
           );
 
       _repostSub = FirebaseFirestore.instance
@@ -116,7 +138,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   @override
   void dispose() {
     _usersSub?.cancel();
-    _reportsSub?.cancel();
+    _reviewsSub?.cancel();
+    _bookingsSub?.cancel();
     _repostSub?.cancel();
     _repostsSub?.cancel();
     _searchCtrl.dispose();
@@ -165,6 +188,40 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     return fields.any((f) => _removeAccents(f).contains(q));
   }
 
+  void _openUserDetail(Map<String, dynamic> u) {
+    AdminUserDetailSheet.show(
+      context,
+      u,
+      onUserUpdated: () {
+        if (mounted) setState(() {});
+      },
+    );
+  }
+
+  void _openUserDetailById(String uid) {
+    final cleanUid = uid.trim();
+    if (cleanUid.isEmpty) return;
+    final u = _users.firstWhere(
+      (element) => element['id'] == cleanUid,
+      orElse: () => {
+        'id': cleanUid,
+        'displayName': 'Người dùng ($cleanUid)',
+        'role': 'host',
+      },
+    );
+    _openUserDetail(u);
+  }
+
+  bool _isHostRole(Map<String, dynamic> u) {
+    final r = (u['role'] ?? '').toString().toLowerCase();
+    return r == 'host' || r == 'landlord' || r == 'chutro';
+  }
+
+  bool _isRenterRole(Map<String, dynamic> u) {
+    final r = (u['role'] ?? '').toString().toLowerCase();
+    return r == 'renter' || r == 'tenant' || r.isEmpty;
+  }
+
   String _roleLabel(String role) {
     switch (role.toLowerCase()) {
       case 'host':
@@ -195,36 +252,42 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       usersById[d.id] = data;
     }
 
-    final reportCount = <String, int>{};
-    final pendingCount = <String, int>{};
-    final reports = <Map<String, dynamic>>[];
-    for (final d in _reportDocs) {
+    final bookingsById = <String, Map<String, dynamic>>{};
+    for (final d in _bookingDocs) {
       final data = Map<String, dynamic>.from(
         d.data() as Map<String, dynamic>? ?? {},
       );
       data['id'] = d.id;
-      // CHỈ LẤY BÁO CÁO / ĐÁNH GIÁ CHỦ TRỌ & NGƯỜI DÙNG (KHÔNG LẤY BÁO CÁO BÀI VIẾT)
-      // Các báo cáo bài viết (targetType == 'post' hoặc id 'BCB_') không thuộc phạm vi duyệt tài khoản người dùng
-      final targetType = (data['targetType'] ?? data['reportType'] ?? '').toString().toLowerCase();
-      final isPostReport = targetType == 'post' ||
-          d.id.startsWith('BCB_') ||
-          (data['isPostReport'] == true);
-      if (isPostReport) {
-        continue;
-      }
+      bookingsById[d.id] = data;
+    }
 
+    final reportCount = <String, int>{};
+    final pendingCount = <String, int>{};
+    final reports = <Map<String, dynamic>>[];
+    for (final d in _reviewDocs) {
+      final data = Map<String, dynamic>.from(
+        d.data() as Map<String, dynamic>? ?? {},
+      );
+      data['id'] = d.id;
       final uid = _s(data, [
+        'hostId',
         'reportedUserId',
         'targetUserId',
-        'hostId',
         'chuNhaId',
         'userId',
         'targetId',
       ]);
-      final status = _s(data, ['status']).toLowerCase();
+      final status = _s(data, ['status', 'trangThai']).toLowerCase();
       data['status'] = status.isEmpty ? 'pending' : status;
       data['reportedUserId'] = uid;
       data['createdAtDate'] = _date(data['createdAt']);
+      final rating = (data['rating'] as num?)?.toInt() ?? 5;
+      data['rating'] = rating;
+      data['comment'] = _s(data, ['comment', 'nhanXet', 'noiDung', 'detail']);
+      data['reason'] = data['comment'].isNotEmpty
+          ? data['comment']
+          : 'Đánh giá $rating sao cho chủ trọ';
+
       if (uid.isNotEmpty) {
         reportCount[uid] = (reportCount[uid] ?? 0) + 1;
         if (data['status'] == 'pending') {
@@ -237,6 +300,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     for (final r in reports) {
       final uid = r['reportedUserId'] as String;
       final u = usersById[uid];
+      final bookingId = _s(r, ['bookingId', 'id']);
+      final b = bookingsById[bookingId];
+
       final explicitHost = _s(r, [
         'hostName',
         'tenChuNha',
@@ -248,7 +314,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       ]);
       r['reportedName'] = explicitHost.isNotEmpty
           ? explicitHost
-          : (u?['displayName'] ?? (uid.isNotEmpty ? 'Chủ trọ ($uid)' : 'Người dùng không xác định')).toString();
+          : (b?['hostName'] != null && b!['hostName'].toString().trim().isNotEmpty
+              ? b['hostName'].toString().trim()
+              : (u?['displayName'] ?? (uid.isNotEmpty ? 'Chủ trọ ($uid)' : 'Người dùng không xác định')).toString());
       r['reportedPhone'] = _s(r, [
         'hostPhone',
         'reportedPhone',
@@ -257,7 +325,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         'phoneNumber',
       ]).isNotEmpty
           ? _s(r, ['hostPhone', 'reportedPhone', 'soDienThoai', 'phone', 'phoneNumber'])
-          : (u?['phoneNumber'] ?? u?['phone'] ?? '').toString();
+          : (b?['hostPhone'] != null && b!['hostPhone'].toString().trim().isNotEmpty
+              ? b['hostPhone'].toString().trim()
+              : (u?['phoneNumber'] ?? u?['phone'] ?? '').toString());
       r['reportedAvatar'] = _s(r, [
         'hostAvatar',
         'reportedAvatar',
@@ -268,21 +338,22 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           : (u?['avatarUrl'] ?? u?['photoUrl'] ?? '').toString();
       r['reportedRole'] = _s(r, ['reportedRole', 'role']).isNotEmpty
           ? _s(r, ['reportedRole', 'role'])
-          : (u?['role'] ?? (_s(r, ['hostId', 'roomId']).isNotEmpty ? 'host' : '')).toString();
+          : (u?['role'] ?? 'host').toString();
       r['reportedBanned'] = u?['isBanned'] == true;
       r['reportedReputationScore'] = (u?['reputationScore'] ?? u?['diemUyTin']);
       r['totalReports'] = uid.isNotEmpty ? (reportCount[uid] ?? 1) : 1;
-      r['reporterDisplay'] = _s(r, ['reporterName', 'nguoiBaoCao']).isNotEmpty
-          ? _s(r, ['reporterName', 'nguoiBaoCao'])
-          : (usersById[_s(r, ['reporterId', 'nguoiBaoCaoId'])]?['displayName'] ?? 'Ẩn danh')
-                .toString();
+      r['reporterDisplay'] = _s(r, ['reviewerName', 'reporterName', 'nguoiDanhGia', 'nguoiBaoCao']).isNotEmpty
+          ? _s(r, ['reviewerName', 'reporterName', 'nguoiDanhGia', 'nguoiBaoCao'])
+          : (b?['renterName'] != null && b!['renterName'].toString().trim().isNotEmpty
+              ? b['renterName'].toString().trim()
+              : (usersById[_s(r, ['reviewerId', 'reporterId'])]?['displayName'] ?? 'Khách thuê').toString());
 
-      // Thông tin bài đăng phòng trọ liên quan
-      r['roomId'] = _s(r, ['roomId', 'postId', 'maPhong', 'phongId', 'baiDangId']);
-      r['roomTitle'] = _s(r, ['roomTitle', 'postTitle', 'title', 'tieuDe', 'roomName']);
-      r['roomPrice'] = r['roomPrice'] ?? r['price'] ?? r['giaThue'] ?? 0;
-      r['roomAddress'] = _s(r, ['roomAddress', 'address', 'diaChi']);
-      r['roomImages'] = _extractImages(r);
+      // Thông tin phòng trọ liên quan đến đánh giá
+      r['roomId'] = _s(r, ['roomId', 'postId']).isNotEmpty ? _s(r, ['roomId', 'postId']) : (b?['roomId'] ?? '');
+      r['roomTitle'] = _s(r, ['roomTitle', 'postTitle', 'title']).isNotEmpty ? _s(r, ['roomTitle', 'postTitle', 'title']) : (b?['roomTitle'] ?? '');
+      r['roomPrice'] = r['roomPrice'] ?? b?['roomPrice'] ?? b?['price'] ?? b?['giaThue'] ?? 0;
+      r['roomAddress'] = _s(r, ['roomAddress', 'address']).isNotEmpty ? _s(r, ['roomAddress', 'address']) : (b?['roomAddress'] ?? '');
+      r['roomImages'] = _extractImages(r).isNotEmpty ? _extractImages(r) : _extractImages(b ?? {});
     }
 
     reports.sort((a, b) {
@@ -512,7 +583,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             (r['status'] == 'pending' || r['id'] == reportId),
       );
       for (final r in related) {
-        batch.set(db.collection('reports').doc(r['id'] as String), {
+        batch.set(db.collection('host_reviews').doc(r['id'] as String), {
           'status': 'resolved',
           'resolution': 'banned',
           'adminNote': reason,
@@ -602,7 +673,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       ].join('\n');
 
       // 1. Cập nhật báo cáo trong collection 'reports'
-      batch.set(db.collection('reports').doc(report['id'] as String), {
+      batch.set(db.collection('host_reviews').doc(report['id'] as String), {
         'status': 'resolved',
         'resolution': 'warned',
         'penaltyPoints': penalty,
@@ -651,9 +722,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           if (result.note.isNotEmpty) 'Ghi chú: ${result.note}',
         ].join('\n');
 
-        batch.set(db.collection('notifications').doc(notifId), {
+        final reportedRole = (report['reportedRole'] ?? 'host').toString().toLowerCase();
+        final targetCol = (reportedRole == 'renter' || reportedRole == 'user') ? 'notification_user' : 'notifications';
+        batch.set(db.collection(targetCol).doc(notifId), {
           'id': notifId,
           'recipientId': uid,
+          'receiverId': uid,
+          'userId': uid,
           'recipientRole': (report['reportedRole'] ?? 'host').toString(),
           'title': 'Cảnh báo vi phạm & Trừ điểm uy tín',
           'message': notifMsg,
@@ -697,8 +772,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
   Future<void> _dismissReport(Map<String, dynamic> report) async {
     final note = await _askNote(
-      title: 'Bỏ qua báo cáo?',
-      message: 'Báo cáo được xem là không vi phạm và chuyển sang mục đã xử lý.',
+      title: 'Bỏ qua đánh giá?',
+      message: 'Đánh giá này được xem là hợp lệ/bình thường và chuyển sang mục đã xử lý.',
       hint: 'Ghi chú (không bắt buộc)...',
       confirmLabel: 'Bỏ qua',
       color: _textGrey,
@@ -706,7 +781,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     if (note == null) return;
     try {
       await FirebaseFirestore.instance
-          .collection('reports')
+          .collection('host_reviews')
           .doc(report['id'] as String)
           .set({
             'status': 'dismissed',
@@ -715,11 +790,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             'handledAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
       await _audit(
-        'Bỏ qua báo cáo',
-        'Admin bỏ qua báo cáo về "${report['reportedName']}".',
-        'Report ${report['id']}',
+        'Bỏ qua đánh giá',
+        'Admin đã bỏ qua đánh giá #${report['id']} của ${report['reporterDisplay']}',
+        'HostReview ${report['id']}',
       );
-      _snack('Đã bỏ qua báo cáo');
+      _snack('Đã bỏ qua đánh giá');
     } catch (e) {
       _snack('Lỗi cập nhật: $e', error: true);
     }
@@ -746,9 +821,27 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         toolbarHeight: 64,
         title: const AdminBrandedTitle(
           title: 'Quản lý người dùng',
-          subtitle: 'Duyệt báo cáo vi phạm & duyệt bài đăng repost',
+          subtitle: 'Kiểm duyệt đánh giá, quản lý hồ sơ & duyệt repost',
         ),
         actions: [
+          IconButton(
+            tooltip: 'Thêm người dùng mới',
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF8FF),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFB2DDFF)),
+              ),
+              child: const Icon(Icons.person_add_rounded, size: 18, color: _primary),
+            ),
+            onPressed: () async {
+              final created = await AdminCreateUserDialog.show(context);
+              if (created == true && mounted) {
+                setState(() {});
+              }
+            },
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: TextButton.icon(
@@ -877,7 +970,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
   Widget _buildList(String query) {
     if (_view == _UsersView.reposts) {
-      final items = _repostItems.where((r) {
+      var items = _repostItems.where((r) {
         return _matches(query, [
           r['title'] as String? ?? '',
           r['userName'] as String? ?? '',
@@ -887,36 +980,99 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           r['userNote'] as String? ?? '',
         ]);
       }).toList();
-      if (items.isEmpty) {
-        return _empty('Không có bài đăng repost nào cần duyệt 🎉');
+
+      if (_repostStatusFilter == 'pending') {
+        items = items.where((r) => r['status'] == 'pending' || r['status'] == 'choduyet').toList();
+      } else if (_repostStatusFilter == 'approved') {
+        items = items.where((r) => r['status'] == 'approved' || r['status'] == 'daduyet').toList();
+      } else if (_repostStatusFilter == 'rejected') {
+        items = items.where((r) => r['status'] == 'rejected' || r['status'] == 'tuchoi').toList();
       }
-      return ListView.separated(
-        padding: const EdgeInsets.all(14),
-        itemCount: items.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 10),
-        itemBuilder: (_, i) => _repostCard(items[i]),
+
+      return Column(
+        children: [
+          _buildRepostFilterRow(),
+          Expanded(
+            child: items.isEmpty
+                ? _empty('Không có bài đăng repost nào phù hợp 🎉')
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
+                    itemCount: items.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 10),
+                    itemBuilder: (_, i) => _repostCard(items[i]),
+                  ),
+          ),
+        ],
       );
     }
 
     if (_view == _UsersView.allUsers) {
-      final items = _users.where((u) {
+      var items = _users.where((u) {
         return _matches(query, [
           u['displayName'] as String,
           _s(u, ['email']),
           _s(u, ['phone', 'phoneNumber']),
         ]);
       }).toList();
-      if (items.isEmpty) return _empty('Không có người dùng phù hợp');
-      return ListView.separated(
-        padding: const EdgeInsets.all(14),
-        itemCount: items.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 10),
-        itemBuilder: (_, i) => _userCard(items[i]),
+
+      if (_userRoleFilter == 'host') {
+        items = items.where((u) => _isHostRole(u)).toList();
+      } else if (_userRoleFilter == 'renter') {
+        items = items.where((u) => _isRenterRole(u)).toList();
+      } else if (_userRoleFilter == 'banned') {
+        items = items.where((u) => u['isBanned'] == true).toList();
+      } else if (_userRoleFilter == 'low_rep') {
+        items = items.where((u) {
+          final s = ((u['reputationScore'] ?? u['diemUyTin'] ?? 100) as num).toInt();
+          return s < 80;
+        }).toList();
+      }
+
+      if (_userSort == 'rep_asc') {
+        items.sort((a, b) {
+          final sa = ((a['reputationScore'] ?? a['diemUyTin'] ?? 100) as num).toInt();
+          final sb = ((b['reputationScore'] ?? b['diemUyTin'] ?? 100) as num).toInt();
+          return sa.compareTo(sb);
+        });
+      } else if (_userSort == 'rep_desc') {
+        items.sort((a, b) {
+          final sa = ((a['reputationScore'] ?? a['diemUyTin'] ?? 100) as num).toInt();
+          final sb = ((b['reputationScore'] ?? b['diemUyTin'] ?? 100) as num).toInt();
+          return sb.compareTo(sa);
+        });
+      } else if (_userSort == 'name_az') {
+        items.sort((a, b) => (a['displayName'] as String).toLowerCase().compareTo((b['displayName'] as String).toLowerCase()));
+      } else if (_userSort == 'newest') {
+        items.sort((a, b) {
+          final da = _date(a['createdAt']);
+          final db = _date(b['createdAt']);
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return db.compareTo(da);
+        });
+      }
+
+      return Column(
+        children: [
+          _buildUserMetricsRow(),
+          _buildUserFiltersRow(),
+          Expanded(
+            child: items.isEmpty
+                ? _empty('Không có người dùng phù hợp')
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
+                    itemCount: items.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 10),
+                    itemBuilder: (_, i) => _userCard(items[i]),
+                  ),
+          ),
+        ],
       );
     }
 
     final pending = _view == _UsersView.pendingReports;
-    final items = _reports.where((r) {
+    var items = _reports.where((r) {
       if ((r['status'] == 'pending') != pending) return false;
       return _matches(query, [
         r['reportedName'] as String,
@@ -928,14 +1084,211 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         _s(r, ['roomAddress', 'address']),
       ]);
     }).toList();
-    if (items.isEmpty) {
-      return _empty(pending ? 'Không có báo cáo nào đang chờ xử lý 🎉' : 'Chưa có báo cáo nào được xử lý');
+
+    if (_reviewStarFilter == 1) {
+      items = items.where((r) => (r['rating'] as int) <= 2).toList();
+    } else if (_reviewStarFilter == 3) {
+      items = items.where((r) => (r['rating'] as int) == 3).toList();
+    } else if (_reviewStarFilter == 4) {
+      items = items.where((r) => (r['rating'] as int) >= 4).toList();
     }
-    return ListView.separated(
-      padding: const EdgeInsets.all(14),
-      itemCount: items.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 10),
-      itemBuilder: (_, i) => _reportCard(items[i]),
+
+    return Column(
+      children: [
+        _buildStarFilterRow(),
+        Expanded(
+          child: items.isEmpty
+              ? _empty(pending ? 'Không có đánh giá nào đang chờ xử lý 🎉' : 'Chưa có đánh giá nào được xử lý')
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
+                  itemCount: items.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) => _reportCard(items[i]),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUserMetricsRow() {
+    final total = _users.length;
+    final hosts = _users.where((u) => _isHostRole(u)).length;
+    final renters = _users.where((u) => _isRenterRole(u)).length;
+    final banned = _users.where((u) => u['isBanned'] == true).length;
+    final lowScore = _users.where((u) {
+      final s = ((u['reputationScore'] ?? u['diemUyTin'] ?? 100) as num).toInt();
+      return s < 80;
+    }).length;
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _metricItem('Tổng user', '$total', _primary),
+            _metricDivider(),
+            _metricItem('Chủ trọ', '$hosts', const Color(0xFF027A48)),
+            _metricDivider(),
+            _metricItem('Người thuê', '$renters', const Color(0xFF026AA2)),
+            _metricDivider(),
+            _metricItem('Bị khóa', '$banned', _red),
+            _metricDivider(),
+            _metricItem('UT < 80', '$lowScore', _orange),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _metricItem(String label, String value, Color color) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(value, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: color)),
+        Text(label, style: const TextStyle(fontSize: 10, color: _textGrey, fontWeight: FontWeight.w500)),
+      ],
+    );
+  }
+
+  Widget _metricDivider() => Container(width: 1, height: 22, color: const Color(0xFFE2E8F0));
+
+  Widget _buildUserFiltersRow() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _filterChipItem('Tất cả', 'all', _userRoleFilter == 'all', (_) => setState(() => _userRoleFilter = 'all')),
+                  const SizedBox(width: 6),
+                  _filterChipItem('Chủ trọ', 'host', _userRoleFilter == 'host', (_) => setState(() => _userRoleFilter = 'host')),
+                  const SizedBox(width: 6),
+                  _filterChipItem('Người thuê', 'renter', _userRoleFilter == 'renter', (_) => setState(() => _userRoleFilter = 'renter')),
+                  const SizedBox(width: 6),
+                  _filterChipItem('Bị khóa', 'banned', _userRoleFilter == 'banned', (_) => setState(() => _userRoleFilter = 'banned')),
+                  const SizedBox(width: 6),
+                  _filterChipItem('Uy tín < 80đ', 'low_rep', _userRoleFilter == 'low_rep', (_) => setState(() => _userRoleFilter = 'low_rep')),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          PopupMenuButton<String>(
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF2F4F7),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFD0D5DD)),
+              ),
+              child: const Icon(Icons.sort_rounded, size: 16, color: _textDark),
+            ),
+            tooltip: 'Sắp xếp danh sách',
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onSelected: (val) => setState(() => _userSort = val),
+            itemBuilder: (context) => [
+              _sortMenuItem('default', 'Mặc định (Báo cáo chờ)', _userSort == 'default'),
+              _sortMenuItem('rep_asc', 'Uy tín: Thấp ➔ Cao', _userSort == 'rep_asc'),
+              _sortMenuItem('rep_desc', 'Uy tín: Cao ➔ Thấp', _userSort == 'rep_desc'),
+              _sortMenuItem('name_az', 'Tên: A ➔ Z', _userSort == 'name_az'),
+              _sortMenuItem('newest', 'Mới đăng ký nhất', _userSort == 'newest'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  PopupMenuItem<String> _sortMenuItem(String value, String label, bool isSelected) {
+    return PopupMenuItem<String>(
+      value: value,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? _primary : _textDark,
+              ),
+            ),
+          ),
+          if (isSelected) const Icon(Icons.check, size: 16, color: _primary),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterChipItem(String label, String value, bool isSelected, Function(bool) onSelected) {
+    return ChoiceChip(
+      label: Text(label),
+      labelStyle: TextStyle(
+        fontSize: 11,
+        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+        color: isSelected ? _primary : _textDark,
+      ),
+      selected: isSelected,
+      selectedColor: _primary.withValues(alpha: 0.12),
+      backgroundColor: const Color(0xFFF8FAFC),
+      side: BorderSide(color: isSelected ? _primary : const Color(0xFFE2E8F0)),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+      visualDensity: VisualDensity.compact,
+      onSelected: onSelected,
+    );
+  }
+
+  Widget _buildStarFilterRow() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _filterChipItem('Tất cả sao', 'all', _reviewStarFilter == null, (_) => setState(() => _reviewStarFilter = null)),
+            const SizedBox(width: 6),
+            _filterChipItem('⭐ 1 - 2 sao (Cần can thiệp)', '1', _reviewStarFilter == 1, (_) => setState(() => _reviewStarFilter = 1)),
+            const SizedBox(width: 6),
+            _filterChipItem('⭐ 3 sao', '3', _reviewStarFilter == 3, (_) => setState(() => _reviewStarFilter = 3)),
+            const SizedBox(width: 6),
+            _filterChipItem('⭐ 4 - 5 sao', '4', _reviewStarFilter == 4, (_) => setState(() => _reviewStarFilter = 4)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRepostFilterRow() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _filterChipItem('Tất cả', 'all', _repostStatusFilter == 'all', (_) => setState(() => _repostStatusFilter = 'all')),
+            const SizedBox(width: 6),
+            _filterChipItem('Chờ duyệt', 'pending', _repostStatusFilter == 'pending', (_) => setState(() => _repostStatusFilter = 'pending')),
+            const SizedBox(width: 6),
+            _filterChipItem('Đã duyệt', 'approved', _repostStatusFilter == 'approved', (_) => setState(() => _repostStatusFilter = 'approved')),
+            const SizedBox(width: 6),
+            _filterChipItem('Đã từ chối', 'rejected', _repostStatusFilter == 'rejected', (_) => setState(() => _repostStatusFilter = 'rejected')),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1121,7 +1474,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                           border: Border.all(color: const Color(0xFFB2DDFF)),
                         ),
                         child: const Text(
-                          'PHÒNG LIÊN QUAN ĐẾN BÁO CÁO',
+                          'PHÒNG LIÊN QUAN ĐẾN ĐÁNH GIÁ',
                           style: TextStyle(
                             fontSize: 9.5,
                             fontWeight: FontWeight.w800,
@@ -1293,55 +1646,67 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              _avatar(name, banned: banned, avatarUrl: avatarUrl),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Chủ trọ: $name',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w800,
-                        color: _textDark,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        _chip('Báo cáo chủ trọ', _red),
-                        if ((r['reportedRole'] as String).isNotEmpty)
-                          _chip(_roleLabel(r['reportedRole'] as String), _primary),
-                        if (hostScore != null)
-                          _chip(
-                            'UT: ${hostScore.toInt()}/100',
-                            hostScore >= 80 ? _green : (hostScore >= 50 ? _orange : _red),
+          InkWell(
+            onTap: () => _openUserDetailById((r['reportedUserId'] ?? '').toString()),
+            borderRadius: BorderRadius.circular(10),
+            child: Row(
+              children: [
+                _avatar(name, banned: banned, avatarUrl: avatarUrl),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Chủ trọ: $name',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w800,
+                                color: _textDark,
+                              ),
+                            ),
                           ),
-                        if (phone.isNotEmpty)
-                          _chip(phone, _textGrey),
-                        if (banned) _chip('Đã bị khóa', _red),
-                        if ((r['totalReports'] as int) > 1)
-                          _chip('${r['totalReports']} báo cáo', _orange),
-                      ],
-                    ),
-                  ],
+                          const Icon(Icons.open_in_new_rounded, size: 14, color: _primary),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          _chip('Đánh giá chủ trọ', const Color(0xFF027A48)),
+                          _chip('⭐ ${r['rating'] ?? 5}/5 sao', (r['rating'] ?? 5) >= 4 ? _green : ((r['rating'] ?? 5) >= 3 ? _orange : _red)),
+                          if ((r['reportedRole'] as String).isNotEmpty)
+                            _chip(_roleLabel(r['reportedRole'] as String), _primary),
+                          if (hostScore != null)
+                            _chip(
+                              'UT: ${hostScore.toInt()}/100',
+                              hostScore >= 80 ? _green : (hostScore >= 50 ? _orange : _red),
+                            ),
+                          if (phone.isNotEmpty)
+                            _chip(phone, _textGrey),
+                          if (banned) _chip('Đã bị khóa', _red),
+                          if ((r['totalReports'] as int) > 1)
+                            _chip('${r['totalReports']} đánh giá', _orange),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              if (!pending && resolutionLabel != null)
-                _chip(
-                  resolutionLabel,
-                  resolution == 'dismissed'
-                      ? _textGrey
-                      : (resolution == 'banned' ? _red : _orange),
-                ),
-            ],
+                if (!pending && resolutionLabel != null)
+                  _chip(
+                    resolutionLabel,
+                    resolution == 'dismissed'
+                        ? _textGrey
+                        : (resolution == 'banned' ? _red : _orange),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           Container(
@@ -1355,13 +1720,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.report_problem_outlined, size: 15, color: _orange),
-                    SizedBox(width: 5),
+                    const Icon(Icons.star_rounded, size: 16, color: _orange),
+                    const SizedBox(width: 5),
                     Text(
-                      'LÝ DO BÁO CÁO CHỦ TRỌ:',
-                      style: TextStyle(
+                      'NỘI DUNG ĐÁNH GIÁ CHỦ TRỌ (${r['rating'] ?? 5}/5 SAO):',
+                      style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFFB54708),
@@ -1371,10 +1736,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _s(r, ['reason']).isEmpty ? 'Không nêu lý do' : _s(r, ['reason']),
+                  _s(r, ['comment', 'reason']).isEmpty
+                      ? 'Đánh giá ${r['rating'] ?? 5} sao (không kèm lời nhận xét).'
+                      : _s(r, ['comment', 'reason']),
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _textDark),
                 ),
-                if (_s(r, ['description', 'detail']).isNotEmpty) ...[
+                if (_s(r, ['description', 'detail']).isNotEmpty && _s(r, ['description', 'detail']) != _s(r, ['comment', 'reason'])) ...[
                   const SizedBox(height: 4),
                   Text(
                     _s(r, ['description', 'detail']),
@@ -1392,17 +1759,21 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             _buildReportedPostCard(r),
           ],
           const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(Icons.account_circle_outlined, size: 15, color: _textGrey),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  'Người báo cáo: ${r['reporterDisplay']}${date == null ? '' : '  •  ${_dateFmt.format(date)}'}',
-                  style: const TextStyle(fontSize: 11.5, color: _textGrey, fontWeight: FontWeight.w500),
+          InkWell(
+            onTap: () => _openUserDetailById((r['reviewerId'] ?? r['reporterId'] ?? '').toString()),
+            child: Row(
+              children: [
+                const Icon(Icons.account_circle_outlined, size: 15, color: _primary),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    'Người đánh giá: ${r['reporterDisplay']}${date == null ? '' : '  •  ${_dateFmt.format(date)}'}',
+                    style: const TextStyle(fontSize: 11.5, color: _primary, fontWeight: FontWeight.w600),
+                  ),
                 ),
-              ),
-            ],
+                const Icon(Icons.open_in_new_rounded, size: 12, color: _primary),
+              ],
+            ),
           ),
           if (!pending && resolution == 'warned') ...[
             const SizedBox(height: 8),
@@ -1522,99 +1893,162 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
   Widget _userCard(Map<String, dynamic> u) {
     final banned = u['isBanned'] == true;
-    final name = u['displayName'] as String;
+    final name = (u['displayName'] ?? u['fullName'] ?? 'Chưa đặt tên').toString();
     final role = (u['role'] ?? '').toString();
     final isAdmin = role.toLowerCase() == 'admin';
     final contact = [
       _s(u, ['email']),
       _s(u, ['phone', 'phoneNumber']),
     ].where((e) => e.isNotEmpty).join('  •  ');
-    final pendingReports = u['pendingReports'] as int;
-    final totalReports = u['totalReports'] as int;
+    final pendingReports = (u['pendingReports'] ?? 0) as int;
+    final totalReports = (u['totalReports'] ?? 0) as int;
     final repScore = (u['reputationScore'] ?? u['diemUyTin']) as num?;
+    final avatarUrl = (u['avatarUrl'] ?? u['photoUrl'] ?? '').toString();
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: _cardDeco,
-      child: Row(
-        children: [
-          _avatar(name, banned: banned),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name.isEmpty ? 'Chưa đặt tên' : name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: _textDark,
-                  ),
-                ),
-                if (contact.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      contact,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11.5, color: _textGrey),
-                    ),
-                  ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    _chip(_roleLabel(role), _primary),
-                    if (repScore != null)
-                      _chip(
-                        'UT: ${repScore.toInt()}/100',
-                        repScore >= 80 ? _green : (repScore >= 50 ? _orange : _red),
+    return InkWell(
+      onTap: () => _openUserDetail(u),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: _cardDeco,
+        child: Row(
+          children: [
+            _avatar(name, banned: banned, avatarUrl: avatarUrl),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name.isEmpty ? 'Chưa đặt tên' : name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: _textDark,
+                          ),
+                        ),
                       ),
-                    if (banned) _chip('Đã bị khóa', _red),
-                    if (pendingReports > 0)
-                      _chip('$pendingReports báo cáo chờ', _orange)
-                    else if (totalReports > 0)
-                      _chip('$totalReports báo cáo', _textGrey),
-                  ],
-                ),
-                if (banned && _s(u, ['banReason']).isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'Lý do khóa: ${_s(u, ['banReason'])}',
-                      style: const TextStyle(fontSize: 11.5, color: _red),
+                      if (banned)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEE4E2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Bị khóa',
+                            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: _red),
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F5E9),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Hoạt động',
+                            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: _green),
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (contact.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        contact,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11.5, color: _textGrey),
+                      ),
                     ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      _chip(_roleLabel(role), isAdmin ? _red : (_isHostRole(u) ? const Color(0xFF027A48) : _primary)),
+                      if (repScore != null)
+                        _chip(
+                          '⭐ UT: ${repScore.toInt()}/100',
+                          repScore >= 80 ? _green : (repScore >= 50 ? _orange : _red),
+                        ),
+                      if (pendingReports > 0)
+                        _chip('$pendingReports đánh giá chờ', _orange)
+                      else if (totalReports > 0)
+                        _chip('$totalReports đánh giá', _textGrey),
+                    ],
+                  ),
+                  if (banned && _s(u, ['banReason']).isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Lý do khóa: ${_s(u, ['banReason'])}',
+                        style: const TextStyle(fontSize: 11.5, color: _red),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Xem hồ sơ chi tiết',
+                  icon: const Icon(Icons.visibility_outlined, size: 20, color: _primary),
+                  onPressed: () => _openUserDetail(u),
+                ),
+                if (!isAdmin)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, size: 20, color: _textGrey),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    onSelected: (val) {
+                      if (val == 'detail') {
+                        _openUserDetail(u);
+                      } else if (val == 'toggle_ban') {
+                        if (banned) {
+                          _unbanUser(u);
+                        } else {
+                          _banUser(userId: u['id'] as String, userName: name);
+                        }
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'detail',
+                        child: Row(
+                          children: [
+                            Icon(Icons.person_search_outlined, size: 16, color: _primary),
+                            SizedBox(width: 8),
+                            Text('Xem chi tiết', style: TextStyle(fontSize: 13)),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'toggle_ban',
+                        child: Row(
+                          children: [
+                            Icon(banned ? Icons.lock_open : Icons.lock_outline, size: 16, color: banned ? _green : _red),
+                            SizedBox(width: 8),
+                            Text(banned ? 'Mở khóa tài khoản' : 'Khóa tài khoản',
+                                style: TextStyle(fontSize: 13, color: banned ? _green : _red)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
               ],
             ),
-          ),
-          if (!isAdmin)
-            banned
-                ? OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _green,
-                      side: const BorderSide(color: _green),
-                    ),
-                    onPressed: () => _unbanUser(u),
-                    child: const Text('Mở khóa', style: TextStyle(fontSize: 12)),
-                  )
-                : OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _red,
-                      side: const BorderSide(color: _red),
-                    ),
-                    onPressed: () => _banUser(
-                      userId: u['id'] as String,
-                      userName: name,
-                    ),
-                    child: const Text('Khóa', style: TextStyle(fontSize: 12)),
-                  ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1680,43 +2114,54 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              _avatar(userName),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      userName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: _textDark,
+          InkWell(
+            onTap: () => _openUserDetailById((r['userId'] ?? '').toString()),
+            borderRadius: BorderRadius.circular(10),
+            child: Row(
+              children: [
+                _avatar(userName),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              userName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: _textDark,
+                              ),
+                            ),
+                          ),
+                          const Icon(Icons.open_in_new_rounded, size: 14, color: _primary),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        _chip('Repost', const Color(0xFF7C3AED)),
-                        _chip(statusLabel, statusColor),
-                        if (userPhone.isNotEmpty) _chip(userPhone, _primary),
-                      ],
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          _chip('Repost', const Color(0xFF7C3AED)),
+                          _chip(statusLabel, statusColor),
+                          if (userPhone.isNotEmpty) _chip(userPhone, _primary),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              if (date != null)
-                Text(
-                  _dateFmt.format(date),
-                  style: const TextStyle(fontSize: 11, color: _textGrey),
-                ),
-            ],
+                if (date != null)
+                  Text(
+                    _dateFmt.format(date),
+                    style: const TextStyle(fontSize: 11, color: _textGrey),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           // Thông tin bài đăng

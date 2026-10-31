@@ -22,6 +22,7 @@ import '../../features/renter/screens/user_notifications_screen.dart';
 import 'call_push_service.dart'
     show navigatorKey, callNotificationChannelId, IncomingCallRouter;
 import 'call_service.dart' show CallSession;
+import 'room_service.dart';
 
 /// ID kênh thông báo tiêu chuẩn cho HomeShare
 const String generalNotificationChannelId = 'homeshare_general_channel';
@@ -301,6 +302,21 @@ class FcmTokenManager {
     return set.toList();
   }
 
+  /// Xác định fcmToken chính sau khi gỡ token của thiết bị hiện tại (bảo toàn token máy khác)
+  static String? resolveNextMainToken({
+    required String? currentMainToken,
+    required String removedToken,
+    required List<String> remainingTokens,
+  }) {
+    if (currentMainToken == null || currentMainToken != removedToken.trim()) {
+      return currentMainToken;
+    }
+    final validRemaining = remainingTokens
+        .where((t) => t.trim() != removedToken.trim() && isTokenValid(t))
+        .toList();
+    return validRemaining.isNotEmpty ? validRemaining.first.trim() : null;
+  }
+
   static Map<String, dynamic> buildTokenDocData(
     String token, {
     String platform = 'android',
@@ -315,6 +331,105 @@ class FcmTokenManager {
       data['deviceId'] = deviceId;
     }
     return data;
+  }
+}
+
+/// Quản lý vòng đời listener token refresh theo từng UID, tránh trùng lặp và race condition
+class FcmTokenRefreshBinding {
+  StreamSubscription<String>? _subscription;
+  String? _boundUid;
+  int _session = 0;
+  final Set<Future<void>> _activeCallbacks = {};
+
+  String? get boundUid => _boundUid;
+
+  Future<void> bind({
+    required String uid,
+    required Stream<String> tokenStream,
+    required Future<void> Function(String uid, String token) onToken,
+  }) async {
+    await unbind(_boundUid);
+    final session = ++_session;
+    _boundUid = uid;
+
+    _subscription = tokenStream.listen(
+      (token) {
+        if (_session != session || _boundUid != uid) return;
+
+        final completer = Completer<void>();
+        final future = completer.future;
+        _activeCallbacks.add(future);
+
+        () async {
+          try {
+            if (_session != session || _boundUid != uid) return;
+            await onToken(uid, token);
+          } catch (_) {
+            // Không để unhandled async error
+          } finally {
+            _activeCallbacks.remove(future);
+            if (!completer.isCompleted) {
+              completer.complete();
+            }
+          }
+        }();
+      },
+      onError: (_) {
+        // Tránh unhandled async error từ stream
+      },
+    );
+  }
+
+  Future<void> unbind([String? uid]) async {
+    if (uid != null && _boundUid != null && _boundUid != uid) {
+      return;
+    }
+
+    _session++;
+    _boundUid = null;
+    await _subscription?.cancel();
+    _subscription = null;
+
+    if (_activeCallbacks.isNotEmpty) {
+      await Future.wait(_activeCallbacks.toList());
+    }
+  }
+}
+
+/// Bộ giải quyết đối tượng phòng từ targetId (roomId hoặc postId của bài đăng repost)
+class RoomNotificationTargetResolver {
+  /// Giải quyết dữ liệu phòng từ roomId hoặc postId (hỗ trợ kiểm thử độc lập)
+  static Future<T?> resolveRoom<T>({
+    required String targetId,
+    required Future<T?> Function(String roomId) loadRoom,
+    required Future<Map<String, dynamic>?> Function(String postId) loadPost,
+  }) async {
+    final cleanId = targetId.trim();
+    if (cleanId.isEmpty) return null;
+
+    // 1. Tải trực tiếp từ rooms nếu targetId là roomId
+    final directRoom = await loadRoom(cleanId);
+    if (directRoom != null) {
+      return directRoom;
+    }
+
+    // 2. Nếu không tìm thấy trong rooms, đọc posts/{id} và suy ra roomId theo schema thực tế
+    final postData = await loadPost(cleanId);
+    if (postData != null) {
+      final derivedRoomId = (postData['roomId'] ??
+              postData['phongTroId'] ??
+              postData['phong_tro_id'] ??
+              postData['phongId'] ??
+              '')
+          .toString()
+          .trim();
+
+      if (derivedRoomId.isNotEmpty) {
+        return await loadRoom(derivedRoomId);
+      }
+    }
+
+    return null;
   }
 }
 
@@ -342,6 +457,8 @@ class PushNotificationService {
       FlutterLocalNotificationsPlugin();
   static final NotificationDeduplicator _deduplicator =
       NotificationDeduplicator();
+  static final FcmTokenRefreshBinding tokenRefreshBinding =
+      FcmTokenRefreshBinding();
 
   static PushNotificationPayload? pendingPayload;
   static String? _currentDeviceToken;
@@ -442,13 +559,17 @@ class PushNotificationService {
         await _saveUserToken(uid, token!);
       }
 
-      // 3. Theo dõi khi token bị thay đổi
-      messaging.onTokenRefresh.listen((newToken) async {
-        if (FcmTokenManager.isTokenValid(newToken)) {
-          _currentDeviceToken = newToken;
-          await _saveUserToken(uid, newToken);
-        }
-      });
+      // 3. Quản lý vòng đời listener token refresh: hủy listener cũ, đăng ký cho UID mới
+      await tokenRefreshBinding.bind(
+        uid: uid,
+        tokenStream: messaging.onTokenRefresh,
+        onToken: (targetUid, newToken) async {
+          if (FcmTokenManager.isTokenValid(newToken)) {
+            _currentDeviceToken = newToken;
+            await _saveUserToken(targetUid, newToken);
+          }
+        },
+      );
 
       // 4. Nếu có pending payload đang chờ đăng nhập, thực hiện điều hướng ngay
       if (pendingPayload != null) {
@@ -467,6 +588,7 @@ class PushNotificationService {
   static Future<void> unbindUser(String uid) async {
     if (uid.isEmpty) return;
     try {
+      await tokenRefreshBinding.unbind(uid);
       final token =
           _currentDeviceToken ?? await FirebaseMessaging.instance.getToken();
       if (token != null && token.isNotEmpty) {
@@ -483,12 +605,33 @@ class PushNotificationService {
           'fcmTokens': FieldValue.arrayRemove([cleanToken]),
         }, SetOptions(merge: true));
 
-        // Nếu fcmToken chính trùng với token này, xóa để tránh gửi nhầm
+        // Cập nhật fcmToken chính: bảo toàn token của các thiết bị khác nếu có
         final userDoc = await userRef.get();
-        if (userDoc.exists && userDoc.data()?['fcmToken'] == cleanToken) {
-          batch.set(userRef, {
-            'fcmToken': FieldValue.delete(),
-          }, SetOptions(merge: true));
+        if (userDoc.exists) {
+          final data = userDoc.data() ?? {};
+          final currentMain = (data['fcmToken'] ?? '').toString().trim();
+          final rawTokens = data['fcmTokens'];
+          final list = (rawTokens is List)
+              ? rawTokens.map((e) => e.toString().trim()).toList()
+              : <String>[];
+          final nextToken = FcmTokenManager.resolveNextMainToken(
+            currentMainToken: currentMain.isEmpty ? null : currentMain,
+            removedToken: cleanToken,
+            remainingTokens: list,
+          );
+          if (nextToken != null) {
+            batch.set(
+              userRef,
+              {'fcmToken': nextToken},
+              SetOptions(merge: true),
+            );
+          } else if (currentMain == cleanToken) {
+            batch.set(
+              userRef,
+              {'fcmToken': FieldValue.delete()},
+              SetOptions(merge: true),
+            );
+          }
         }
 
         await batch.commit();
@@ -589,6 +732,31 @@ class PushNotificationService {
     handlePayloadNavigation(payload);
   }
 
+  /// Giải quyết RoomModel từ targetId (roomId hoặc postId qua posts/{id})
+  static Future<RoomModel?> resolveRoomTarget(String targetId) {
+    return RoomNotificationTargetResolver.resolveRoom<RoomModel>(
+      targetId: targetId,
+      loadRoom: (roomId) async {
+        try {
+          return await RoomService().resolveRentedRoom(roomId: roomId);
+        } catch (_) {}
+        return null;
+      },
+      loadPost: (postId) async {
+        try {
+          final doc = await FirebaseFirestore.instance
+              .collection('posts')
+              .doc(postId)
+              .get();
+          if (doc.exists && doc.data() != null) {
+            return doc.data();
+          }
+        } catch (_) {}
+        return null;
+      },
+    );
+  }
+
   /// Kiểm tra sự tồn tại của đối tượng đích trong Firestore
   static Future<bool> checkTargetExists(String type, String targetId) async {
     if (targetId.isEmpty) return false;
@@ -606,10 +774,8 @@ class PushNotificationService {
           return doc.exists;
         case 'post_approved':
         case 'post_rejected':
-          final doc = await db.collection('rooms').doc(targetId).get();
-          if (doc.exists) return true;
-          final postDoc = await db.collection('posts').doc(targetId).get();
-          return postDoc.exists;
+          final room = await resolveRoomTarget(targetId);
+          return room != null;
         case 'roommate_message':
           final doc = await db.collection('posts').doc(targetId).get();
           if (doc.exists) return true;
@@ -701,12 +867,8 @@ class PushNotificationService {
 
         case NotificationRouteDestination.roomDetail:
           try {
-            final doc = await FirebaseFirestore.instance
-                .collection('rooms')
-                .doc(targetId)
-                .get();
-            if (doc.exists && doc.data() != null) {
-              final room = RoomModel.fromFirestore(doc);
+            final room = await resolveRoomTarget(targetId);
+            if (room != null) {
               nav.push(
                 MaterialPageRoute(builder: (_) => RoomDetailScreen(room: room)),
               );

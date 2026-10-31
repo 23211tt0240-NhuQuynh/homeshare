@@ -495,22 +495,12 @@ class TenantRepository {
         'Người thuê chính chưa có hồ sơ nhận phòng tại phòng này. Vui lòng kiểm tra hoặc đồng bộ hồ sơ nhận phòng.',
       );
     }
-    final periodId = primary.first.periodId;
-    final period = await _firestore
-        .collection(FirestoreCollections.periods)
-        .doc(periodId)
-        .get();
-    if (!period.exists ||
-        !const ['dango', 'active'].contains(
-          (period.data()?['status'] ?? period.data()?['trangThai'] ?? '')
-              .toString()
-              .toLowerCase(),
-        )) {
-      throw StateError(
-        'Kỳ ở của người thuê chính đã kết thúc hoặc không tồn tại',
-      );
-    }
     final writes = batch ?? _firestore.batch();
+    final periodId = await service.ensureActivePeriodForResident(
+      batch: writes,
+      resident: primary.first,
+      roomId: roomId,
+    );
 
     // 3. Thêm cư dân mới (người ở ghép) vào collection residents
     final existingRoommates = await _firestore
@@ -554,10 +544,26 @@ class TenantRepository {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    if (batch == null) await writes.commit();
+    if (batch == null) {
+      await writes.commit();
+      await closeFullRoommatePosts(
+        roomId: roomId,
+        primaryTenantId: primaryTenantId,
+        newRoommateId: newRoommateId,
+      );
+    }
+  }
 
+  Future<void> closeFullRoommatePosts({
+    required String roomId,
+    required String primaryTenantId,
+    required String newRoommateId,
+  }) async {
     try {
-      await RoommateCapacityService(firestore: _firestore).closeHasRoomPostsIfFull(
+      roomId = await ResidentService(_firestore).resolveRoomId(roomId);
+      await RoommateCapacityService(
+        firestore: _firestore,
+      ).closeHasRoomPostsIfFull(
         authorId: primaryTenantId,
         roomId: roomId,
         knownOccupantIds: [primaryTenantId, newRoommateId],

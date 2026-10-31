@@ -39,6 +39,7 @@ abstract final class FirestoreCollections {
 
   // Thông báo & Thanh toán
   static const notifications = 'notifications';
+  static const notificationUser = 'notification_user';
   static const payments = 'payments';
 
   // Bảng liên kết & thực thể theo ERD Database (Tiện ích phòng, Ảnh phòng, Ảnh trọ)

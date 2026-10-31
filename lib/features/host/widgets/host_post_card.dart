@@ -1,12 +1,14 @@
+import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/host_post_model.dart';
-import '../../renter/screens/room_detail_screen.dart';
+import '../screens/host_post_detail_screen.dart';
 
 /// Thẻ hiển thị bài đăng của chủ trọ đối tác theo thiết kế Figma
-class HostPostCard extends StatelessWidget {
+class HostPostCard extends StatefulWidget {
   final HostPostModel post;
   final VoidCallback onChatPressed;
   final VoidCallback? onInterestPressed;
@@ -20,12 +22,33 @@ class HostPostCard extends StatelessWidget {
     this.isOwnPost = false,
   });
 
+  @override
+  State<HostPostCard> createState() => _HostPostCardState();
+}
+
+class _HostPostCardState extends State<HostPostCard> {
+  late final PageController _pageController;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
   void _openDetail(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => RoomDetailScreen(
-          room: post.toRoomModel(),
-          isHostView: isOwnPost,
+        builder: (_) => HostPostDetailScreen(
+          postId: widget.post.id,
+          post: widget.post,
+          isOwnPost: widget.isOwnPost,
         ),
       ),
     );
@@ -54,6 +77,10 @@ class HostPostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final post = widget.post;
+    final isOwnPost = widget.isOwnPost;
+    final onChatPressed = widget.onChatPressed;
+
     final locationText = [
       if (post.district.isNotEmpty) post.district,
       if (post.city.isNotEmpty) post.city,
@@ -419,134 +446,63 @@ class HostPostCard extends StatelessWidget {
 
           const Divider(height: 20, color: Color(0xFFF1F5F9)),
 
-          // 5. Thao tác tương tác & Nút Nhắn tin trao đổi
+          // 5. Nút Nhắn tin trao đổi / Bài của bạn (Đã xóa tim & bình luận)
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-            child: Row(
-              children: [
-                // Nút Quan tâm
-                InkWell(
-                  onTap: onInterestPressed,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 6,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          post.isUserInterested
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          size: 18,
-                          color: post.isUserInterested
-                              ? const Color(0xFFE11D48)
-                              : const Color(0xFF64748B),
+            child: SizedBox(
+              width: double.infinity,
+              child: isOwnPost
+                  ? OutlinedButton.icon(
+                      onPressed: onChatPressed,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF1E60F2),
+                        side: const BorderSide(color: Color(0xFF1E60F2)),
+                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${post.interestedCount}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: post.isUserInterested
-                                ? const Color(0xFFE11D48)
-                                : const Color(0xFF64748B),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-
-                // Lượt phản hồi
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 6,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.chat_bubble_outline,
-                        size: 17,
-                        color: Color(0xFF64748B),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${post.responseCount}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-
-                const Spacer(),
-
-                // Nút Nhắn tin trao đổi / Bài của bạn
-                Flexible(
-                  child: isOwnPost
-                      ? OutlinedButton.icon(
-                          onPressed: onChatPressed,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF1E60F2),
-                            side: const BorderSide(color: Color(0xFF1E60F2)),
-                            minimumSize: const Size(0, 36),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          icon: const Icon(Icons.person_outline, size: 15),
-                          label: const Text(
-                            'Bài của bạn',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        )
-                      : FilledButton.icon(
-                          onPressed: onChatPressed,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E60F2),
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(0, 36),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            elevation: 0,
-                          ),
-                          icon: const Icon(Icons.chat_bubble_outline, size: 15),
-                          label: const Text(
-                            'Nhắn tin trao đổi',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                      icon: const Icon(Icons.person_outline, size: 16),
+                      label: const Text(
+                        'Bài của bạn',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
                         ),
-                ),
-              ],
+                      ),
+                    )
+                  : FilledButton.icon(
+                      onPressed: onChatPressed,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E60F2),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 0,
+                      ),
+                      icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                      label: const Text(
+                        'Nhắn tin trao đổi',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
             ),
           ),
         ],
@@ -556,6 +512,7 @@ class HostPostCard extends StatelessWidget {
 }
 
   Widget _buildAvatar() {
+    final post = widget.post;
     final avatarUrl = post.authorAvatar.trim();
     final initials = post.authorName.isNotEmpty
         ? post.authorName.trim().split(' ').last.substring(0, 1).toUpperCase()
@@ -614,7 +571,42 @@ class HostPostCard extends StatelessWidget {
     return s;
   }
 
+  Widget _buildSingleImage(String raw) {
+    final clean = _cleanUrl(raw);
+    if (clean.isEmpty) return _buildImagePlaceholder();
+
+    if (clean.startsWith('data:image') ||
+        clean.startsWith('base64,') ||
+        (!clean.startsWith('http') && clean.length > 100)) {
+      try {
+        final commaIdx = clean.indexOf(',');
+        final base64Str =
+            commaIdx != -1 ? clean.substring(commaIdx + 1) : clean;
+        final bytes = base64Decode(
+          base64Str.trim().replaceAll(RegExp(r'\s+'), ''),
+        );
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
+        );
+      } catch (_) {
+        return _buildImagePlaceholder();
+      }
+    }
+
+    return Image.network(
+      clean,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+      errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
+    );
+  }
+
   Widget _buildPostImage() {
+    final post = widget.post;
     final rawImages = post.images.isNotEmpty
         ? post.images
         : (post.joinedRoom?.images ?? const <String>[]);
@@ -624,54 +616,170 @@ class HostPostCard extends StatelessWidget {
         .where(
           (img) =>
               img.isNotEmpty &&
-              (img.startsWith('http://') || img.startsWith('https://')),
+              (img.startsWith('http://') ||
+                  img.startsWith('https://') ||
+                  img.startsWith('data:image') ||
+                  img.startsWith('blob:') ||
+                  (!img.startsWith('http') && img.length > 100)),
         )
         .toList();
 
-    if (validImages.isNotEmpty) {
-      final firstImage = validImages.first;
+    if (validImages.isEmpty) {
+      return _buildImagePlaceholder();
+    }
+
+    if (validImages.length == 1) {
       return Container(
-        height: 180,
+        height: 190,
         width: double.infinity,
         color: const Color(0xFFF1F5F9),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.network(
-              firstImage,
-              fit: BoxFit.cover,
-              webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
-              errorBuilder: (ctx, err, stack) => _buildImagePlaceholder(),
+        child: _buildSingleImage(validImages.first),
+      );
+    }
+
+    return Container(
+      height: 190,
+      width: double.infinity,
+      color: const Color(0xFFF1F5F9),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              dragDevices: {
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.stylus,
+                PointerDeviceKind.trackpad,
+              },
             ),
-            if (validImages.length > 1)
-              Positioned(
-                top: 10,
-                right: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '1/${validImages.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: validImages.length,
+              physics: const BouncingScrollPhysics(),
+              onPageChanged: (idx) {
+                setState(() => _currentPage = idx);
+              },
+              itemBuilder: (context, index) {
+                return _buildSingleImage(validImages[index]);
+              },
+            ),
+          ),
+          // Chỉ số trang 1/n
+          Positioned(
+            top: 10,
+            right: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 4,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${_currentPage + 1}/${validImages.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          // Nút mũi tên lùi
+          if (_currentPage > 0)
+            Positioned(
+              left: 8,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      _pageController.previousPage(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.chevron_left_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ),
               ),
-          ],
-        ),
-      );
-    }
-
-    return _buildImagePlaceholder();
+            ),
+          // Nút mũi tên tiến
+          if (_currentPage < validImages.length - 1)
+            Positioned(
+              right: 8,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      _pageController.nextPage(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          // Dots indicator
+          Positioned(
+            bottom: 8,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(validImages.length, (i) {
+                final isCurrent = i == _currentPage;
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                  width: isCurrent ? 14 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: isCurrent
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildImagePlaceholder() {

@@ -113,16 +113,14 @@ class AuthService {
     }
   }
 
-  // Đăng xuất. Xóa fcmToken trước để máy này không còn nhận chuông của tài khoản vừa thoát.
+  // Đăng xuất. Gỡ token của thiết bị hiện tại qua PushNotificationService.
+  // Không xóa vô điều kiện fcmToken để bảo toàn cho các thiết bị khác đang đăng nhập.
   Future<void> signOut() async {
     final uid = _auth.currentUser?.uid;
     if (uid != null) {
       try {
         await PushNotificationService.unbindUser(uid);
       } catch (_) {}
-      await _firestore.collection('users').doc(uid).set({
-        'fcmToken': FieldValue.delete(),
-      }, SetOptions(merge: true));
     }
     await _auth.signOut();
   }

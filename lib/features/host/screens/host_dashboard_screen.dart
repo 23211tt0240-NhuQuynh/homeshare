@@ -46,10 +46,10 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
   static const Color _textSecondary = Color(0xFF475569);
   static const Color _textMuted = Color(0xFF94A3B8);
 
-  // Danh sách các khu vực hardcoded theo bản đồ Việt Nam đầy đủ 63 tỉnh/thành
+  // Danh sách 34 Tỉnh / Thành phố mới của Việt Nam theo Nghị quyết 202/2025/QH15
   static const List<String> _hardcodedLocations = [
     'Tất cả khu vực (Toàn quốc)',
-    ...VietnamLocations.provinces63,
+    ...VietnamLocations.provinces34,
   ];
 
   final _searchController = TextEditingController();

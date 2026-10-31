@@ -159,6 +159,19 @@ class RoomModel {
         s == 'unavailable';
   }
 
+  bool get isOccupied {
+    final s = status.toLowerCase().trim();
+    return s == 'occupied' ||
+        s == 'dathue' ||
+        s == 'da_thue' ||
+        s == 'dang_o' ||
+        s == 'dango' ||
+        s == 'đang ở' ||
+        s == 'đã thuê' ||
+        tenantName.trim().isNotEmpty ||
+        contractId.trim().isNotEmpty;
+  }
+
   /// Kiểm tra xem bài đăng có phải bài mẫu hardcode (sample) không
   bool get isSampleOrHardcode {
     if (id.toLowerCase().startsWith('sample')) return true;
@@ -187,14 +200,14 @@ class RoomModel {
         !isPending &&
         !isHiddenOrRejected &&
         isAvailable &&
+        !isOccupied &&
         !isSampleOrHardcode;
   }
 
   String get statusDisplayLabel {
     if (isPending) return 'Chờ duyệt';
     if (isHiddenOrRejected) return 'Đã ẩn';
-    final s = status.toLowerCase().trim();
-    if (s == 'occupied' || s == 'dathue') return 'Đã thuê';
+    if (isOccupied) return 'Đã thuê';
     return 'Đã duyệt';
   }
 

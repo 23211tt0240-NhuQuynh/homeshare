@@ -43,6 +43,10 @@ class HostNotificationModel {
   final String newRoommateName;
   final String actionType;
   final String userNotificationId;
+  final String hostNotificationId;
+  final String postId;
+  final String postTitle;
+  final String rejectReason;
 
   const HostNotificationModel({
     required this.id,
@@ -81,6 +85,10 @@ class HostNotificationModel {
     this.newRoommateName = '',
     this.actionType = '',
     this.userNotificationId = '',
+    this.hostNotificationId = '',
+    this.postId = '',
+    this.postTitle = '',
+    this.rejectReason = '',
   });
 
   bool get isRoommateApproval =>
@@ -88,6 +96,18 @@ class HostNotificationModel {
       newRoommateId.isNotEmpty ||
       title.contains('ở ghép') ||
       message.contains('ở ghép');
+
+  bool get isPostRejected =>
+      actionType == 'post_rejected' ||
+      title.toLowerCase().contains('bị từ chối') ||
+      message.toLowerCase().contains('bị từ chối');
+
+  /// Thông báo bị mồ côi / mất dữ liệu phòng và khách thuê (thường do booking gốc bị xóa)
+  bool get isOrphaned =>
+      bookingId.isNotEmpty &&
+      (roomTitle.trim().isEmpty || roomTitle == 'Phòng trọ') &&
+      (renterName.trim().isEmpty || renterName == 'Khách thuê') &&
+      amount <= 0;
 
   // Vietnamese Database.docx Alias Getters
   String get notificationId => id;
@@ -129,7 +149,7 @@ class HostNotificationModel {
           : clean.toUpperCase();
       return '#BK$sub';
     }
-    return '#BK12345';
+    return '';
   }
 
   /// Hiển thị số phòng gắn trên huy hiệu đầu card (vd: "101")
@@ -144,7 +164,7 @@ class HostNotificationModel {
     }
     final match = RegExp(r'\d+').firstMatch(roomTitle);
     if (match != null) return match.group(0)!;
-    return '101';
+    return '';
   }
 
   /// Sao chép với các trường mới
@@ -254,7 +274,9 @@ class HostNotificationModel {
 
     final actionType =
         data['actionType']?.toString() ??
-        (rawType == 'roommate_approval' ? 'roommate_approval' : '');
+        (rawType == 'post_rejected'
+            ? 'post_rejected'
+            : (rawType == 'roommate_approval' ? 'roommate_approval' : ''));
     final newRoommateId = data['newRoommateId']?.toString() ?? '';
     final title =
         (data[NotificationFields.title] ??
@@ -264,6 +286,7 @@ class HostNotificationModel {
     final message =
         (data[NotificationFields.message] ??
                 data[NotificationFields.legacyMessage] ??
+                data['body'] ??
                 '')
             .toString();
 
@@ -295,10 +318,16 @@ class HostNotificationModel {
       }
     } else {
       // Thông báo đặt phòng / đặt cọc thông thường:
+      final rawStatus = (data['status'] ?? '').toString().trim().toLowerCase();
       final isStaying = statusId == 'dango' ||
           statusId == 'active' ||
           statusId == 'danhanphong' ||
           statusId == 'living' ||
+          rawStatus == 'dango' ||
+          rawStatus == 'active' ||
+          rawStatus == 'danhanphong' ||
+          data['isCheckIn'] == true ||
+          data['daNhanPhong'] == true ||
           baseType == HostNotificationType.staying;
 
       final isApproved = statusId == 'approved' ||
@@ -348,6 +377,7 @@ class HostNotificationModel {
           data[NotificationFields.legacyReceiverId] ??
           data['chuNhaId'] ??
           data['hostId'] ??
+          data['userId'] ??
           '',
       senderId:
           data[NotificationFields.senderId] ??
@@ -446,10 +476,16 @@ class HostNotificationModel {
       newRoommateName: data['newRoommateName']?.toString() ?? '',
       actionType:
           data['actionType']?.toString() ??
-          (data['notificationType'] == 'roommate_approval'
-              ? 'roommate_approval'
-              : ''),
+          (rawType == 'post_rejected'
+              ? 'post_rejected'
+              : (data['notificationType'] == 'roommate_approval'
+                  ? 'roommate_approval'
+                  : '')),
       userNotificationId: data['userNotificationId']?.toString() ?? '',
+      hostNotificationId: data['hostNotificationId']?.toString() ?? '',
+      postId: (data['postId'] ?? data['baiDangId'] ?? '').toString(),
+      postTitle: (data['postTitle'] ?? data['tieuDe'] ?? '').toString(),
+      rejectReason: (data['reason'] ?? data['rejectReason'] ?? data['lyDoTuChoi'] ?? '').toString(),
     );
   }
 

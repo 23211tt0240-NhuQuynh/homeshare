@@ -339,13 +339,12 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                             );
                           },
                         ),
-                        // Badge số báo cáo user đang chờ xử lý (chỉ đếm báo cáo chủ trọ / user, không tính bài viết)
+                        // Badge số đánh giá chủ trọ đang chờ xử lý
                         StreamBuilder<QuerySnapshot>(
                           stream: () {
                             try {
                               return FirebaseFirestore.instance
-                                  .collection('reports')
-                                  .where('status', isEqualTo: 'pending')
+                                  .collection('host_reviews')
                                   .snapshots();
                             } catch (_) {
                               return const Stream<QuerySnapshot>.empty();
@@ -354,9 +353,8 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                           builder: (context, snapshot) {
                             final count = snapshot.data?.docs.where((d) {
                               final data = d.data() as Map<String, dynamic>? ?? {};
-                              final targetType = (data['targetType'] ?? data['reportType'] ?? '').toString().toLowerCase();
-                              final isPost = targetType == 'post' || d.id.startsWith('BCB_') || data['isPostReport'] == true;
-                              return !isPost;
+                              final status = (data['status'] ?? 'pending').toString().toLowerCase();
+                              return status == 'pending';
                             }).length ?? 0;
                             return _buildNavItem(
                               index: 3,

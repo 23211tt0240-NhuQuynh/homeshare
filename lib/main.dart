@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
+import 'core/providers/app_settings_provider.dart';
 import 'core/constants/app_colors.dart';
 import 'core/services/call_push_service.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/theme/app_theme.dart';
-import 'core/theme/app_theme_controller.dart';
 import 'features/admin/screens/admin_main_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/providers/user_provider.dart';
@@ -17,6 +18,20 @@ import 'features/renter/screens/renter_main_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Nạp sẵn tùy chọn theme ban đầu để giao diện sáng/tối chuẩn xác ngay khung hình đầu tiên
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final savedTheme = prefs.getString('app_theme_mode') ?? prefs.getString('app_theme_mode_preference');
+    if (savedTheme == 'dark') {
+      AppThemeModeNotifier.initialMode = ThemeMode.dark;
+    } else if (savedTheme == 'system') {
+      AppThemeModeNotifier.initialMode = ThemeMode.system;
+    } else if (savedTheme == 'light') {
+      AppThemeModeNotifier.initialMode = ThemeMode.light;
+    }
+  } catch (_) {}
+
   // Tạo kênh chuông "Cuộc gọi" và đăng ký handler khi app ở nền hoặc đã tắt.
   await CallPushService.prepare();
   // Khởi tạo hệ thống Push Notification & Local Notifications toàn diện
@@ -29,7 +44,7 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeState = ref.watch(appThemeControllerProvider).value;
+    final themeMode = ref.watch(appThemeModeProvider);
     return MaterialApp(
       title: 'HomeShare',
       debugShowCheckedModeBanner: false,
@@ -37,11 +52,16 @@ class MyApp extends ConsumerWidget {
       navigatorKey: navigatorKey,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: themeState?.mode ?? ThemeMode.light,
+      themeMode: themeMode,
       builder: (context, child) {
-        AppColors.bind(Theme.of(context).brightness);
+        final brightness = Theme.of(context).brightness;
+        AppColors.bind(brightness);
         return DefaultTextStyle.merge(
-          style: TextStyle(color: AppColors.textDark),
+          style: TextStyle(
+            color: brightness == Brightness.dark
+                ? const Color(0xFFF1F5F9)
+                : const Color(0xFF101828),
+          ),
           child: child ?? const SizedBox.shrink(),
         );
       },

@@ -11,6 +11,7 @@ class HostPostModel {
   // Các trường cốt lõi trong Schema Firestore
   final String id; // postId / baiDangId
   final String roomId; // phongId [FK -> rooms]
+  final String propertyId; // nhaTroId [FK -> properties]
   final String hostId; // chuNhaId [FK -> users]
   final String locationId; // diaDiemId [FK -> locations]
   final String rentalTypeId; // loaiThue_id
@@ -26,6 +27,10 @@ class HostPostModel {
   final String contactPhone; // soDienThoaiLienHe
   final DateTime createdAt; // ngayDang
   final String status; // trangThai
+  final String rejectReason; // lyDoTuChoi (từ Firestore khi admin từ chối)
+  final DateTime? hostResubmittedAt; // thời gian chủ trọ gửi duyệt lại
+  final DateTime? reviewedAt; // thời gian admin duyệt / từ chối
+  final String reviewedBy; // adminId thực hiện duyệt
 
   // Các trường nghiệp vụ giao diện và ghép nối bộ nhớ (IN-MEMORY ONLY - KHÔNG LƯU FIRESTORE)
   final String authorName;
@@ -47,6 +52,7 @@ class HostPostModel {
   HostPostModel({
     required this.id,
     String? roomId,
+    String? propertyId,
     String? hostId,
     String? locationId,
     String? rentalTypeId,
@@ -62,6 +68,10 @@ class HostPostModel {
     String? contactPhone,
     DateTime? createdAt,
     this.status = 'dangHienThi',
+    String? rejectReason,
+    this.hostResubmittedAt,
+    this.reviewedAt,
+    this.reviewedBy = '',
     // In-memory UI fields
     this.authorName = '',
     this.authorAvatar = '',
@@ -80,6 +90,7 @@ class HostPostModel {
     this.joinedHost,
     // Vietnamese legacy named parameters
     String? phongId,
+    String? nhaTroId,
     String? chuNhaId,
     String? diaDiemId,
     String? loaiThueId,
@@ -91,7 +102,9 @@ class HostPostModel {
     int? phanTramTienCoc,
     String? soDienThoaiLienHe,
     DateTime? ngayDang,
+    String? lyDoTuChoi,
   }) : roomId = roomId ?? phongId ?? '',
+       propertyId = propertyId ?? nhaTroId ?? joinedRoom?.propertyId ?? '',
        hostId = hostId ?? chuNhaId ?? '',
        locationId = locationId ?? diaDiemId ?? '',
        rentalTypeId = rentalTypeId ?? loaiThueId ?? 'thang',
@@ -102,10 +115,14 @@ class HostPostModel {
        depositAmount = depositAmount ?? tienCoc ?? 0.0,
        depositPercentage = depositPercentage ?? phanTramTienCoc ?? 20,
        contactPhone = contactPhone ?? soDienThoaiLienHe ?? '',
-       createdAt = createdAt ?? ngayDang ?? DateTime.now();
+       createdAt = createdAt ?? ngayDang ?? DateTime.now(),
+       rejectReason = (rejectReason != null && rejectReason.isNotEmpty)
+           ? rejectReason
+           : (lyDoTuChoi ?? '');
 
   // Vietnamese Schema Aliases for backward compatibility in code
   String get phongId => roomId;
+  String get nhaTroId => propertyId;
   String get chuNhaId => hostId;
   String get diaDiemId => locationId;
   String get loaiThueId => rentalTypeId;
@@ -121,11 +138,66 @@ class HostPostModel {
   String get soDienThoaiLienHe => contactPhone;
   DateTime get ngayDang => createdAt;
   String get trangThai => status;
+  String get lyDoTuChoi => rejectReason;
+
+  bool get isRejected {
+    final s = status.toLowerCase().trim();
+    final sId = statusId.toLowerCase().trim();
+    return s == 'rejected' ||
+        s == 'tuchoi' ||
+        s == 'tu_choi' ||
+        s == 'bituchoi' ||
+        s == 'bi_tu_choi' ||
+        sId == 'rejected' ||
+        sId == 'tuchoi' ||
+        sId == 'tu_choi' ||
+        sId == 'bituchoi' ||
+        sId == 'bi_tu_choi';
+  }
+
+  bool get isPending {
+    final s = status.toLowerCase().trim();
+    final sId = statusId.toLowerCase().trim();
+    return s == 'pending' ||
+        s == 'choduyet' ||
+        s == 'cho_duyet' ||
+        sId == 'pending' ||
+        sId == 'choduyet' ||
+        sId == 'cho_duyet';
+  }
+
+  bool get isApprovedOrActive {
+    final s = status.toLowerCase().trim();
+    final sId = statusId.toLowerCase().trim();
+    return isActive ||
+        s == 'active' ||
+        s == 'approved' ||
+        s == 'daduyet' ||
+        s == 'da_duyet' ||
+        s == 'danghienthi' ||
+        s == 'dang_hien_thi' ||
+        s == 'published' ||
+        sId == 'active' ||
+        sId == 'approved' ||
+        sId == 'daduyet' ||
+        sId == 'da_duyet' ||
+        sId == 'danghienthi' ||
+        sId == 'dang_hien_thi' ||
+        sId == 'published';
+  }
 
   bool get isActive {
     final sId = statusId.toLowerCase().trim();
-    const activeStatuses = {'active', 'danghienthi', 'published', 'approved'};
-    return activeStatuses.contains(sId);
+    final s = status.toLowerCase().trim();
+    const activeStatuses = {
+      'active',
+      'danghienthi',
+      'published',
+      'approved',
+      'daduyet',
+      'da_duyet',
+    };
+    return activeStatuses.contains(sId) || activeStatuses.contains(s);
   }
 
   /// Đường dẫn Sub-collection trên Firestore theo quan hệ 1-N:
@@ -153,6 +225,7 @@ class HostPostModel {
     return {
       'id': id,
       'roomId': roomId,
+      'propertyId': propertyId,
       'hostId': hostId,
       'title': title,
       'description': description,
@@ -295,6 +368,14 @@ class HostPostModel {
                   '')
               .toString()
               .trim(),
+      propertyId:
+          (data['propertyId'] ??
+                  data['nhaTroId'] ??
+                  data['nha_tro_id'] ??
+                  data['nhaId'] ??
+                  '')
+              .toString()
+              .trim(),
       hostId:
           (data[BaiDangChoThueSqlFields.chuTroId] ??
                   data['chu_tro_id'] ??
@@ -405,6 +486,26 @@ class HostPostModel {
           data['daXacThuc'] == true,
       isVip: data['isVip'] == true || data['vip'] == true,
       isUserInterested: isUserInterested,
+      rejectReason: (data['rejectReason'] ??
+              data['lyDoTuChoi'] ??
+              data['reason'] ??
+              data['ly_do_tu_choi'] ??
+              '')
+          .toString()
+          .trim(),
+      hostResubmittedAt: data['hostResubmittedAt'] is Timestamp
+          ? (data['hostResubmittedAt'] as Timestamp).toDate()
+          : (data['hostResubmittedAt'] is String
+              ? DateTime.tryParse(data['hostResubmittedAt'])
+              : null),
+      reviewedAt: data['reviewedAt'] is Timestamp
+          ? (data['reviewedAt'] as Timestamp).toDate()
+          : (data['reviewedAt'] is String
+              ? DateTime.tryParse(data['reviewedAt'])
+              : null),
+      reviewedBy: (data['reviewedBy'] ?? data['nguoiDuyet'] ?? '')
+          .toString()
+          .trim(),
     );
   }
 
@@ -470,6 +571,10 @@ class HostPostModel {
     bool? isUserInterested,
     RoomModel? joinedRoom,
     UserProfile? joinedHost,
+    String? rejectReason,
+    DateTime? hostResubmittedAt,
+    DateTime? reviewedAt,
+    String? reviewedBy,
     // Vietnamese legacy named params
     String? phongId,
     String? chuNhaId,
@@ -483,6 +588,7 @@ class HostPostModel {
     int? phanTramTienCoc,
     String? soDienThoaiLienHe,
     DateTime? ngayDang,
+    String? lyDoTuChoi,
   }) {
     return HostPostModel(
       id: id ?? this.id,
@@ -503,6 +609,10 @@ class HostPostModel {
       contactPhone: contactPhone ?? soDienThoaiLienHe ?? this.contactPhone,
       createdAt: createdAt ?? ngayDang ?? this.createdAt,
       status: status ?? this.status,
+      rejectReason: rejectReason ?? lyDoTuChoi ?? this.rejectReason,
+      hostResubmittedAt: hostResubmittedAt ?? this.hostResubmittedAt,
+      reviewedAt: reviewedAt ?? this.reviewedAt,
+      reviewedBy: reviewedBy ?? this.reviewedBy,
       authorName: authorName ?? this.authorName,
       authorAvatar: authorAvatar ?? this.authorAvatar,
       propertyName: propertyName ?? this.propertyName,
@@ -562,9 +672,12 @@ class HostPostModel {
 
   /// Chuyển đổi sang RoomModel để mở trực tiếp màn hình chi tiết RoomDetailScreen
   RoomModel toRoomModel() {
+    final effectiveRoomId = roomId.trim().isNotEmpty
+        ? roomId.trim()
+        : ((joinedRoom?.id.trim().isNotEmpty == true) ? joinedRoom!.id.trim() : id);
     return RoomModel(
-      id: id,
-      propertyId: joinedRoom?.propertyId ?? '',
+      id: effectiveRoomId,
+      propertyId: propertyId.isNotEmpty ? propertyId : (joinedRoom?.propertyId ?? ''),
       roomCode: joinedRoom?.roomCode ?? (roomId.isNotEmpty ? roomId : 'P001'),
       status: status.isNotEmpty ? status : statusId,
       title: title.isNotEmpty ? title : (joinedRoom?.title ?? ''),
