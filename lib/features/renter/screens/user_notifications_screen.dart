@@ -6,9 +6,18 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/firestore_collections.dart';
 import '../../../core/services/chat_service.dart';
+import '../../../core/services/room_service.dart';
+import '../../../core/services/roommate_service.dart';
+import '../../../data/models/room_model.dart';
+import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
+import 'my_homes_screen.dart';
+import 'renter_bookings_screen.dart';
+import 'room_detail_screen.dart';
+import 'roommate_community_screen.dart';
+import 'roommate_post_detail_screen.dart';
 
 /// Provider stream danh sách thông báo của User (Renter), đồng bộ hợp nhất từ `notification_user` và `notifications` cũ
 final userNotificationsStreamProvider =
@@ -245,6 +254,17 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
+      // 4. Đồng bộ tức thời sang tin nhắn Chat trong Realtime Database
+      await ref.read(chatServiceProvider).syncRoommateInviteFromNotificationToChat(
+            senderId: senderId,
+            receiverId: currentUserId,
+            roomId: roomId,
+            newStatus: 'accepted',
+            acceptedBy: currentUserId,
+            acceptedByName: currentUserName,
+            messageId: data['messageId']?.toString() ?? '',
+          );
+
       if (context.mounted) {
         Navigator.pop(context); // Đóng loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
@@ -270,12 +290,26 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
     required DocumentSnapshot doc,
   }) async {
     try {
+      final data = (doc.data() as Map<String, dynamic>?) ?? {};
+      final currentUserId = ref.read(authStateProvider).value?.uid ?? '';
+      final senderId = data['senderId']?.toString() ?? '';
+      final roomId = data['roomId']?.toString() ?? '';
+
       await doc.reference.update({
         'status': 'rejected',
         'isRead': true,
         'daDoc': true,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // Đồng bộ tức thời sang tin nhắn Chat trong Realtime Database
+      await ref.read(chatServiceProvider).syncRoommateInviteFromNotificationToChat(
+            senderId: senderId,
+            receiverId: currentUserId,
+            roomId: roomId,
+            newStatus: 'rejected',
+            messageId: data['messageId']?.toString() ?? '',
+          );
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -312,6 +346,305 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
         ),
       ),
     );
+  }
+
+  Future<void> _openRoomDetailById(BuildContext context, String roomId) async {
+    try {
+      bool dialogOpen = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      ).then((_) => dialogOpen = false);
+
+      final roomService = ref.read(roomServiceProvider);
+      RoomModel? room = await roomService.getRoomById(roomId);
+
+      if (dialogOpen && context.mounted) {
+        Navigator.pop(context);
+      }
+
+      final resolvedRoom = room;
+      if (resolvedRoom != null && context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => RoomDetailScreen(room: resolvedRoom)),
+        );
+      } else if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không tìm thấy thông tin chi tiết phòng trọ này.'),
+            backgroundColor: Color(0xFFD92D20),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi khi mở phòng: '),
+            backgroundColor: const Color(0xFFD92D20),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _openPostDetailById(BuildContext context, String postId) async {
+    try {
+      bool dialogOpen = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      ).then((_) => dialogOpen = false);
+
+      final doc = await FirebaseFirestore.instance.collection('roommate_posts').doc(postId).get();
+      RoommatePostModel? post;
+      if (doc.exists) {
+        post = RoommatePostModel.fromFirestore(doc);
+      } else {
+        final demos = RoommateService.getDemoRoommatePosts();
+        final match = demos.where((p) => p.id == postId);
+        if (match.isNotEmpty) post = match.first;
+      }
+
+      if (dialogOpen && context.mounted) {
+        Navigator.pop(context);
+      }
+
+      final resolvedPost = post;
+      if (resolvedPost != null && context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => RoommatePostDetailScreen(post: resolvedPost)),
+        );
+      } else if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RoommateCommunityScreen()),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RoommateCommunityScreen()),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleNotificationTap(
+    BuildContext context,
+    DocumentSnapshot doc,
+    Map<String, dynamic> data,
+  ) async {
+    _markAsRead(doc.reference);
+
+    final rawType = (data['notificationType'] ?? data['type'] ?? '').toString();
+    final type = rawType.toLowerCase().trim();
+    final status = (data['status'] ?? '').toString().toLowerCase().trim();
+    final title = (data['title'] ?? data['tieuDe'] ?? '').toString().toLowerCase();
+    final message = (data['message'] ?? data['body'] ?? data['noiDung'] ?? '').toString().toLowerCase();
+
+    final roomId = (data['roomId'] ?? '').toString();
+    final bookingId = (data['bookingId'] ?? '').toString();
+    final postId = (data['postId'] ?? '').toString();
+    final senderId = (data['senderId'] ?? data['nguoiGuiId'] ?? data['peerId'] ?? '').toString();
+    final senderName = (data['senderName'] ?? data['nguoiGuiTen'] ?? data['peerName'] ?? 'Người gửi').toString();
+
+    // 1. Nhận phòng / Ở ghép đã duyệt vào phòng / Đang ở -> MyHomesScreen (Tab 0: Phòng đang thuê)
+    if (type == 'roommate_approved' ||
+        type == 'checkin' ||
+        type == 'check_in' ||
+        type == 'nhan_phong' ||
+        title.contains('duyệt vào phòng') ||
+        title.contains('duyệt bạn cùng phòng') ||
+        title.contains('nhận phòng') ||
+        title.contains('bàn giao') ||
+        message.contains('duyệt vào ở ghép') ||
+        message.contains('vào ở ghép cùng')) {
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const MyHomesScreen(initialTab: 0)),
+        );
+      }
+      return;
+    }
+
+    // 2. Trả phòng / Lịch sử thuê -> MyHomesScreen (Tab 1: Lịch sử đã ở)
+    if (type == 'checkout' ||
+        type == 'check_out' ||
+        type == 'da_tra_phong' ||
+        title.contains('trả phòng') ||
+        message.contains('trả phòng')) {
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const MyHomesScreen(initialTab: 1)),
+        );
+      }
+      return;
+    }
+
+    // 3. Lời mời ở ghép -> Xem chi tiết phòng hoặc nhắn tin
+    if (type == 'roommate_invitation') {
+      if (roomId.isNotEmpty) {
+        await _openRoomDetailById(context, roomId);
+        return;
+      }
+      if (senderId.isNotEmpty && context.mounted) {
+        _openChatWithSender(
+          context: context,
+          senderId: senderId,
+          senderName: senderName,
+        );
+        return;
+      }
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RoommateCommunityScreen()),
+        );
+      }
+      return;
+    }
+
+    // 4. Đổi lịch dọn vào -> RenterBookingsScreen (Đang xử lý)
+    if (type == 'booking_adjustment' ||
+        type == 'change_move_in_date' ||
+        type == 'booking_date_change' ||
+        data['newCheckInDate'] != null ||
+        title.contains('đổi lịch') ||
+        message.contains('đổi lịch')) {
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const RenterBookingsScreen(initialStatusFilter: 'Đang xử lý'),
+          ),
+        );
+      }
+      return;
+    }
+
+    // 5. Đơn bị hủy / Hoàn tiền -> RenterBookingsScreen (Đã hủy)
+    if (type == 'cancellation_invoice' ||
+        type == 'refund' ||
+        type == 'cancelled' ||
+        status == 'cancelled' ||
+        status == 'rejected' ||
+        title.contains('hủy') ||
+        title.contains('hoàn tiền') ||
+        message.contains('đã bị hủy') ||
+        message.contains('đã được hủy')) {
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const RenterBookingsScreen(initialStatusFilter: 'Đã hủy'),
+          ),
+        );
+      }
+      return;
+    }
+
+    // 6. Đơn thuê đã duyệt / Đặt cọc / Thanh toán -> RenterBookingsScreen (Đã duyệt)
+    if (type == 'booking_approved' ||
+        status == 'approved' ||
+        type == 'payment' ||
+        type == 'deposit' ||
+        type == 'deposit_paid' ||
+        type == 'payment_completed' ||
+        title.contains('đã được duyệt') ||
+        title.contains('đặt cọc') ||
+        title.contains('thanh toán')) {
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const RenterBookingsScreen(initialStatusFilter: 'Đã duyệt'),
+          ),
+        );
+      }
+      return;
+    }
+
+    // 7. Đơn thuê chung -> RenterBookingsScreen
+    if (type == 'booking' || bookingId.isNotEmpty) {
+      if (context.mounted) {
+        final initialFilter = status == 'approved'
+            ? 'Đã duyệt'
+            : (status == 'pending' ? 'Đang xử lý' : 'Tất cả');
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RenterBookingsScreen(initialStatusFilter: initialFilter),
+          ),
+        );
+      }
+      return;
+    }
+
+    // 8. Bài đăng ở ghép (Post)
+    if (type == 'roommate_post' ||
+        type == 'post_approved' ||
+        type == 'post_rejected' ||
+        postId.isNotEmpty ||
+        title.contains('bài đăng')) {
+      if (postId.isNotEmpty) {
+        await _openPostDetailById(context, postId);
+        return;
+      }
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RoommateCommunityScreen()),
+        );
+      }
+      return;
+    }
+
+    // 9. Tin nhắn trò chuyện
+    if (type == 'chat_message' || type == 'chat' || title.contains('tin nhắn')) {
+      if (senderId.isNotEmpty && context.mounted) {
+        _openChatWithSender(
+          context: context,
+          senderId: senderId,
+          senderName: senderName,
+        );
+        return;
+      }
+    }
+
+    // 10. Thông báo có roomId
+    if (roomId.isNotEmpty) {
+      await _openRoomDetailById(context, roomId);
+      return;
+    }
+
+    // 11. Từ chối ở ghép -> Nhắn tin với sender hoặc chuyển sang cộng đồng ở ghép
+    if (type == 'roommate_rejected' || title.contains('từ chối yêu cầu vào ở ghép')) {
+      if (senderId.isNotEmpty && context.mounted) {
+        _openChatWithSender(
+          context: context,
+          senderId: senderId,
+          senderName: senderName,
+        );
+        return;
+      }
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RoommateCommunityScreen()),
+        );
+      }
+      return;
+    }
   }
 
   Future<void> _respondToBookingAdjustment({
@@ -579,7 +912,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
 
     // Thẻ thông báo phân loại chi tiết theo màu sắc và icon trực quan
     return InkWell(
-      onTap: () => _markAsRead(doc.reference),
+      onTap: () => _handleNotificationTap(context, doc, data),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -974,9 +1307,12 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
     final priceFormatted = NumberFormat('#,###', 'vi_VN').format(price);
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
+    return InkWell(
+      onTap: () => _handleNotificationTap(context, doc, data),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
@@ -1192,6 +1528,25 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
                 ],
               ),
             )
+          else if (status == 'revoked')
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.remove_circle_outline, color: Color(0xFF64748B), size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'Người gửi đã thu hồi lời mời ở ghép',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            )
           else
             Row(
               children: [
@@ -1237,6 +1592,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
             ),
         ],
       ),
+      ),
     );
   }
 
@@ -1264,9 +1620,12 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
         : '';
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
+    return InkWell(
+      onTap: () => _handleNotificationTap(context, doc, data),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
         color: isDark
             ? (isRead ? const Color(0xFF1E293B) : const Color(0xFF243048))
             : (isRead ? Colors.white : const Color(0xFFF0FDF4)),
@@ -1571,6 +1930,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
             ),
           ],
         ],
+      ),
       ),
     );
   }

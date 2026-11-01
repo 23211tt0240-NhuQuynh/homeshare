@@ -23,6 +23,43 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.90 - Chuẩn Hóa Phân Hệ Thông Báo Firebase: Thông Báo Người Dùng Chỉ Ghi Ở notification_user:**
+    - **Mục tiêu & Nguyên tắc kiến trúc:**
+      + Chuẩn hóa triệt để kiến trúc lưu trữ thông báo trên Firebase Cloud Firestore: Toàn bộ thông báo gửi cho Người dùng / Người thuê (`renter` / `user`) CHỈ được ghi vào collection `notification_user` (`FirestoreCollections.notificationUser`).
+      + Tuyệt đối không ghi đúp hoặc tạo document gửi cho người dùng trong collection `notifications` (Collection `notifications` dành riêng cho Chủ trọ `host` và Quản trị viên `admin`).
+    - **Các module & repository được chuẩn hóa:**
+      + `HostNotificationRepository`:
+        * Thêm getter `_userNotificationsCol` trỏ chuẩn xác đến `FirestoreCollections.notificationUser`.
+        * `requestBookingAdjustment`: Ghi thông báo đề xuất đổi ngày nhận phòng cho người thuê trực tiếp vào `notification_user`.
+        * `approveRoommateRequest`: Cập nhật trạng thái `userNotificationId` trực tiếp trên `notification_user`, đồng thời gửi thông báo duyệt thành công (`roommate_approved`) cho cả người ở ghép mới và người thuê chính vào `notification_user`.
+        * `rejectRoommateRequest`: Cập nhật trạng thái `userNotificationId` trực tiếp trên `notification_user` thành `host_rejected`, gửi thông báo từ chối (`roommate_rejected`) vào `notification_user`.
+        * `acceptBookingAdjustment` & `rejectBookingAdjustment`: Cập nhật trạng thái phản hồi của người thuê trên `notification_user`.
+      + `BookingService`:
+        * `approveBooking`: Gửi thông báo duyệt đơn đặt cọc giữ phòng vào `notification_user` với đầy đủ các trường `recipientId`, `receiverId`, `userId`, `recipientRole: 'renter'`.
+        * `confirmCheckin`: Gửi thông báo nhận phòng thành công vào `notification_user`.
+        * `cancelBooking`: Gửi thông báo hủy đơn cho người thuê vào `notification_user`.
+      + `AdminUsersScreen` & `CancellationInvoiceScreen`:
+        * Điều hướng lưu thông báo người dùng / người thuê về `notification_user` và thông báo chủ trọ / admin về `notifications`.
+      + `ChatService`:
+        * `notifyUserRoommateInvitation`: Đảm bảo chỉ ghi lời mời ở ghép gửi cho người dùng vào duy nhất collection `notification_user`.
+    - **Kiểm định chất lượng:**
+      + Flutter analyze: `No issues found!` trên toàn bộ `lib/`.
+      + Flutter test: 20/20 test cases xanh (5/5 unit tests trong `roommate_invite_sync_test.dart`, 15/15 unit tests trong `my_homes_screen_test.dart`).
+
+  * **Phase 2.89 - Đồng Bộ Hai Chiều Realtime Trạng Thái Lời Mời Ở Ghép (Tin Nhắn Chat & Chuông Thông Báo):**
+    - **Mục tiêu & Yêu cầu:** Khi người dùng gửi tin mời ở ghép, sau khi chấp nhận (hoặc từ chối / thu hồi) thì trạng thái phần thông báo phải đồng bộ tuyệt đối với trong tin nhắn và ngược lại (Bidirectional Realtime Sync).
+    - **Nâng cấp Service (`ChatService`):**
+      + `notifyUserRoommateInvitation`: Bổ sung tham số `messageId`, ghi đồng thời vào cả 2 collection `notification_user` và `notifications`, trả về `notificationId` để liên kết trực tiếp với tin nhắn.
+      + `syncRoommateInviteFromChatToNotification`: Khi người nhận bấm "Chấp nhận" / "Từ chối" / "Thu hồi" trong tin nhắn chat, tự động quét và cập nhật trạng thái tương ứng trên Firestore thông báo (`waiting_host_approval`, `rejected`, `revoked`), đồng thời trích xuất `userNotificationId` chuyển tiếp chính xác đến Chủ trọ duyệt (`notifyHostRoommateAccepted`).
+      + `syncRoommateInviteFromNotificationToChat`: Khi người nhận bấm "Chấp nhận" / "Từ chối" trên thẻ thông báo, tự động quét và cập nhật trạng thái tương ứng trên Realtime Database tin nhắn chat (`messages/{chatId}/{messageId}/extraData`), chuyển ngay sang `status: 'accepted'`, `acceptedBy`, `acceptedByName`.
+    - **Chuẩn hóa Giao diện Chat & Thông Báo:**
+      + `ChatDetailScreen`: Nhận diện đầy đủ các trạng thái đã đồng ý (`accepted`, `waiting_host_approval`, `accepted_waiting_host`, `approved`, `daChapNhan`), hiển thị badge xanh *"Đã chấp nhận • Đã gửi thông báo đến chủ nhà"*, đóng các nút hành động khi đã xử lý. Nhận diện trạng thái đã thu hồi `revoked` và đã từ chối `rejected`.
+      + `UserNotificationsScreen`: Khi chấp nhận ở thông báo, tự động kích hoạt đồng bộ sang chat; khi từ chối, cập nhật đồng bộ sang chat. Bổ sung nhánh xử lý lời mời đã thu hồi (`revoked`), ngăn chặn tình trạng hiện nút thao tác khi đối phương đã hủy lời mời.
+      + `SendRoommateInviteSheet`: Khởi tạo và liên kết chặt chẽ `messageId` và `notificationId` ngay khi tạo lời mời ở ghép.
+    - **Kiểm định chất lượng:**
+      + Flutter analyze: `No issues found!` trên toàn bộ `lib/`.
+      + Flutter test: 100% test case xanh (4/4 test `roommate_invite_sync_test.dart`, 23/23 test hồi quy `roommate_invitation_eligibility_test.dart` và `my_homes_screen_test.dart`).
+
   * **Phase 2.88 - Chuẩn Hóa Phân Loại Đơn Thuê Sau Check-out (Chuyển Vào "Lịch Sử Đã Ở", Không Vào "Đã Hủy"):**
     - **Tách biệt ranh giới nghiệp vụ Đã Hủy vs Check-out:**
       + *Đã hủy (`cancelled` / `rejected` / `isCancelled == true`):* Áp dụng riêng cho các đơn bị hủy cọc, người thuê chủ động hủy hoặc chủ trọ từ chối trước/trong giao dịch thuê phòng. Xuất hiện tại tab "Đã hủy" của `RenterBookingsScreen`.
@@ -2954,3 +2991,32 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
      - `flutter analyze`: **0 errors, 0 warnings (No issues found!)**.
      - `flutter test`: **34/34 tests Passed (100%)**.
      - Đóng gói APK Release cập nhật vào `D:\App\HomeShare.apk` và `D:\App\app-release.apk`.
+
+---
+
+### Phase 2.87: Chuẩn Hóa Số Liệu Thống Kê Trang Cá Nhân (Saved/Appointments Count) & Điều Hướng Thông Minh Thông Báo Người Dùng
+* **Ngày hoàn thành:** 31/10/2026
+* **Yêu cầu & Thực hiện:**
+  1. **Khắc phục số lượng thống kê sai lệch tại Trang cá nhân (`HomeScreen`):**
+     - **Phòng đã lưu (`savedCount`):**
+       + Trước đây đếm theo `favState.favoriteRoomIds.length`, bị lệch khi local cache/SharedPreferences còn lưu ID phòng rác hoặc phòng đã bị xóa khỏi hệ thống.
+       + Cập nhật sang `favState.favoriteRooms.length` để đồng bộ 100% với danh sách phòng thực tế hiển thị trong `FavoriteRoomsScreen` (hiển thị `00` khi không có phòng lưu).
+       + Bổ sung cơ chế dọn dẹp (pruning) ID phòng và bài đăng hỏng/không tồn tại trong `FavoritesService._hydrateMissingRooms` và `_hydrateMissingPosts`.
+     - **Lịch hẹn / Đơn chờ xử lý (`appointmentCount`):**
+       + Trước đây đếm theo `!b.isCancelled && !b.isActive`, khiến các đơn cũ đã trả phòng / check-out (`isCheckedOut`) bị đếm nhầm vào lịch hẹn (hiển thị `01`).
+       + Chuẩn hóa thành `bookings.where((b) => b.isPending).length`, khớp 100% với tab `Đang xử lý` của màn hình `RenterBookingsScreen`.
+  2. **Điều hướng thông minh khi nhấn vào thông báo (`UserNotificationsScreen`):**
+     - Xây dựng hàm `_handleNotificationTap`:
+       + Tự động đánh dấu đã đọc (`isRead: true`, `daDoc: true`).
+       + `roommate_approved` / `checkin` / `active`: Điều hướng đến `MyHomesScreen(initialTab: 0)` (Phòng đang thuê).
+       + `checkout`: Điều hướng đến `MyHomesScreen(initialTab: 1)` (Lịch sử đã ở).
+       + `roommate_invitation`: Tải thông tin phòng và mở `RoomDetailScreen` (nếu có `roomId`) hoặc mở `ChatDetailScreen` với người gửi.
+       + `booking_adjustment` / đổi lịch hẹn: Mở `RenterBookingsScreen(initialStatusFilter: 'Đang xử lý')`.
+       + `cancellation_invoice` / `refund` / `cancelled`: Mở `RenterBookingsScreen(initialStatusFilter: 'Đã hủy')`.
+       + `booking_approved` / thanh toán cọc thành công: Mở `RenterBookingsScreen(initialStatusFilter: 'Đã duyệt')`.
+       + `roommate_post` / `post_approved`: Mở `RoommatePostDetailScreen` hoặc `RoommateCommunityScreen`.
+       + `chat_message`: Mở `ChatDetailScreen`.
+     - Bọc toàn bộ các thẻ thông báo (`_buildNotificationCard`, `_buildRoommateInviteCard`, `_buildBookingAdjustmentCard`) bằng `InkWell` gọi `_handleNotificationTap`.
+  3. **Kiểm tra chất lượng:**
+     - `flutter analyze lib/`: **No issues found! (0 errors, 0 warnings)**.
+     - `flutter test`: **131/131 tests Passed (100%)**.

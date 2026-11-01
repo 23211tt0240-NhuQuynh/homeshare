@@ -725,8 +725,9 @@ class _SendRoommateInviteSheetState
       final chatService = ref.read(chatServiceProvider);
       final roomCode = b.roomCode.isNotEmpty ? b.roomCode : b.roomId;
 
+      final messageId = DateTime.now().millisecondsSinceEpoch.toString();
       final message = ChatMessageModel(
-        id: '',
+        id: messageId,
         senderId: currentUserId,
         senderName: currentUserName,
         receiverId: targetUid,
@@ -759,7 +760,7 @@ class _SendRoommateInviteSheetState
       );
 
       // 2. Gửi thông báo chuông tới người nhận
-      await chatService.notifyUserRoommateInvitation(
+      final notifId = await chatService.notifyUserRoommateInvitation(
         receiverId: targetUid,
         senderId: currentUserId,
         senderName: currentUserName,
@@ -768,7 +769,17 @@ class _SendRoommateInviteSheetState
         roomTitle: b.roomTitle,
         pricePerPerson: sharePrice.toDouble(),
         hostId: b.hostId,
+        messageId: messageId,
       );
+
+      if (notifId.isNotEmpty) {
+        await chatService.updateMessageExtraData(
+          senderId: currentUserId,
+          receiverId: targetUid,
+          messageId: messageId,
+          extraData: {'notificationId': notifId},
+        );
+      }
 
       if (!mounted) return;
 

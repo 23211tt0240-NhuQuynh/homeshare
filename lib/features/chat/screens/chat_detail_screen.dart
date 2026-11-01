@@ -256,6 +256,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     required String messageType,
     String attachmentUrl = '',
     Map<String, dynamic> extraData = const {},
+    String messageId = '',
   }) async {
     final combinedExtraData = Map<String, dynamic>.from(extraData);
     if (_replyingToMessage != null) {
@@ -263,7 +264,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     }
 
     final message = ChatMessageModel(
-      id: '',
+      id: messageId,
       senderId: widget.currentUserId,
       senderName: widget.currentUserName,
       receiverId: widget.receiverId,
@@ -1153,10 +1154,12 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return; // Tuyệt đối không gửi tin nhắn và không ghi nhận vào chuông thông báo
     }
 
+    final messageId = DateTime.now().millisecondsSinceEpoch.toString();
     final sharePrice = room.price > 0 ? (room.price / 2).round() : 0;
     final sent = await _sendRichMessage(
       text: 'Lời mời cùng ở ghép phòng tại HomeShare',
       messageType: 'roommate_invitation',
+      messageId: messageId,
       extraData: {
         'status': 'pending',
         'roomId': room.id,
@@ -1173,7 +1176,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
     if (!sent) return;
     try {
-      await ref.read(chatServiceProvider).notifyUserRoommateInvitation(
+      final notifId = await ref.read(chatServiceProvider).notifyUserRoommateInvitation(
             receiverId: widget.receiverId,
             senderId: widget.currentUserId,
             senderName: widget.currentUserName,
@@ -1182,7 +1185,16 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             roomTitle: roomTitle,
             pricePerPerson: sharePrice.toDouble(),
             hostId: room.hostId,
+            messageId: messageId,
           );
+      if (notifId.isNotEmpty) {
+        await ref.read(chatServiceProvider).updateMessageExtraData(
+              senderId: widget.currentUserId,
+              receiverId: widget.receiverId,
+              messageId: messageId,
+              extraData: {'notificationId': notifId},
+            );
+      }
     } catch (error) {
       debugPrint('[Chat] Đã gửi lời mời nhưng chưa tạo được thông báo: $error');
     }
@@ -1235,15 +1247,29 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         extraData: updatedExtraData,
       );
 
+      // Đồng bộ sang thông báo của người nhận trong Firestore
+      final userNotifId = await ref.read(chatServiceProvider).syncRoommateInviteFromChatToNotification(
+            senderId: msg.senderId,
+            receiverId: msg.receiverId,
+            roomId: roomId,
+            newStatus: 'waiting_host_approval',
+            messageId: msg.id,
+            notificationId: msg.extraData['notificationId']?.toString() ?? '',
+          );
+
       // Chỉ thông báo đúng chủ trọ lấy từ document phòng đã xác minh.
       await ref.read(chatServiceProvider).notifyHostRoommateAccepted(
         hostId: hostId,
         roomId: roomId,
+        roomCode: verifiedRoom.roomCode.isNotEmpty
+            ? verifiedRoom.roomCode
+            : (extra['roomCode']?.toString() ?? ''),
         roomTitle: roomTitle,
         primaryTenantName: msg.senderName,
         primaryTenantId: msg.senderId,
         newRoommateName: widget.currentUserName,
         newRoommateId: widget.currentUserId,
+        userNotificationId: userNotifId ?? '',
       );
 
       if (mounted) {
@@ -1277,6 +1303,16 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         extraData: updatedExtraData,
       );
 
+      // Đồng bộ sang thông báo trong Firestore
+      await ref.read(chatServiceProvider).syncRoommateInviteFromChatToNotification(
+            senderId: msg.senderId,
+            receiverId: msg.receiverId,
+            roomId: msg.extraData['roomId']?.toString() ?? '',
+            newStatus: 'rejected',
+            messageId: msg.id,
+            notificationId: msg.extraData['notificationId']?.toString() ?? '',
+          );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã từ chối lời mời ở ghép.')),
@@ -1303,6 +1339,16 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         messageId: msg.id,
         extraData: updatedExtraData,
       );
+
+      // Đồng bộ sang thông báo trong Firestore
+      await ref.read(chatServiceProvider).syncRoommateInviteFromChatToNotification(
+            senderId: msg.senderId,
+            receiverId: msg.receiverId,
+            roomId: msg.extraData['roomId']?.toString() ?? '',
+            newStatus: 'revoked',
+            messageId: msg.id,
+            notificationId: msg.extraData['notificationId']?.toString() ?? '',
+          );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2475,6 +2521,16 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     // 2. Thẻ Lời mời vào ở ghép (Tc_CHAT_14 -> 20 & Figma Node: 3346:3226)
     if (msg.messageType == 'roommate_invitation') {
       final inviteStatus = msg.extraData['status']?.toString() ?? 'pending';
+      final isAccepted = inviteStatus == 'accepted' ||
+          inviteStatus == 'waiting_host_approval' ||
+          inviteStatus == 'accepted_waiting_host' ||
+          inviteStatus == 'approved' ||
+          inviteStatus == 'daChapNhan';
+      final isRejected = inviteStatus == 'rejected' ||
+          inviteStatus == 'host_rejected' ||
+          inviteStatus == 'daTuChoi';
+      final isRevoked = inviteStatus == 'revoked' || inviteStatus == 'daThuHoi';
+
       final roomTitle = msg.extraData['roomTitle']?.toString() ?? 'Căn hộ mini / Phòng trọ';
       final priceVal = msg.extraData['pricePerPerson'];
       final priceStr = priceVal != null
@@ -2487,9 +2543,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: inviteStatus == 'accepted'
+            color: isAccepted
                 ? AppColors.primary
-                : inviteStatus == 'rejected'
+                : isRejected || isRevoked
                     ? Colors.grey.shade400
                     : Colors.orange.shade300,
             width: 1.5,
@@ -2505,26 +2561,28 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               children: [
                 Icon(
                   Icons.handshake,
-                  color: inviteStatus == 'accepted'
+                  color: isAccepted
                       ? AppColors.primary
-                      : inviteStatus == 'rejected'
+                      : isRejected || isRevoked
                           ? Colors.grey
                           : Colors.orange,
                   size: 20,
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  inviteStatus == 'accepted'
+                  isAccepted
                       ? 'ĐÃ ĐỒNG Ý Ở GHÉP'
-                      : inviteStatus == 'rejected'
+                      : isRejected
                           ? 'ĐÃ TỪ CHỐI Ở GHÉP'
-                          : 'LỜI MỜI VÀO Ở GHÉP',
+                          : isRevoked
+                              ? 'LỜI MỜI ĐÃ THU HỒI'
+                              : 'LỜI MỜI VÀO Ở GHÉP',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
-                    color: inviteStatus == 'accepted'
+                    color: isAccepted
                         ? AppColors.primary
-                        : inviteStatus == 'rejected'
+                        : isRejected || isRevoked
                             ? Colors.grey
                             : Colors.orange,
                   ),
@@ -2539,7 +2597,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             const SizedBox(height: 4),
             Text('Chi phí: $priceStr', style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
             const SizedBox(height: 10),
-            if (inviteStatus == 'accepted')
+            if (isAccepted)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
@@ -2562,7 +2620,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   ],
                 ),
               )
-            else if (inviteStatus == 'rejected')
+            else if (isRejected)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
@@ -2582,7 +2640,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   ],
                 ),
               )
-            else if (inviteStatus == 'revoked')
+            else if (isRevoked)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),

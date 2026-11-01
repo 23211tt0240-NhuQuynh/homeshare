@@ -469,13 +469,25 @@ class ChatService {
   }) async {
     if (hostId.isEmpty) return;
 
-    final resolvedCode = roomCode.isNotEmpty ? roomCode : 'P001';
+    String resolvedCode = roomCode.trim();
+    if (resolvedCode.isEmpty && roomId.isNotEmpty) {
+      try {
+        final roomSnap = await _firestore.collection('host_rooms').doc(roomId).get();
+        if (roomSnap.exists) {
+          resolvedCode = (roomSnap.data()?['roomCode'] ?? roomSnap.data()?['maPhong'] ?? '').toString().trim();
+        }
+      } catch (_) {}
+    }
+    if (resolvedCode.isEmpty) {
+      resolvedCode = 'P001';
+    }
     final notifRef = _firestore.collection('notifications').doc();
     await notifRef.set({
       'notificationId': notifRef.id,
       'id': notifRef.id,
       'receiverId': hostId,
       'nguoiNhanId': hostId,
+      'recipientRole': 'host',
       'senderId': newRoommateId,
       'nguoiGuiId': newRoommateId,
       'notificationType': 'pendingAction',
@@ -509,7 +521,7 @@ class ChatService {
   }
 
   /// Gửi thông báo đến người được mời ở ghép (chuông thông báo của User)
-  Future<void> notifyUserRoommateInvitation({
+  Future<String> notifyUserRoommateInvitation({
     required String receiverId,
     required String senderId,
     required String senderName,
@@ -519,6 +531,7 @@ class ChatService {
     required double pricePerPerson,
     String hostId = '',
     String note = '',
+    String messageId = '',
   }) async {
     final cleanReceiverId = receiverId.trim();
     final cleanSenderId = senderId.trim();
@@ -550,7 +563,7 @@ class ChatService {
           '(${capResult.currentOccupants}/${capResult.capacity} người). '
           'Bỏ qua ghi nhận vào chuông thông báo theo quy định.',
         );
-        return;
+        return '';
       }
     } catch (e) {
       debugPrint(
@@ -559,13 +572,14 @@ class ChatService {
     }
 
     final notifRef = _firestore.collection(FirestoreCollections.notificationUser).doc();
+    final notifId = notifRef.id;
     final customMessage = note.trim().isNotEmpty
         ? note.trim()
         : '$senderName đã gửi lời mời bạn cùng ở ghép tại phòng $roomTitle.';
 
-    await notifRef.set({
-      'notificationId': notifRef.id,
-      'id': notifRef.id,
+    final payload = {
+      'notificationId': notifId,
+      'id': notifId,
       'receiverId': cleanReceiverId,
       'recipientId': cleanReceiverId,
       'userId': cleanReceiverId,
@@ -587,9 +601,177 @@ class ChatService {
       'pricePerPerson': pricePerPerson,
       'status': 'pending',
       'isRead': false,
+      'daDoc': false,
+      if (messageId.isNotEmpty) 'messageId': messageId,
       'createdAt': FieldValue.serverTimestamp(),
       'ngayTao': FieldValue.serverTimestamp(),
-    });
+    };
+
+    // Chỉ ghi vào duy nhất collection notification_user cho người dùng/người thuê
+    await notifRef.set(payload);
+    return notifId;
+  }
+
+  /// Đồng bộ trạng thái lời mời ở ghép từ Tin nhắn Chat sang Thông báo (Notifications)
+  Future<String?> syncRoommateInviteFromChatToNotification({
+    required String senderId,
+    required String receiverId,
+    required String roomId,
+    required String newStatus,
+    String messageId = '',
+    String notificationId = '',
+  }) async {
+    try {
+      final cleanSenderId = senderId.trim();
+      final cleanReceiverId = receiverId.trim();
+      final cleanRoomId = roomId.trim();
+      String? matchedNotificationId;
+
+      // Chỉ tìm và đồng bộ trong duy nhất collection notification_user
+      final col = _firestore.collection(FirestoreCollections.notificationUser);
+
+      // 1. Nếu có notificationId cụ thể, cập nhật trực tiếp
+      if (notificationId.isNotEmpty) {
+        try {
+          final docSnap = await col.doc(notificationId).get();
+          if (docSnap.exists) {
+            await col.doc(notificationId).update({
+              'status': newStatus,
+              'isRead': true,
+              'daDoc': true,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+            return notificationId;
+          }
+        } catch (_) {}
+      }
+
+      // 2. Nếu có messageId, tìm theo messageId
+      if (messageId.isNotEmpty) {
+        try {
+          final qMsg = await col
+              .where('messageId', isEqualTo: messageId)
+              .limit(5)
+              .get();
+          for (final doc in qMsg.docs) {
+            await doc.reference.update({
+              'status': newStatus,
+              'isRead': true,
+              'daDoc': true,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+            matchedNotificationId ??= doc.id;
+          }
+        } catch (_) {}
+      }
+
+      if (matchedNotificationId != null) {
+        return matchedNotificationId;
+      }
+
+      // 3. Quét các thông báo roommate_invitation giữa hai người dùng
+      try {
+        final q = await col
+            .where('notificationType', isEqualTo: 'roommate_invitation')
+            .where('senderId', isEqualTo: cleanSenderId)
+            .get();
+
+        for (final doc in q.docs) {
+          final data = doc.data();
+          final dReceiver =
+              '${data['receiverId'] ?? data['recipientId'] ?? data['userId'] ?? ''}'
+                  .trim();
+          final dRoom = '${data['roomId'] ?? data['phongId'] ?? ''}'.trim();
+          if (dReceiver == cleanReceiverId &&
+              (cleanRoomId.isEmpty || dRoom == cleanRoomId)) {
+            await doc.reference.update({
+              'status': newStatus,
+              'isRead': true,
+              'daDoc': true,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+            matchedNotificationId ??= doc.id;
+          }
+        }
+      } catch (_) {}
+
+      return matchedNotificationId;
+    } catch (e) {
+      debugPrint('[ChatService] Lỗi đồng bộ lời mời sang thông báo: $e');
+      return null;
+    }
+  }
+
+  /// Đồng bộ trạng thái lời mời ở ghép từ Thông báo sang Tin nhắn Chat (Realtime Database)
+  Future<void> syncRoommateInviteFromNotificationToChat({
+    required String senderId,
+    required String receiverId,
+    required String roomId,
+    required String newStatus,
+    String acceptedBy = '',
+    String acceptedByName = '',
+    String messageId = '',
+  }) async {
+    try {
+      final cleanSenderId = senderId.trim();
+      final cleanReceiverId = receiverId.trim();
+      final cleanRoomId = roomId.trim();
+      if (cleanSenderId.isEmpty || cleanReceiverId.isEmpty) return;
+
+      final chatId = getChatId(cleanSenderId, cleanReceiverId);
+      final messagesRef = _rtdb.ref('messages/$chatId');
+
+      final updates = <String, dynamic>{
+        'status': newStatus,
+      };
+      if (newStatus == 'accepted' || newStatus == 'waiting_host_approval') {
+        updates['acceptedBy'] =
+            acceptedBy.isNotEmpty ? acceptedBy : cleanReceiverId;
+        if (acceptedByName.isNotEmpty) updates['acceptedByName'] = acceptedByName;
+        updates['acceptedAt'] = DateTime.now().toIso8601String();
+      } else if (newStatus == 'rejected') {
+        updates['rejectedBy'] = cleanReceiverId;
+        updates['rejectedAt'] = DateTime.now().toIso8601String();
+      } else if (newStatus == 'revoked') {
+        updates['revokedAt'] = DateTime.now().toIso8601String();
+      }
+
+      // 1. Cập nhật trực tiếp nếu có messageId
+      if (messageId.isNotEmpty) {
+        final msgSnap = await messagesRef.child(messageId).get();
+        if (msgSnap.exists) {
+          await messagesRef.child('$messageId/extraData').update(updates);
+          return;
+        }
+      }
+
+      // 2. Quét các tin nhắn roommate_invitation trong cuộc hội thoại
+      final snap = await messagesRef
+          .orderByChild('messageType')
+          .equalTo('roommate_invitation')
+          .get();
+
+      if (snap.exists && snap.value is Map) {
+        final map = snap.value as Map;
+        for (final entry in map.entries) {
+          final msgKey = entry.key.toString();
+          final val = entry.value;
+          if (val is Map) {
+            final extra = val['extraData'];
+            if (extra is Map) {
+              final dRoom = '${extra['roomId'] ?? ''}'.trim();
+              final currentStatus = '${extra['status'] ?? 'pending'}';
+              if ((cleanRoomId.isEmpty || dRoom == cleanRoomId) &&
+                  currentStatus != newStatus) {
+                await messagesRef.child('$msgKey/extraData').update(updates);
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[ChatService] Lỗi đồng bộ lời mời sang tin nhắn chat: $e');
+    }
   }
 
   /// Stream danh sách cuộc trò chuyện gần đây của người dùng từ Realtime Database

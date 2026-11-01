@@ -2565,8 +2565,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
       final userId = (item['userId'] ?? '').toString();
       if (userId.isNotEmpty) {
-        batch.set(db.collection('notifications').doc(), {
+        final uRole = (item['userRole'] ?? 'host').toString().toLowerCase();
+        final targetCol = (uRole == 'renter' || uRole == 'user')
+            ? 'notification_user'
+            : 'notifications';
+        batch.set(db.collection(targetCol).doc(), {
           'recipientId': userId,
+          'receiverId': userId,
+          'userId': userId,
           'recipientRole': (item['userRole'] ?? 'host').toString(),
           'title': 'Bài đăng repost đã được phê duyệt',
           'body': 'Bài đăng "$title" của bạn đã được Admin phê duyệt sau khi chỉnh sửa.',
@@ -2637,8 +2643,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           }, SetOptions(merge: true));
         }
 
-        batch.set(db.collection('notifications').doc(), {
+        final uRole = (item['userRole'] ?? 'host').toString().toLowerCase();
+        final targetCol = (uRole == 'renter' || uRole == 'user')
+            ? 'notification_user'
+            : 'notifications';
+        batch.set(db.collection(targetCol).doc(), {
           'recipientId': userId,
+          'receiverId': userId,
+          'userId': userId,
           'recipientRole': (item['userRole'] ?? 'host').toString(),
           'title': 'Bài đăng repost bị từ chối',
           'body': 'Bài đăng "$title" tiếp tục bị từ chối kiểm duyệt. Lý do: $reason',

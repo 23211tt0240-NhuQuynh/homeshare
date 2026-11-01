@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/booking_model.dart';
 import '../../data/models/resident_model.dart';
+import '../constants/firestore_collections.dart';
 import '../utils/id_generator.dart';
 
 class BookingService {
@@ -120,9 +121,11 @@ class BookingService {
     // Gửi thông báo đến người thuê
     if (renterId.isNotEmpty && renterId != 'guest') {
       final notifId = IdGenerator.notification();
-      await _firestore.collection('notifications').doc(notifId).set({
+      await _firestore.collection(FirestoreCollections.notificationUser).doc(notifId).set({
         'id': notifId,
         'recipientId': renterId,
+        'receiverId': renterId,
+        'userId': renterId,
         'recipientRole': 'renter',
         'title': 'Đơn thuê phòng đã được duyệt ✓',
         'message':
@@ -261,9 +264,11 @@ class BookingService {
     // Thông báo cho người thuê
     if (renterId.isNotEmpty && renterId != 'guest') {
       final notifId = IdGenerator.notification();
-      await _firestore.collection('notifications').doc(notifId).set({
+      await _firestore.collection(FirestoreCollections.notificationUser).doc(notifId).set({
         'id': notifId,
         'recipientId': renterId,
+        'receiverId': renterId,
+        'userId': renterId,
         'recipientRole': 'renter',
         'title': 'Nhận phòng thành công! 🎉',
         'message':
@@ -325,9 +330,11 @@ class BookingService {
     // Thông báo cho các bên
     if (renterId.isNotEmpty && renterId != 'guest') {
       final notifId = IdGenerator.notification();
-      await _firestore.collection('notifications').doc(notifId).set({
+      await _firestore.collection(FirestoreCollections.notificationUser).doc(notifId).set({
         'id': notifId,
         'recipientId': renterId,
+        'receiverId': renterId,
+        'userId': renterId,
         'recipientRole': 'renter',
         'title': 'Đơn thuê phòng đã bị hủy',
         'message':

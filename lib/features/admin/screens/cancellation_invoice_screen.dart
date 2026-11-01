@@ -350,8 +350,13 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
       final recipientId = targetRole == 'host' ? hostId : renterId;
 
       if (recipientId.isNotEmpty && recipientId != 'guest') {
-        await db.collection('notifications').add({
+        final targetCol = (targetRole == 'renter' || targetRole == 'user')
+            ? 'notification_user'
+            : 'notifications';
+        await db.collection(targetCol).add({
           'recipientId': recipientId,
+          'receiverId': recipientId,
+          'userId': recipientId,
           'recipientRole': targetRole,
           'title': title,
           'body': body,

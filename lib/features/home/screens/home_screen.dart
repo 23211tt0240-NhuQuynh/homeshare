@@ -462,14 +462,14 @@ class HomeScreen extends ConsumerWidget {
 
     // Thống kê thực tế phòng đã lưu
     final favState = ref.watch(favoritesProvider);
-    final savedCount = favState.favoriteRoomIds.length;
+    final savedCount = favState.favoriteRooms.length;
 
     // Thống kê thực tế đơn thuê & lịch hẹn của người thuê
     final bookingsAsync = currentUid.isNotEmpty
         ? ref.watch(renterBookingsStreamProvider(currentUid))
         : null;
     final bookings = bookingsAsync?.value ?? const <BookingRequestModel>[];
-    final appointmentCount = bookings.where((b) => !b.isCancelled && !b.isActive).length;
+    final appointmentCount = bookings.where((b) => b.isPending).length;
     final activeRentals = bookings.where((b) => b.isActive).toList();
     final activeCount = activeRentals.length;
 
