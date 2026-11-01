@@ -63,6 +63,7 @@ class BookingRequestModel {
     final s = status.toLowerCase();
     return s == 'completed' ||
         s == 'checked_out' ||
+        s == 'checkout' ||
         s == 'moved_out' ||
         s == 'daroi' ||
         s == 'da_roi' ||
@@ -72,6 +73,8 @@ class BookingRequestModel {
         s == 'tra_phong' ||
         s == 'dacheckout';
   }
+
+  bool get isEnded => isCheckedOut;
 
   bool get isActive {
     if (isCancelled || isCheckedOut) return false;

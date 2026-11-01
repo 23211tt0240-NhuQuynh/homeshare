@@ -23,6 +23,19 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.91 - Ghép Chọn Lọc Tính Năng Từ Nhánh dev-THE (Commit bc5b647) & Đạt 100% Quality Gates:**
+    - **Mục tiêu:** Hợp nhất chuẩn xác các tính năng cải tiến từ nhánh dev-THE vào dev-TOAN theo đúng danh sách được phê duyệt, bảo toàn 100% các tính năng hiện hữu (phân hệ notification_user, auto-prune thống kê cá nhân 00, deep-link thông báo thông minh).
+    - **Các tính năng đã tích hợp:**
+      1. **Bộ lọc đơn đặt "Đã trả phòng" (RenterBookingsScreen):** Thêm chip lọc "Đã trả phòng" và tag trạng thái màu xám trung tính cho các đơn thuê đã checkout/kết thúc hợp đồng.
+      2. **Lấy tên phòng vật lý chuẩn xác (titleFromHostRooms):** BookingService tự động truy vấn tên phòng vật lý từ host_rooms để hiển thị đúng mã phòng thay vì chỉ lấy tên bài đăng tổng thể.
+      3. **Chống 404 khi thanh toán & xem lại đơn phòng (resolveRentedRoom):** RenterBookingsScreen sử dụng RoomService.resolveRentedRoom để tự động khôi phục đối tượng RoomModel ngay cả khi bài đăng gốc đã gỡ hoặc thay đổi.
+      4. **Chặn gửi lời mời ở ghép khi phòng đầy (RoomFullDialog):** Xác nhận tích hợp hộp thoại cảnh báo người dùng khi phòng đã đạt số lượng người tối đa.
+      5. **Công tắc đổi giao diện Quản trị viên (AdminThemeToggle):** Tích hợp nút đổi Dark/Light theme trực tiếp trên AppBar của 5 tab Admin (Dashboard, Orders, Posts, History, Users).
+      6. **Tinh giản thanh tác vụ chi tiết phòng (RoomDetailScreen):** Chuyển nút "Báo cáo chủ trọ" vào menu 3 chấm trên AppBar, làm gọn thanh tác vụ dưới chân trang.
+    - **Kiểm định chất lượng:**
+      + flutter analyze lib/: No issues found!
+      + flutter test: 131/131 unit & widget tests passed 100%.
+
   * **Phase 2.90 - Chuẩn Hóa Phân Hệ Thông Báo Firebase: Thông Báo Người Dùng Chỉ Ghi Ở notification_user:**
     - **Mục tiêu & Nguyên tắc kiến trúc:**
       + Chuẩn hóa triệt để kiến trúc lưu trữ thông báo trên Firebase Cloud Firestore: Toàn bộ thông báo gửi cho Người dùng / Người thuê (`renter` / `user`) CHỈ được ghi vào collection `notification_user` (`FirestoreCollections.notificationUser`).

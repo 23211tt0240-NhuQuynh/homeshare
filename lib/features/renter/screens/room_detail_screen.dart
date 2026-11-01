@@ -358,6 +358,8 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                     onSelected: (value) {
                       if (value == 'report_post') {
                         _onReportPostPressed();
+                      } else if (value == 'report_host') {
+                        _onReportHostPressed();
                       }
                     },
                     itemBuilder: (context) => [
@@ -368,6 +370,16 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                             Icon(Icons.flag_outlined, size: 18, color: Color(0xFFDC2626)),
                             SizedBox(width: 8),
                             Text('Báo cáo bài viết này', style: TextStyle(fontSize: 13)),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'report_host',
+                        child: Row(
+                          children: [
+                            Icon(Icons.person_off_outlined, size: 18, color: Color(0xFFDC2626)),
+                            SizedBox(width: 8),
+                            Text('Báo cáo chủ trọ này', style: TextStyle(fontSize: 13)),
                           ],
                         ),
                       ),
@@ -780,52 +792,29 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
         child: SafeArea(
           child: Row(
             children: [
-              // 1. Nút Báo cáo chủ trọ
-              Semantics(
-                label: 'Báo cáo vi phạm chủ trọ',
-                button: true,
-                excludeSemantics: true,
-                child: OutlinedButton.icon(
-                  onPressed: _onReportHostPressed,
-                  icon: const Icon(Icons.flag_outlined, color: Color(0xFFDC2626), size: 16),
-                  label: const Text(
-                    'Báo cáo chủ trọ',
-                    style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(88, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                    side: const BorderSide(color: Color(0xFFFCA5A5)),
-                    backgroundColor: const Color(0xFFFEF2F2),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // 2. Nút Nhắn tin
+              // 1. Nút Nhắn tin
               Semantics(
                 label: 'Nhắn tin với chủ nhà',
                 button: true,
                 excludeSemantics: true,
                 child: OutlinedButton.icon(
                   onPressed: _onChatPressed,
-                  icon: const Icon(Icons.chat_outlined, color: AppColors.primary, size: 17),
+                  icon: const Icon(Icons.chat_outlined, color: AppColors.primary, size: 18),
                   label: const Text(
                     'Nhắn tin',
-                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12.5),
+                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                   style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(92, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                    side: const BorderSide(color: AppColors.primary, width: 1.4),
+                    minimumSize: const Size(120, 50),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    side: const BorderSide(color: AppColors.primary, width: 1.5),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
 
-              // 3. Nút Đặt phòng nhanh (Ẩn nếu là Chủ trọ xem bài của chính mình)
+              // 2. Nút Đặt phòng nhanh (Ẩn nếu là Chủ trọ xem bài của chính mình)
               if (!widget.isHostView)
                 Expanded(
                   child: Semantics(

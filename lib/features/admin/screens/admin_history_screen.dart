@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/login_screen.dart';
 import '../widgets/admin_branded_title.dart';
+import '../widgets/admin_theme_toggle.dart';
 
 class AdminHistoryScreen extends ConsumerStatefulWidget {
   const AdminHistoryScreen({super.key});
@@ -673,6 +674,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
         title: const AdminBrandedTitle(title: 'Lịch sử'),
         centerTitle: false,
         actions: [
+          const AdminThemeToggle(padding: EdgeInsets.only(right: 8)),
           Padding(
             padding: const EdgeInsets.only(right: 14),
             child: InkWell(

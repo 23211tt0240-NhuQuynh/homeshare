@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../widgets/admin_branded_title.dart';
+import '../widgets/admin_theme_toggle.dart';
 import '../../renter/screens/room_detail_screen.dart';
 import '../../../core/services/room_service.dart';
 import '../../../core/services/violation_rules_service.dart';
@@ -824,6 +825,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           subtitle: 'Kiểm duyệt đánh giá, quản lý hồ sơ & duyệt repost',
         ),
         actions: [
+          const AdminThemeToggle(padding: EdgeInsets.only(right: 8)),
           IconButton(
             tooltip: 'Thêm người dùng mới',
             icon: Container(

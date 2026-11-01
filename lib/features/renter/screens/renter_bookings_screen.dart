@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/room_model.dart';
 import '../../../core/services/booking_service.dart';
+import '../../../core/services/room_service.dart';
 import '../../../core/services/host_review_service.dart';
 import '../../../core/utils/host_review_policy.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -144,15 +144,13 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
 
     RoomModel? room;
     try {
-      final doc = await FirebaseFirestore.instance.collection('rooms').doc(b.roomId).get();
-      if (doc.exists) {
-        room = RoomModel.fromFirestore(doc);
-      } else {
-        final hostDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(b.roomId).get();
-        if (hostDoc.exists) {
-          room = RoomModel.fromFirestore(hostDoc);
-        }
-      }
+      room = await ref.read(roomServiceProvider).resolveRentedRoom(
+        roomId: b.roomId,
+        hostId: b.hostId,
+        roomCode: b.roomCode,
+        title: b.roomTitle,
+        price: b.roomPrice,
+      );
     } catch (_) {}
 
     room ??= RoomModel(
@@ -364,7 +362,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children:
-                    ['Tất cả', 'Đang xử lý', 'Đã duyệt', 'Đang ở', 'Đã hủy'].map(
+                    ['Tất cả', 'Đang xử lý', 'Đã duyệt', 'Đang ở', 'Đã trả phòng', 'Đã hủy'].map(
                       (s) {
                         final isSel = _selectedStatusFilter == s;
                         return Padding(
@@ -407,6 +405,8 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                   filtered = bookings.where((b) => b.isApproved).toList();
                 } else if (_selectedStatusFilter == 'Đang ở') {
                   filtered = bookings.where((b) => b.isActive).toList();
+                } else if (_selectedStatusFilter == 'Đã trả phòng') {
+                  filtered = bookings.where((b) => b.isEnded).toList();
                 } else if (_selectedStatusFilter == 'Đã hủy') {
                   filtered = bookings.where((b) => b.isCancelled).toList();
                 }
@@ -918,7 +918,29 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                           ),
                                         ),
 
-                                      // 4. Khi ĐÃ HỦY: Tag xám/đỏ
+                                      // 4. Khi ĐÃ TRẢ PHÒNG
+                                      if (b.isEnded)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF2F4F7),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: const Text(
+                                            'Đã trả phòng',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFF475467),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+
+                                      // 5. Khi ĐÃ HỦY: Tag xám/đỏ
                                       if (b.isCancelled)
                                         Container(
                                           padding: const EdgeInsets.symmetric(

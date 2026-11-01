@@ -28,8 +28,12 @@ class BookingService {
     final expiresAt = (booking.createdAt.year > 2000)
         ? booking.createdAt.add(const Duration(hours: 6))
         : now.add(const Duration(hours: 6));
+    final hostRoomTitle = await titleFromHostRooms(booking.roomId);
+    final stored = hostRoomTitle.isNotEmpty
+        ? booking.copyWith(roomTitle: hostRoomTitle)
+        : booking;
     await _firestore.collection('bookings').doc(bookingId).set({
-      ...booking.toMap(),
+      ...stored.toMap(),
       if (propertyId != null && propertyId.isNotEmpty) 'propertyId': propertyId,
       'id': bookingId,
       'bookingCode': bookingId,
@@ -37,6 +41,82 @@ class BookingService {
       'deadline': Timestamp.fromDate(expiresAt),
     });
     return bookingId;
+  }
+
+  static String _firstNonEmptyString(List<dynamic> values) {
+    for (final v in values) {
+      final s = (v ?? '').toString().trim();
+      if (s.isNotEmpty) return s;
+    }
+    return '';
+  }
+
+  /// Title phòng thật từ `host_rooms`, không lấy title bài đăng (`posts`).
+  /// `roomId` trên đơn thường là ID bài đăng; theo FK `roomId`/`hostRoomId`.
+  Future<String> titleFromHostRooms(
+    String reference, {
+    Map<String, Map<String, dynamic>>? cache,
+  }) async {
+    final roomId = reference.trim();
+    if (roomId.isEmpty) return '';
+    final roomCache = cache ?? <String, Map<String, dynamic>>{};
+    final ids = <String>[];
+
+    Future<void> addLinkedFrom(String collection) async {
+      try {
+        final linked = await _firestore.collection(collection).doc(roomId).get();
+        final data = linked.data() ?? {};
+        for (final key in [
+          'hostRoomId',
+          'roomId',
+          'room_id',
+          'phongId',
+          'phong_tro_id',
+        ]) {
+          final value = (data[key] ?? '').toString().trim();
+          if (value.isNotEmpty) {
+            ids.add(value);
+            return;
+          }
+        }
+      } catch (e) {
+        debugPrint('Error reading $collection/$roomId for host room title: $e');
+      }
+    }
+
+    await addLinkedFrom('posts');
+    await addLinkedFrom('rooms');
+    ids.add(roomId);
+
+    final seen = <String>{};
+    for (final id in ids) {
+      if (id.isEmpty || !seen.add(id)) continue;
+      final cacheKey = 'host_rooms:$id';
+      var data = roomCache[cacheKey];
+      if (data == null) {
+        try {
+          final doc = await _firestore.collection('host_rooms').doc(id).get();
+          if (doc.exists && doc.data() != null) {
+            final hostData = {'id': doc.id, ...doc.data()!};
+            data = hostData;
+            roomCache[cacheKey] = hostData;
+            roomCache.putIfAbsent(id, () => hostData);
+          } else {
+            roomCache[cacheKey] = {'id': id};
+          }
+        } catch (e) {
+          debugPrint('Error loading host_rooms/$id: $e');
+        }
+      }
+      if (data == null) continue;
+      final title = _firstNonEmptyString([
+        data['title'],
+        data['tieuDe'],
+        data['roomTitle'],
+      ]);
+      if (title.isNotEmpty) return title;
+    }
+    return '';
   }
 
   /// Tự động hủy 1 đơn đặt phòng nếu đã quá hạn thanh toán 6 tiếng
