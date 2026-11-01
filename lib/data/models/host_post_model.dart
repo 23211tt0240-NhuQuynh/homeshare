@@ -559,4 +559,41 @@ class HostPostModel {
           : district,
     );
   }
+
+  /// Chuyển đổi sang RoomModel để mở trực tiếp màn hình chi tiết RoomDetailScreen
+  RoomModel toRoomModel() {
+    return RoomModel(
+      id: id,
+      propertyId: joinedRoom?.propertyId ?? '',
+      roomCode: joinedRoom?.roomCode ?? (roomId.isNotEmpty ? roomId : 'P001'),
+      status: status.isNotEmpty ? status : statusId,
+      title: title.isNotEmpty ? title : (joinedRoom?.title ?? ''),
+      description: description.isNotEmpty ? description : (joinedRoom?.description ?? ''),
+      price: rentalPrice > 0 ? rentalPrice : (joinedRoom?.price ?? 0.0),
+      deposit: depositAmount > 0 ? depositAmount : (joinedRoom?.deposit ?? 0.0),
+      depositPercentage: depositPercentage > 0 ? depositPercentage : joinedRoom?.depositPercentage,
+      address: address.isNotEmpty ? address : (joinedRoom?.address ?? ''),
+      district: district.isNotEmpty ? district : (joinedRoom?.district ?? ''),
+      city: city.isNotEmpty ? city : (joinedRoom?.city ?? 'TP. Hồ Chí Minh'),
+      area: roomArea > 0 ? roomArea : (joinedRoom?.area ?? 25.0),
+      roomType: roomType.isNotEmpty ? roomType : (joinedRoom?.roomType ?? 'Phòng trọ'),
+      amenities: amenities.isNotEmpty ? amenities : (joinedRoom?.amenities ?? const []),
+      images: images.isNotEmpty ? images : (joinedRoom?.images ?? const []),
+      hostId: hostId.isNotEmpty ? hostId : (joinedRoom?.hostId ?? ''),
+      hostName: authorName.isNotEmpty ? authorName : (joinedRoom?.hostName ?? 'Chủ trọ'),
+      hostPhone: contactPhone.isNotEmpty
+          ? contactPhone
+          : (joinedRoom?.hostPhone ?? ''),
+      hostAvatar: authorAvatar.isNotEmpty ? authorAvatar : (joinedRoom?.hostAvatar ?? ''),
+      rating: 5.0,
+      reviewCount: 0,
+      isAvailable: isActive,
+      capacity: joinedRoom?.capacity ?? 2,
+      floor: joinedRoom?.floor ?? 1,
+      createdAt: createdAt,
+      electricityRate: joinedRoom?.electricityRate,
+      waterRate: joinedRoom?.waterRate,
+      serviceFee: joinedRoom?.serviceFee,
+    );
+  }
 }

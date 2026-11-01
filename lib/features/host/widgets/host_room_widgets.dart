@@ -38,8 +38,8 @@ class HostRoomSection extends StatelessWidget {
   final Widget? trailing;
   @override
   Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 16),
-    padding: const EdgeInsets.all(16),
+    margin: EdgeInsets.only(bottom: 16),
+    padding: EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(16),
@@ -51,21 +51,26 @@ class HostRoomSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: AppColors.primary, size: 20),
-              const SizedBox(width: 8),
+              Icon(
+                icon,
+                color: AppColors.isDark ? AppColors.textDark : AppColors.primary,
+                size: 20,
+              ),
+              SizedBox(width: 8),
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
+                    color: AppColors.textDark,
                   ),
                 ),
               ),
               ?trailing,
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           child,
         ],
       ),
@@ -81,7 +86,7 @@ class HostRoomBadge extends StatelessWidget {
   final bool showTenant;
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     decoration: BoxDecoration(
       color: room.status == 'available'
           ? const Color(0xFFFFE4D6)
@@ -95,7 +100,7 @@ class HostRoomBadge extends StatelessWidget {
           ? room.tenantName
           : hostRoomStatus(room),
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
     ),
   );
 }
@@ -115,9 +120,9 @@ class HostRoomTenant extends StatelessWidget {
             style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
           )
         : Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.primaryContainer,
+              color: AppColors.surfaceVariant,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -131,14 +136,14 @@ class HostRoomTenant extends StatelessWidget {
                         room.tenantName.characters.first.toUpperCase(),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             room.tenantName,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            style: TextStyle(fontWeight: FontWeight.w600),
                           ),
                           if (room.tenantPhone.isNotEmpty)
                             Text(
@@ -177,26 +182,26 @@ class HostRoomTenant extends StatelessWidget {
                 ),
                 if (room.contractId.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: EdgeInsets.only(top: 8),
                     child: Text(
                       'Hợp đồng: ${room.contractId}',
-                      style: const TextStyle(fontSize: 12),
+                      style: TextStyle(fontSize: 12),
                     ),
                   ),
                 if (room.contractStart != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 6),
+                    padding: EdgeInsets.only(top: 6),
                     child: Text(
                       'Ngày vào ở: ${DateFormat('dd/MM/yyyy').format(room.contractStart!)}',
-                      style: const TextStyle(fontSize: 12),
+                      style: TextStyle(fontSize: 12),
                     ),
                   ),
                 if (room.contractEnd != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 6),
+                    padding: EdgeInsets.only(top: 6),
                     child: Text(
                       'Hợp đồng đến: ${DateFormat('dd/MM/yyyy').format(room.contractEnd!)}',
-                      style: const TextStyle(fontSize: 12),
+                      style: TextStyle(fontSize: 12),
                     ),
                   ),
               ],
@@ -216,13 +221,13 @@ Future<bool> hostDeleteRoom(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: Text('Xóa ${hostRoomName(room).toLowerCase()}?'),
-      content: const Text(
+      content: Text(
         'Phòng sẽ không còn trong danh sách quản lý và tìm phòng. Lịch sử liên quan vẫn được giữ.',
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogContext, false),
-          child: const Text('Hủy'),
+          child: Text('Hủy'),
         ),
         FilledButton(
           style: FilledButton.styleFrom(
@@ -230,7 +235,7 @@ Future<bool> hostDeleteRoom(
             minimumSize: const Size(0, 44),
           ),
           onPressed: () => Navigator.pop(dialogContext, true),
-          child: const Text('Xóa phòng'),
+          child: Text('Xóa phòng'),
         ),
       ],
     ),

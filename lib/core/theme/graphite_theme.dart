@@ -103,6 +103,7 @@ class GraphiteTheme {
       brightness: Brightness.dark,
       scaffoldBackgroundColor: GraphiteColors.paper,
       canvasColor: GraphiteColors.paper,
+      cardColor: GraphiteColors.card,
       dividerColor: GraphiteColors.line,
       splashColor: GraphiteColors.accent.withValues(alpha: 0.12),
       highlightColor: GraphiteColors.accent.withValues(alpha: 0.06),

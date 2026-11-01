@@ -1,3 +1,4 @@
+import '../../profile/widgets/host_reputation_stars.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -11,7 +12,6 @@ import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
-import '../../profile/widgets/host_reputation_stars.dart';
 import 'room_detail_screen.dart';
 import 'roommate_room_detail_screen.dart';
 
@@ -39,8 +39,8 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
   final ScrollController _scrollController = ScrollController();
 
   // Bảng màu xanh dương đồng bộ nhận diện HomeShare.
-  Color get _primaryBlue => AppColors.primary;
-  Color get _primaryBlueLight => AppColors.primaryContainer;
+  static Color get _primaryBlue => AppColors.primary;
+  static Color get _primaryBlueLight => AppColors.primaryContainer;
   static const Color _primaryBlueBorder = Color(0xFFB2CCFF);
 
   // 1. Khu vực state
@@ -271,7 +271,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
         title: const Text('Số điện thoại chủ nhà'),
         content: Text(
           'Liên hệ trực tiếp với chủ trọ ${room.hostName}:\n\n📞 ${room.hostPhone}',
-          style: const TextStyle(fontSize: 16, height: 1.4),
+          style: TextStyle(fontSize: 16, height: 1.4),
         ),
         actions: [
           TextButton(
@@ -418,17 +418,17 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   height: 48,
                   child: ElevatedButton.icon(
                     onPressed: _executeSearch,
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.search,
                       size: 20,
-                      color: Colors.white,
+                      color: AppColors.onPrimary,
                     ),
-                    label: const Text(
+                    label: Text(
                       'Tìm kiếm phòng',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: AppColors.onPrimary,
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
@@ -724,7 +724,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   ? Icons.radio_button_checked
                   : Icons.radio_button_unchecked,
               size: 13,
-              color: isSelected ? _primaryBlue : const Color(0xFFD1D5DB),
+              color: isSelected ? _primaryBlue : AppColors.border,
             ),
           ],
         ),
@@ -1182,7 +1182,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: isCustom
-                                ? const Color(0xFFDBEAFE)
+                                ? AppColors.border
                                 : _primaryBlueLight,
                             borderRadius: BorderRadius.circular(4),
                           ),
@@ -1251,7 +1251,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.radio_button_unchecked,
                               size: 18,
                               color: Color(0xFF9CA3AF),
@@ -1260,13 +1260,13 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                             Expanded(
                               child: Text(
                                 amenity,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12.5,
                                   color: Color(0xFF4B5563),
                                 ),
                               ),
                             ),
-                            const Icon(
+                            Icon(
                               Icons.add,
                               size: 16,
                               color: Color(0xFF9CA3AF),
@@ -1361,13 +1361,13 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
             height: 48,
             child: ElevatedButton.icon(
               onPressed: _executeSearch,
-              icon: const Icon(Icons.search, size: 18, color: Colors.white),
-              label: const Text(
+              icon: Icon(Icons.search, size: 18, color: AppColors.onPrimary),
+              label: Text(
                 'Tìm kiếm',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: AppColors.onPrimary,
                 ),
               ),
               style: ElevatedButton.styleFrom(
@@ -1656,7 +1656,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
 
   Widget _buildSearchLoading() => Center(
     child: Padding(
-      padding: EdgeInsets.all(32),
+      padding: const EdgeInsets.all(32),
       child: CircularProgressIndicator(color: _primaryBlue),
     ),
   );
@@ -1682,12 +1682,12 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
     ),
     child: Column(
       children: [
-        Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
+        Icon(Icons.search_off, size: 48, color: AppColors.textMuted),
         const SizedBox(height: 10),
         Text(
           'Chưa tìm thấy $type phù hợp',
           textAlign: TextAlign.center,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
         ),
         const SizedBox(height: 6),
         Text(
@@ -1833,7 +1833,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => Container(
                         color: AppColors.surfaceVariant,
-                        child: const Icon(
+                        child: Icon(
                           Icons.home,
                           size: 36,
                           color: Color(0xFF9CA3AF),
@@ -1852,10 +1852,10 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                           color: AppColors.primary,
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Chính chủ',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppColors.onPrimary,
                             fontSize: 9.5,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1908,7 +1908,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   // Thông số: Diện tích • Loại phòng • Quận huyện
                   Text(
                     '${room.area.toInt()} m² • ${room.roomType} • ${room.district}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11.5,
                       color: Color(0xFF6B7280),
                     ),
@@ -1937,7 +1937,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                               ),
                               child: Text(
                                 a,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
                                   color: Color(0xFF4B5563),
                                 ),
@@ -1957,7 +1957,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                           customBorder: const CircleBorder(),
                           onTap: () => _showCallHostDialog(room),
                           child: Padding(
-                            padding: EdgeInsets.all(7),
+                            padding: const EdgeInsets.all(7),
                             child: Icon(
                               Icons.phone,
                               size: 16,
@@ -1976,7 +1976,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                           customBorder: const CircleBorder(),
                           onTap: () => _openChatWithHost(room),
                           child: Padding(
-                            padding: EdgeInsets.all(7),
+                            padding: const EdgeInsets.all(7),
                             child: Icon(
                               Icons.chat_bubble,
                               size: 16,
@@ -1996,7 +1996,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                               .contains(room.id);
                           return Material(
                             color: isFav
-                                ? const Color(0xFFFEE2E2)
+                                ? AppColors.dangerContainer
                                 : AppColors.surfaceVariant,
                             shape: const CircleBorder(),
                             child: InkWell(
@@ -2019,7 +2019,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                                       duration: const Duration(seconds: 1),
                                       backgroundColor: added
                                           ? AppColors.primary
-                                          : const Color(0xFF334155),
+                                          : AppColors.textMuted,
                                     ),
                                   );
                                 }
@@ -2121,7 +2121,7 @@ class LocationSearchBottomSheetState extends State<LocationSearchBottomSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
+              color: AppColors.border,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -2132,13 +2132,13 @@ class LocationSearchBottomSheetState extends State<LocationSearchBottomSheet> {
               children: [
                 Text(
                   widget.title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, size: 20),
+                  icon: Icon(Icons.close, size: 20),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -2151,7 +2151,7 @@ class LocationSearchBottomSheetState extends State<LocationSearchBottomSheet> {
               onChanged: _onSearch,
               decoration: InputDecoration(
                 hintText: widget.searchHint,
-                prefixIcon: const Icon(Icons.search, size: 20),
+                prefixIcon: Icon(Icons.search, size: 20),
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 filled: true,
                 fillColor: AppColors.surfaceVariant,

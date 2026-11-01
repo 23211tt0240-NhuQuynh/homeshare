@@ -66,31 +66,31 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
   Map<String, dynamic> _getHabitVisual(String habit) {
     final lower = habit.toLowerCase();
     if (lower.contains('thuốc')) {
-      return {'icon': Icons.smoke_free_rounded, 'color': const Color(0xFFEF4444), 'bg': const Color(0xFFFEE2E2)};
+      return {'icon': Icons.smoke_free_rounded, 'color': const Color(0xFFEF4444), 'bg': AppColors.dangerContainer};
     } else if (lower.contains('yên tĩnh')) {
-      return {'icon': Icons.nightlight_round, 'color': const Color(0xFF3B82F6), 'bg': const Color(0xFFEFF6FF)};
+      return {'icon': Icons.nightlight_round, 'color': const Color(0xFF3B82F6), 'bg': AppColors.primaryContainer};
     } else if (lower.contains('sạch sẽ')) {
-      return {'icon': Icons.cleaning_services_rounded, 'color': const Color(0xFF10B981), 'bg': const Color(0xFFECFDF5)};
+      return {'icon': Icons.cleaning_services_rounded, 'color': const Color(0xFF10B981), 'bg': AppColors.successContainer};
     } else if (lower.contains('thân thiện') || lower.contains('vui vẻ')) {
-      return {'icon': Icons.sentiment_satisfied_alt_rounded, 'color': const Color(0xFFF59E0B), 'bg': const Color(0xFFFEF3C7)};
+      return {'icon': Icons.sentiment_satisfied_alt_rounded, 'color': const Color(0xFFF59E0B), 'bg': AppColors.warningContainer};
     } else if (lower.contains('giờ giấc')) {
-      return {'icon': Icons.access_time_rounded, 'color': const Color(0xFF3B82F6), 'bg': const Color(0xFFEFF6FF)};
+      return {'icon': Icons.access_time_rounded, 'color': const Color(0xFF3B82F6), 'bg': AppColors.primaryContainer};
     } else if (lower.contains('xe máy')) {
-      return {'icon': Icons.two_wheeler_rounded, 'color': const Color(0xFF0284C7), 'bg': const Color(0xFFE0F2FE)};
+      return {'icon': Icons.two_wheeler_rounded, 'color': const Color(0xFF0284C7), 'bg': AppColors.primaryContainer};
     } else if (lower.contains('thể thao')) {
-      return {'icon': Icons.sports_soccer_rounded, 'color': const Color(0xFFD97706), 'bg': const Color(0xFFFEF3C7)};
+      return {'icon': Icons.sports_soccer_rounded, 'color': const Color(0xFFD97706), 'bg': AppColors.warningContainer};
     } else if (lower.contains('ồn ào') || lower.contains('tụ tập')) {
-      return {'icon': Icons.volume_off_rounded, 'color': const Color(0xFFEF4444), 'bg': const Color(0xFFFEE2E2)};
+      return {'icon': Icons.volume_off_rounded, 'color': const Color(0xFFEF4444), 'bg': AppColors.dangerContainer};
     } else if (lower.contains('chăm học')) {
-      return {'icon': Icons.menu_book_rounded, 'color': const Color(0xFF3B82F6), 'bg': const Color(0xFFEFF6FF)};
+      return {'icon': Icons.menu_book_rounded, 'color': const Color(0xFF3B82F6), 'bg': AppColors.primaryContainer};
     } else if (lower.contains('nấu ăn')) {
-      return {'icon': Icons.restaurant_rounded, 'color': const Color(0xFF0284C7), 'bg': const Color(0xFFE0F2FE)};
+      return {'icon': Icons.restaurant_rounded, 'color': const Color(0xFF0284C7), 'bg': AppColors.primaryContainer};
     } else if (lower.contains('dậy sớm')) {
-      return {'icon': Icons.wb_sunny_rounded, 'color': const Color(0xFFF59E0B), 'bg': const Color(0xFFFEF3C7)};
+      return {'icon': Icons.wb_sunny_rounded, 'color': const Color(0xFFF59E0B), 'bg': AppColors.warningContainer};
     } else if (lower.contains('thú cưng') || lower.contains('pet')) {
-      return {'icon': Icons.pets_rounded, 'color': const Color(0xFFF59E0B), 'bg': const Color(0xFFFEF3C7)};
+      return {'icon': Icons.pets_rounded, 'color': const Color(0xFFF59E0B), 'bg': AppColors.warningContainer};
     } else if (lower.contains('dẫn bạn')) {
-      return {'icon': Icons.people_alt_rounded, 'color': AppColors.primary, 'bg': Color(0xFFEFF6FF)};
+      return {'icon': Icons.people_alt_rounded, 'color': AppColors.primary, 'bg': AppColors.primaryContainer};
     }
     return {'icon': Icons.check_circle_outline, 'color': AppColors.textMuted, 'bg': AppColors.surfaceVariant};
   }
@@ -102,7 +102,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(added ? 'Đã lưu bài đăng vào mục yêu thích ❤️' : 'Đã bỏ lưu bài đăng khỏi yêu thích'),
-        backgroundColor: added ? AppColors.primary : Color(0xFF334155),
+        backgroundColor: added ? AppColors.primary : AppColors.textMuted,
         duration: const Duration(seconds: 1),
       ),
     );
@@ -292,27 +292,6 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                 icon: Icon(Icons.search_rounded, color: colors.textDark, size: 26),
                 onPressed: _openRoommateSearch,
               ),
-              Stack(
-                alignment: Alignment.topRight,
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.notifications_none_rounded, color: colors.textDark, size: 24),
-                    onPressed: () {},
-                  ),
-                  Positioned(
-                    top: 10,
-                    right: 12,
-                    child: Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEF4444),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
               const SizedBox(width: 4),
               // Profile Avatar
               Builder(builder: (context) {
@@ -480,7 +459,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.feed_outlined, size: 54, color: AppColors.of(context).textMuted),
+                  Icon(Icons.feed_outlined, size: 54, color: AppColors.textMuted),
                   const SizedBox(height: 12),
                   Text(
                     'Chưa có bài đăng nào',
@@ -493,7 +472,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                   const SizedBox(height: 4),
                   Text(
                     'Hãy là người đầu tiên đăng tin tìm bạn ở ghép!',
-                    style: TextStyle(fontSize: 14.5, color: AppColors.of(context).textMuted),
+                    style: TextStyle(fontSize: 14.5, color: AppColors.textMuted),
                   ),
                 ],
               ),
@@ -555,8 +534,8 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: post.hasRoom
-                        ? (colors.isDark ? colors.primaryContainer : const Color(0xFFDCEEFE))
-                        : (colors.isDark ? colors.warningContainer : const Color(0xFFFFEDD5)),
+                        ? AppColors.primaryContainer
+                        : AppColors.warningContainer,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
@@ -580,8 +559,8 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: post.hasRoom
-                                ? (colors.isDark ? colors.textDark : const Color(0xFF0369A1))
-                                : (colors.isDark ? colors.warning : const Color(0xFFC2410C)),
+                                ? (colors.isDark ? colors.textDark : AppColors.primary)
+                                : AppColors.warning,
                           ),
                         ),
                       ),
@@ -593,7 +572,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                 const SizedBox(width: 8),
                 Text(
                   '${post.matchRate}% hợp',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: colors.primary),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
                 ),
               ],
               const SizedBox(width: 8),
@@ -635,7 +614,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: colors.primary,
+                              color: AppColors.primary,
                             ),
                           )
                         : null,
@@ -703,7 +682,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                               ? Icons.school_outlined
                               : Icons.work_outline_rounded,
                           size: 15,
-                          color: colors.primary,
+                          color: AppColors.primary,
                         ),
                         const SizedBox(width: 5),
                         Expanded(
@@ -712,7 +691,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                             style: TextStyle(
                               fontSize: 14.5,
                               fontWeight: FontWeight.w600,
-                              color: colors.textDark,
+                              color: AppColors.primary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -775,7 +754,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                         style: TextStyle(
                           fontSize: 19,
                           fontWeight: FontWeight.w800,
-                          color: colors.textDark,
+                          color: AppColors.primary,
                         ),
                       ),
                       TextSpan(
@@ -840,7 +819,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                   constraints: const BoxConstraints(maxWidth: 220),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: colors.isDark ? colors.surfaceVariant : const Color(0xFFEFF6FF),
+                    color: visual['bg'] as Color,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
@@ -886,8 +865,8 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: colors.primary,
-                      foregroundColor: colors.onPrimary,
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
@@ -997,12 +976,11 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
   }
 
   Widget _buildRoomImage(String imgUrl) {
-    final colors = AppColors.of(context);
     imgUrl = imgUrl.trim();
     if (imgUrl.isEmpty) {
       return Container(
-        color: colors.surfaceVariant,
-        child: Icon(Icons.image_outlined, color: colors.textMuted, size: 28),
+        color: AppColors.of(context).surfaceVariant,
+        child: const Icon(Icons.image_outlined, color: Color(0xFF94A3B8), size: 28),
       );
     }
     // 1. Ảnh trực tuyến (Firebase Storage / Web URL)
@@ -1012,7 +990,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => Container(
           color: AppColors.of(context).surfaceVariant,
-          child: Icon(Icons.broken_image_outlined, color: AppColors.of(context).textMuted, size: 28),
+          child: const Icon(Icons.broken_image_outlined, color: Color(0xFF94A3B8), size: 28),
         ),
       );
     }
@@ -1026,8 +1004,8 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
           bytes,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => Container(
-            color: colors.surfaceVariant,
-            child: Icon(Icons.broken_image_outlined, color: colors.textMuted, size: 28),
+            color: AppColors.of(context).surfaceVariant,
+            child: const Icon(Icons.broken_image_outlined, color: Color(0xFF94A3B8), size: 28),
           ),
         );
       } catch (_) {}
@@ -1040,8 +1018,8 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
           file,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => Container(
-            color: colors.surfaceVariant,
-            child: Icon(Icons.image_outlined, color: colors.textMuted, size: 28),
+            color: AppColors.of(context).surfaceVariant,
+            child: const Icon(Icons.image_outlined, color: Color(0xFF94A3B8), size: 28),
           ),
         );
       }
@@ -1052,8 +1030,8 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
       'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600',
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) => Container(
-        color: colors.surfaceVariant,
-        child: Icon(Icons.image_outlined, color: colors.textMuted, size: 28),
+        color: AppColors.of(context).surfaceVariant,
+        child: const Icon(Icons.image_outlined, color: Color(0xFF94A3B8), size: 28),
       ),
     );
   }
@@ -1094,8 +1072,8 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1D4ED8),
-              foregroundColor: Colors.white,
+              backgroundColor: colors.primary,
+              foregroundColor: colors.onPrimary,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

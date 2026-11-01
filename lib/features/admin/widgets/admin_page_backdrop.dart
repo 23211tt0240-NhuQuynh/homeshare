@@ -1,5 +1,5 @@
-import '../theme/admin_colors.dart';
 import 'package:flutter/material.dart';
+import '../theme/admin_colors.dart';
 
 /// Pastel canvas with a quiet HomeShare wordmark behind admin page content.
 class AdminPageBackdrop extends StatelessWidget {

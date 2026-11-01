@@ -1,3 +1,4 @@
+import '../../profile/widgets/host_reputation_stars.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -5,7 +6,6 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/services/favorites_service.dart';
 import '../../../data/models/room_model.dart';
 import '../../../data/models/roommate_post_model.dart';
-import '../../profile/widgets/host_reputation_stars.dart';
 import 'renter_main_screen.dart';
 import 'room_detail_screen.dart';
 import 'roommate_post_detail_screen.dart';
@@ -198,8 +198,8 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                           ),
                           child: Text(
                             room.roomType,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: AppColors.onPrimary,
                               fontSize: 9.5,
                               fontWeight: FontWeight.bold,
                             ),
@@ -233,6 +233,7 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                               ),
                             ),
                           ),
+                          const SizedBox(width: 4),
                           // Nút Bỏ lưu / Tim
                           InkWell(
                             onTap: () async {
@@ -300,10 +301,10 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                           HostReputationStarLabel(
                             hostId: room.hostId,
                             iconSize: 15,
-                            textStyle: const TextStyle(
+                            textStyle: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF334155),
+                              color: AppColors.textMuted,
                             ),
                           ),
                         ],
@@ -461,10 +462,10 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                 // Tiêu đề bài đăng
                 Text(
                   post.title,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
-                    color: AppColors.textDark,
+                    color: Color(0xFF1E293B),
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -486,27 +487,15 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: post.isClosed
-                            ? const Color(0xFFFFF7ED)
-                            : post.hasRoom
-                                ? const Color(0xFFECFDF5)
-                                : const Color(0xFFEFF6FF),
+                        color: post.hasRoom ? AppColors.successContainer : AppColors.primaryContainer,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        post.isClosed
-                            ? 'Đã đủ người'
-                            : post.hasRoom
-                                ? 'Đã có phòng'
-                                : 'Đang tìm phòng',
+                        post.hasRoom ? 'Đã có phòng' : 'Đang tìm phòng',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: post.isClosed
-                              ? const Color(0xFFC2410C)
-                              : post.hasRoom
-                                  ? const Color(0xFF059669)
-                                  : AppColors.primary,
+                          color: post.hasRoom ? const Color(0xFF059669) : AppColors.primary,
                         ),
                       ),
                     ),
@@ -575,7 +564,7 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
               width: 88,
               height: 88,
               decoration: BoxDecoration(
-                color: const Color(0xFFFEE2E2),
+                color: AppColors.dangerContainer,
                 shape: BoxShape.circle,
                 border: Border.all(color: const Color(0xFFFECACA), width: 2),
               ),

@@ -1,6 +1,6 @@
-import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import '../models/violation_record_model.dart';
+import '../../../core/constants/app_colors.dart';
 
 class PaymentActionSheet {
   static String _formatCurrency(double amount) {
@@ -32,7 +32,7 @@ class PaymentActionSheet {
       builder: (ctx) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -47,15 +47,15 @@ class PaymentActionSheet {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                const Center(
+                SizedBox(height: 16),
+                Center(
                   child: CircleAvatar(
                     radius: 28,
-                    backgroundColor: Color(0xFFDCFCE7),
+                    backgroundColor: AppColors.successContainer,
                     child: Text('💵', style: TextStyle(fontSize: 28)),
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Center(
                   child: Text(
                     'Xác nhận thu tiền mặt',
@@ -66,16 +66,16 @@ class PaymentActionSheet {
                     ),
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Center(
                   child: Text(
                     'Ghi nhận đã thu trực tiếp từ khách thuê',
-                    style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: AppColors.background,
                     borderRadius: BorderRadius.circular(14),
@@ -99,19 +99,19 @@ class PaymentActionSheet {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.success,
+                      backgroundColor: const Color(0xFF16A34A),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
+                    child: Text(
                       'Xác nhận đã thu đủ tiền',
                       style: TextStyle(
                         fontSize: 15,
@@ -121,14 +121,14 @@ class PaymentActionSheet {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
                   child: Text(
                     'Hủy bỏ',
                     style: TextStyle(
                       fontSize: 14,
-                      color: AppColors.textMuted,
+                      color: Color(0xFF64748B),
                     ),
                   ),
                 ),
@@ -154,7 +154,7 @@ class PaymentActionSheet {
       builder: (ctx) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -169,19 +169,19 @@ class PaymentActionSheet {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 Center(
                   child: CircleAvatar(
                     radius: 28,
                     backgroundColor: AppColors.primaryContainer,
                     child: Icon(
                       Icons.receipt_long_rounded,
-                      color: AppColors.primary,
+                      color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                       size: 28,
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Center(
                   child: Text(
                     'Cộng vào hóa đơn tháng sau',
@@ -192,16 +192,16 @@ class PaymentActionSheet {
                     ),
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Center(
                   child: Text(
                     'Khoản phạt sẽ được thêm vào hóa đơn tiền phòng kỳ tới',
-                    style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: AppColors.background,
                     borderRadius: BorderRadius.circular(14),
@@ -221,19 +221,19 @@ class PaymentActionSheet {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
+                    child: Text(
                       'Xác nhận cộng vào hóa đơn',
                       style: TextStyle(
                         fontSize: 15,
@@ -243,14 +243,14 @@ class PaymentActionSheet {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
                   child: Text(
                     'Hủy bỏ',
                     style: TextStyle(
                       fontSize: 14,
-                      color: AppColors.textMuted,
+                      color: Color(0xFF64748B),
                     ),
                   ),
                 ),
@@ -269,7 +269,7 @@ class PaymentActionSheet {
       children: [
         Text(
           label,
-          style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+          style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
         ),
         Text(
           value,
@@ -277,8 +277,8 @@ class PaymentActionSheet {
             fontSize: isHighlight ? 15 : 13,
             fontWeight: isHighlight ? FontWeight.w800 : FontWeight.w600,
             color: isHighlight
-                ? AppColors.danger
-                : AppColors.textDark,
+                ? const Color(0xFFDC2626)
+                : const Color(0xFF1E293B),
           ),
         ),
       ],

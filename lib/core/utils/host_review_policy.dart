@@ -5,19 +5,19 @@ import '../../data/models/resident_model.dart';
 abstract final class HostReviewPolicy {
   static const maxCommentLength = 500;
 
+  /// Đã nhận phòng (kể cả sau khi bị đuổi / trả phòng).
   static const reviewableStatuses = {
-    'approved',
-    'deposit_paid',
-    'paid',
-    'completed',
-    'dacoc',
-    'chonhanphong',
-    'daduyet',
-    'da_duyet',
     'active',
     'dango',
     'dang_o',
     'danhanphong',
+    'checked_out',
+    'checkout',
+    'traphong',
+    'daketthuc',
+    'daroi',
+    'ended',
+    'moved_out',
   };
 
   static bool isReviewableStatus(String status) {
@@ -26,7 +26,10 @@ abstract final class HostReviewPolicy {
 
   static bool isReviewableResidentStatus(String status) {
     final normalized = status.toLowerCase().trim().replaceAll(RegExp(r'[\s_-]+'), '');
-    return normalized == 'dango' || normalized == 'active';
+    return normalized == 'dango' ||
+        normalized == 'active' ||
+        normalized == 'daroi' ||
+        normalized == 'movedout';
   }
 
   static bool isValidRating(int rating) => rating >= 1 && rating <= 5;
@@ -41,12 +44,11 @@ abstract final class HostReviewPolicy {
       return false;
     }
     if (booking.isCancelled) return false;
-    return booking.isApproved || booking.isActive || isReviewableStatus(booking.status);
+    return booking.isActive || booking.isEnded;
   }
 
   static bool isReviewableResident(ResidentModel resident) {
     if (resident.id.isEmpty || resident.userId.isEmpty) return false;
-    if (resident.moveOutDate != null) return false;
     return isReviewableResidentStatus(resident.statusId);
   }
 
@@ -65,8 +67,9 @@ abstract final class HostReviewPolicy {
       roomPrice: 0,
       hostId: hostId,
       hostName: '',
-      status: 'dangO',
+      status: resident.moveOutDate != null ? 'checked_out' : 'dangO',
       moveInDate: resident.moveInDate,
+      moveOutDate: resident.moveOutDate,
       createdAt: resident.moveInDate,
     );
   }
@@ -90,7 +93,7 @@ abstract final class HostReviewPolicy {
     return matches.first;
   }
 
-  /// Người ở ghép không có đơn `bookings` riêng; dùng bản ghi `residents` đang ở.
+  /// Người ở ghép không có đơn `bookings` riêng; dùng bản ghi `residents`.
   static BookingRequestModel? firstEligibleResident({
     required String reviewerId,
     required String hostId,

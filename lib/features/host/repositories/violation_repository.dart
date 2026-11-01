@@ -1,10 +1,10 @@
+import '../../../core/services/resident_service.dart';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../../../core/constants/firestore_collections.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/period_model.dart';
-import '../../../data/models/resident_model.dart';
 import '../../../data/models/room_model.dart';
 import '../models/invoice_line_model.dart';
 import '../models/violation_model.dart';
@@ -53,7 +53,9 @@ class ViolationMonthlyStats {
     this.pendingCount = 0,
   });
 
-  factory ViolationMonthlyStats.fromRecords(List<ViolationRecordModel> records) {
+  factory ViolationMonthlyStats.fromRecords(
+    List<ViolationRecordModel> records,
+  ) {
     double totalFine = 0.0;
     double paid = 0.0;
     double pending = 0.0;
@@ -87,18 +89,15 @@ class ViolationRepository {
   final FirebaseFirestore? _customFirestore;
   final FirebaseStorage? _storage;
 
-  ViolationRepository({
-    FirebaseFirestore? firestore,
-    FirebaseStorage? storage,
-  })  : _customFirestore = firestore,
-        // ignore: prefer_initializing_formals
-        _storage = storage;
+  ViolationRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
+    : _customFirestore = firestore,
+      // ignore: prefer_initializing_formals
+      _storage = storage;
 
   FirebaseFirestore get _firestore =>
       _customFirestore ?? FirebaseFirestore.instance;
 
-  FirebaseStorage get _storageInstance =>
-      _storage ?? FirebaseStorage.instance;
+  FirebaseStorage get _storageInstance => _storage ?? FirebaseStorage.instance;
 
   // 4 hành vi vi phạm chuẩn theo thiết kế Figma & SRS
   static final List<ViolationModel> defaultViolationTypes = [
@@ -150,26 +149,26 @@ class ViolationRepository {
         .collection(FirestoreCollections.violations)
         .snapshots()
         .asyncMap((snapshot) async {
-      if (snapshot.docs.isEmpty) {
-        // Tự động seed 4 hành vi mẫu theo quyết định của người dùng
-        try {
-          final batch = _firestore.batch();
-          for (final item in defaultViolationTypes) {
-            final docRef = _firestore
-                .collection(FirestoreCollections.violations)
-                .doc(item.id);
-            batch.set(docRef, item.toMap());
+          if (snapshot.docs.isEmpty) {
+            // Tự động seed 4 hành vi mẫu theo quyết định của người dùng
+            try {
+              final batch = _firestore.batch();
+              for (final item in defaultViolationTypes) {
+                final docRef = _firestore
+                    .collection(FirestoreCollections.violations)
+                    .doc(item.id);
+                batch.set(docRef, item.toMap());
+              }
+              await batch.commit();
+            } catch (_) {}
+            return defaultViolationTypes;
           }
-          await batch.commit();
-        } catch (_) {}
-        return defaultViolationTypes;
-      }
 
-      return snapshot.docs
-          .map(ViolationModel.fromFirestore)
-          .where((v) => v.isActive)
-          .toList();
-    });
+          return snapshot.docs
+              .map(ViolationModel.fromFirestore)
+              .where((v) => v.isActive)
+              .toList();
+        });
   }
 
   /// Lắng nghe danh sách biên bản vi phạm của chủ trọ hiện tại
@@ -181,13 +180,13 @@ class ViolationRepository {
         .where('landlordId', isEqualTo: hostId)
         .snapshots()
         .map((snapshot) {
-      final list = snapshot.docs
-          .map(ViolationRecordModel.fromFirestore)
-          .toList();
-      // Sắp xếp ngày tạo mới nhất lên đầu
-      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return list;
-    });
+          final list = snapshot.docs
+              .map(ViolationRecordModel.fromFirestore)
+              .toList();
+          // Sắp xếp ngày tạo mới nhất lên đầu
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
   }
 
   /// Lấy danh sách các phòng đang có người thuê (`dangO`) thuộc chủ trọ
@@ -222,11 +221,9 @@ class ViolationRepository {
             .get();
         if (doc.exists) {
           final data = doc.data();
-          propertyNameMap[pid] = (data?['name'] ??
-                  data?['tenNha'] ??
-                  data?['title'] ??
-                  'Nhà trọ')
-              .toString();
+          propertyNameMap[pid] =
+              (data?['name'] ?? data?['tenNha'] ?? data?['title'] ?? 'Nhà trọ')
+                  .toString();
         }
       } catch (_) {}
     }
@@ -259,49 +256,50 @@ class ViolationRepository {
       if (room == null) continue;
 
       // Tìm cư dân chính
-      final resSnap = await _firestore
-          .collection(FirestoreCollections.residents)
-          .where('kyThue_id', isEqualTo: period.id)
-          .get();
-
-      final residents =
-          resSnap.docs.map(ResidentModel.fromFirestore).toList();
+      final residents = await ResidentService(
+        _firestore,
+      ).forRoom(room.id, periodId: period.id);
       final booking = bookingMap[period.bookingId];
 
-      final propName = propertyNameMap[room.propertyId] ??
+      final propName =
+          propertyNameMap[room.propertyId] ??
           (room.address.isNotEmpty ? room.address : 'KTX / Nhà trọ');
 
       final tenantName = residents.isNotEmpty
           ? residents.first.fullName
           : (booking?.renterName.isNotEmpty == true
-              ? booking!.renterName
-              : (room.tenantName.isNotEmpty ? room.tenantName : 'Khách thuê'));
+                ? booking!.renterName
+                : (room.tenantName.isNotEmpty
+                      ? room.tenantName
+                      : 'Khách thuê'));
 
-      final tenantPhone = residents.isNotEmpty &&
-              residents.first.phone.isNotEmpty
+      final tenantPhone =
+          residents.isNotEmpty && residents.first.phone.isNotEmpty
           ? residents.first.phone
           : (booking?.renterPhone.isNotEmpty == true
-              ? booking!.renterPhone
-              : room.tenantPhone);
+                ? booking!.renterPhone
+                : room.tenantPhone);
 
       final tenantId = residents.isNotEmpty
           ? residents.first.userId
           : (booking?.renterId.isNotEmpty == true
-              ? booking!.renterId
-              : period.renterId);
+                ? booking!.renterId
+                : period.renterId);
 
-      result.add(HostOccupiedRoomItem(
-        roomId: room.id,
-        roomCode: room.roomCode.isNotEmpty
-            ? room.roomCode
-            : (room.title.isNotEmpty ? room.title : 'Phòng ${room.id}'),
-        propertyId: room.propertyId,
-        propertyName: propName,
-        periodId: period.id,
-        tenantId: tenantId,
-        tenantName: tenantName,
-        tenantPhone: tenantPhone,
-      ));
+      result.add(
+        HostOccupiedRoomItem(
+          roomId: room.id,
+          roomCode: room.roomCode.isNotEmpty
+              ? room.roomCode
+              : (room.title.isNotEmpty ? room.title : 'Phòng ${room.id}'),
+          propertyId: room.propertyId,
+          propertyName: propName,
+          periodId: period.id,
+          tenantId: tenantId,
+          tenantName: tenantName,
+          tenantPhone: tenantPhone,
+        ),
+      );
     }
 
     return result;
@@ -320,9 +318,9 @@ class ViolationRepository {
       final file = files[i];
       final ext = file.path.split('.').last.toLowerCase();
       final fileName = '${DateTime.now().millisecondsSinceEpoch}_$i.$ext';
-      final ref = _storageInstance
-          .ref()
-          .child('violations_media/$hostId/$recordId/$fileName');
+      final ref = _storageInstance.ref().child(
+        'violations_media/$hostId/$recordId/$fileName',
+      );
 
       final metadata = SettableMetadata(
         contentType: ext == 'mp4' ? 'video/mp4' : 'image/jpeg',
@@ -351,8 +349,9 @@ class ViolationRepository {
 
     // Nếu chọn hình thức 'NEXT_INVOICE', tự động tạo Dòng hóa đơn (invoice_lines)
     if (recordToSave.paymentMethod == 'NEXT_INVOICE') {
-      final lineDocRef =
-          _firestore.collection(FirestoreCollections.invoiceLines).doc();
+      final lineDocRef = _firestore
+          .collection(FirestoreCollections.invoiceLines)
+          .doc();
 
       final invoiceLine = InvoiceLineModel(
         id: lineDocRef.id,
@@ -387,12 +386,12 @@ class ViolationRepository {
         .collection(FirestoreCollections.violationRecords)
         .doc(recordId)
         .update({
-      'status': 'PAID',
-      'paidAt': Timestamp.now(),
-      'paidMethod': 'CASH',
-      'paidCollector': hostId,
-      'updatedAt': Timestamp.now(),
-    });
+          'status': 'PAID',
+          'paidAt': Timestamp.now(),
+          'paidMethod': 'CASH',
+          'paidCollector': hostId,
+          'updatedAt': Timestamp.now(),
+        });
   }
 
   /// Trừ vào hóa đơn: tạo dòng hóa đơn và cập nhật trạng thái biên bản
@@ -400,13 +399,15 @@ class ViolationRepository {
     final batch = _firestore.batch();
 
     // 1. Tạo invoice_line
-    final lineDocRef =
-        _firestore.collection(FirestoreCollections.invoiceLines).doc();
+    final lineDocRef = _firestore
+        .collection(FirestoreCollections.invoiceLines)
+        .doc();
     final invoiceLine = InvoiceLineModel(
       id: lineDocRef.id,
       violationRecordId: record.id,
-      violationId:
-          record.violationIds.isNotEmpty ? record.violationIds.first : '',
+      violationId: record.violationIds.isNotEmpty
+          ? record.violationIds.first
+          : '',
       roomId: record.roomId,
       periodId: record.periodId,
       amount: record.totalFine,
@@ -438,8 +439,8 @@ class ViolationRepository {
         .collection(FirestoreCollections.violationRecords)
         .doc(recordId)
         .update({
-      'lastReminderAt': Timestamp.now(),
-      'updatedAt': Timestamp.now(),
-    });
+          'lastReminderAt': Timestamp.now(),
+          'updatedAt': Timestamp.now(),
+        });
   }
 }

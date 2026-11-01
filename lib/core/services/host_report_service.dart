@@ -29,10 +29,15 @@ class HostReportService {
     required String hostId,
     required String hostName,
     String hostPhone = '',
+    String hostAvatar = '',
     String roomId = '',
     String roomTitle = '',
+    double roomPrice = 0,
+    String roomAddress = '',
+    List<String> roomImages = const [],
     required String reporterId,
     required String reporterName,
+    String reporterPhone = '',
     required List<String> selectedReasons,
     String otherText = '',
     List<String> evidencePaths = const [],
@@ -70,6 +75,10 @@ class HostReportService {
     final reporterLabel =
         reporterName.trim().isEmpty ? 'Người thuê' : reporterName.trim();
 
+    final cleanRoomId = roomId.trim();
+    final cleanRoomTitle = roomTitle.trim();
+    final hasRoom = cleanRoomId.isNotEmpty || cleanRoomTitle.isNotEmpty;
+
     try {
       final batch = _firestore.batch();
       batch.set(
@@ -77,11 +86,15 @@ class HostReportService {
         {
           HostReportFields.id: reportId,
           HostReportFields.targetType: HostReportPolicy.targetHost,
+          'reportType': 'host',
+          'isHostReport': true,
           HostReportFields.hostId: cleanHostId,
           HostReportFields.hostName: hostLabel,
           HostReportFields.hostPhone: hostPhone.trim(),
-          HostReportFields.roomId: roomId.trim(),
-          HostReportFields.roomTitle: roomTitle.trim(),
+          HostReportFields.roomId: cleanRoomId,
+          HostReportFields.roomTitle: cleanRoomTitle,
+          'relatedRoomId': cleanRoomId,
+          'relatedRoomTitle': cleanRoomTitle,
           HostReportFields.reporterId: cleanReporterId,
           HostReportFields.reporterName: reporterLabel,
           HostReportFields.reason: cleanReason,
@@ -90,20 +103,41 @@ class HostReportService {
           HostReportFields.evidenceUrls: evidenceUrls,
           HostReportFields.status: HostReportPolicy.pendingStatus,
           HostReportFields.createdAt: FieldValue.serverTimestamp(),
+
+          // Compatibility fields for Admin & User management
+          'reportedUserId': cleanHostId,
+          'reportedUserName': hostLabel,
+          'reportedPhone': hostPhone.trim(),
+          'reportedAvatar': hostAvatar.trim(),
+          'reportedRole': 'host',
+          'targetUserId': cleanHostId,
+          'targetUserName': hostLabel,
+          'reporterPhone': reporterPhone.trim(),
+
+          'postId': cleanRoomId,
+          'postTitle': cleanRoomTitle,
+          'roomPrice': roomPrice,
+          'roomAddress': roomAddress.trim(),
+          'roomImages': roomImages,
         },
       );
+
+      // Báo cáo chủ trọ gửi thông báo tới Admin (không ghi vào collection reposts)
       batch.set(
         _firestore.collection(FirestoreCollections.notifications).doc(notifId),
         {
           'id': notifId,
           'recipientRole': 'admin',
           'notificationType': 'report',
-          'title': 'Báo cáo chủ trọ',
-          'message':
-              '$reporterLabel báo cáo $hostLabel: $cleanReason',
+          'title': 'Báo cáo vi phạm chủ trọ',
+          'message': hasRoom
+              ? '$reporterLabel báo cáo chủ trọ $hostLabel (liên quan phòng "$cleanRoomTitle"): $cleanReason'
+              : '$reporterLabel báo cáo chủ trọ $hostLabel: $cleanReason',
           'targetId': reportId,
           'hostId': cleanHostId,
           'reporterId': cleanReporterId,
+          'roomId': cleanRoomId,
+          'roomTitle': cleanRoomTitle,
           'isRead': false,
           'createdAt': FieldValue.serverTimestamp(),
         },
@@ -115,8 +149,9 @@ class HostReportService {
           'action': 'Người thuê báo cáo chủ trọ',
           'actor': reporterLabel,
           'category': 'baoCao',
-          'details':
-              '$reporterLabel gửi báo cáo $reportId về $hostLabel. Lý do: $cleanReason',
+          'details': hasRoom
+              ? '$reporterLabel gửi báo cáo chủ trọ $hostLabel (liên quan phòng "$cleanRoomTitle", $cleanRoomId). Lý do: $cleanReason'
+              : '$reporterLabel gửi báo cáo $reportId về chủ trọ $hostLabel. Lý do: $cleanReason',
           'target': 'Báo cáo $reportId',
           'createdAt': FieldValue.serverTimestamp(),
         },

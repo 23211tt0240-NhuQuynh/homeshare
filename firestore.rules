@@ -23,15 +23,15 @@ service cloud.firestore {
       function hostReviewResident() {
         return get(/databases/$(database)/documents/residents/$(bookingId)).data;
       }
-      // Rules so khớp nguyên văn; app check-in ghi 'dangO', cọc ghi 'daCoc' / 'approved'.
+      // Đã nhận phòng thì được đánh giá, kể cả sau check-out / bị đuổi.
       function hostReviewableStatus(status) {
         return status in [
-          'approved', 'deposit_paid', 'paid', 'completed', 'active',
-          'dacoc', 'daCoc', 'da_coc',
-          'chonhanphong', 'choNhanPhong',
-          'daduyet', 'daDuyet', 'da_duyet',
+          'active',
           'dango', 'dangO', 'dang_o',
-          'danhanphong', 'daNhanPhong'
+          'danhanphong', 'daNhanPhong',
+          'checked_out', 'checkout', 'traphong',
+          'daketthuc', 'daKetThuc', 'daroi', 'daRoi',
+          'ended', 'moved_out'
         ];
       }
       function bookingBelongsToReviewer(booking) {
@@ -52,10 +52,10 @@ service cloud.firestore {
         return str(resident.get('userId', '')) == request.auth.uid
           || str(resident.get('nguoiDungId', '')) == request.auth.uid;
       }
-      function residentIsActive(resident) {
-        return str(resident.get('statusId', '')) in ['dangO', 'dango', 'dang_o', 'active']
-          || str(resident.get('status', '')) in ['dangO', 'dango', 'dang_o', 'active']
-          || str(resident.get('trangThai_id', '')) in ['dangO', 'dango', 'dang_o', 'active'];
+      function residentHasStayed(resident) {
+        return str(resident.get('statusId', '')) in ['dangO', 'dango', 'dang_o', 'active', 'daRoi', 'daroi', 'moved_out']
+          || str(resident.get('status', '')) in ['dangO', 'dango', 'dang_o', 'active', 'daRoi', 'daroi', 'moved_out']
+          || str(resident.get('trangThai_id', '')) in ['dangO', 'dango', 'dang_o', 'active', 'daRoi', 'daroi', 'moved_out'];
       }
       function residentRoomId(resident) {
         return str(resident.get('roomId', '')) != ''
@@ -88,7 +88,7 @@ service cloud.firestore {
       function isResidentReview() {
         return exists(/databases/$(database)/documents/residents/$(bookingId))
           && residentBelongsToReviewer(hostReviewResident())
-          && residentIsActive(hostReviewResident())
+          && residentHasStayed(hostReviewResident())
           && residentRoomMatchesHost(hostReviewResident());
       }
       allow read: if signedIn();

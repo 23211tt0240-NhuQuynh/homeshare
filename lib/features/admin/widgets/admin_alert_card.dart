@@ -1,5 +1,5 @@
-import '../theme/admin_colors.dart';
 import 'package:flutter/material.dart';
+import '../theme/admin_colors.dart';
 
 enum AdminActionType {
   disbursement, // Giải ngân tiền cọc
@@ -28,7 +28,6 @@ class AdminAlertCard extends StatelessWidget {
     required this.onProcess,
   });
 
-  // Factory constructor tương thích nhanh với mã đơn giải ngân
   factory AdminAlertCard.disbursement({
     Key? key,
     String orderCode = '#DH8821',
@@ -49,7 +48,6 @@ class AdminAlertCard extends StatelessWidget {
     );
   }
 
-  // Factory constructor cho duyệt bài đăng mới
   factory AdminAlertCard.postReview({
     Key? key,
     required String postCode,
@@ -71,8 +69,8 @@ class AdminAlertCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color iconBgColor;
-    Widget iconWidget;
+    late Color iconBgColor;
+    late Widget iconWidget;
 
     switch (type) {
       case AdminActionType.disbursement:
@@ -128,7 +126,6 @@ class AdminAlertCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Alert / Icon Badge
           Container(
             width: 36,
             height: 36,
@@ -140,8 +137,6 @@ class AdminAlertCard extends StatelessWidget {
             child: iconWidget,
           ),
           const SizedBox(width: 12),
-
-          // Main text info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,7 +154,7 @@ class AdminAlertCard extends StatelessWidget {
                       TextSpan(
                         text: highlightCode,
                         style: TextStyle(
-                          color: AdminColors.accent,
+                          color: AdminColors.accentText,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -183,8 +178,6 @@ class AdminAlertCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-
-          // Action button (Xử lý ngay / Duyệt bài)
           ElevatedButton(
             onPressed: onProcess,
             style: ElevatedButton.styleFrom(

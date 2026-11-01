@@ -53,6 +53,8 @@ class _InvalidRoleScreenState extends ConsumerState<InvalidRoleScreen> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textDark,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
         actions: [

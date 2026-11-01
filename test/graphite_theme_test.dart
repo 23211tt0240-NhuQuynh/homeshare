@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:home_share/core/constants/app_colors.dart';
+import 'package:home_share/core/providers/app_settings_provider.dart';
 import 'package:home_share/core/theme/app_theme.dart';
 import 'package:home_share/core/theme/app_theme_controller.dart';
 import 'package:home_share/core/theme/graphite_theme.dart';
 import 'package:home_share/core/theme/phong_sang_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -44,9 +47,36 @@ void main() {
     expect(AppPalette.graphite.surface, GraphiteColors.card);
   });
 
+  test('AppColors.bind applies Graphite in dark', () {
+    AppColors.bind(Brightness.light);
+    expect(AppColors.background, PhongSangColors.paper);
+    expect(AppColors.primary, PhongSangColors.accent);
+
+    AppColors.bind(Brightness.dark);
+    expect(AppColors.background, GraphiteColors.paper);
+    expect(AppColors.surface, GraphiteColors.card);
+    expect(AppColors.primary, GraphiteColors.accent);
+    expect(AppColors.textDark, GraphiteColors.ink);
+
+    AppColors.bind(Brightness.light);
+  });
+
   test('Theme mode labels for personal tab', () {
     expect(const AppThemeState(mode: ThemeMode.light).label, 'Sáng');
     expect(const AppThemeState(mode: ThemeMode.dark).label, 'Tối');
     expect(const AppThemeState(mode: ThemeMode.system).label, 'Hệ thống');
+  });
+
+  test('Đổi giao diện tối ghi vào controller mà MaterialApp đang đọc', () async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await container.read(appThemeControllerProvider.future);
+    await container.read(appThemeModeProvider.notifier).setThemeMode(ThemeMode.dark);
+
+    expect(container.read(appThemeControllerProvider).value?.mode, ThemeMode.dark);
+    expect(container.read(appThemeModeProvider), ThemeMode.dark);
+    expect(AppTheme.darkTheme.scaffoldBackgroundColor, GraphiteColors.paper);
   });
 }

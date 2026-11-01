@@ -1,10 +1,10 @@
-import '../theme/admin_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import '../../../../core/utils/admin_receipt_pdf.dart';
 import '../widgets/admin_page_backdrop.dart';
 import '../widgets/admin_branded_title.dart';
+import '../theme/admin_colors.dart';
 
 class CancellationReceiptScreen extends StatelessWidget {
   final String receiptCode;
@@ -86,9 +86,9 @@ class CancellationReceiptScreen extends StatelessWidget {
                         color: color,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.check_rounded,
-                        color: Colors.white,
+                        color: AdminColors.card,
                         size: 30,
                       ),
                     ),
@@ -309,7 +309,7 @@ class CancellationReceiptScreen extends StatelessWidget {
                         }
                       },
                       icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                      label: const Text(
+                      label: Text(
                         'IN PHIẾU PDF',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
@@ -334,7 +334,7 @@ class CancellationReceiptScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: const Text(
+                      child: Text(
                         'HOÀN TẤT',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),

@@ -1,10 +1,10 @@
-import '../theme/admin_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import '../../../../core/utils/admin_receipt_pdf.dart';
 import '../widgets/admin_page_backdrop.dart';
 import '../widgets/admin_branded_title.dart';
+import '../theme/admin_colors.dart';
 
 class SettlementReceiptScreen extends StatelessWidget {
   final double amount;
@@ -72,9 +72,9 @@ class SettlementReceiptScreen extends StatelessWidget {
                         color: AdminColors.success,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.check_rounded,
-                        color: Colors.white,
+                        color: AdminColors.card,
                         size: 30,
                       ),
                     ),
@@ -224,7 +224,7 @@ class SettlementReceiptScreen extends StatelessWidget {
                                       '${item['orderCode']} • ${item['renterName']}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 10.5,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -248,7 +248,7 @@ class SettlementReceiptScreen extends StatelessWidget {
                                 child: Text(
                                   currencyFormatter.format(item['amount']),
                                   textAlign: TextAlign.right,
-                                  style: const TextStyle(fontSize: 10.5),
+                                  style: TextStyle(fontSize: 10.5),
                                 ),
                               ),
                               Padding(
@@ -398,7 +398,7 @@ class SettlementReceiptScreen extends StatelessWidget {
                         }
                       },
                       icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                      label: const Text(
+                      label: Text(
                         'IN PHIẾU PDF',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
@@ -423,7 +423,7 @@ class SettlementReceiptScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: const Text(
+                      child: Text(
                         'HOÀN TẤT',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),

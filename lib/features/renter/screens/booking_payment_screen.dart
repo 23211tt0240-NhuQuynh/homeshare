@@ -35,6 +35,9 @@ class BookingPaymentScreen extends ConsumerStatefulWidget {
 }
 
 class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
+  Color get _readableAccent =>
+      AppColors.isDark ? AppColors.textDark : AppColors.primary;
+
   late String _transferContent;
   late String _qrImageUrl;
   late String _emvcoPayload;
@@ -107,10 +110,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           ? widget.room.id
           : widget.booking.roomId;
       if (targetDocId.isNotEmpty) {
-        var roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(targetDocId).get();
-        if (!roomDoc.exists) {
-          roomDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(targetDocId).get();
-        }
+        final roomDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(targetDocId).get();
         if (roomDoc.exists) {
           final newContent = IdGenerator.transferContent(
             renterCode: renterCode,
@@ -376,7 +376,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'ĐÃ GỬI XÁC NHẬN CHUYỂN KHOẢN!',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _readableAccent),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 10),
@@ -436,7 +436,12 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Thanh Toán Đặt Phòng'),
+        title: Text(
+          'Thanh Toán Đặt Phòng',
+          style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.w700),
+        ),
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textDark,
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -476,7 +481,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: isExpiringSoon ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
+        color: isExpiringSoon ? AppColors.dangerContainer : AppColors.successContainer,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isExpiringSoon ? const Color(0xFFFECACA) : const Color(0xFFBBF7D0),
@@ -487,7 +492,9 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           Icon(
             Icons.access_time_filled,
             size: 20,
-            color: isExpiringSoon ? Colors.red : AppColors.primary,
+            color: isExpiringSoon
+                ? AppColors.danger
+                : (AppColors.isDark ? AppColors.success : AppColors.primary),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -502,7 +509,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
                   _secondsRemaining > 0
                       ? 'Vui lòng chuyển khoản trước khi hết hạn để tránh bị tự hủy đơn'
                       : 'Đơn đặt phòng đã hết thời hạn giữ phòng',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 11, color: AppColors.textMuted),
                 ),
               ],
             ),
@@ -593,17 +600,24 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade300, width: 1.5),
+                border: Border.all(color: AppColors.border, width: 1.5),
               ),
               child: _useVectorQrFallback
                   ? QrImageView(
                       data: _emvcoPayload,
                       version: QrVersions.auto,
                       size: 240.0,
-                      eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.square, color: AppColors.primary),
-                      dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Colors.black),
+                      backgroundColor: Colors.white,
+                      eyeStyle: const QrEyeStyle(
+                        eyeShape: QrEyeShape.square,
+                        color: Color(0xFF0F172A),
+                      ),
+                      dataModuleStyle: const QrDataModuleStyle(
+                        dataModuleShape: QrDataModuleShape.square,
+                        color: Color(0xFF0F172A),
+                      ),
                     )
                   : CachedNetworkImage(
                       imageUrl: _qrImageUrl,
@@ -619,7 +633,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
                             children: [
                               CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                               const SizedBox(height: 10),
-                              Text('Đang tạo mã VietQR thật...', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                              Text('Đang tạo mã VietQR thật...', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                             ],
                           ),
                         ),
@@ -633,6 +647,15 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
                           data: _emvcoPayload,
                           version: QrVersions.auto,
                           size: 240.0,
+                          backgroundColor: Colors.white,
+                          eyeStyle: const QrEyeStyle(
+                            eyeShape: QrEyeShape.square,
+                            color: Color(0xFF0F172A),
+                          ),
+                          dataModuleStyle: const QrDataModuleStyle(
+                            dataModuleShape: QrDataModuleShape.square,
+                            color: Color(0xFF0F172A),
+                          ),
                         );
                       },
                     ),
@@ -641,7 +664,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           const SizedBox(height: 12),
           Text(
             'Quét mã sẽ TỰ ĐỘNG ĐIỀN đúng số tài khoản, tên chủ thẻ và số tiền',
-            style: TextStyle(fontSize: 11, color: Colors.green.shade800, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 11, color: AppColors.success, fontWeight: FontWeight.w600),
             textAlign: TextAlign.center,
           ),
         ],
@@ -655,7 +678,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -669,11 +692,11 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.account_balance, color: AppColors.primary, size: 20),
+              Icon(Icons.account_balance, color: _readableAccent, size: 20),
               SizedBox(width: 8),
               Text(
                 'THÔNG TIN CHUYỂN KHOẢN THỦ CÔNG',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _readableAccent),
               ),
             ],
           ),
@@ -722,7 +745,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
             copyText: _transferContent,
             isBold: true,
             isHighlight: true,
-            highlightColor: AppColors.primary,
+            highlightColor: _readableAccent,
             subtitle: 'Chỉ gồm mã người dùng và ID phòng (Ví dụ: $_transferContent)',
           ),
         ],
@@ -769,7 +792,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           decoration: BoxDecoration(
             color: AppColors.background,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: AppColors.border),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -786,14 +809,14 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
                       style: TextStyle(
                         fontSize: isHighlight ? 16 : 14,
                         fontWeight: (isBold || isHighlight) ? FontWeight.bold : FontWeight.w600,
-                        color: highlightColor ?? (isHighlight ? AppColors.primary : AppColors.textDark),
+                        color: highlightColor ?? (isHighlight ? _readableAccent : AppColors.textDark),
                       ),
                     ),
                     if (subtitle != null) ...[
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
-                        style: TextStyle(fontSize: 10.5, color: AppColors.primary, fontWeight: FontWeight.w500),
+                        style: TextStyle(fontSize: 10.5, color: _readableAccent, fontWeight: FontWeight.w500),
                       ),
                     ],
                   ],
@@ -808,9 +831,9 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.copy, size: 14, color: AppColors.primary),
+                    Icon(Icons.copy, size: 14, color: _readableAccent),
                     SizedBox(width: 4),
-                    Text('Sao chép', style: TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.bold)),
+                    Text('Sao chép', style: TextStyle(color: _readableAccent, fontSize: 11, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -825,29 +848,41 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
+        color: AppColors.primaryContainer,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFBFDBFE)),
+        border: Border.all(
+          color: AppColors.isDark
+              ? AppColors.primary.withValues(alpha: 0.4)
+              : const Color(0xFFBFDBFE),
+        ),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.info_outline, size: 18, color: Color(0xFF1D4ED8)),
-              SizedBox(width: 6),
+              Icon(Icons.info_outline, size: 18, color: _readableAccent),
+              const SizedBox(width: 6),
               Text(
                 'Lưu ý thanh toán an toàn',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1D4ED8)),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: _readableAccent,
+                ),
               ),
             ],
           ),
-          SizedBox(height: 6),
+          const SizedBox(height: 6),
           Text(
             '• Quét mã QR hoặc nhập chính xác STK 0382542737 tại MBBank.\n'
             '• Giữ đúng nội dung chuyển khoản để hệ thống tự động đối soát.\n'
             '• Sau khi chuyển tiền, nhấn nút "Tôi đã chuyển khoản thành công" bên dưới.',
-            style: TextStyle(fontSize: 12, height: 1.4, color: Color(0xFF1E3A8A)),
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: AppColors.isDark ? AppColors.textDark : const Color(0xFF1E3A8A),
+            ),
           ),
         ],
       ),

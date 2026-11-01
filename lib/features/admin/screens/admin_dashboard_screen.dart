@@ -3,11 +3,10 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/app_theme_controller.dart';
 import 'admin_notifications_screen.dart';
 import '../utils/booking_utils.dart';
 import '../widgets/admin_branded_title.dart';
+import '../widgets/admin_theme_toggle.dart';
 import '../widgets/revenue_line_chart.dart';
 import '../widgets/revenue_bar_chart.dart';
 import 'cancellation_invoice_screen.dart';
@@ -269,7 +268,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Xác nhận Chuyển tiền',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
@@ -330,40 +329,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               : 'Dữ liệu tổng quan toàn hệ thống',
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Consumer(
-              builder: (context, ref, _) {
-                final mode =
-                    ref.watch(appThemeControllerProvider).value?.mode ??
-                    ThemeMode.light;
-                final isDarkMode = mode == ThemeMode.dark;
-                return InkWell(
-                  onTap: () {
-                    ref.read(appThemeControllerProvider.notifier).setMode(
-                      isDarkMode ? ThemeMode.light : ThemeMode.dark,
-                    );
-                  },
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: AdminColors.accentSoft,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isDarkMode
-                          ? Icons.wb_sunny_outlined
-                          : Icons.nightlight_round_outlined,
-                      color: AdminColors.mutedStrong,
-                      size: 21,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
+          const AdminThemeToggle(padding: EdgeInsets.only(right: 8)),
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: StreamBuilder<QuerySnapshot>(
@@ -672,7 +638,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               } else if (previousTotalFlow == 0) {
                 flowComparisonText = 'Chưa có dòng tiền kỳ trước';
                 flowComparisonColor = AdminColors.muted;
-                flowComparisonBackground = AdminColors.paper;
+                flowComparisonBackground = AdminColors.accentSoft;
               } else {
                 final arrow = flowChangePercent >= 0 ? '▲' : '▼';
                 flowComparisonText =
@@ -726,9 +692,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 ? 'DOANH THU SÀN'
                                 : 'DOANH THU SÀN',
                             value: _formatMoney(netRevenue),
-                            valueColor: AdminColors.accent,
+                            valueColor: AdminColors.accentText,
                             subtext: 'Cọc và phí hủy đã ghi nhận',
-                            subtextColor: AdminColors.accent,
+                            subtextColor: AdminColors.mutedStrong,
                           ),
                         ),
                       ],
@@ -742,7 +708,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           child: _buildKpiCard(
                             title: 'GIAO DỊCH THÀNH CÔNG',
                             value: '$successfulTxCount Đơn',
-                            valueColor: AdminColors.warningInk,
+                            valueColor: AdminColors.warning,
                             subtext:
                                 '$depositTxCount đơn cọc • $cancellationTxCount đơn hủy',
                             subtextColor: AdminColors.muted,
@@ -942,7 +908,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: AdminColors.accent,
+                                color: AdminColors.accentText,
                               ),
                             ),
                           ),
@@ -1121,7 +1087,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            child: const Text(
+            child: Text(
               'Xử lý ngay',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             ),
@@ -1167,8 +1133,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w800,
-              color: AdminColors.muted,
-              letterSpacing: 0.3,
+            color: AdminColors.mutedStrong,
+            letterSpacing: 0.3,
             ),
             textAlign: TextAlign.start,
             maxLines: 1,

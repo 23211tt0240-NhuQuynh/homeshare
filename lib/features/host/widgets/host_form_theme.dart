@@ -23,8 +23,12 @@ class HostTheme {
   static Color get textMuted => AppColors.textMuted;
   static Color get chipBorder => AppColors.primary.withValues(alpha: 0.45);
   static Color get chipSelectedBg => AppColors.primaryContainer;
-  static Color get chipSelectedText => AppColors.isDark ? AppColors.textDark : AppColors.primaryDark;
+  static Color get chipSelectedText =>
+      AppColors.isDark ? AppColors.textDark : AppColors.primaryDark;
   static Color get disabledBackground => AppColors.surfaceVariant;
+  /// Chữ nhấn: Graphite dùng trắng, Phòng Sáng giữ xanh.
+  static Color get accentText =>
+      AppColors.isDark ? AppColors.textDark : AppColors.primary;
 
   // Border radius chuẩn
   static final BorderRadius radius12 = BorderRadius.circular(12);
@@ -76,7 +80,7 @@ class HostTheme {
       fillColor: fillColor ?? AppColors.surface,
       contentPadding:
           contentPadding ??
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: radius14,
         borderSide: BorderSide(color: borderColor ?? AppColors.border),
@@ -202,7 +206,7 @@ class HostCardSection extends StatelessWidget {
           Row(
             children: [
               Icon(icon, color: HostTheme.primary, size: 20),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: Text(
                   title,
@@ -216,7 +220,7 @@ class HostCardSection extends StatelessWidget {
               ?trailing,
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           child,
         ],
       ),
@@ -242,7 +246,7 @@ class HostSectionTitle extends StatelessWidget {
     return Row(
       children: [
         Icon(icon, color: HostTheme.primary, size: 22),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         Expanded(
           child: Text(
             title,
@@ -283,26 +287,26 @@ class HostAddImageButton extends StatelessWidget {
       child: Container(
         width: 92,
         height: 92,
-        margin: const EdgeInsets.only(right: 10),
+        margin: EdgeInsets.only(right: 10),
         decoration: BoxDecoration(
           color: HostTheme.background,
           borderRadius: HostTheme.radius12,
-          border: Border.all(color: const Color(0xFF8DB8FF), width: 1.5),
+          border: Border.all(color: HostTheme.chipBorder, width: 1.5),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.add_photo_alternate_outlined,
-              color: AppColors.primary,
+              color: HostTheme.accentText,
               size: 26,
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Text(
               'Thêm ảnh',
               style: TextStyle(
                 fontSize: 11,
-                color: AppColors.primary,
+                color: HostTheme.accentText,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -337,14 +341,12 @@ class HostImageThumbnail extends StatelessWidget {
         Container(
           width: 92,
           height: 92,
-          margin: const EdgeInsets.only(right: 10),
+          margin: EdgeInsets.only(right: 10),
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             borderRadius: HostTheme.radius12,
             border: Border.all(
-              color: rawUrl != null
-                  ? HostTheme.cardBorder
-                  : AppColors.border,
+              color: rawUrl != null ? HostTheme.cardBorder : AppColors.border,
             ),
           ),
           child: upload != null
@@ -357,7 +359,7 @@ class HostImageThumbnail extends StatelessWidget {
             right: 14,
             child: InkWell(
               onTap: onRemove,
-              child: const CircleAvatar(
+              child: CircleAvatar(
                 radius: 11,
                 backgroundColor: Color(0x99000000),
                 child: Icon(Icons.close, size: 13, color: Colors.white),
@@ -369,12 +371,12 @@ class HostImageThumbnail extends StatelessWidget {
             left: 5,
             bottom: 5,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: HostTheme.primary,
                 borderRadius: BorderRadius.circular(5),
               ),
-              child: const Text(
+              child: Text(
                 'Ảnh bìa',
                 style: TextStyle(
                   color: Colors.white,
@@ -469,7 +471,7 @@ class HostImageThumbnail extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.image_outlined, color: AppColors.textMuted, size: 24),
-            const SizedBox(height: 2),
+            SizedBox(height: 2),
             Text(
               'Ảnh phòng',
               style: TextStyle(
@@ -519,7 +521,7 @@ class HostAmenityTile extends StatelessWidget {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: HostTheme.radius14,
@@ -530,7 +532,7 @@ class HostAmenityTile extends StatelessWidget {
         borderRadius: HostTheme.radius14,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
               Container(
@@ -545,10 +547,10 @@ class HostAmenityTile extends StatelessWidget {
                   ),
                 ),
                 child: isSelected
-                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    ? Icon(Icons.check, size: 14, color: Colors.white)
                     : null,
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: Text(
                   name,
@@ -556,17 +558,17 @@ class HostAmenityTile extends StatelessWidget {
                     fontSize: 13,
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                     color: isSelected
-                        ? (AppColors.isDark ? AppColors.textDark : AppColors.primaryDark)
+                        ? HostTheme.chipSelectedText
                         : AppColors.textDark,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               if (isCustom) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 8,
                     vertical: 3,
                   ),
@@ -583,7 +585,7 @@ class HostAmenityTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 IconButton(
                   key: ValueKey('delete_custom_amenity_$name'),
                   icon: Icon(
@@ -597,7 +599,7 @@ class HostAmenityTile extends StatelessWidget {
                 ),
               ] else if (isSelected) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 8,
                     vertical: 3,
                   ),

@@ -12,9 +12,10 @@ enum _PropertyAction { edit, delete }
 // Chủ trọ - Quản lý cơ sở Firebase - Luồng đi: Mở từ Dashboard;
 // properties và rooms của tài khoản cập nhật danh sách và tổng quan tự động.
 class HostPropertyManagementScreen extends ConsumerWidget {
-  const HostPropertyManagementScreen({super.key});
+  const HostPropertyManagementScreen({super.key, this.onManagementSelected});
+  final ValueChanged<int>? onManagementSelected;
   Color get _blue => AppColors.primary;
-  Color get _muted => AppColors.textMuted;
+  Color get _muted => AppColors.textSecondary;
   String _money(num value) => NumberFormat.decimalPattern('vi').format(value);
 
   // Chủ trọ - Hiển thị quản lý - Luồng đi: Chờ phiên đăng nhập rồi tải
@@ -26,11 +27,11 @@ class HostPropertyManagementScreen extends ConsumerWidget {
     final rooms = ref.watch(hostRoomsProvider);
     Widget content;
     if (session.isLoading) {
-      content = const Center(child: CircularProgressIndicator());
+      content = Center(child: CircularProgressIndicator());
     } else if (session.hasError) {
       content = _error(ref, session.error!);
     } else if (session.value == null) {
-      content = const Center(
+      content = Center(
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Text(
@@ -42,7 +43,7 @@ class HostPropertyManagementScreen extends ConsumerWidget {
     } else if (properties.hasError || rooms.hasError) {
       content = _error(ref, properties.error ?? rooms.error!);
     } else if (properties.isLoading || rooms.isLoading) {
-      content = const Center(child: CircularProgressIndicator());
+      content = Center(child: CircularProgressIndicator());
     } else {
       final summaries = properties.value!
           .map((p) => PropertySummary(p, rooms.value!))
@@ -52,28 +53,36 @@ class HostPropertyManagementScreen extends ConsumerWidget {
           .where((r) => !linkedIds.contains(r.propertyId))
           .length;
       content = ListView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        padding: EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
-          const Text(
+          Text(
             'Quản lý phòng trọ',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textDark,
+            ),
           ),
-          const SizedBox(height: 2),
+          SizedBox(height: 2),
           Text(
             '${summaries.length} cơ sở đang quản lý',
             style: TextStyle(fontSize: 12, color: _muted),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           _overview(summaries),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           Text(
             'Danh sách cơ sở (${summaries.length})',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textDark,
+            ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           if (unlinked > 0)
             Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: EdgeInsets.only(bottom: 12),
               child: Text(
                 '$unlinked phòng cũ chưa liên kết cơ sở, chưa tính trong tổng quan.',
                 style: TextStyle(fontSize: 12, color: AppColors.warning),
@@ -81,33 +90,36 @@ class HostPropertyManagementScreen extends ConsumerWidget {
             ),
           if (summaries.isEmpty)
             Container(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(24),
               decoration: _decoration(),
               child: Column(
                 children: [
                   Icon(Icons.add_home_outlined, size: 44, color: _blue),
-                  const SizedBox(height: 12),
-                  const Text(
+                  SizedBox(height: 12),
+                  Text(
                     'Chưa có cơ sở',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Text(
                     'Tạo nhà rồi thêm từng phòng để bắt đầu quản lý.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: _muted),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   FilledButton(
                     onPressed: () => _openCreate(context),
-                    child: const Text('Tạo cơ sở đầu tiên'),
+                    child: Text('Tạo cơ sở đầu tiên'),
                   ),
                 ],
               ),
             ),
           for (final summary in summaries) ...[
             _propertyCard(context, ref, summary),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
           ],
         ],
       );
@@ -118,7 +130,7 @@ class HostPropertyManagementScreen extends ConsumerWidget {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Row(
                 children: [
                   Container(
@@ -128,22 +140,22 @@ class HostPropertyManagementScreen extends ConsumerWidget {
                       color: _blue,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.home_outlined,
                       color: Colors.white,
                       size: 22,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10),
                   Text(
                     'HomeShare',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
-                      color: _blue,
+                      color: AppColors.textDark,
                     ),
                   ),
-                  const Spacer(),
+                  Spacer(),
                   IconButton(
                     tooltip: 'Thông báo',
                     onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
@@ -212,19 +224,19 @@ class HostPropertyManagementScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Xóa cơ sở?'),
+        title: Text('Xóa cơ sở?'),
         content: Text(
           'Cơ sở “${summary.property.name}” sẽ bị xóa khỏi danh sách quản lý. Bạn có chắc muốn tiếp tục?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Hủy'),
+            child: Text('Hủy'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Xóa cơ sở'),
+            child: Text('Xóa cơ sở'),
           ),
         ],
       ),
@@ -248,19 +260,19 @@ class HostPropertyManagementScreen extends ConsumerWidget {
   // mẫu; thử lại khởi động các stream phiên, nhà và phòng.
   Widget _error(WidgetRef ref, Object error) => Center(
     child: Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(hostErrorMessage(error), textAlign: TextAlign.center),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           OutlinedButton(
             onPressed: () {
               ref.invalidate(hostSessionProvider);
               ref.invalidate(hostPropertiesProvider);
               ref.invalidate(hostRoomsProvider);
             },
-            child: const Text('Thử lại'),
+            child: Text('Thử lại'),
           ),
         ],
       ),
@@ -274,7 +286,7 @@ class HostPropertyManagementScreen extends ConsumerWidget {
     final rented = summaries.fold(0, (sum, s) => sum + s.rented);
     final vacant = summaries.fold(0, (sum, s) => sum + s.vacant);
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       decoration: _decoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,13 +298,23 @@ class HostPropertyManagementScreen extends ConsumerWidget {
               Expanded(
                 child: Text(
                   'Tổng quan hệ thống',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark,
+                  ),
                 ),
               ),
-              Text('Hiện tại', style: TextStyle(fontSize: 11, color: _blue)),
+              Text(
+                'Hiện tại',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.isDark ? AppColors.textDark : _blue,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -303,29 +325,31 @@ class HostPropertyManagementScreen extends ConsumerWidget {
                   AppColors.textDark,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: _metric(
                   'Đang thuê',
                   rented,
-                  const Color(0xFFEAF9F1),
-                  const Color(0xFF059669),
+                  AppColors.successContainer,
+                  AppColors.success,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: _metric(
                   'Còn trống',
                   vacant,
-                  const Color(0xFFFEF4EC),
-                  const Color(0xFFD97706),
+                  AppColors.warningContainer,
+                  AppColors.isDark
+                      ? const Color(0xFFFDE68A)
+                      : const Color(0xFFD97706),
                 ),
               ),
             ],
           ),
           if (total > rented + vacant)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: EdgeInsets.only(top: 8),
               child: Text(
                 '${total - rented - vacant} phòng ở trạng thái khác',
                 style: TextStyle(fontSize: 11, color: _muted),
@@ -338,7 +362,7 @@ class HostPropertyManagementScreen extends ConsumerWidget {
 
   Widget _metric(String label, int value, Color background, Color color) =>
       Container(
-        padding: const EdgeInsets.all(10),
+        padding: EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: background,
           borderRadius: BorderRadius.circular(12),
@@ -347,7 +371,7 @@ class HostPropertyManagementScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label, style: TextStyle(fontSize: 11, color: color)),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Wrap(
               spacing: 4,
               crossAxisAlignment: WrapCrossAlignment.center,
@@ -384,7 +408,7 @@ class HostPropertyManagementScreen extends ConsumerWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -403,7 +427,7 @@ class HostPropertyManagementScreen extends ConsumerWidget {
                               _imageFallback(),
                         ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -415,17 +439,18 @@ class HostPropertyManagementScreen extends ConsumerWidget {
                               p.name,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
+                                color: AppColors.textDark,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 4),
+                          SizedBox(width: 4),
                           PopupMenuButton<_PropertyAction>(
                             key: ValueKey('property_menu_${p.id}'),
                             tooltip: 'Tùy chọn cơ sở',
-                            icon: const Icon(Icons.more_vert, size: 20),
+                            icon: Icon(Icons.more_vert, size: 20),
                             onSelected: (action) async {
                               switch (action) {
                                 case _PropertyAction.edit:
@@ -463,14 +488,14 @@ class HostPropertyManagementScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text(
                         p.fullAddress,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 11, color: _muted),
                       ),
-                      const SizedBox(height: 6),
+                      SizedBox(height: 6),
                       Wrap(
                         spacing: 8,
                         runSpacing: 4,
@@ -482,16 +507,16 @@ class HostPropertyManagementScreen extends ConsumerWidget {
                           ),
                           Text(
                             '${summary.rented} thuê',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10,
-                              color: Color(0xFF059669),
+                              color: AppColors.success,
                             ),
                           ),
                           Text(
                             '${summary.vacant} trống',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10,
-                              color: Color(0xFFD97706),
+                              color: (AppColors.isDark ? const Color(0xFFFDE68A) : const Color(0xFFD97706)),
                             ),
                           ),
                           if (summary.other > 0)
@@ -511,7 +536,7 @@ class HostPropertyManagementScreen extends ConsumerWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             color: AppColors.background,
             child: Row(
               children: [
@@ -526,7 +551,9 @@ class HostPropertyManagementScreen extends ConsumerWidget {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: _blue,
+                            color: AppColors.isDark
+                                ? AppColors.textDark
+                                : _blue,
                           ),
                         ),
                       ],
@@ -535,7 +562,12 @@ class HostPropertyManagementScreen extends ConsumerWidget {
                 ),
                 TextButton(
                   onPressed: () => _showRooms(context, summary),
-                  child: const Text(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.isDark
+                        ? AppColors.textDark
+                        : _blue,
+                  ),
+                  child: Text(
                     'Quản lý phòng',
                     style: TextStyle(fontSize: 11),
                   ),
@@ -553,7 +585,10 @@ class HostPropertyManagementScreen extends ConsumerWidget {
   void _showRooms(BuildContext context, PropertySummary summary) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => HostRoomListScreen(propertyId: summary.property.id),
+        builder: (_) => HostRoomListScreen(
+          propertyId: summary.property.id,
+          onManagementSelected: onManagementSelected,
+        ),
       ),
     );
   }
@@ -572,7 +607,7 @@ class HostPropertyManagementScreen extends ConsumerWidget {
     border: Border.all(color: AppColors.border),
   );
   Widget _badge(String text, Color background, Color foreground) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
     decoration: BoxDecoration(
       color: background,
       borderRadius: BorderRadius.circular(20),

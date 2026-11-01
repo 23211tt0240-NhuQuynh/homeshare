@@ -12,8 +12,8 @@ import '../../../core/utils/host_review_policy.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../profile/widgets/host_review_sheet.dart';
 import 'booking_payment_screen.dart';
-import 'create_roommate_post_screen.dart';
 import '../widgets/checkin_qr_bottom_sheet.dart';
+import '../widgets/send_roommate_invite_sheet.dart';
 
 class RenterBookingsScreen extends ConsumerStatefulWidget {
   final String? initialStatusFilter;
@@ -32,8 +32,22 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
   void initState() {
     super.initState();
     if (widget.initialStatusFilter != null && widget.initialStatusFilter!.isNotEmpty) {
-      if (widget.initialStatusFilter == 'Chờ duyệt' || widget.initialStatusFilter == 'pending') {
+      final f = widget.initialStatusFilter!.toLowerCase();
+      if (f == 'chờ duyệt' || f == 'pending' || f == 'đang xử lý') {
         _selectedStatusFilter = 'Đang xử lý';
+      } else if (f == 'active' || f == 'dango' || f == 'đang ở') {
+        _selectedStatusFilter = 'Đang ở';
+      } else if (f == 'approved' || f == 'daduyet' || f == 'đã duyệt') {
+        _selectedStatusFilter = 'Đã duyệt';
+      } else if (f == 'checked_out' ||
+          f == 'checkout' ||
+          f == 'traphong' ||
+          f == 'đã trả phòng' ||
+          f == 'daroi' ||
+          f == 'daketthuc') {
+        _selectedStatusFilter = 'Đã trả phòng';
+      } else if (f == 'cancelled' || f == 'dahuy' || f == 'đã hủy') {
+        _selectedStatusFilter = 'Đã hủy';
       } else {
         _selectedStatusFilter = widget.initialStatusFilter!;
       }
@@ -49,25 +63,32 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
     super.dispose();
   }
 
-  Color _getStatusTextColor(BookingRequestModel b) {
-    if (b.isCancelled) return const Color(0xFFB42318);
-    if (b.isActive) return const Color(0xFF027A48);
-    if (b.isApproved) return const Color(0xFF175CD3);
-    if (b.status == 'pending_payment') return const Color(0xFFB54708);
-    return const Color(0xFFB54708); // pending
+  Color _getStatusTextColor(BookingRequestModel b, AppPalette colors) {
+    if (b.isCancelled) return colors.danger;
+    if (b.isEnded) return colors.textMuted;
+    if (b.isActive) return colors.success;
+    if (b.isApproved) return colors.primary;
+    if (b.status == 'pending_payment') return colors.warning;
+    return colors.warning;
   }
 
-  Color _getStatusBgColor(BookingRequestModel b) {
-    if (b.isCancelled) return const Color(0xFFFEF3F2);
-    if (b.isActive) return const Color(0xFFECFDF3);
-    if (b.isApproved) return const Color(0xFFEFF8FF);
-    if (b.status == 'pending_payment') return const Color(0xFFFEF0C7);
-    return const Color(0xFFFEF0C7); // pending
+  Color _getStatusBgColor(BookingRequestModel b, AppPalette colors) {
+    if (b.isCancelled) return colors.dangerContainer;
+    if (b.isEnded) return colors.surfaceVariant;
+    if (b.isActive) {
+      return AppColors.successContainer;
+    }
+    if (b.isApproved) return colors.primaryContainer;
+    if (b.status == 'pending_payment') return colors.warningContainer;
+    return colors.warningContainer;
   }
 
   String _getStatusText(BookingRequestModel b) {
     if (b.isCancelled) {
       return 'Đã hủy';
+    }
+    if (b.isEnded) {
+      return 'Đã trả phòng';
     }
     if (b.isActive) {
       return 'Đang ở (Active)';
@@ -240,7 +261,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                 fillColor: AppColors.background,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFEAECF0)),
+                  borderSide: BorderSide(color: AppColors.border),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -312,23 +333,24 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final currencyFormatter = NumberFormat('#,###', 'vi_VN');
+    final colors = AppColors.of(context);
 
     if (user == null) {
       return Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: colors.background,
         appBar: AppBar(title: const Text('Quản lý Đơn Thuê')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.lock_outline, size: 64, color: Colors.grey.shade400),
+              Icon(Icons.lock_outline, size: 64, color: AppColors.textMuted),
               const SizedBox(height: 16),
               Text(
                 'Vui lòng đăng nhập để xem đơn thuê & lịch hẹn',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textDark,
+                  color: colors.textDark,
                 ),
               ),
             ],
@@ -340,23 +362,30 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
     final bookingsAsync = ref.watch(renterBookingsStreamProvider(user.uid));
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       appBar: AppBar(
         title: const Text('Quản lý Đơn Thuê & Trạng Thái'),
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textDark,
+        backgroundColor: colors.surface,
+        foregroundColor: colors.textDark,
       ),
       body: Column(
         children: [
           // Filter Chips
           Container(
-            color: AppColors.surface,
+            color: colors.surface,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children:
-                    ['Tất cả', 'Đang xử lý', 'Đã duyệt', 'Đang ở', 'Đã hủy'].map(
+                    [
+                      'Tất cả',
+                      'Đang xử lý',
+                      'Đã duyệt',
+                      'Đang ở',
+                      'Đã trả phòng',
+                      'Đã hủy',
+                    ].map(
                       (s) {
                         final isSel = _selectedStatusFilter == s;
                         return Padding(
@@ -364,9 +393,13 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                           child: ChoiceChip(
                             label: Text(s),
                             selected: isSel,
-                            selectedColor: AppColors.primary,
+                            selectedColor: colors.primary,
+                            backgroundColor: colors.surfaceVariant,
+                            side: BorderSide(
+                              color: isSel ? colors.primary : colors.border,
+                            ),
                             labelStyle: TextStyle(
-                              color: isSel ? Colors.white : AppColors.textDark,
+                              color: isSel ? colors.onPrimary : colors.textDark,
                               fontSize: 12,
                               fontWeight: isSel
                                   ? FontWeight.bold
@@ -399,6 +432,8 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                   filtered = bookings.where((b) => b.isApproved).toList();
                 } else if (_selectedStatusFilter == 'Đang ở') {
                   filtered = bookings.where((b) => b.isActive).toList();
+                } else if (_selectedStatusFilter == 'Đã trả phòng') {
+                  filtered = bookings.where((b) => b.isEnded).toList();
                 } else if (_selectedStatusFilter == 'Đã hủy') {
                   filtered = bookings.where((b) => b.isCancelled).toList();
                 }
@@ -411,7 +446,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                         Icon(
                           Icons.assignment_outlined,
                           size: 64,
-                          color: Colors.grey.shade400,
+                          color: AppColors.textMuted,
                         ),
                         const SizedBox(height: 12),
                         Text(
@@ -432,8 +467,8 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                       const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final b = filtered[index];
-                    final textColor = _getStatusTextColor(b);
-                    final bgColor = _getStatusBgColor(b);
+                    final textColor = _getStatusTextColor(b, colors);
+                    final bgColor = _getStatusBgColor(b, colors);
                     final statusText = _getStatusText(b);
                     final priceStr =
                         '${currencyFormatter.format(b.roomPrice)} đ/tháng';
@@ -443,9 +478,11 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                         b.status == 'pending_payment' && !b.isCancelled;
 
                     return Card(
-                      elevation: 1,
+                      elevation: 0,
+                      color: colors.surface,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: colors.border),
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: InkWell(
@@ -509,6 +546,28 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                   color: AppColors.textDark,
                                 ),
                               ),
+                              if (b.note == 'Ở ghép') ...[
+                                const SizedBox(height: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colors.primaryContainer,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: colors.primary.withValues(alpha: 0.35)),
+                                  ),
+                                  child: Text(
+                                    'Ở ghép',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: colors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 4),
                               Text(
                                 b.roomAddress,
@@ -886,7 +945,29 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                           ),
                                         ),
 
-                                      // 4. Khi ĐÃ HỦY: Tag xám/đỏ
+                                      // 4. Khi ĐÃ TRẢ PHÒNG
+                                      if (b.isEnded)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF2F4F7),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: const Text(
+                                            'Đã trả phòng',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFF475467),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+
+                                      // 5. Khi ĐÃ HỦY: Tag xám/đỏ
                                       if (b.isCancelled)
                                         Container(
                                           padding: const EdgeInsets.symmetric(
@@ -894,7 +975,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                             vertical: 6,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: AppColors.surfaceVariant,
+                                            color: const Color(0xFFF2F4F7),
                                             borderRadius:
                                                 BorderRadius.circular(8),
                                           ),
@@ -917,13 +998,9 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                   width: double.infinity,
                                   child: ElevatedButton.icon(
                                     onPressed: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              CreateRoommatePostScreen(
-                                                initialBooking: b,
-                                              ),
-                                        ),
+                                      SendRoommateInviteSheet.show(
+                                        context,
+                                        booking: b,
                                       );
                                     },
                                     icon: const Icon(

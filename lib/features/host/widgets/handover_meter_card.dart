@@ -1,7 +1,7 @@
-import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import '../../../core/constants/app_colors.dart';
 
 class HandoverMeterCard extends StatelessWidget {
   final String title;
@@ -29,14 +29,14 @@ class HandoverMeterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final iconColor = isElectricity
         ? const Color(0xFFEA580C)
-        : AppColors.primary;
+        : (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB));
     final iconBg = isElectricity
         ? const Color(0xFFFFEDD5)
         : AppColors.primaryContainer;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      margin: EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.circular(14),
@@ -61,7 +61,7 @@ class HandoverMeterCard extends StatelessWidget {
                   color: iconColor,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: Text(
                   title,
@@ -77,16 +77,16 @@ class HandoverMeterCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.textMuted,
+                  color: Color(0xFF64748B),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           // Input chỉ số lớn
           Container(
             height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            padding: EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(10),
@@ -111,7 +111,7 @@ class HandoverMeterCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                       color: AppColors.textDark,
                     ),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
@@ -124,7 +124,7 @@ class HandoverMeterCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.textMuted,
+                    color: Color(0xFF64748B),
                   ),
                 ),
               ],

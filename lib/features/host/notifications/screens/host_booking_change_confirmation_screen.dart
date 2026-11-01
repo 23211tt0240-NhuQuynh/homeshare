@@ -115,18 +115,18 @@ class _HostBookingChangeConfirmationScreenState
     final currencyStr = _formatCurrency(notif.amount);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         elevation: 0,
         leading: Padding(
-          padding: const EdgeInsets.only(left: 12),
+          padding: EdgeInsets.only(left: 12),
           child: Center(
             child: InkWell(
               onTap: () => Navigator.of(context).pop(),
               borderRadius: BorderRadius.circular(20),
               child: Container(
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: const Color(0xFFEAECF0)),
@@ -134,7 +134,7 @@ class _HostBookingChangeConfirmationScreenState
                 child: Icon(
                   Icons.arrow_back_rounded,
                   size: 20,
-                  color: AppColors.textDark,
+                  color: Color(0xFF101828),
                 ),
               ),
             ),
@@ -148,14 +148,14 @@ class _HostBookingChangeConfirmationScreenState
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
+                color: Color(0xFF101828),
               ),
             ),
             Text(
               'Mã đơn đặt chỗ: ${notif.displayBookingCode}',
               style: TextStyle(
                 fontSize: 12,
-                color: AppColors.textMuted,
+                color: Color(0xFF667085),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -163,10 +163,10 @@ class _HostBookingChangeConfirmationScreenState
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 16),
+            padding: EdgeInsets.only(right: 16),
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(
+                padding: EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 5,
                 ),
@@ -174,7 +174,7 @@ class _HostBookingChangeConfirmationScreenState
                   color: const Color(0xFFFEF0C7),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
@@ -199,13 +199,13 @@ class _HostBookingChangeConfirmationScreenState
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // 1. Thẻ thông báo từ Chủ nhà màu vàng
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: const Color(0x80FEF0C7),
                 borderRadius: BorderRadius.circular(20),
@@ -217,39 +217,39 @@ class _HostBookingChangeConfirmationScreenState
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
                           color: Color(0xFFF79009),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.notifications_active_rounded,
                           size: 16,
                           color: Colors.white,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'Thông báo từ Chủ nhà',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.textDark,
+                            color: Color(0xFF101828),
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Text(
                     'Chủ nhà đã thay đổi thông tin đặt phòng của bạn. Vui lòng kiểm tra và xác nhận.',
-                    style: TextStyle(fontSize: 13, color: AppColors.textDark),
+                    style: TextStyle(fontSize: 13, color: Color(0xFF344054)),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Text(
                     '"${notif.adjustmentReason?.trim().isNotEmpty == true ? notif.adjustmentReason!.trim() : 'Không có ghi chú bổ sung.'}"',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontStyle: FontStyle.italic,
                       color: Color(0xFFB54708),
@@ -260,11 +260,11 @@ class _HostBookingChangeConfirmationScreenState
               ),
             ),
 
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
 
             // 2. Thẻ thông tin chủ nhà
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(16),
@@ -274,18 +274,18 @@ class _HostBookingChangeConfirmationScreenState
                 children: [
                   CircleAvatar(
                     radius: 20,
-                    backgroundColor: AppColors.primaryContainer,
+                    backgroundColor: const Color(0xFFE0EAFF),
                     child: Text(
                       notif.renterName.isNotEmpty
                           ? notif.renterName[0].toUpperCase()
                           : 'K',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Color(0xFF3538CD),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,10 +299,10 @@ class _HostBookingChangeConfirmationScreenState
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.textDark,
+                                color: Color(0xFF101828),
                               ),
                             ),
-                            const SizedBox(width: 4),
+                            SizedBox(width: 4),
                             Icon(
                               Icons.verified_rounded,
                               size: 15,
@@ -310,7 +310,7 @@ class _HostBookingChangeConfirmationScreenState
                             ),
                           ],
                         ),
-                        const SizedBox(height: 2),
+                        SizedBox(height: 2),
                         Text(
                           notif.roomTitle.isNotEmpty
                               ? notif.roomTitle
@@ -319,7 +319,7 @@ class _HostBookingChangeConfirmationScreenState
                                     : 'Căn hộ / Nhà trọ'),
                           style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textMuted,
+                            color: Color(0xFF667085),
                           ),
                         ),
                       ],
@@ -329,20 +329,20 @@ class _HostBookingChangeConfirmationScreenState
                     onPressed: () {},
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: Color(0xFFD0D5DD)),
+                      side: BorderSide(color: Color(0xFFD0D5DD)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 6,
                       ),
                     ),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.chat_bubble_outline_rounded,
                       size: 14,
                     ),
-                    label: const Text(
+                    label: Text(
                       'Nhắn tin',
                       style: TextStyle(
                         fontSize: 12,
@@ -354,7 +354,7 @@ class _HostBookingChangeConfirmationScreenState
               ),
             ),
 
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
 
             // 3. Tiêu đề: Chi tiết thay đổi đặt chỗ
             Row(
@@ -370,18 +370,18 @@ class _HostBookingChangeConfirmationScreenState
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
+                    color: Color(0xFF101828),
                   ),
                 ),
                 Spacer(),
                 Text(
                   'Cập nhật 10 phút trước',
-                  style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                  style: TextStyle(fontSize: 11, color: Color(0xFF667085)),
                 ),
               ],
             ),
 
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
 
             // Mục 1: CĂN PHÒNG ĐĂNG KÝ
             Text(
@@ -389,19 +389,19 @@ class _HostBookingChangeConfirmationScreenState
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textMuted,
+                color: Color(0xFF475569),
                 letterSpacing: 0.5,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Row(
               children: [
                 // Thông tin cũ
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.background,
+                      color: const Color(0xFFF9FAFB),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: const Color(0xFFEAECF0)),
                     ),
@@ -413,7 +413,7 @@ class _HostBookingChangeConfirmationScreenState
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.textMuted,
+                            color: Color(0xFF667085),
                           ),
                         ),
                         SizedBox(height: 4),
@@ -424,16 +424,16 @@ class _HostBookingChangeConfirmationScreenState
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.textMuted,
+                            color: Color(0xFF667085),
                             decoration: TextDecoration.lineThrough,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        SizedBox(height: 2),
                         Text(
                           notif.roomFloorInfo.isNotEmpty
                               ? notif.roomFloorInfo
                               : 'Phòng trọ',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             color: Color(0xFF98A2B3),
                           ),
@@ -442,11 +442,11 @@ class _HostBookingChangeConfirmationScreenState
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 // Thông tin mới
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: const Color(0xFFEFF8FF),
                       borderRadius: BorderRadius.circular(14),
@@ -473,7 +473,7 @@ class _HostBookingChangeConfirmationScreenState
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4),
                         Text(
                           notif.newRoomTitle?.isNotEmpty == true
                               ? notif.newRoomTitle!
@@ -486,7 +486,7 @@ class _HostBookingChangeConfirmationScreenState
                             color: AppColors.primary,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        SizedBox(height: 2),
                         Text(
                           notif.roomTitle.isNotEmpty
                               ? notif.roomTitle
@@ -503,7 +503,7 @@ class _HostBookingChangeConfirmationScreenState
               ],
             ),
 
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
 
             // Mục 2: NGÀY NHẬN PHÒNG (CHECK-IN)
             Text(
@@ -511,19 +511,19 @@ class _HostBookingChangeConfirmationScreenState
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textMuted,
+                color: Color(0xFF475569),
                 letterSpacing: 0.5,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Row(
               children: [
                 // Ngày cũ
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.background,
+                      color: const Color(0xFFF9FAFB),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: const Color(0xFFEAECF0)),
                     ),
@@ -535,10 +535,10 @@ class _HostBookingChangeConfirmationScreenState
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.textMuted,
+                            color: Color(0xFF667085),
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4),
                         Text(
                           notif.checkInDate != null
                               ? DateFormat(
@@ -548,16 +548,16 @@ class _HostBookingChangeConfirmationScreenState
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.textMuted,
+                            color: Color(0xFF667085),
                             decoration: TextDecoration.lineThrough,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        SizedBox(height: 2),
                         Text(
                           notif.checkInDate != null
                               ? '(${_weekdayVi(notif.checkInDate!)})'
                               : '',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             color: Color(0xFF98A2B3),
                           ),
@@ -566,23 +566,23 @@ class _HostBookingChangeConfirmationScreenState
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 // Ngày mới
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: const Color(0xFFECFDF3),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: AppColors.success,
+                        color: const Color(0xFF12B76A),
                         width: 1.5,
                       ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
@@ -600,7 +600,7 @@ class _HostBookingChangeConfirmationScreenState
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4),
                         Text(
                           notif.newCheckInDate != null
                               ? DateFormat(
@@ -611,18 +611,18 @@ class _HostBookingChangeConfirmationScreenState
                                         'dd/MM/yyyy',
                                       ).format(notif.checkInDate!)
                                     : 'Chưa đặt'),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF027A48),
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        SizedBox(height: 2),
                         Text(
                           notif.newCheckInDate != null
                               ? '(${_weekdayVi(notif.newCheckInDate!)})'
                               : '',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             color: Color(0xFF027A48),
                           ),
@@ -634,11 +634,11 @@ class _HostBookingChangeConfirmationScreenState
               ],
             ),
 
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
 
             // Tiền cọc giữ chỗ (Đã thanh toán)
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(16),
@@ -654,23 +654,23 @@ class _HostBookingChangeConfirmationScreenState
                           'Tiền cọc giữ chỗ (Đã thanh toán)',
                           style: TextStyle(
                             fontSize: 11,
-                            color: AppColors.textMuted,
+                            color: Color(0xFF667085),
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4),
                         Text(
                           currencyStr,
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.textDark,
+                            color: Color(0xFF101828),
                           ),
                         ),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                       horizontal: 10,
                       vertical: 6,
                     ),
@@ -678,7 +678,7 @@ class _HostBookingChangeConfirmationScreenState
                       color: const Color(0xFFD1FADF),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Giữ nguyên giá cọc',
                       style: TextStyle(
                         fontSize: 11,
@@ -691,11 +691,11 @@ class _HostBookingChangeConfirmationScreenState
               ),
             ),
 
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
 
             // Lưu ý bảo vệ người dùng
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: const Color(0xFFEFF8FF),
                 borderRadius: BorderRadius.circular(12),
@@ -709,7 +709,7 @@ class _HostBookingChangeConfirmationScreenState
                     size: 18,
                     color: AppColors.primary,
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'Nếu từ chối, khoản tiền cọc $currencyStr sẽ được hoàn lại 100% vào ví trong vòng 15 phút.',
@@ -724,12 +724,12 @@ class _HostBookingChangeConfirmationScreenState
               ),
             ),
 
-            const SizedBox(height: 30),
+            SizedBox(height: 30),
           ],
         ),
       ),
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppColors.surface,
           border: Border(top: BorderSide(color: Color(0xFFEAECF0))),
@@ -742,15 +742,15 @@ class _HostBookingChangeConfirmationScreenState
                 child: OutlinedButton(
                   onPressed: _isLoading ? null : _handleReject,
                   style: OutlinedButton.styleFrom(
-                    backgroundColor: AppColors.dangerContainer,
-                    foregroundColor: AppColors.danger,
-                    side: const BorderSide(color: Color(0xFFFECDCA)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: const Color(0xFFFEF3F2),
+                    foregroundColor: const Color(0xFFD92D20),
+                    side: BorderSide(color: Color(0xFFFECDCA)),
+                    padding: EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.close_rounded, size: 16),
@@ -766,7 +766,7 @@ class _HostBookingChangeConfirmationScreenState
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               // Nút Xác nhận đồng ý
               Expanded(
                 flex: 2,
@@ -776,21 +776,21 @@ class _HostBookingChangeConfirmationScreenState
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                   child: _isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: AppColors.surface,
                           ),
                         )
-                      : const Row(
+                      : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.check_rounded, size: 18),

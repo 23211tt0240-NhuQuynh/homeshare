@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/phong_sang_theme.dart';
 
-/// Card bọc cụm ô nhập trên màn đăng nhập và đăng ký.
+/// Card bọc cụm ô nhập trên màn đăng nhập và đăng ký. Màu theo theme hiện tại.
 class AuthFormCard extends StatelessWidget {
   final Widget child;
 
@@ -20,9 +20,7 @@ class AuthFormCard extends StatelessWidget {
         border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: AppColors.textDark.withValues(
-              alpha: AppColors.isDark ? 0.22 : 0.06,
-            ),
+            color: AppColors.textDark.withValues(alpha: 0.06),
             blurRadius: 28,
             offset: const Offset(0, 12),
           ),

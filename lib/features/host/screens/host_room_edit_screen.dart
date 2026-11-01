@@ -11,7 +11,7 @@ import '../../../data/models/room_model.dart';
 import '../data/host_property.dart';
 import '../providers/host_management_provider.dart';
 import '../widgets/host_room_widgets.dart';
-import '../widgets/host_range_input.dart';
+import '../widgets/host_area_input.dart';
 import '../widgets/host_form_theme.dart';
 import 'host_create_screen.dart';
 import 'host_room_detail_screen.dart';
@@ -38,7 +38,7 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
   late List<String> _images;
   late Set<String> _amenities;
   late int _floor;
-  late RangeValues _area;
+  late double _area;
   int? _depositPercentage;
   bool _busy = false, _picking = false, _expanded = true;
   final _operationId = List.generate(
@@ -60,7 +60,7 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
       r.deposit,
       r.depositPercentage,
     );
-    _area = RangeValues(r.minArea ?? r.area, r.maxArea ?? r.area);
+    _area = r.area;
     final values = <String, String>{
       'roomCode': r.roomCode.isNotEmpty ? r.roomCode : r.maPhong,
       'title': r.title,
@@ -174,9 +174,7 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
     },
     'floor': _floor,
     'capacity': int.parse(_fields['capacity']!.text.trim()),
-    'area': _area.start,
-    'minArea': _area.start,
-    'maxArea': _area.end,
+    'area': _area,
     'price': double.parse(vndDigits(_fields['price']!.text.trim())),
     'depositPercentage': _depositPercentage,
     'deposit': roomDeposit(
@@ -251,30 +249,30 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
   Widget build(BuildContext context) => PopScope(
     canPop: !_busy && !_picking,
     child: Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Chỉnh sửa phòng')),
+      backgroundColor: const Color(0xFFF7F8FF),
+      appBar: AppBar(title: Text('Chỉnh sửa phòng')),
       body: AbsorbPointer(
         absorbing: _busy || _picking,
         child: Form(
           key: _form,
           child: ListView(
             scrollCacheExtent: const ScrollCacheExtent.pixels(5000),
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             children: [
               Row(
                 children: [
                   HostRoomBadge(room: widget.room),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       widget.room.contractId,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12),
+                      style: TextStyle(fontSize: 12),
                     ),
                   ),
                   TextButton(
                     onPressed: _preview,
-                    child: const Text('Xem trước'),
+                    child: Text('Xem trước'),
                   ),
                 ],
               ),
@@ -283,7 +281,7 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                 icon: Icons.photo_library_outlined,
                 trailing: Text(
                   '${_images.length + _newImages.length}/8 ảnh',
-                  style: const TextStyle(fontSize: 11),
+                  style: TextStyle(fontSize: 11),
                 ),
                 child: SizedBox(
                   height: 110,
@@ -296,9 +294,9 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                         child: InkWell(
                           onTap: _pick,
                           child: Container(
-                            margin: const EdgeInsets.only(right: 8),
+                            margin: EdgeInsets.only(right: 8),
                             decoration: BoxDecoration(
-                              color: AppColors.primaryContainer,
+                              color: AppColors.surfaceVariant,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Column(
@@ -306,14 +304,18 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                               children: [
                                 Icon(
                                   Icons.add_a_photo_outlined,
-                                  color: AppColors.primary,
+                                  color: AppColors.isDark
+                                      ? AppColors.textDark
+                                      : AppColors.primary,
                                 ),
                                 SizedBox(height: 8),
                                 Text(
                                   '+ Thêm ảnh',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: AppColors.primary,
+                                    color: AppColors.isDark
+                                        ? AppColors.textDark
+                                        : AppColors.primary,
                                   ),
                                 ),
                               ],
@@ -329,7 +331,7 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                             _images[i],
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) =>
-                                const Icon(Icons.broken_image_outlined),
+                                Icon(Icons.broken_image_outlined),
                           ),
                           () => setState(() => _images.removeAt(i)),
                         ),
@@ -353,12 +355,12 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                         Expanded(
                           child: _field('roomCode', 'Mã phòng', numeric: false),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         Expanded(
                           child: DropdownButtonFormField<int>(
                             initialValue: _floor,
                             isExpanded: true,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: 'Tầng',
                             ),
                             items: [
@@ -377,23 +379,19 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     // Chủ trọ - Danh tính phòng - Luồng đi: Giữ mã đã cấp
                     // và ID liên kết; chủ trọ chỉ sửa tên hiển thị của phòng.
                     _field('title', 'Tên phòng *', numeric: false),
-                    const SizedBox(height: 16),
-                    HostRangeInput(
-                      label: 'Khoảng diện tích phòng',
-                      unit: 'm²',
-                      values: _area,
-                      minimum: 1,
-                      sliderMax: 100,
+                    SizedBox(height: 16),
+                    HostAreaInput(
+                      value: _area,
                       onChanged: (value) => setState(() => _area = value),
                     ),
                     _field('capacity', 'Số người ở tối đa *', suffix: 'người'),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     _field('price', 'Giá thuê tháng *', suffix: 'đ/tháng'),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     HostDepositInput(
                       priceController: _fields['price']!,
                       percentage: _depositPercentage,
@@ -416,14 +414,14 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                       suffix: 'đ/kWh',
                       optional: true,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     _field(
                       'waterRate',
                       'Tiền nước',
                       suffix: 'đ/m³',
                       optional: true,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     _field(
                       'serviceFee',
                       'Wifi + Rác + Vệ sinh',
@@ -438,9 +436,9 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                 icon: Icons.tune,
                 trailing: Text(
                   '${_amenities.length} chọn',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: Color(0xFF00865B),
+                    color: AppColors.success,
                   ),
                 ),
                 child: Column(
@@ -451,14 +449,14 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                           child: TextField(
                             controller: _custom,
                             maxLength: 60,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: 'Thêm tiện ích...',
                               counterText: '',
                               isDense: true,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        SizedBox(width: 6),
                         TextButton(
                           onPressed: () {
                             // Chủ trọ - Thêm tiện ích khi sửa phòng - Luồng đi:
@@ -484,25 +482,25 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                               }
                             }
                           },
-                          child: const Text('Thêm'),
+                          child: Text('Thêm'),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     for (final value in {
                       ..._amenities,
                       if (_expanded) ..._choices,
                     })
                       Container(
-                        margin: const EdgeInsets.only(bottom: 8),
+                        margin: EdgeInsets.only(bottom: 8),
                         decoration: BoxDecoration(
                           color: _amenities.contains(value)
-                              ? AppColors.primaryContainer
-                              : AppColors.surface,
+                              ? const Color(0xFFE8FCF4)
+                              : Colors.white,
                           border: Border.all(
                             color: _amenities.contains(value)
-                                ? AppColors.primary
-                                : AppColors.border,
+                                ? const Color(0xFF8BD4B8)
+                                : const Color(0xFFE3E6EF),
                           ),
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -510,13 +508,13 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                           color: Colors.transparent,
                           child: CheckboxListTile(
                             dense: true,
-                            contentPadding: const EdgeInsets.symmetric(
+                            contentPadding: EdgeInsets.symmetric(
                               horizontal: 8,
                             ),
                             controlAffinity: ListTileControlAffinity.leading,
                             title: Text(
                               value,
-                              style: const TextStyle(fontSize: 12),
+                              style: TextStyle(fontSize: 12),
                             ),
                             value: _amenities.contains(value),
                             onChanged: (checked) => setState(() {
@@ -562,18 +560,18 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           child: FilledButton.icon(
             key: const ValueKey('save_room'),
             onPressed: _busy || _picking ? null : _save,
             icon: _busy
-                ? const SizedBox(
+                ? SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.save_outlined),
-            label: const Text('Lưu thay đổi'),
+                : Icon(Icons.save_outlined),
+            label: Text('Lưu thay đổi'),
           ),
         ),
       ),
@@ -590,7 +588,8 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
     String? suffix,
     int maxLines = 1,
   }) {
-    final isMoney = key == 'price' ||
+    final isMoney =
+        key == 'price' ||
         key == 'deposit' ||
         key == 'electricityRate' ||
         key == 'waterRate' ||
@@ -601,18 +600,17 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
       readOnly: key == 'roomCode',
       maxLines: maxLines,
       keyboardType: numeric || isMoney
-          ? (isMoney ? TextInputType.number : const TextInputType.numberWithOptions(decimal: true))
+          ? (isMoney
+                ? TextInputType.number
+                : const TextInputType.numberWithOptions(decimal: true))
           : TextInputType.text,
       inputFormatters: isMoney ? [VndInputFormatter()] : null,
       decoration: InputDecoration(
         labelText: label,
         suffixText: suffix,
-        suffixIcon: key == 'roomCode' ? const Icon(Icons.lock_outline) : null,
-        helperText: key == 'roomCode'
-            ? 'ID phòng được giữ nguyên khi sửa.'
-            : null,
+        suffixIcon: key == 'roomCode' ? Icon(Icons.lock_outline) : null,
         filled: true,
-        fillColor: AppColors.primaryContainer,
+        fillColor: AppColors.surfaceVariant,
       ),
       validator: (raw) {
         final value = raw?.trim() ?? '';
@@ -641,9 +639,10 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
       },
     );
   }
+
   Widget _photo(Widget image, VoidCallback remove) => Container(
     width: 100,
-    margin: const EdgeInsets.only(right: 8),
+    margin: EdgeInsets.only(right: 8),
     child: ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Stack(
@@ -656,7 +655,7 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
             child: IconButton(
               tooltip: 'Bỏ ảnh',
               onPressed: remove,
-              icon: const Icon(Icons.cancel, color: Colors.black54),
+              icon: Icon(Icons.cancel, color: Colors.black54),
             ),
           ),
         ],

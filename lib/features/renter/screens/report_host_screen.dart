@@ -109,10 +109,15 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
             hostId: widget.hostId,
             hostName: widget.hostName,
             hostPhone: widget.hostPhone,
+            hostAvatar: widget.room?.hostAvatar ?? '',
             roomId: widget.room?.id ?? '',
             roomTitle: widget.room?.title ?? '',
+            roomPrice: widget.room?.price ?? 0,
+            roomAddress: widget.room?.address ?? '',
+            roomImages: widget.room?.images ?? const [],
             reporterId: user!.uid,
             reporterName: profile?.displayName ?? user.displayName ?? '',
+            reporterPhone: profile?.phoneNumber ?? '',
             selectedReasons: _selectedReasons.toList(),
             otherText: otherText,
             evidencePaths: _evidenceImages.map((file) => file.path).toList(),
@@ -178,11 +183,9 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
     final roomTitle = widget.room?.title.trim() ?? '';
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
         title: const Text('Báo cáo chủ trọ'),
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textDark,
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -226,8 +229,8 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                         const SizedBox(height: 3),
                         Text(
                           roomTitle.isEmpty
-                              ? 'Báo cáo sẽ được gửi tới Admin'
-                              : roomTitle,
+                              ? 'Báo cáo vi phạm sẽ được gửi tới Ban Quản Trị'
+                              : 'Phòng liên quan: $roomTitle',
                           style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                         ),
                       ],
@@ -238,7 +241,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
             ),
             const SizedBox(height: 18),
             Text(
-              'LÝ DO BÁO CÁO (*)',
+              'LÝ DO BÁO CÁO CHỦ TRỌ (*)',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
             ),
             const SizedBox(height: 4),
@@ -282,7 +285,7 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                       checkboxShape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(3),
                       ),
-                      side: BorderSide(color: Colors.grey.shade400, width: 1.4),
+                      side: BorderSide(color: AppColors.textMuted, width: 1.4),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                       visualDensity: VisualDensity.compact,
                     ),
@@ -309,11 +312,11 @@ class _ReportHostScreenState extends ConsumerState<ReportHostScreen> {
                   fillColor: AppColors.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppColors.border),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppColors.border),
                   ),
                 ),
               ),

@@ -1,4 +1,3 @@
-import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +7,7 @@ import '../providers/host_management_provider.dart';
 import '../repositories/handover_repository.dart';
 import '../widgets/handover_item_card.dart';
 import '../widgets/handover_meter_card.dart';
+import '../../../core/constants/app_colors.dart';
 
 class HostCheckinHandoverScreen extends ConsumerStatefulWidget {
   final String bookingId;
@@ -109,9 +109,9 @@ class _HostCheckinHandoverScreenState
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Bàn giao nhận phòng thành công!'),
-            backgroundColor: AppColors.success,
+            backgroundColor: Color(0xFF16A34A),
           ),
         );
         Navigator.of(context).pop(true);
@@ -153,7 +153,7 @@ class _HostCheckinHandoverScreenState
               children: [
                 // Header
                 Container(
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 12,
                   ),
@@ -177,7 +177,7 @@ class _HostCheckinHandoverScreenState
                           ),
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,11 +187,11 @@ class _HostCheckinHandoverScreenState
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
-                                color: AppColors.primary,
+                                color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                                 letterSpacing: 0.8,
                               ),
                             ),
-                            const SizedBox(height: 2),
+                            SizedBox(height: 2),
                             Text(
                               'Bàn giao nhận phòng -\nP.$displayRoomCode',
                               style: TextStyle(
@@ -206,12 +206,12 @@ class _HostCheckinHandoverScreenState
                       ),
                       // Badge Trực tiếp
                       Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFDCFCE7),
+                          color: AppColors.successContainer,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
@@ -220,7 +220,7 @@ class _HostCheckinHandoverScreenState
                             Icon(
                               Icons.circle,
                               size: 7,
-                              color: AppColors.success,
+                              color: (AppColors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF16A34A)),
                             ),
                             SizedBox(width: 5),
                             Text(
@@ -228,7 +228,7 @@ class _HostCheckinHandoverScreenState
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF15803D),
+                                color: (AppColors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF15803D)),
                               ),
                             ),
                           ],
@@ -242,11 +242,11 @@ class _HostCheckinHandoverScreenState
                 // Nội dung quy trình 3 bước
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
                     children: [
                       // Card Thông tin người thuê
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: AppColors.surface,
                           borderRadius: BorderRadius.circular(16),
@@ -269,11 +269,11 @@ class _HostCheckinHandoverScreenState
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w800,
-                                      color: AppColors.primaryDark,
+                                      color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF1D4ED8)),
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 12),
+                                SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -290,30 +290,30 @@ class _HostCheckinHandoverScreenState
                                             ),
                                           ),
                                           if (handoverCtx.isVerified) ...[
-                                            const SizedBox(width: 4),
+                                            SizedBox(width: 4),
                                             Icon(
                                               Icons.verified,
                                               size: 16,
-                                              color: AppColors.primary,
+                                              color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                                             ),
                                           ],
                                         ],
                                       ),
-                                      const SizedBox(height: 2),
+                                      SizedBox(height: 2),
                                       Row(
                                         children: [
                                           Icon(
                                             Icons.domain_outlined,
                                             size: 14,
-                                            color: AppColors.textMuted,
+                                            color: Color(0xFF64748B),
                                           ),
-                                          const SizedBox(width: 4),
+                                          SizedBox(width: 4),
                                           Flexible(
                                             child: Text(
                                               'P.$displayRoomCode • ${handoverCtx.address}',
                                               style: TextStyle(
                                                 fontSize: 12,
-                                                color: AppColors.textMuted,
+                                                color: Color(0xFF64748B),
                                               ),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
@@ -326,13 +326,13 @@ class _HostCheckinHandoverScreenState
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 14),
+                            SizedBox(height: 14),
                             // Hai hộp thông tin: Tiền cọc & Thời hạn thuê
                             Row(
                               children: [
                                 Expanded(
                                   child: Container(
-                                    padding: const EdgeInsets.all(12),
+                                    padding: EdgeInsets.all(12),
                                     decoration: BoxDecoration(
                                       color: AppColors.primaryContainer,
                                       borderRadius: BorderRadius.circular(12),
@@ -345,10 +345,10 @@ class _HostCheckinHandoverScreenState
                                           'Tiền cọc giữ chỗ',
                                           style: TextStyle(
                                             fontSize: 11,
-                                            color: AppColors.textMuted,
+                                            color: Color(0xFF64748B),
                                           ),
                                         ),
-                                        const SizedBox(height: 2),
+                                        SizedBox(height: 2),
                                         Text(
                                           _formatMoney(handoverCtx.deposit),
                                           style: TextStyle(
@@ -357,13 +357,13 @@ class _HostCheckinHandoverScreenState
                                             color: AppColors.textDark,
                                           ),
                                         ),
-                                        const SizedBox(height: 4),
+                                        SizedBox(height: 4),
                                         Row(
                                           children: [
                                             Icon(
                                               Icons.lock_outline,
                                               size: 12,
-                                              color: AppColors.success,
+                                              color: (AppColors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF16A34A)),
                                             ),
                                             SizedBox(width: 4),
                                             Text(
@@ -371,7 +371,7 @@ class _HostCheckinHandoverScreenState
                                               style: TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w600,
-                                                color: AppColors.success,
+                                                color: (AppColors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF16A34A)),
                                               ),
                                             ),
                                           ],
@@ -380,10 +380,10 @@ class _HostCheckinHandoverScreenState
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 10),
+                                SizedBox(width: 10),
                                 Expanded(
                                   child: Container(
-                                    padding: const EdgeInsets.all(12),
+                                    padding: EdgeInsets.all(12),
                                     decoration: BoxDecoration(
                                       color: AppColors.surfaceVariant,
                                       borderRadius: BorderRadius.circular(12),
@@ -396,10 +396,10 @@ class _HostCheckinHandoverScreenState
                                           'Thời hạn thuê',
                                           style: TextStyle(
                                             fontSize: 11,
-                                            color: AppColors.textMuted,
+                                            color: Color(0xFF64748B),
                                           ),
                                         ),
-                                        const SizedBox(height: 2),
+                                        SizedBox(height: 2),
                                         Text(
                                           '${handoverCtx.rentalMonths} tháng',
                                           style: TextStyle(
@@ -408,12 +408,12 @@ class _HostCheckinHandoverScreenState
                                             color: AppColors.textDark,
                                           ),
                                         ),
-                                        const SizedBox(height: 4),
+                                        SizedBox(height: 4),
                                         Text(
                                           'Bắt đầu từ hôm nay',
                                           style: TextStyle(
                                             fontSize: 11,
-                                            color: AppColors.textMuted,
+                                            color: Color(0xFF64748B),
                                           ),
                                         ),
                                       ],
@@ -425,11 +425,11 @@ class _HostCheckinHandoverScreenState
                           ],
                         ),
                       ),
-                      const SizedBox(height: 18),
+                      SizedBox(height: 18),
 
                       // BƯỚC 1: Chốt chỉ số đầu vào
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: AppColors.surface,
                           borderRadius: BorderRadius.circular(16),
@@ -444,7 +444,7 @@ class _HostCheckinHandoverScreenState
                                 Row(
                                   children: [
                                     _buildStepBadge('1'),
-                                    const SizedBox(width: 8),
+                                    SizedBox(width: 8),
                                     Text(
                                       'Chốt chỉ số đầu vào',
                                       style: TextStyle(
@@ -460,12 +460,12 @@ class _HostCheckinHandoverScreenState
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    color: AppColors.primary,
+                                    color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 14),
+                            SizedBox(height: 14),
                             // Điện
                             HandoverMeterCard(
                               title: 'Chỉ số điện ban đầu (kWh)',
@@ -485,11 +485,11 @@ class _HostCheckinHandoverScreenState
                           ],
                         ),
                       ),
-                      const SizedBox(height: 18),
+                      SizedBox(height: 18),
 
                       // BƯỚC 2: Hiện trạng trang thiết bị
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: AppColors.surface,
                           borderRadius: BorderRadius.circular(16),
@@ -504,7 +504,7 @@ class _HostCheckinHandoverScreenState
                                 Row(
                                   children: [
                                     _buildStepBadge('2'),
-                                    const SizedBox(width: 8),
+                                    SizedBox(width: 8),
                                     Text(
                                       'Hiện trạng trang thiết bị',
                                       style: TextStyle(
@@ -516,26 +516,26 @@ class _HostCheckinHandoverScreenState
                                   ],
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
+                                  padding: EdgeInsets.symmetric(
                                     horizontal: 8,
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFDCFCE7),
+                                    color: AppColors.successContainer,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
                                     '$checkedCount/$totalCount Đạt chuẩn',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
-                                      color: Color(0xFF15803D),
+                                      color: (AppColors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF15803D)),
                                     ),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 14),
+                            SizedBox(height: 14),
                             if (_currentItems != null)
                               ...List.generate(
                                 _currentItems!.length,
@@ -547,11 +547,11 @@ class _HostCheckinHandoverScreenState
                           ],
                         ),
                       ),
-                      const SizedBox(height: 18),
+                      SizedBox(height: 18),
 
                       // BƯỚC 3: Xác nhận bàn giao
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: AppColors.surface,
                           borderRadius: BorderRadius.circular(16),
@@ -566,7 +566,7 @@ class _HostCheckinHandoverScreenState
                                 Row(
                                   children: [
                                     _buildStepBadge('3'),
-                                    const SizedBox(width: 8),
+                                    SizedBox(width: 8),
                                     Text(
                                       'Xác nhận bàn giao',
                                       style: TextStyle(
@@ -582,7 +582,7 @@ class _HostCheckinHandoverScreenState
                                     Icon(
                                       Icons.check_circle_outline,
                                       size: 15,
-                                      color: AppColors.success,
+                                      color: (AppColors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF16A34A)),
                                     ),
                                     SizedBox(width: 4),
                                     Text(
@@ -590,22 +590,22 @@ class _HostCheckinHandoverScreenState
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w700,
-                                        color: AppColors.success,
+                                        color: (AppColors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF16A34A)),
                                       ),
                                     ),
                                   ],
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 14),
+                            SizedBox(height: 14),
                             // Checkbox bàn giao chìa khóa & thiết bị
                             Container(
-                              padding: const EdgeInsets.all(12),
+                              padding: EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: AppColors.primaryContainer,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: AppColors.primaryContainer,
+                                  color: AppColors.primary.withValues(alpha: 0.4),
                                 ),
                               ),
                               child: Row(
@@ -613,14 +613,14 @@ class _HostCheckinHandoverScreenState
                                 children: [
                                   Checkbox(
                                     value: _isKeyHandedOver,
-                                    activeColor: AppColors.primary,
+                                    activeColor: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                                     onChanged: (val) {
                                       setState(() {
                                         _isKeyHandedOver = val ?? true;
                                       });
                                     },
                                   ),
-                                  const SizedBox(width: 6),
+                                  SizedBox(width: 6),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -639,7 +639,7 @@ class _HostCheckinHandoverScreenState
                                           'Hai bên đã cùng kiểm tra hiện trạng thiết bị và chỉ số công tơ ban đầu.',
                                           style: TextStyle(
                                             fontSize: 12,
-                                            color: AppColors.textMuted,
+                                            color: Color(0xFF475569),
                                           ),
                                         ),
                                       ],
@@ -648,7 +648,7 @@ class _HostCheckinHandoverScreenState
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 14),
+                            SizedBox(height: 14),
                             Text(
                               'Ghi chú thêm (nếu có)',
                               style: TextStyle(
@@ -657,7 +657,7 @@ class _HostCheckinHandoverScreenState
                                 color: AppColors.textMuted,
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: 8),
                             TextField(
                               controller: _noteController,
                               maxLines: 3,
@@ -666,7 +666,7 @@ class _HostCheckinHandoverScreenState
                                     'Nhập ghi chú hoặc thỏa thuận phát sinh (nếu có)...',
                                 hintStyle: TextStyle(
                                   fontSize: 13,
-                                  color: AppColors.textMuted,
+                                  color: Color(0xFF94A3B8),
                                 ),
                                 filled: true,
                                 fillColor: AppColors.background,
@@ -693,7 +693,7 @@ class _HostCheckinHandoverScreenState
 
                 // Nút cố định ở đáy
                 Container(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 16),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     border: Border(top: BorderSide(color: AppColors.border)),
@@ -706,15 +706,15 @@ class _HostCheckinHandoverScreenState
                           ? null
                           : () => _submitHandover(handoverCtx),
                       icon: _isSubmitting
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 18,
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: AppColors.surface,
                               ),
                             )
-                          : const Icon(
+                          : Icon(
                               Icons.check_circle_outline,
                               size: 20,
                               color: Colors.white,
@@ -723,14 +723,14 @@ class _HostCheckinHandoverScreenState
                         _isSubmitting
                             ? 'Đang lưu bàn giao...'
                             : 'Xác nhận bàn giao phòng',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -742,10 +742,10 @@ class _HostCheckinHandoverScreenState
               ],
             );
           },
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => Center(child: CircularProgressIndicator()),
           error: (err, _) => Center(
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(24),
               child: Text(
                 'Lỗi tải thông tin phòng bàn giao: $err',
                 textAlign: TextAlign.center,
@@ -762,13 +762,13 @@ class _HostCheckinHandoverScreenState
       width: 24,
       height: 24,
       decoration: BoxDecoration(
-        color: AppColors.primary,
+        color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
       child: Text(
         number,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w800,
           color: Colors.white,

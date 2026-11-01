@@ -223,8 +223,8 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
               icon: const Icon(Icons.refresh_rounded, size: 16),
               label: const Text('Đặt lại', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF334155),
-                side: const BorderSide(color: Color(0xFFCBD5E1)),
+                foregroundColor: AppColors.textMuted,
+                side: BorderSide(color: AppColors.border),
                 minimumSize: const Size(0, 44),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -253,7 +253,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
             width: 44,
             height: 4.5,
             decoration: BoxDecoration(
-              color: const Color(0xFFCBD5E1),
+              color: AppColors.border,
               borderRadius: BorderRadius.circular(10),
             ),
           ),
@@ -459,7 +459,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.bold,
-                    color: isSelected ? AppColors.textDark : Color(0xFF334155),
+                    color: isSelected ? AppColors.textDark : AppColors.textMuted,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -670,7 +670,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               activeTrackColor: AppColors.primary,
-              inactiveTrackColor: const Color(0xFFCBD5E1),
+              inactiveTrackColor: AppColors.border,
               thumbColor: Colors.white,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10, elevation: 3),
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
@@ -865,8 +865,8 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
               icon: const Icon(Icons.refresh_rounded, size: 16),
               label: const Text('Đặt lại', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF334155),
-                side: const BorderSide(color: Color(0xFFCBD5E1)),
+                foregroundColor: AppColors.textMuted,
+                side: BorderSide(color: AppColors.border),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),

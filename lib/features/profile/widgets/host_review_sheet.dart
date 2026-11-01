@@ -183,7 +183,7 @@ class _HostReviewSheetState extends ConsumerState<HostReviewSheet> {
                   ),
                 ),
                 child: _submitting
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(

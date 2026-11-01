@@ -1,5 +1,5 @@
-import '../theme/admin_colors.dart';
 import 'package:flutter/material.dart';
+import '../theme/admin_colors.dart';
 
 /// Biểu đồ doanh thu theo năm.
 /// [monthlyData]: 12 phần tử, đơn vị = triệu đồng. null = chưa có dữ liệu.
@@ -96,8 +96,8 @@ class RevenueBarChart extends StatelessWidget {
                     ),
                     child: Text(
                       peakText,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AdminColors.onAccent,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.2,
@@ -138,10 +138,10 @@ class RevenueBarChart extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: isPeak ? FontWeight.bold : FontWeight.w500,
                     color: isPeak
-                        ? AdminColors.accent
+                        ? AdminColors.accentText
                         : (isFuture
                               ? AdminColors.muted
-                              : AdminColors.muted),
+                              : AdminColors.mutedStrong),
                   ),
                 ),
               );
@@ -161,7 +161,7 @@ class RevenueBarChart extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('⚡', style: TextStyle(fontSize: 14)),
+              Text('⚡', style: TextStyle(fontSize: 14)),
               const SizedBox(width: 6),
               RichText(
                 text: TextSpan(
@@ -224,13 +224,13 @@ class _BarChartPainter extends CustomPainter {
     if (maxVal <= 0) maxVal = 1;
 
     final solidBarColors = [
-      const Color(0xFFD0E1FD),
-      const Color(0xFFC2D9FC),
-      const Color(0xFFB5D2FB),
-      const Color(0xFFA5C9FB),
-      const Color(0xFF90BCFA),
-      const Color(0xFF75ABFA),
-      const Color(0xFF5394F8),
+      Color(0xFFD0E1FD),
+      Color(0xFFC2D9FC),
+      Color(0xFFB5D2FB),
+      Color(0xFFA5C9FB),
+      Color(0xFF90BCFA),
+      Color(0xFF75ABFA),
+      Color(0xFF5394F8),
       AdminColors.accent,
       AdminColors.accent,
       AdminColors.accent,

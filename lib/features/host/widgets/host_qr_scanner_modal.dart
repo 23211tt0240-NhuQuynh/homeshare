@@ -1,6 +1,6 @@
-import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../../../core/constants/app_colors.dart';
 
 /// Modal quét mã QR tốc hành cho Chủ nhà khi Check-in / Check-out
 class HostQrScannerModal extends StatefulWidget {
@@ -98,14 +98,14 @@ class _HostQrScannerModalState extends State<HostQrScannerModal>
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: BoxDecoration(
-        color: AppColors.textDark,
+        color: Color(0xFF0F172A),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         children: [
           // Header thanh kéo modal
           Container(
-            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            margin: EdgeInsets.only(top: 12, bottom: 8),
             width: 44,
             height: 4,
             decoration: BoxDecoration(
@@ -116,11 +116,11 @@ class _HostQrScannerModalState extends State<HostQrScannerModal>
 
           // AppBar tùy biến
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white70),
+                  icon: Icon(Icons.close, color: Colors.white70),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
                 Expanded(
@@ -128,16 +128,16 @@ class _HostQrScannerModalState extends State<HostQrScannerModal>
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: 2),
                       Text(
                         subtitle,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white60,
                           fontSize: 11,
                         ),
@@ -164,7 +164,7 @@ class _HostQrScannerModalState extends State<HostQrScannerModal>
           // Vùng quét Camera
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: 16),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(20),
                 child: Stack(
@@ -184,19 +184,19 @@ class _HostQrScannerModalState extends State<HostQrScannerModal>
                       },
                       errorBuilder: (ctx, error) {
                         return Container(
-                          color: AppColors.textDark,
-                          padding: const EdgeInsets.all(24),
+                          color: const Color(0xFF1E293B),
+                          padding: EdgeInsets.all(24),
                           child: Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.no_photography_outlined,
                                   color: Colors.white54,
                                   size: 48,
                                 ),
-                                const SizedBox(height: 12),
-                                const Text(
+                                SizedBox(height: 12),
+                                Text(
                                   'Không thể truy cập camera',
                                   style: TextStyle(
                                     color: Colors.white,
@@ -204,11 +204,11 @@ class _HostQrScannerModalState extends State<HostQrScannerModal>
                                     fontSize: 15,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
+                                SizedBox(height: 6),
                                 Text(
                                   'Vui lòng cấp quyền camera trong Cài đặt thiết bị hoặc sử dụng nút thử nghiệm bên dưới.\n(${error.errorDetails?.message ?? error.errorCode.name})',
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: Colors.white60,
                                     fontSize: 11,
                                   ),
@@ -230,7 +230,7 @@ class _HostQrScannerModalState extends State<HostQrScannerModal>
                         fit: StackFit.expand,
                         children: [
                           Container(
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               color: Colors.black,
                               backgroundBlendMode: BlendMode.dstOut,
                             ),
@@ -310,7 +310,7 @@ class _HostQrScannerModalState extends State<HostQrScannerModal>
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: IconButton(
-                          icon: const Icon(Icons.flip_camera_ios, color: Colors.white),
+                          icon: Icon(Icons.flip_camera_ios, color: Colors.white),
                           tooltip: 'Đổi camera',
                           onPressed: _switchCamera,
                         ),
@@ -324,7 +324,7 @@ class _HostQrScannerModalState extends State<HostQrScannerModal>
 
           // Phần nút thử nghiệm & hướng dẫn
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 20),
             child: Column(
               children: [
                 // Nút giả lập QR trên môi trường test / giả lập
@@ -332,31 +332,31 @@ class _HostQrScannerModalState extends State<HostQrScannerModal>
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: () => _triggerDetect(widget.sampleCode),
-                    icon: const Icon(Icons.qr_code, color: Color(0xFF60A5FA), size: 18),
+                    icon: Icon(Icons.qr_code, color: Color(0xFF60A5FA), size: 18),
                     label: Text(
                       'Thử nghiệm quét nhanh phòng P.${widget.sampleRoomCode}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Color(0xFF93C5FD),
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF3B82F6), width: 1.2),
-                      backgroundColor: const Color(0xFF1E3A8A).withValues(alpha: 0.4),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: BorderSide(color: Color(0xFF3B82F6), width: 1.2),
+                      backgroundColor: (AppColors.isDark ? AppColors.textDark : const Color(0xFF1E3A8A)).withValues(alpha: 0.4),
+                      padding: EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Text(
                   widget.isCheckin
                       ? 'Khách thuê có thể xuất trình mã này tại mục "Quản lý đơn thuê"'
                       : 'Hỗ trợ quét định danh mã QR phòng hoặc biên bản trả phòng',
-                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                  style: TextStyle(color: Colors.white54, fontSize: 11),
                   textAlign: TextAlign.center,
                 ),
               ],

@@ -252,6 +252,8 @@ class RoomService {
           .trim();
       final normalizedHost = listing.hostName.trim().toLowerCase();
       final needsRelatedData =
+          listing.images.isEmpty ||
+          listing.amenities.isEmpty ||
           addressText.isEmpty ||
           VietnamAddressParser.isCityOrProvinceOnly(listing.address) ||
           normalizedHost.isEmpty ||

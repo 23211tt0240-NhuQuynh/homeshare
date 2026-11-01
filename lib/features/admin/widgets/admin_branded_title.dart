@@ -1,5 +1,5 @@
-import '../theme/admin_colors.dart';
 import 'package:flutter/material.dart';
+import '../theme/admin_colors.dart';
 
 /// Nhận diện HomeShare đồng nhất trong tiêu đề các trang quản trị.
 class AdminBrandedTitle extends StatelessWidget {
@@ -19,7 +19,7 @@ class AdminBrandedTitle extends StatelessWidget {
           decoration: BoxDecoration(
             color: AdminColors.accentSoft,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AdminColors.accentSoft),
+            border: Border.all(color: AdminColors.border),
           ),
           child: Icon(
             Icons.home_work_rounded,
@@ -42,7 +42,7 @@ class AdminBrandedTitle extends StatelessWidget {
                   height: 1.1,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.25,
-                  color: AdminColors.accent,
+                  color: AdminColors.accentText,
                 ),
               ),
               const SizedBox(height: 2),

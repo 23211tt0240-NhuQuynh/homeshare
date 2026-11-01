@@ -454,7 +454,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
       return Container(
         height: 280,
         alignment: Alignment.center,
-        decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(18)),
+        decoration: BoxDecoration(color: const Color(0xFFE4E7EC), borderRadius: BorderRadius.circular(18)),
         child: Text('Bài này chưa có ảnh', style: TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.w600)),
       );
     }
@@ -481,28 +481,10 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
           spacing: 6,
           runSpacing: 6,
           children: [
-            _pill(
-              _statusLabel,
-              AppColors.isDark ? const Color(0xFF14532D) : const Color(0xFFE8F8EF),
-              AppColors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF067647),
-            ),
-            _pill(
-              _seekLabel,
-              AppColors.isDark ? const Color(0xFF4C0519) : const Color(0xFFFFF1F3),
-              AppColors.isDark ? const Color(0xFFFDA4AF) : const Color(0xFFE11D48),
-              icon: Icons.female_rounded,
-            ),
-            _pill(
-              _verifiedLabel,
-              AppColors.surfaceVariant,
-              AppColors.textDark,
-              icon: Icons.verified_rounded,
-            ),
-            _pill(
-              '${_photoIndex + 1}/${photos.length} ảnh thực tế',
-              AppColors.surfaceVariant,
-              AppColors.textDark,
-            ),
+            _pill(_statusLabel, const Color(0xFFE8F8EF), const Color(0xFF067647)),
+            _pill(_seekLabel, const Color(0xFFFFF1F3), const Color(0xFFE11D48), icon: Icons.female_rounded),
+            _pill(_verifiedLabel, AppColors.textDark, Colors.white, icon: Icons.verified_rounded),
+            _pill('${_photoIndex + 1}/${photos.length} ảnh thực tế', AppColors.textDark, Colors.white),
           ],
         ),
         const SizedBox(height: 8),
@@ -555,7 +537,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
           children: [
             CircleAvatar(
               radius: 24,
-              backgroundColor: AppColors.primaryContainer,
+              backgroundColor: const Color(0xFFE8F0FE),
               backgroundImage: _avatarProvider(_peerAvatar),
               child: _avatarProvider(_peerAvatar) == null
                   ? Text(
@@ -573,7 +555,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
                 decoration: BoxDecoration(
                   color: AppColors.success,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
+                  border: Border.all(color: AppColors.surface, width: 2),
                 ),
               ),
             ),
@@ -628,7 +610,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
   /// Thẻ độ tương thích. Phần trăm lấy từ `matchRate`. Ba chip lối sống vẫn là chữ cố định.
   Widget _matchCard() {
     return _infoCard(
-      color: AppColors.isDark ? AppColors.primaryContainer : const Color(0xFFF3F7FF),
+      color: const Color(0xFFF3F7FF),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -636,9 +618,9 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
             children: [
               Icon(Icons.auto_awesome, color: AppColors.primary, size: 18),
               const SizedBox(width: 6),
-              Text('$_matchRate%', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.isDark ? AppColors.textDark : AppColors.primary)),
+              Text('$_matchRate%', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.primary)),
               SizedBox(width: 8),
-              Text('Tương\nthích', style: TextStyle(fontWeight: FontWeight.w700, height: 1.15, color: AppColors.textDark)),
+              const Text('Tương\nthích', style: TextStyle(fontWeight: FontWeight.w700, height: 1.15)),
               const Spacer(),
               Text('Dựa trên lối sống\n& thói quen', textAlign: TextAlign.right, style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
             ],
@@ -719,26 +701,15 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
   }
 
   Widget _priceMeta(String label, String value, String extra, {Color? valueColor}) {
+    final resolvedColor = valueColor ?? AppColors.textDark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: TextStyle(fontSize: 14, color: AppColors.textMuted)),
         const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            color: valueColor ?? AppColors.textDark,
-          ),
-        ),
+        Text(value, style: TextStyle(fontWeight: FontWeight.w800, color: resolvedColor)),
         if (extra.isNotEmpty)
-          Text(
-            extra,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: valueColor ?? AppColors.textDark,
-            ),
-          ),
+          Text(extra, style: TextStyle(fontWeight: FontWeight.w700, color: resolvedColor)),
       ],
     );
   }
@@ -1010,7 +981,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
         fit: fit,
         width: double.infinity,
         height: double.infinity,
-        errorBuilder: (_, _, _) => ColoredBox(color: AppColors.border, child: Icon(Icons.image_not_supported_outlined)),
+        errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFFE4E7EC), child: Icon(Icons.image_not_supported_outlined)),
       );
     }
     if (url.startsWith('data:image')) {
@@ -1019,7 +990,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
         return Image.memory(base64Decode(comma == -1 ? url : url.substring(comma + 1)), fit: fit);
       } catch (_) {}
     }
-    return ColoredBox(color: AppColors.border, child: Icon(Icons.photo_outlined));
+    return const ColoredBox(color: Color(0xFFE4E7EC), child: Icon(Icons.photo_outlined));
   }
 
   ImageProvider? _avatarProvider(String raw) {
@@ -1102,7 +1073,7 @@ class _AddressMapState extends State<_AddressMap> {
         height: 260,
         width: double.infinity,
         child: ColoredBox(
-          color: AppColors.border,
+          color: const Color(0xFFE4E7EC),
           child: Stack(
             children: [
               if (point != null)

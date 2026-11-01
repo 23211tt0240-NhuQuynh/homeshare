@@ -81,12 +81,19 @@ class PostReviewService {
       final hostRef = _db.collection('users').doc(hostId);
       final hostSnap = await hostRef.get();
       final hostData = hostSnap.data() ?? {};
-      final currentScore = (hostData['reputationScore'] ?? 100) as num;
+      final currentScore = (hostData['diemUyTin'] ?? 100) as num;
       if (hostSnap.exists) {
         batch.update(hostRef, {
-          'reputationScore': (currentScore.toInt() - 1).clamp(0, 100),
+          'diemUyTin': (currentScore.toInt() - 1).clamp(0, 100),
         });
       }
+    }
+
+    final currentStatus = (data['status'] ?? 'pending').toString().toLowerCase();
+    if (approved &&
+        (currentStatus == 'rejected' || currentStatus == 'tuchoi') &&
+        data['hostResubmittedAt'] == null) {
+      throw StateError('Chủ trọ cần chỉnh sửa và gửi lại bài trước khi duyệt.');
     }
 
     final statusValue = approved ? 'active' : 'rejected';
@@ -95,6 +102,7 @@ class PostReviewService {
     batch.update(postRef, {
       'status': statusValue,
       'isAvailable': approved,
+      if (!approved) 'hostResubmittedAt': FieldValue.delete(),
       'rejectReason': approved ? FieldValue.delete() : cleanReason,
       'reviewedBy': performer,
       'reviewedAt': FieldValue.serverTimestamp(),

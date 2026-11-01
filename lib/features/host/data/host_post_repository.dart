@@ -352,7 +352,11 @@ class HostPostRepository {
           gender: data['gender'] ?? 'nam',
           address: data['address'] ?? data['diaChi'] ?? '',
           hometown: data['hometown'] ?? data['queQuan'] ?? '',
-          reputationScore: (data['reputationScore'] as num?)?.toInt() ?? 100,
+          reputationScore: (data['diem_uy_tin'] ??
+                  data['reputationScore'] ??
+                  data['diemUyTin'] ??
+                  100 as num)
+              .toInt(),
           occupation: data['occupation'] ?? 'Chủ nhà trọ',
           hobbies: const [],
           isCccdVerified: data['isCccdVerified'] == true ||

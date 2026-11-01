@@ -97,12 +97,12 @@ class _HostRangeInputState extends State<HostRangeInput> {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(widget.label, style: const TextStyle(fontWeight: FontWeight.w600)),
-      const SizedBox(height: 14),
+      Text(widget.label, style: TextStyle(fontWeight: FontWeight.w600)),
+      SizedBox(height: 14),
       Row(
         children: [
           Expanded(child: input(low, 'Tối thiểu')),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(child: input(high, 'Tối đa')),
         ],
       ),

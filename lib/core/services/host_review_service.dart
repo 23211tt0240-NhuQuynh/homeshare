@@ -4,8 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/booking_model.dart';
 import '../../data/models/host_review_model.dart';
-import '../../data/models/resident_model.dart';
-import '../../data/models/room_model.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../constants/firestore_collections.dart';
 import '../utils/host_reputation.dart';
@@ -99,27 +97,21 @@ class HostReviewService {
             _firestore.collection(FirestoreCollections.bookings).doc(cleanBookingId);
         final reviewRef = _reviews.doc(cleanBookingId);
         final bookingSnap = await tx.get(bookingRef);
-        if (bookingSnap.exists) {
-          final booking = BookingRequestModel.fromFirestore(bookingSnap);
-          if (booking.renterId != cleanReviewerId) {
-            throw const HostReviewException(
-              'Chỉ người đang thuê hoặc ở ghép chỗ này được đánh giá.',
-            );
-          }
-          if (booking.hostId != cleanHostId) {
-            throw const HostReviewException('Giao dịch không thuộc chủ trọ này.');
-          }
-          if (!HostReviewPolicy.isReviewableBooking(booking)) {
-            throw const HostReviewException(
-              'Giao dịch chưa đủ điều kiện để đánh giá.',
-            );
-          }
-        } else {
-          await _assertReviewableResident(
-            tx,
-            stayId: cleanBookingId,
-            reviewerId: cleanReviewerId,
-            hostId: cleanHostId,
+        if (!bookingSnap.exists) {
+          throw const HostReviewException('Không tìm thấy giao dịch thuê.');
+        }
+        final booking = BookingRequestModel.fromFirestore(bookingSnap);
+        if (booking.renterId != cleanReviewerId) {
+          throw const HostReviewException(
+            'Chỉ người thuê của giao dịch này được đánh giá.',
+          );
+        }
+        if (booking.hostId != cleanHostId) {
+          throw const HostReviewException('Giao dịch không thuộc chủ trọ này.');
+        }
+        if (!HostReviewPolicy.isReviewableBooking(booking)) {
+          throw const HostReviewException(
+            'Giao dịch chưa đủ điều kiện để đánh giá.',
           );
         }
         final existing = await tx.get(reviewRef);
@@ -158,7 +150,7 @@ class HostReviewService {
     }
   }
 
-  /// Ghi `users.reputationScore` = max(0, 20 * R - P), P = 0.
+  /// Ghi `users.reputationScore` / `diemUyTin` = max(0, 20 * R - P), P = 0.
   Future<int> syncHostReputationScore(String hostId) async {
     final id = hostId.trim();
     if (id.isEmpty) return HostReputation.defaultScore;
@@ -182,6 +174,7 @@ class HostReviewService {
       await _firestore.collection(FirestoreCollections.users).doc(id).set(
         {
           'reputationScore': score,
+          'diemUyTin': score,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -190,147 +183,6 @@ class HostReviewService {
       debugPrint('Ghi reputationScore chủ trọ $id: $error');
     }
     return score;
-  }
-
-  Future<BookingRequestModel?> findEligibleStay({
-    required String reviewerId,
-    required String hostId,
-    required List<BookingRequestModel> bookings,
-    required Set<String> reviewedIds,
-  }) async {
-    final fromBooking = HostReviewPolicy.firstEligibleBooking(
-      reviewerId: reviewerId,
-      hostId: hostId,
-      bookings: bookings,
-      reviewedBookingIds: reviewedIds,
-    );
-    if (fromBooking != null) return fromBooking;
-
-    final residents = await _loadActiveResidents(reviewerId);
-    final hostByRoom = <String, String>{};
-    for (final resident in residents) {
-      final roomId = resident.roomId.trim();
-      if (roomId.isEmpty || hostByRoom.containsKey(roomId)) continue;
-      final roomHostId = await _hostIdForRoom(roomId);
-      if (roomHostId.isNotEmpty) hostByRoom[roomId] = roomHostId;
-    }
-    return HostReviewPolicy.firstEligibleResident(
-      reviewerId: reviewerId,
-      hostId: hostId,
-      residents: residents,
-      roomHostByRoomId: hostByRoom,
-      reviewedBookingIds: reviewedIds,
-    );
-  }
-
-  Future<void> _assertReviewableResident(
-    Transaction tx, {
-    required String stayId,
-    required String reviewerId,
-    required String hostId,
-  }) async {
-    final residentSnap = await tx.get(
-      _firestore.collection(FirestoreCollections.residents).doc(stayId),
-    );
-    if (!residentSnap.exists) {
-      throw const HostReviewException('Không tìm thấy giao dịch thuê hoặc chỗ ở ghép.');
-    }
-    var resident = ResidentModel.fromFirestore(residentSnap);
-    if (resident.userId != reviewerId) {
-      throw const HostReviewException(
-        'Chỉ người đang thuê hoặc ở ghép chỗ này được đánh giá.',
-      );
-    }
-    if (resident.roomId.trim().isEmpty && resident.periodId.trim().isNotEmpty) {
-      final periodSnap = await tx.get(
-        _firestore.collection(FirestoreCollections.periods).doc(resident.periodId),
-      );
-      final periodRoomId = (periodSnap.data()?['roomId'] ??
-              periodSnap.data()?['phongId'] ??
-              '')
-          .toString()
-          .trim();
-      if (periodRoomId.isNotEmpty) {
-        resident = resident.copyWith(roomId: periodRoomId);
-      }
-    }
-    if (!HostReviewPolicy.isReviewableResident(resident)) {
-      throw const HostReviewException(
-        'Chỗ ở ghép chưa đủ điều kiện để đánh giá.',
-      );
-    }
-    final roomHostId = await _hostIdForRoomInTransaction(tx, resident.roomId);
-    if (roomHostId.isEmpty || roomHostId != hostId) {
-      throw const HostReviewException('Giao dịch không thuộc chủ trọ này.');
-    }
-  }
-
-  Future<List<ResidentModel>> _loadActiveResidents(String userId) async {
-    final byPath = <String, ResidentModel>{};
-    for (final field in const ['userId', 'nguoiDungId']) {
-      final snapshot = await _firestore
-          .collection(FirestoreCollections.residents)
-          .where(field, isEqualTo: userId)
-          .get();
-      for (final doc in snapshot.docs) {
-        try {
-          var resident = ResidentModel.fromFirestore(doc);
-          if (resident.roomId.trim().isEmpty &&
-              resident.periodId.trim().isNotEmpty) {
-            final period = await _firestore
-                .collection(FirestoreCollections.periods)
-                .doc(resident.periodId)
-                .get();
-            final periodRoomId = (period.data()?['roomId'] ??
-                    period.data()?['phongId'] ??
-                    '')
-                .toString()
-                .trim();
-            if (periodRoomId.isNotEmpty) {
-              resident = resident.copyWith(roomId: periodRoomId);
-            }
-          }
-          if (HostReviewPolicy.isReviewableResident(resident)) {
-            byPath[doc.reference.path] = resident;
-          }
-        } catch (error) {
-          debugPrint('Lỗi parse cư dân ${doc.id}: $error');
-        }
-      }
-    }
-    return byPath.values.toList();
-  }
-
-  Future<String> _hostIdForRoom(String roomId) async {
-    final id = roomId.trim();
-    if (id.isEmpty) return '';
-    for (final collection in const ['posts', 'rooms', 'host_rooms']) {
-      final doc = await _firestore.collection(collection).doc(id).get();
-      final hostId = _hostIdFromRoomData(doc.data());
-      if (hostId.isNotEmpty) return hostId;
-    }
-    return '';
-  }
-
-  Future<String> _hostIdForRoomInTransaction(Transaction tx, String roomId) async {
-    final id = roomId.trim();
-    if (id.isEmpty) return '';
-    for (final collection in const ['posts', 'rooms', 'host_rooms']) {
-      final snap = await tx.get(_firestore.collection(collection).doc(id));
-      final hostId = _hostIdFromRoomData(snap.data());
-      if (hostId.isNotEmpty) return hostId;
-    }
-    return '';
-  }
-
-  String _hostIdFromRoomData(Map<String, dynamic>? data) {
-    if (data == null) return '';
-    final status = (data['status'] ?? data['trangThai'] ?? '')
-        .toString()
-        .trim()
-        .toLowerCase();
-    if (status == 'deleted' || status == 'daxoa') return '';
-    return RoomModel.fromMap(data, 'room').hostId.trim();
   }
 }
 
@@ -349,18 +201,15 @@ final hostReviewExistsProvider =
 });
 
 final eligibleHostReviewBookingProvider =
-    FutureProvider.autoDispose.family<BookingRequestModel?, String>((ref, hostId) async {
+    Provider.autoDispose.family<BookingRequestModel?, String>((ref, hostId) {
   final uid = ref.watch(currentUserProvider)?.uid ?? '';
   if (uid.isEmpty || uid == hostId) return null;
-  final bookings = await ref.watch(renterBookingsStreamProvider(uid).future);
-  final reviews = await ref.watch(hostReviewsProvider(hostId).future);
-  final reviewedIds = <String>{
-    for (final review in reviews) ...[review.id, review.bookingId],
-  };
-  return ref.watch(hostReviewServiceProvider).findEligibleStay(
-        reviewerId: uid,
-        hostId: hostId,
-        bookings: bookings,
-        reviewedIds: reviewedIds,
-      );
+  final bookings = ref.watch(renterBookingsStreamProvider(uid)).value ?? const [];
+  final reviews = ref.watch(hostReviewsProvider(hostId)).value ?? const [];
+  return HostReviewPolicy.firstEligibleBooking(
+    reviewerId: uid,
+    hostId: hostId,
+    bookings: bookings,
+    reviewedBookingIds: reviews.map((review) => review.bookingId).toSet(),
+  );
 });

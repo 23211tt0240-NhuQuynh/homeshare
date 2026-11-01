@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const _prefKey = 'app_theme_mode';
 const _legacyPrefKey = 'app_theme_id';
+const _settingsPrefKey = 'app_theme_mode_preference';
 
 class AppThemeState {
   const AppThemeState({required this.mode});
@@ -26,7 +27,9 @@ class AppThemeController extends AsyncNotifier<AppThemeState> {
   @override
   Future<AppThemeState> build() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_prefKey) ?? prefs.getString(_legacyPrefKey);
+    final raw = prefs.getString(_prefKey) ??
+        prefs.getString(_legacyPrefKey) ??
+        prefs.getString(_settingsPrefKey);
     return AppThemeState(mode: _parse(raw));
   }
 

@@ -1,10 +1,13 @@
-import '../theme/admin_colors.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_theme_controller.dart';
 import '../../auth/providers/user_provider.dart';
+import '../theme/admin_colors.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_posts_screen.dart';
+import 'admin_users_screen.dart';
 import 'admin_orders_screen.dart';
 import 'admin_history_screen.dart';
 
@@ -120,7 +123,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 11),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Bắt đầu nào',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
@@ -139,19 +142,36 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
     });
   }
 
+  Brightness _resolvedBrightness() {
+    final mode =
+        ref.watch(appThemeControllerProvider).value?.mode ?? ThemeMode.light;
+    switch (mode) {
+      case ThemeMode.dark:
+        return Brightness.dark;
+      case ThemeMode.light:
+        return Brightness.light;
+      case ThemeMode.system:
+        return MediaQuery.platformBrightnessOf(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final brightness = _resolvedBrightness();
+    AppColors.bind(brightness);
     final size = MediaQuery.sizeOf(context);
     final useNavigationRail = size.width >= 700 || size.width > size.height;
     final List<Widget> screens = [
       AdminDashboardScreen(
+        key: ValueKey('admin-dash-$brightness'),
         onNavigateToOrders: () => _onSelectTab(2),
         onNavigateToPosts: () => _onSelectTab(1),
-        onNavigateToHistory: () => _onSelectTab(3),
+        onNavigateToHistory: () => _onSelectTab(4),
       ),
-      const AdminPostsScreen(),
-      const AdminOrdersScreen(),
-      const AdminHistoryScreen(),
+      AdminPostsScreen(key: ValueKey('admin-posts-$brightness')),
+      AdminOrdersScreen(key: ValueKey('admin-orders-$brightness')),
+      AdminUsersScreen(key: ValueKey('admin-users-$brightness')),
+      AdminHistoryScreen(key: ValueKey('admin-history-$brightness')),
     ];
 
     final pages = CustomErrorTabScope(
@@ -172,9 +192,6 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
         dialogTheme: DialogThemeData(
           backgroundColor: AdminColors.card,
           surfaceTintColor: Colors.transparent,
-        ),
-        bottomSheetTheme: const BottomSheetThemeData(
-          backgroundColor: Colors.transparent,
         ),
         appBarTheme: Theme.of(context).appBarTheme.copyWith(
           backgroundColor: AdminColors.card,
@@ -254,6 +271,11 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                         icon: Icon(Icons.receipt_long_rounded),
                         selectedIcon: Icon(Icons.receipt_long_rounded),
                         label: Text('Quản lý đơn'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.people_alt_rounded),
+                        selectedIcon: Icon(Icons.people_alt_rounded),
+                        label: Text('Người dùng'),
                       ),
                       NavigationRailDestination(
                         icon: Icon(Icons.history_rounded),
@@ -343,8 +365,35 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                             );
                           },
                         ),
+                        // Badge số báo cáo user đang chờ xử lý (chỉ đếm báo cáo chủ trọ / user, không tính bài viết)
+                        StreamBuilder<QuerySnapshot>(
+                          stream: () {
+                            try {
+                              return FirebaseFirestore.instance
+                                  .collection('reports')
+                                  .where('status', isEqualTo: 'pending')
+                                  .snapshots();
+                            } catch (_) {
+                              return const Stream<QuerySnapshot>.empty();
+                            }
+                          }(),
+                          builder: (context, snapshot) {
+                            final count = snapshot.data?.docs.where((d) {
+                              final data = d.data() as Map<String, dynamic>? ?? {};
+                              final targetType = (data['targetType'] ?? data['reportType'] ?? '').toString().toLowerCase();
+                              final isPost = targetType == 'post' || d.id.startsWith('BCB_') || data['isPostReport'] == true;
+                              return !isPost;
+                            }).length ?? 0;
+                            return _buildNavItem(
+                              index: 3,
+                              icon: Icons.people_alt_rounded,
+                              label: 'Người dùng',
+                              badgeCount: count,
+                            );
+                          },
+                        ),
                         _buildNavItem(
-                          index: 3,
+                          index: 4,
                           icon: Icons.history_rounded,
                           label: 'Lịch sử',
                         ),
@@ -364,8 +413,9 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
     int badgeCount = 0,
   }) {
     final isSelected = _currentIndex == index;
-    final activeColor = AdminColors.accent;
-    final inactiveColor = AdminColors.muted;
+    final activeColor =
+        AdminColors.isDark ? AdminColors.ink : AdminColors.accent;
+    final inactiveColor = AdminColors.navInactive;
 
     return InkWell(
       onTap: () => _onSelectTab(index),

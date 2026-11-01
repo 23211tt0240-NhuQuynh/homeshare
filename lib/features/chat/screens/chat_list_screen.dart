@@ -9,6 +9,7 @@ import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import 'chat_detail_screen.dart';
+import '../../renter/screens/user_notifications_screen.dart';
 
 /// Màn hình Danh sách Cuộc trò chuyện & Trao đổi (Feature #10 theo SRS & Tc_CHAT)
 class ChatListScreen extends ConsumerStatefulWidget {
@@ -164,25 +165,71 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
       return true;
     }).toList();
 
-    final colors = AppColors.of(context);
     return Scaffold(
-      backgroundColor: colors.background,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(
           'Tin nhắn & Trao đổi',
-          style: TextStyle(color: colors.textDark, fontWeight: FontWeight.w700),
+          style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.w700),
         ),
-        backgroundColor: colors.surface,
-        foregroundColor: colors.textDark,
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textDark,
         actions: [
-          IconButton(
-            icon: Badge(
-              smallSize: 8,
-              backgroundColor: colors.danger,
-              child: Icon(Icons.notifications_none_outlined, color: colors.textDark),
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: Center(
+              child: Consumer(
+                builder: (context, ref, _) {
+                  final unreadNotifs = ref.watch(userUnreadNotificationCountProvider);
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const UserNotificationsScreen(),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Icon(
+                              Icons.notifications_none_rounded,
+                              size: 22,
+                              color: AppColors.textDark,
+                            ),
+                            if (unreadNotifs > 0)
+                              Positioned(
+                                top: 7,
+                                right: 7,
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFEF4444),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-            tooltip: 'Thông báo',
-            onPressed: () => _showNotificationSheet(context),
           ),
         ],
       ),
@@ -192,15 +239,15 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
           RepaintBoundary(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: colors.surface,
+              color: AppColors.surface,
               child: TextField(
                 controller: _searchController,
                 onChanged: _onSearchChanged,
-                style: TextStyle(color: colors.textDark, fontSize: 14),
+                style: TextStyle(color: AppColors.textDark, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: 'Tìm kiếm cuộc trò chuyện, phòng trọ...',
-                  hintStyle: TextStyle(fontSize: 13, color: colors.textMuted),
-                  prefixIcon: Icon(Icons.search, size: 20, color: colors.textMuted),
+                  hintStyle: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                  prefixIcon: Icon(Icons.search, size: 20, color: AppColors.textMuted),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear, size: 18),
@@ -212,7 +259,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                         )
                       : null,
                   filled: true,
-                  fillColor: colors.surfaceVariant,
+                  fillColor: AppColors.surfaceVariant,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -226,7 +273,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
           // 2. Thanh Filter Chips (Tất cả, Chủ trọ, Ở ghép, Chưa đọc)
           RepaintBoundary(
             child: Container(
-              color: colors.surface,
+              color: AppColors.surface,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               child: Row(
                 children: [
@@ -250,16 +297,16 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.mark_chat_read_outlined, size: 64, color: colors.textMuted),
+                        Icon(Icons.mark_chat_read_outlined, size: 64, color: AppColors.textMuted),
                         const SizedBox(height: 12),
                         Text(
                           'Không tìm thấy cuộc trò chuyện nào phù hợp',
-                          style: TextStyle(color: colors.textDark, fontWeight: FontWeight.bold, fontSize: 14),
+                          style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold, fontSize: 14),
                         ),
                         const SizedBox(height: 6),
                         Text(
                           'Hãy thử thay đổi từ khóa hoặc bộ lọc danh mục.',
-                          style: TextStyle(color: colors.textMuted, fontSize: 12),
+                          style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                         ),
                         const SizedBox(height: 16),
                         OutlinedButton(
@@ -281,7 +328,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                       physics: const ClampingScrollPhysics(),
                       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                       itemCount: filteredConversations.length,
-                      separatorBuilder: (context, index) => Divider(height: 1, indent: 76, color: colors.border),
+                      separatorBuilder: (context, index) => Divider(height: 1, indent: 76, color: AppColors.border),
                       itemBuilder: (context, index) {
                       final item = filteredConversations[index];
                       final isUnread = item.unreadCount > 0 || !item.isRead;
@@ -298,20 +345,22 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                         onToggleMute: () => _toggleMute(item.id, item.partnerName),
                         child: Material(
                           color: isPinned
-                              ? (colors.isDark ? colors.primarySurface : const Color(0xFFF0FDF4))
-                              : (isUnread ? colors.surfaceVariant : colors.surface),
+                              ? (AppColors.isDark
+                                  ? AppColors.primarySurface
+                                  : const Color(0xFFF0FDF4))
+                              : (isUnread ? AppColors.surfaceVariant : AppColors.surface),
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             leading: Stack(
                               children: [
                                 CircleAvatar(
                                   radius: 26,
-                                  backgroundColor: isUnread ? colors.primary : colors.primaryContainer,
+                                  backgroundColor: isUnread ? AppColors.primary : AppColors.primaryContainer,
                                   child: Text(
                                     item.partnerName.isNotEmpty ? item.partnerName[0] : 'U',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: isUnread ? colors.onPrimary : colors.primary,
+                                      color: isUnread ? AppColors.onPrimary : AppColors.primary,
                                       fontSize: 18,
                                     ),
                                   ),
@@ -325,7 +374,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                     decoration: BoxDecoration(
                                       color: Colors.green,
                                       shape: BoxShape.circle,
-                                      border: Border.all(color: colors.surface, width: 2),
+                                      border: Border.all(color: AppColors.surface, width: 2),
                                     ),
                                   ),
                                 ),
@@ -338,7 +387,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                   child: Row(
                                     children: [
                                       if (isPinned) ...[
-                                        Icon(Icons.push_pin_rounded, color: colors.primary, size: 14),
+                                        Icon(Icons.push_pin_rounded, color: AppColors.primary, size: 14),
                                         const SizedBox(width: 4),
                                       ],
                                       Flexible(
@@ -347,7 +396,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                           style: TextStyle(
                                             fontWeight: isUnread ? FontWeight.w900 : FontWeight.w600,
                                             fontSize: isUnread ? 15.5 : 14,
-                                            color: colors.textDark,
+                                            color: isUnread ? AppColors.textDark : AppColors.textDark,
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -355,7 +404,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                       ),
                                       if (item.isLandlord) ...[
                                         const SizedBox(width: 4),
-                                        Icon(Icons.verified, color: colors.primary, size: 14),
+                                        Icon(Icons.verified, color: AppColors.primary, size: 14),
                                       ],
                                     ],
                                   ),
@@ -371,7 +420,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                       _formatTime(item.lastMessageTime),
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: isUnread ? colors.primary : colors.textMuted,
+                                        color: isUnread ? AppColors.primary : AppColors.textMuted,
                                         fontWeight: isUnread ? FontWeight.w900 : FontWeight.normal,
                                       ),
                                     ),
@@ -387,12 +436,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: colors.surfaceVariant,
+                                    color: AppColors.surfaceVariant,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
                                     '${item.roomCode ?? ''} ${item.roomTitle ?? ''}'.trim(),
-                                    style: TextStyle(fontSize: 11, color: colors.textMuted, fontWeight: FontWeight.w500),
+                                    style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -406,7 +455,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                       item.lastMessage,
                                       style: TextStyle(
                                         fontSize: isUnread ? 14 : 13,
-                                        color: isUnread ? colors.textDark : colors.textMuted,
+                                        color: isUnread ? AppColors.textDark : AppColors.textMuted,
                                         fontWeight: isUnread ? FontWeight.w900 : FontWeight.normal,
                                       ),
                                       maxLines: 1,
@@ -432,8 +481,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                       ),
                                       child: Text(
                                         displayUnreadCount > 99 ? '99+' : '$displayUnreadCount',
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: AppColors.onPrimary,
                                           fontSize: 11,
                                           fontWeight: FontWeight.w900,
                                         ),
@@ -511,14 +560,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
 
   Widget _buildFilterChip(String key, String label) {
     final isSelected = _selectedFilter == key;
-    final colors = AppColors.of(context);
     return InkWell(
       onTap: () => setState(() => _selectedFilter = key),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? colors.primary : colors.surfaceVariant,
+          color: isSelected ? AppColors.primary : AppColors.surfaceVariant,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Text(
@@ -526,7 +574,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? colors.onPrimary : colors.textDark,
+            color: isSelected ? AppColors.onPrimary : AppColors.textDark,
           ),
         ),
       ),
@@ -637,220 +685,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     );
   }
 
-  // --- MODAL BOTTOM SHEET: TRUNG TÂM THÔNG BÁO ---
-  void _showNotificationSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        final colors = AppColors.of(ctx);
-        return Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 10, bottom: 8),
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFCBD5E1),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 16, 12),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primarySurface,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(Icons.notifications_outlined, color: AppColors.primary, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Thông báo',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: colors.textDark),
-                        ),
-                        Text(
-                          'Cập nhật tin nhắn & lịch xem phòng mới nhất',
-                          style: TextStyle(fontSize: 11.5, color: colors.textMuted),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFEE2E2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text(
-                      '3 mới',
-                      style: TextStyle(color: Color(0xFFEF4444), fontSize: 11, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                children: [
-                  _buildNotificationItem(
-                    icon: Icons.calendar_month_rounded,
-                    iconBg: const Color(0xFFDCFCE7),
-                    iconColor: const Color(0xFF16A34A),
-                    title: 'Xác nhận lịch hẹn xem phòng',
-                    content: 'Cô Lan Nhà Trọ đã đồng ý lịch hẹn xem phòng #LT-104 vào lúc 15:00 ngày mai.',
-                    time: '15 phút trước',
-                    isUnread: true,
-                  ),
-                  _buildNotificationItem(
-                    icon: Icons.chat_bubble_outline_rounded,
-                    iconBg: const Color(0xFFDBEAFE),
-                    iconColor: const Color(0xFF2563EB),
-                    title: 'Tin nhắn mới từ Chú Ba Linh Trung',
-                    content: 'Phòng 101 còn trống nha cháu, cháu qua xem lúc mấy giờ?',
-                    time: '45 phút trước',
-                    isUnread: true,
-                  ),
-                  _buildNotificationItem(
-                    icon: Icons.verified_user_outlined,
-                    iconBg: AppColors.primarySurface,
-                    iconColor: AppColors.primary,
-                    title: 'Bảo vệ tiền cọc an toàn',
-                    content: 'Giao dịch đặt cọc giữ phòng của bạn được bảo vệ 100% qua HomeShare Escrow.',
-                    time: '2 giờ trước',
-                    isUnread: true,
-                  ),
-                  _buildNotificationItem(
-                    icon: Icons.people_outline_rounded,
-                    iconBg: const Color(0xFFF3E8FF),
-                    iconColor: const Color(0xFF7C3AED),
-                    title: 'Gợi ý bạn ở ghép phù hợp',
-                    content: 'Nguyễn Văn Nam có lối sống và ngân sách tương thích 95% vừa gửi lời kết nối.',
-                    time: '1 ngày trước',
-                    isUnread: false,
-                  ),
-                ],
-              ),
-            ),
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Đã đánh dấu đọc tất cả thông báo')),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: BorderSide(color: AppColors.border),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: Text('Đánh dấu đọc tất cả', style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-      },
-    );
-  }
 
-  Widget _buildNotificationItem({
-    required IconData icon,
-    required Color iconBg,
-    required Color iconColor,
-    required String title,
-    required String content,
-    required String time,
-    required bool isUnread,
-  }) {
-    final colors = AppColors.of(context);
-    return Container(
-      color: isUnread ? colors.surfaceVariant : Colors.transparent,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: iconBg,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 18, color: iconColor),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
-                          color: colors.textDark,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(time, style: TextStyle(fontSize: 11, color: colors.textMuted)),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  content,
-                  style: TextStyle(fontSize: 12, color: colors.textMuted, height: 1.35),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          if (isUnread) ...[
-            const SizedBox(width: 8),
-            Container(
-              margin: const EdgeInsets.only(top: 4),
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
 }
 
 /// Widget hỗ trợ trượt sang trái (Swipe Left) để lộ các nút tính năng: Ghim, Tắt TB, Xóa
@@ -1036,10 +871,10 @@ class _SwipeableConversationItemState extends State<_SwipeableConversationItem>
               offset: Offset(_dragExtent, 0),
               child: Material(
                 color: widget.isPinned
-                    ? (AppColors.of(context).isDark
-                        ? AppColors.of(context).primarySurface
+                    ? (AppColors.isDark
+                        ? AppColors.primarySurface
                         : const Color(0xFFF0FDF4))
-                    : AppColors.of(context).surface,
+                    : AppColors.surface,
                 child: GestureDetector(
                   onTap: () {
                     if (_dragExtent < -10) {

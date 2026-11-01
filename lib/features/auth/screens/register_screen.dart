@@ -118,6 +118,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           ),
         ),
         backgroundColor: AppColors.background,
+        foregroundColor: AppColors.textDark,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         titleSpacing: 4,
@@ -403,7 +405,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           child: Text(
                             'Đăng nhập ngay',
                             style: PhongSangText.label(
-                              color: AppColors.primary,
+                              color: AppColors.isDark
+                                  ? AppColors.textDark
+                                  : PhongSangColors.accent,
                               fontSize: 16,
                             ),
                           ),
@@ -498,7 +502,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
-                color: isSelected ? AppColors.primary : AppColors.textDark,
+                color: isSelected
+                    ? (AppColors.isDark
+                          ? AppColors.textDark
+                          : AppColors.primary)
+                    : AppColors.textDark,
               ),
             ),
             const SizedBox(height: 4),

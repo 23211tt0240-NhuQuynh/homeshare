@@ -1,72 +1,25 @@
-import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../repositories/tenant_repository.dart';
+import '../../../core/constants/app_colors.dart';
 
 class TenantCard extends StatelessWidget {
   final TenantItem tenant;
   final VoidCallback? onTap;
+  final VoidCallback? onMessage;
 
   const TenantCard({
     super.key,
     required this.tenant,
     this.onTap,
+    this.onMessage,
   });
-
-  Future<void> _makeCall(BuildContext context, String phone) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'\s+'), '');
-    if (cleanPhone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Khách thuê chưa cập nhật số điện thoại')),
-      );
-      return;
-    }
-    final uri = Uri.parse('tel:$cleanPhone');
-    try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      } else {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể gọi đến số $cleanPhone')),
-        );
-      }
-    }
-  }
-
-  Future<void> _sendSms(BuildContext context, String phone) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'\s+'), '');
-    if (cleanPhone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Khách thuê chưa cập nhật số điện thoại')),
-      );
-      return;
-    }
-    final uri = Uri.parse('sms:$cleanPhone');
-    try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      } else {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể gửi tin nhắn đến số $cleanPhone')),
-        );
-      }
-    }
-  }
 
   Color _getAvatarBg(String name) {
     if (name.isEmpty) return const Color(0xFFE0E7FF);
     final code = name.codeUnitAt(0);
     if (code % 3 == 0) return const Color(0xFFE0E7FF); // light blue
     if (code % 3 == 1) return const Color(0xFFFFEDD5); // light orange
-    return const Color(0xFFDCFCE7); // light green
+    return AppColors.successContainer; // light green
   }
 
   Color _getAvatarText(String name) {
@@ -100,7 +53,7 @@ class TenantCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.primaryDark,
+                    color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF1D4ED8)),
                   ),
                 ),
               ),
@@ -111,14 +64,14 @@ class TenantCard extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
+                  border: Border.all(color: AppColors.surface, width: 2),
                 ),
                 child: CircleAvatar(
                   radius: 16,
-                  backgroundColor: AppColors.primaryContainer,
+                  backgroundColor: const Color(0xFFBAE6FD),
                   child: Text(
                     initial2,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       color: Color(0xFF0369A1),
@@ -143,11 +96,7 @@ class TenantCard extends StatelessWidget {
       backgroundColor: bg,
       child: Text(
         initial,
-        style: TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w700,
-          color: fg,
-        ),
+        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: fg),
       ),
     );
   }
@@ -155,7 +104,7 @@ class TenantCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
@@ -174,7 +123,7 @@ class TenantCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -183,7 +132,7 @@ class TenantCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     _buildAvatar(),
-                    const SizedBox(width: 14),
+                    SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,9 +152,9 @@ class TenantCard extends StatelessWidget {
                                 ),
                               ),
                               if (tenant.isGroup) ...[
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
+                                  padding: EdgeInsets.symmetric(
                                     horizontal: 8,
                                     vertical: 2,
                                   ),
@@ -218,14 +167,14 @@ class TenantCard extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.textMuted,
+                                      color: AppColors.textDark,
                                     ),
                                   ),
                                 ),
                               ],
                             ],
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: 4),
                           Text(
                             tenant.phone.isNotEmpty
                                 ? tenant.phone
@@ -241,10 +190,10 @@ class TenantCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 Divider(height: 1, color: AppColors.surfaceVariant),
-                const SizedBox(height: 12),
-                // Hàng 2: Phòng & Nhà trọ + Nút Gọi & SMS
+                SizedBox(height: 12),
+                // Hàng 2: Phòng & Nhà trọ + Nút nhắn tin trong ứng dụng
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -256,13 +205,13 @@ class TenantCard extends StatelessWidget {
                             size: 17,
                             color: AppColors.textMuted,
                           ),
-                          const SizedBox(width: 6),
+                          SizedBox(width: 6),
                           Flexible(
                             child: Text(
                               '${tenant.roomName} • ${tenant.propertyName}',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: AppColors.textMuted,
+                                color: AppColors.textDark,
                                 fontWeight: FontWeight.w500,
                               ),
                               maxLines: 1,
@@ -272,48 +221,13 @@ class TenantCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    // Nút gọi
-                    InkWell(
-                      onTap: () => _makeCall(context, tenant.phone),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryContainer,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.phone,
-                              size: 15,
-                              color: AppColors.primary,
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              'Gọi',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     // Nút SMS
                     InkWell(
-                      onTap: () => _sendSms(context, tenant.phone),
+                      onTap: onMessage,
                       borderRadius: BorderRadius.circular(10),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 8,
                         ),
@@ -327,7 +241,7 @@ class TenantCard extends StatelessWidget {
                             Icon(
                               Icons.chat_bubble_outline,
                               size: 15,
-                              color: AppColors.primary,
+                              color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                             ),
                             SizedBox(width: 4),
                             Text(
@@ -335,7 +249,7 @@ class TenantCard extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                color: AppColors.primary,
+                                color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                               ),
                             ),
                           ],

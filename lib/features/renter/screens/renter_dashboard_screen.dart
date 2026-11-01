@@ -1,3 +1,4 @@
+import '../../profile/widgets/host_reputation_stars.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -6,7 +7,6 @@ import '../../../data/models/room_model.dart';
 import '../../../core/services/room_service.dart';
 import '../../../core/services/favorites_service.dart';
 import '../../auth/providers/user_provider.dart';
-import '../../profile/widgets/host_reputation_stars.dart';
 import 'room_detail_screen.dart';
 import 'search_filter_screen.dart';
 
@@ -147,14 +147,6 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
               );
             },
           ),
-          IconButton(
-            icon: Badge(
-              smallSize: 8,
-              backgroundColor: colors.danger,
-              child: Icon(Icons.notifications_none_outlined, color: colors.textDark),
-            ),
-            onPressed: () {},
-          ),
         ],
       ),
       body: RefreshIndicator(
@@ -233,13 +225,13 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                           Icon(
                             Icons.home_outlined,
                             size: 36,
-                            color: colors.textMuted,
+                            color: AppColors.textMuted,
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: 8),
                           Text(
                             'Chưa có bài viết nào',
                             style: TextStyle(
-                              color: colors.textMuted,
+                              color: AppColors.textMuted,
                               fontSize: 13,
                             ),
                           ),
@@ -297,7 +289,7 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
         textColor = colors.textMuted;
         icon = Icons.lock_outline_rounded;
       } else {
-        bgColor = colors.isDark ? colors.primarySurface : const Color(0xFFECFDF3);
+        bgColor = AppColors.successContainer;
         textColor = colors.success;
         icon = Icons.check_circle_rounded;
       }

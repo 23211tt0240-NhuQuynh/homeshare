@@ -1,4 +1,3 @@
-import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/user_provider.dart';
@@ -7,6 +6,7 @@ import '../providers/violation_provider.dart';
 import '../repositories/violation_repository.dart';
 import '../widgets/evidence_picker.dart';
 import '../widgets/violation_type_selector.dart';
+import '../../../core/constants/app_colors.dart';
 
 class HostCreateViolationScreen extends ConsumerStatefulWidget {
   const HostCreateViolationScreen({super.key});
@@ -63,9 +63,9 @@ class _HostCreateViolationScreenState
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Đã lưu biên bản vi phạm thành công!'),
-          backgroundColor: AppColors.success,
+          backgroundColor: Color(0xFF16A34A),
         ),
       );
       Navigator.of(context).pop(true);
@@ -75,7 +75,7 @@ class _HostCreateViolationScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMsg),
-          backgroundColor: AppColors.danger,
+          backgroundColor: const Color(0xFFDC2626),
         ),
       );
     }
@@ -91,7 +91,7 @@ class _HostCreateViolationScreenState
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -99,7 +99,7 @@ class _HostCreateViolationScreenState
             children: [
               Icon(
                 Icons.description_outlined,
-                color: AppColors.primary,
+                color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -114,18 +114,18 @@ class _HostCreateViolationScreenState
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Text(
             'Căn hộ / Khách thuê vi phạm',
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w500,
-              color: AppColors.textMuted,
+              color: Color(0xFF64748B),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             decoration: BoxDecoration(
               color: AppColors.background,
               borderRadius: BorderRadius.circular(12),
@@ -140,10 +140,10 @@ class _HostCreateViolationScreenState
                     : null,
                 hint: Text(
                   'Chọn phòng / khách thuê...',
-                  style: TextStyle(fontSize: 14, color: AppColors.textMuted),
+                  style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
                 ),
                 icon: Icon(Icons.unfold_more_rounded,
-                    color: AppColors.textMuted),
+                    color: Color(0xFF64748B)),
                 items: rooms.map((item) {
                   return DropdownMenuItem<HostOccupiedRoomItem>(
                     value: item,
@@ -180,7 +180,7 @@ class _HostCreateViolationScreenState
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -188,7 +188,7 @@ class _HostCreateViolationScreenState
             children: [
               Icon(
                 Icons.credit_card_outlined,
-                color: AppColors.primary,
+                color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -203,18 +203,18 @@ class _HostCreateViolationScreenState
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Text(
             'Số tiền phạt (VND)',
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w500,
-              color: AppColors.textMuted,
+              color: Color(0xFF64748B),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
               color: AppColors.surfaceVariant,
               borderRadius: BorderRadius.circular(12),
@@ -237,22 +237,22 @@ class _HostCreateViolationScreenState
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textMuted,
+                    color: Color(0xFF64748B),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Text(
             'Hình thức thu tiền',
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w500,
-              color: AppColors.textMuted,
+              color: Color(0xFF64748B),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           // Option 1: Cộng vào tiền phòng tháng sau
           InkWell(
             onTap: () => ref
@@ -260,13 +260,13 @@ class _HostCreateViolationScreenState
                 .setPaymentMethod('NEXT_INVOICE'),
             borderRadius: BorderRadius.circular(12),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: AppColors.background,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: paymentMethod == 'NEXT_INVOICE'
-                      ? AppColors.primary
+                      ? (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB))
                       : AppColors.border,
                   width: paymentMethod == 'NEXT_INVOICE' ? 1.5 : 1,
                 ),
@@ -278,11 +278,11 @@ class _HostCreateViolationScreenState
                         ? Icons.radio_button_checked
                         : Icons.radio_button_off,
                     color: paymentMethod == 'NEXT_INVOICE'
-                        ? AppColors.primary
-                        : AppColors.textMuted,
+                        ? (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB))
+                        : const Color(0xFF94A3B8),
                     size: 20,
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Text(
                     'Cộng vào tiền phòng tháng sau',
                     style: TextStyle(
@@ -295,7 +295,7 @@ class _HostCreateViolationScreenState
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           // Option 2: Thu tiền mặt trực tiếp
           InkWell(
             onTap: () => ref
@@ -303,13 +303,13 @@ class _HostCreateViolationScreenState
                 .setPaymentMethod('CASH'),
             borderRadius: BorderRadius.circular(12),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: AppColors.background,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: paymentMethod == 'CASH'
-                      ? AppColors.primary
+                      ? (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB))
                       : AppColors.border,
                   width: paymentMethod == 'CASH' ? 1.5 : 1,
                 ),
@@ -321,11 +321,11 @@ class _HostCreateViolationScreenState
                         ? Icons.radio_button_checked
                         : Icons.radio_button_off,
                     color: paymentMethod == 'CASH'
-                        ? AppColors.primary
-                        : AppColors.textMuted,
+                        ? (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB))
+                        : const Color(0xFF94A3B8),
                     size: 20,
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Text(
                     'Thu tiền mặt trực tiếp',
                     style: TextStyle(
@@ -350,7 +350,7 @@ class _HostCreateViolationScreenState
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -358,7 +358,7 @@ class _HostCreateViolationScreenState
             children: [
               Icon(
                 Icons.edit_note_rounded,
-                color: AppColors.primary,
+                color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                 size: 22,
               ),
               SizedBox(width: 8),
@@ -373,13 +373,13 @@ class _HostCreateViolationScreenState
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           TextField(
             controller: _noteController,
             maxLines: 4,
             decoration: InputDecoration(
               hintText: 'Nhập thời gian xảy ra, vị trí, tình trạng thực tế...',
-              hintStyle: TextStyle(fontSize: 13, color: AppColors.textMuted),
+              hintStyle: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
               fillColor: AppColors.background,
               filled: true,
               border: OutlineInputBorder(
@@ -392,9 +392,9 @@ class _HostCreateViolationScreenState
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppColors.primary),
+                borderSide: BorderSide(color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB))),
               ),
-              contentPadding: const EdgeInsets.all(14),
+              contentPadding: EdgeInsets.all(14),
             ),
           ),
         ],
@@ -427,14 +427,14 @@ class _HostCreateViolationScreenState
           ),
         ),
         bottom: PreferredSize(
-          preferredSize: Size.fromHeight(1),
+          preferredSize: const Size.fromHeight(1),
           child: Divider(height: 1, color: AppColors.border),
         ),
       ),
       body: Stack(
         children: [
           SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 96),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -447,10 +447,10 @@ class _HostCreateViolationScreenState
                       color: AppColors.surface,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: const Center(child: CircularProgressIndicator()),
+                    child: Center(child: CircularProgressIndicator()),
                   ),
                   error: (e, _) => Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: AppColors.surface,
                       borderRadius: BorderRadius.circular(16),
@@ -458,7 +458,7 @@ class _HostCreateViolationScreenState
                     child: Text('Lỗi tải danh sách phòng: $e'),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
 
                 // 2. Khối hành vi vi phạm
                 violationsAsync.when(
@@ -471,17 +471,17 @@ class _HostCreateViolationScreenState
                           .toggleViolation(item);
                     },
                   ),
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading: () => Center(child: CircularProgressIndicator()),
                   error: (e, _) => Text('Lỗi tải danh mục vi phạm: $e'),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
 
                 // 3. Khối mức phạt & hình thức xử lý
                 _buildFineAndResolution(
                   formState.fineAmount,
                   formState.paymentMethod,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
 
                 // 4. Khối bằng chứng vi phạm
                 EvidencePicker(
@@ -502,7 +502,7 @@ class _HostCreateViolationScreenState
                         .removeEvidenceFile(index);
                   },
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
 
                 // 5. Khối ghi chú / mô tả
                 _buildNoteCard(),
@@ -516,7 +516,7 @@ class _HostCreateViolationScreenState
             right: 0,
             bottom: 0,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: AppColors.surface,
                 boxShadow: [
@@ -534,7 +534,7 @@ class _HostCreateViolationScreenState
                   child: ElevatedButton(
                     onPressed: formState.isSubmitting ? null : _handleSave,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                       disabledBackgroundColor: const Color(0xFF93C5FD),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -542,15 +542,15 @@ class _HostCreateViolationScreenState
                       elevation: 0,
                     ),
                     child: formState.isSubmitting
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 22,
                             height: 22,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
-                              color: Colors.white,
+                              color: AppColors.surface,
                             ),
                           )
-                        : const Row(
+                        : Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.check, color: Colors.white, size: 20),

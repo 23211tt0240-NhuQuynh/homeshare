@@ -50,6 +50,8 @@ abstract final class FirestoreCollections {
   static const roommatePostImages = 'roommate_post_images';
   static const hostReviews = 'host_reviews';
   static const reports = 'reports';
+  static const repost = 'repost';
+  static const reposts = 'reposts';
   static const propertyImages = 'property_images';
   static const anhTro = 'AnhTro';
   static const rentalTypes = 'rental_types';
@@ -569,6 +571,8 @@ abstract final class RoommatePostImageFields {
 
 /// Schema collection `reports`. Báo cáo chủ trọ gửi tới Admin, status = pending.
 abstract final class HostReportFields {
+  static const String postId = 'postId';
+  static const String postTitle = 'postTitle';
   static const id = 'id';
   static const targetType = 'targetType';
   static const hostId = 'hostId';
@@ -576,8 +580,6 @@ abstract final class HostReportFields {
   static const hostPhone = 'hostPhone';
   static const roomId = 'roomId';
   static const roomTitle = 'roomTitle';
-  static const postId = 'postId';
-  static const postTitle = 'postTitle';
   static const reporterId = 'reporterId';
   static const reporterName = 'reporterName';
   static const reason = 'reason';
@@ -588,7 +590,7 @@ abstract final class HostReportFields {
   static const createdAt = 'createdAt';
 }
 
-/// Schema collection `host_reviews`. Document ID = bookingId hoặc residentId (ở ghép).
+/// Schema collection `host_reviews`. Document ID = bookingId.
 abstract final class HostReviewFields {
   static const hostId = 'hostId';
   static const reviewerId = 'reviewerId';

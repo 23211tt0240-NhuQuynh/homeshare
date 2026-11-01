@@ -41,6 +41,15 @@ class _CreateRoommatePostScreenState
   Color get _readableMuted =>
       AppColors.isDark ? const Color(0xFFCBD5E1) : AppColors.textMuted;
 
+  Color get _readableWarning =>
+      AppColors.isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E);
+
+  Color get _readableSuccess =>
+      AppColors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF15803D);
+
+  Color get _readableDanger =>
+      AppColors.isDark ? const Color(0xFFFCA5A5) : const Color(0xFFDC2626);
+
   // 1. Thông tin người đăng
   final _authorNameController = TextEditingController();
   final _authorAgeController = TextEditingController();
@@ -555,16 +564,22 @@ class _CreateRoommatePostScreenState
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.check_circle, color: Color(0xFF10B981), size: 28),
-            SizedBox(width: 8),
-            Expanded(child: Text('Đăng tin thành công!', maxLines: 2)),
+            Icon(Icons.check_circle, color: AppColors.success, size: 28),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Đăng tin thành công!',
+                maxLines: 2,
+                style: TextStyle(color: AppColors.textDark),
+              ),
+            ),
           ],
         ),
-        content: const Text(
+        content: Text(
           'Bài đăng tìm bạn ở ghép của bạn đã được xuất bản và hiển thị ngay trên Cộng đồng HomeShare.',
-          style: TextStyle(fontSize: 14, height: 1.4),
+          style: TextStyle(fontSize: 14, height: 1.4, color: AppColors.textDark),
         ),
         actions: [
           ElevatedButton(
@@ -707,7 +722,7 @@ class _CreateRoommatePostScreenState
           final isCurrent = idx == _currentStep;
           final color = isPassed || isCurrent
               ? AppColors.primary
-              : const Color(0xFFCBD5E1);
+              : AppColors.border;
 
           return Expanded(
             child: Row(
@@ -718,10 +733,10 @@ class _CreateRoommatePostScreenState
                   backgroundColor: color,
                   child: Text(
                     '${idx + 1}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: AppColors.onPrimary,
                     ),
                   ),
                 ),
@@ -838,6 +853,8 @@ class _CreateRoommatePostScreenState
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
                         isExpanded: true,
+                        dropdownColor: AppColors.surface,
+                        style: TextStyle(color: AppColors.textDark, fontSize: 12.5),
                         initialValue: _authorGender,
                         items: ['Nam', 'Nữ', 'Khác']
                             .map(
@@ -845,7 +862,10 @@ class _CreateRoommatePostScreenState
                                 value: g,
                                 child: Text(
                                   g,
-                                  style: const TextStyle(fontSize: 12.5),
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: AppColors.textDark,
+                                  ),
                                 ),
                               ),
                             )
@@ -919,7 +939,6 @@ class _CreateRoommatePostScreenState
                             content: Text(
                               'Bạn hiện chưa có phòng đang thuê trên hệ thống nên không thể chọn "Đã có phòng". Vui lòng chọn "Chưa có phòng" để tìm bạn cùng thuê.',
                             ),
-                            backgroundColor: Color(0xFF1E293B),
                             duration: Duration(seconds: 3),
                           ),
                         );
@@ -952,24 +971,24 @@ class _CreateRoommatePostScreenState
                   vertical: 9,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBEB),
+                  color: AppColors.warningContainer,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFFDE68A)),
+                  border: Border.all(color: _readableWarning.withValues(alpha: 0.5)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Icon(
                       Icons.info_outline,
                       size: 16,
-                      color: Color(0xFFD97706),
+                      color: _readableWarning,
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Tài khoản của bạn chưa có hợp đồng thuê phòng nào đang hoạt động. Bạn chỉ có thể đăng tin "Chưa có phòng" để tìm bạn cùng đi thuê.',
                         style: TextStyle(
                           fontSize: 11.5,
-                          color: Color(0xFF92400E),
+                          color: _readableWarning,
                           height: 1.35,
                         ),
                       ),
@@ -982,25 +1001,25 @@ class _CreateRoommatePostScreenState
                 margin: const EdgeInsets.only(top: 10),
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
+                  color: AppColors.successContainer,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                  border: Border.all(color: _readableSuccess.withValues(alpha: 0.5)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.check_circle_outline,
                       size: 16,
-                      color: Color(0xFF16A34A),
+                      color: _readableSuccess,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Phòng đang thuê: ${activeBookings.first.roomTitle}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF15803D),
+                          color: _readableSuccess,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1013,8 +1032,8 @@ class _CreateRoommatePostScreenState
                           showSnackBar: true,
                         );
                       },
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: 6,
                           vertical: 2,
                         ),
@@ -1023,7 +1042,7 @@ class _CreateRoommatePostScreenState
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF16A34A),
+                            color: _readableSuccess,
                             decoration: TextDecoration.underline,
                           ),
                         ),
@@ -1079,6 +1098,8 @@ class _CreateRoommatePostScreenState
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   isExpanded: true,
+                  dropdownColor: AppColors.surface,
+                  style: TextStyle(color: AppColors.textDark, fontSize: 13),
                   key: ValueKey('province_$_selectedProvince'),
                   initialValue: provinces.contains(_selectedProvince)
                       ? _selectedProvince
@@ -1089,7 +1110,10 @@ class _CreateRoommatePostScreenState
                           value: p,
                           child: Text(
                             p,
-                            style: const TextStyle(fontSize: 13),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textDark,
+                            ),
                           ),
                         ),
                       )
@@ -1150,6 +1174,8 @@ class _CreateRoommatePostScreenState
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   isExpanded: true,
+                  dropdownColor: AppColors.surface,
+                  style: TextStyle(color: AppColors.textDark, fontSize: 13),
                   key: ValueKey(
                     'district_${_selectedProvince}_$_selectedDistrict',
                   ),
@@ -1162,7 +1188,10 @@ class _CreateRoommatePostScreenState
                           value: d,
                           child: Text(
                             d,
-                            style: const TextStyle(fontSize: 13),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textDark,
+                            ),
                           ),
                         ),
                       )
@@ -1214,6 +1243,8 @@ class _CreateRoommatePostScreenState
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   isExpanded: true,
+                  dropdownColor: AppColors.surface,
+                  style: TextStyle(color: AppColors.textDark, fontSize: 13),
                   key: ValueKey(
                     'ward_${_selectedDistrict}_$_selectedWard',
                   ),
@@ -1226,7 +1257,10 @@ class _CreateRoommatePostScreenState
                           value: w,
                           child: Text(
                             w,
-                            style: const TextStyle(fontSize: 13),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textDark,
+                            ),
                           ),
                         ),
                       )
@@ -1268,6 +1302,8 @@ class _CreateRoommatePostScreenState
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   isExpanded: true,
+                  dropdownColor: AppColors.surface,
+                  style: TextStyle(color: AppColors.textDark, fontSize: 13),
                   initialValue: _selectedPropertyType,
                   items: _propertyTypes
                       .map(
@@ -1275,7 +1311,10 @@ class _CreateRoommatePostScreenState
                           value: t,
                           child: Text(
                             t,
-                            style: const TextStyle(fontSize: 13),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textDark,
+                            ),
                           ),
                         ),
                       )
@@ -1319,6 +1358,8 @@ class _CreateRoommatePostScreenState
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   isExpanded: true,
+                  dropdownColor: AppColors.surface,
+                  style: TextStyle(color: AppColors.textDark, fontSize: 13),
                   initialValue: _targetGender,
                   items: ['Nữ', 'Nam', 'Tất cả']
                       .map(
@@ -1326,7 +1367,10 @@ class _CreateRoommatePostScreenState
                           value: g,
                           child: Text(
                             g,
-                            style: const TextStyle(fontSize: 13),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textDark,
+                            ),
                           ),
                         ),
                       )
@@ -1480,6 +1524,10 @@ class _CreateRoommatePostScreenState
                       Expanded(
                         child: TextField(
                           controller: _customHabitController,
+                          style: TextStyle(
+                            color: AppColors.textDark,
+                            fontSize: 13,
+                          ),
                           decoration:
                               _inputDecoration(
                                 hint: 'VD: Thích nuôi mèo, Không nấu ăn đêm...',
@@ -1553,13 +1601,13 @@ class _CreateRoommatePostScreenState
                           child: InkWell(
                             onTap: () =>
                                 setState(() => _selectedImages.removeAt(idx)),
-                            child: const CircleAvatar(
+                            child: CircleAvatar(
                               radius: 11,
                               backgroundColor: Colors.black54,
                               child: Icon(
                                 Icons.close,
                                 size: 14,
-                                color: Colors.white,
+                                color: AppColors.onPrimary,
                               ),
                             ),
                           ),
@@ -1655,12 +1703,12 @@ class _CreateRoommatePostScreenState
                 ),
               ),
               child: _isSubmitting
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: AppColors.onPrimary,
                       ),
                     )
                   : Text(
@@ -1738,7 +1786,7 @@ class _CreateRoommatePostScreenState
             : AppColors.surface);
     final borderColor = !isEnabled
         ? AppColors.border
-        : (isSelected ? AppColors.primary : Color(0xFFCBD5E1));
+        : (isSelected ? AppColors.primary : AppColors.border);
     final textColor = !isEnabled
         ? _readableMuted
         : (isSelected
@@ -1794,15 +1842,15 @@ class _CreateRoommatePostScreenState
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEE2E2),
+                  color: AppColors.dangerContainer,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   badgeText,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 9.5,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFFDC2626),
+                    color: _readableDanger,
                   ),
                 ),
               ),
@@ -1839,6 +1887,7 @@ class _CreateRoommatePostScreenState
           maxLines: maxLines,
           validator: validator,
           autovalidateMode: AutovalidateMode.onUserInteraction,
+          style: TextStyle(color: AppColors.textDark, fontSize: 13),
           decoration: _inputDecoration(hint: hint),
         ),
       ],
@@ -1855,7 +1904,7 @@ class _CreateRoommatePostScreenState
       fillColor: AppColors.background,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+        borderSide: BorderSide(color: AppColors.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),

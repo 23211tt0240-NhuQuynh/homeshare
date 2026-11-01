@@ -1,6 +1,6 @@
-import '../theme/admin_colors.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../theme/admin_colors.dart';
 
 class AdminNotificationsBottomSheet extends StatelessWidget {
   final Function(String type, String? targetId)? onNavigateTarget;
@@ -58,7 +58,7 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
             height: 4,
             margin: const EdgeInsets.only(top: 12, bottom: 8),
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
+              color: AdminColors.border,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -125,7 +125,7 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.bold,
-                            color: AdminColors.accent,
+                            color: AdminColors.accentText,
                           ),
                         ),
                       ),
@@ -158,7 +158,7 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                         Icon(
                           Icons.notifications_none_rounded,
                           size: 56,
-                          color: Colors.grey.shade300,
+                          color: AdminColors.border,
                         ),
                         const SizedBox(height: 12),
                         Text(
@@ -227,7 +227,7 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
                         ),
                         color: isRead
                             ? Colors.transparent
-                            : AdminColors.paper,
+                            : AdminColors.accentSoft,
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -319,7 +319,7 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
       case 'post_approval':
         iconData = Icons.apartment_rounded;
         iconColor = AdminColors.accent;
-        bgColor = AdminColors.paper;
+        bgColor = AdminColors.accentSoft;
         break;
       case 'report':
         iconData = Icons.report_problem_rounded;
@@ -328,7 +328,7 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
         break;
       default:
         iconData = Icons.notifications_rounded;
-        iconColor = AdminColors.warningInk;
+        iconColor = AdminColors.warning;
         bgColor = AdminColors.warningContainer;
     }
 

@@ -226,7 +226,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 );
                               },
                               style: TextButton.styleFrom(
-                                foregroundColor: AppColors.primary,
+                                foregroundColor: AppColors.isDark
+                                    ? AppColors.textDark
+                                    : PhongSangColors.accent,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
                                   vertical: 10,
@@ -235,7 +237,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               child: Text(
                                 'Quên mật khẩu?',
                                 style: PhongSangText.label(
-                                  color: AppColors.primary,
+                                  color: AppColors.isDark
+                                      ? AppColors.textDark
+                                      : PhongSangColors.accent,
                                   fontSize: 15,
                                 ),
                               ),
@@ -337,7 +341,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           child: Text(
                             'Đăng ký ngay',
                             style: PhongSangText.label(
-                              color: AppColors.primary,
+                              color: AppColors.isDark
+                                  ? AppColors.textDark
+                                  : PhongSangColors.accent,
                               fontSize: 16,
                             ),
                           ),

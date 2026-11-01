@@ -498,16 +498,16 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
                 width: 40,
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
               ),
               Row(
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundColor: isRealScan ? const Color(0xFFD1FAE5) : const Color(0xFFFEF3C7),
+                    backgroundColor: isRealScan ? const Color(0xFFD1FAE5) : AppColors.warningContainer,
                     child: Icon(
                       isRealScan ? Icons.verified_user : Icons.check,
-                      color: isRealScan ? AppColors.primary : Color(0xFFD97706),
+                      color: isRealScan ? AppColors.primary : const Color(0xFFD97706),
                       size: 20,
                     ),
                   ),
@@ -537,8 +537,8 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFF0FDF4), Color(0xFFDCFCE7)],
+                  gradient: LinearGradient(
+                    colors: [AppColors.successContainer, Color(0xFFDCFCE7)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -567,7 +567,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(4)),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
                           child: const Text('Bộ Công An', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red)),
                         ),
                       ],
@@ -717,7 +717,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF3C7).withValues(alpha: 0.95),
+        color: AppColors.warningContainer.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
         boxShadow: [

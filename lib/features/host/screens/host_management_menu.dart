@@ -1,5 +1,5 @@
-import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
+import '../../../core/constants/app_colors.dart';
 
 enum HostManagementSection {
   tenants,
@@ -76,13 +76,13 @@ class HostManagementMenu extends StatelessWidget {
       onTap: () => onSelect(section),
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primaryContainer : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: isSelected
               ? Border(
-                  left: BorderSide(color: AppColors.primary, width: 3),
+                  left: BorderSide(color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)), width: 3),
                 )
               : null,
         ),
@@ -101,16 +101,14 @@ class HostManagementMenu extends StatelessWidget {
                 color: isSelected ? Colors.white : iconColor,
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Text(
                 title,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                  color: isSelected
-                      ? AppColors.primary
-                      : AppColors.textDark,
+                  color: AppColors.textDark,
                 ),
               ),
             ),
@@ -118,7 +116,7 @@ class HostManagementMenu extends StatelessWidget {
               Icon(
                 Icons.check,
                 size: 20,
-                color: AppColors.primary,
+                color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
               ),
           ],
         ),
@@ -142,7 +140,7 @@ class HostManagementMenu extends StatelessWidget {
         ],
         border: Border.all(color: AppColors.border),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -151,11 +149,11 @@ class HostManagementMenu extends StatelessWidget {
             section: HostManagementSection.tenants,
             title: 'Quản lý người thuê',
             icon: Icons.person_outline,
-            iconColor: AppColors.primary,
+            iconColor: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
             iconBg: AppColors.primaryContainer,
             isSelected: currentSection == HostManagementSection.tenants,
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           _buildItem(
             section: HostManagementSection.checkinCheckout,
             title: 'Quản lý Check in/Check out',
@@ -165,12 +163,12 @@ class HostManagementMenu extends StatelessWidget {
             isSelected:
                 currentSection == HostManagementSection.checkinCheckout,
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           _buildItem(
             section: HostManagementSection.violations,
             title: 'Quản lý vi phạm & Phí phạt',
             icon: Icons.warning_amber_rounded,
-            iconColor: AppColors.warning,
+            iconColor: const Color(0xFFD97706),
             iconBg: AppColors.warningContainer,
             isSelected: currentSection == HostManagementSection.violations,
           ),

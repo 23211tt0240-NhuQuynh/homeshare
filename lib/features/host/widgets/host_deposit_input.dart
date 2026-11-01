@@ -39,7 +39,7 @@ class HostDepositInput extends StatelessWidget {
                 children: [
                   Expanded(
                     child: InputDecorator(
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Tiền cọc (đ)',
                         suffixIcon: Icon(Icons.lock_outline),
                       ),
@@ -49,15 +49,15 @@ class HostDepositInput extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   SizedBox(
                     width: 112,
                     child: DropdownButtonFormField<int>(
                       key: const ValueKey('host_deposit_percentage'),
                       initialValue: percentage,
                       isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Tỷ lệ cọc'),
-                      hint: const Text('Chọn %'),
+                      decoration: InputDecoration(labelText: 'Tỷ lệ cọc'),
+                      hint: Text('Chọn %'),
                       items: [
                         for (final percent in roomDepositPercentages)
                           DropdownMenuItem(
@@ -73,7 +73,7 @@ class HostDepositInput extends StatelessWidget {
                 ],
               ),
               if (percentage == null)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 6),
                   child: Text(
                     'Chọn tỷ lệ để áp dụng theo giá thuê hiện tại.',

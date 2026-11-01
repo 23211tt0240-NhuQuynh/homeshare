@@ -1,6 +1,6 @@
-import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import '../repositories/violation_repository.dart';
+import '../../../core/constants/app_colors.dart';
 
 class ViolationSummaryCard extends StatelessWidget {
   final ViolationMonthlyStats stats;
@@ -42,14 +42,14 @@ class ViolationSummaryCard extends StatelessWidget {
 
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
                   width: 36,
                   height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
+                  margin: EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
                     color: AppColors.border,
                     borderRadius: BorderRadius.circular(2),
@@ -63,7 +63,7 @@ class ViolationSummaryCard extends StatelessWidget {
                     color: AppColors.textDark,
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
@@ -77,11 +77,11 @@ class ViolationSummaryCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                       child: Container(
                         width: 72,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        padding: EdgeInsets.symmetric(vertical: 10),
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? AppColors.primary
+                              ? (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB))
                               : AppColors.surfaceVariant,
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -92,7 +92,7 @@ class ViolationSummaryCard extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             color: isSelected
                                 ? Colors.white
-                                : AppColors.textDark,
+                                : const Color(0xFF1E293B),
                           ),
                         ),
                       ),
@@ -122,7 +122,7 @@ class ViolationSummaryCard extends StatelessWidget {
         ],
         border: Border.all(color: AppColors.border),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(
         children: [
           // Header: Chọn tháng
@@ -135,7 +135,7 @@ class ViolationSummaryCard extends StatelessWidget {
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,
-                  color: AppColors.textMuted,
+                  color: Color(0xFF64748B),
                 ),
               ),
               InkWell(
@@ -143,7 +143,7 @@ class ViolationSummaryCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceVariant,
                     borderRadius: BorderRadius.circular(8),
@@ -159,11 +159,11 @@ class ViolationSummaryCard extends StatelessWidget {
                           color: AppColors.textDark,
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      SizedBox(width: 4),
                       Icon(
                         Icons.keyboard_arrow_down,
                         size: 18,
-                        color: AppColors.textMuted,
+                        color: Color(0xFF64748B),
                       ),
                     ],
                   ),
@@ -171,15 +171,15 @@ class ViolationSummaryCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
           // Khung lớn Gradient: Tổng tiền phạt ghi nhận
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF1E40AF), AppColors.primary],
+                colors: [AppColors.primaryDark, AppColors.primary],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -202,22 +202,22 @@ class ViolationSummaryCard extends StatelessWidget {
                       'Tổng tiền phạt ghi nhận',
                       style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.primaryContainer,
+                        color: AppColors.primary.withValues(alpha: 0.4),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
+                        color: AppColors.surface.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         '${stats.totalCount} vi phạm',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
@@ -226,10 +226,10 @@ class ViolationSummaryCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Text(
                   _formatCurrency(stats.totalFineRecorded),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w900,
                     color: Colors.white,
@@ -239,7 +239,7 @@ class ViolationSummaryCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
           // 2 Ô Thống kê: Đã nộp & Chờ nộp (Tap to filter)
           Row(
@@ -249,7 +249,7 @@ class ViolationSummaryCard extends StatelessWidget {
                   onTap: () => onFilterTap('PAID'),
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF0FDF4),
                       borderRadius: BorderRadius.circular(12),
@@ -264,33 +264,33 @@ class ViolationSummaryCard extends StatelessWidget {
                               width: 8,
                               height: 8,
                               decoration: BoxDecoration(
-                                color: AppColors.success,
+                                color: (AppColors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF16A34A)),
                                 shape: BoxShape.circle,
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            const Text(
+                            SizedBox(width: 6),
+                            Text(
                               'Tổng đã nộp',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF15803D),
+                                color: (AppColors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF15803D)),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        SizedBox(height: 6),
                         Text(
                           _formatCurrency(stats.totalPaid),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF166534),
+                            color: (AppColors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF166534)),
                           ),
                         ),
                         Text(
                           '${stats.paidCount} biên bản',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             color: Color(0xFF4ADE80),
                           ),
@@ -300,15 +300,15 @@ class ViolationSummaryCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: InkWell(
                   onTap: () => onFilterTap('PENDING'),
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFFBEB),
+                      color: AppColors.warningContainer,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: const Color(0xFFFDE68A)),
                     ),
@@ -320,34 +320,34 @@ class ViolationSummaryCard extends StatelessWidget {
                             Container(
                               width: 8,
                               height: 8,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFD97706),
+                              decoration: BoxDecoration(
+                                color: (AppColors.isDark ? const Color(0xFFFDE68A) : const Color(0xFFD97706)),
                                 shape: BoxShape.circle,
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            const Text(
+                            SizedBox(width: 6),
+                            Text(
                               'Tổng chờ nộp',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFFB45309),
+                                color: (AppColors.isDark ? const Color(0xFFFDE68A) : const Color(0xFFB45309)),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        SizedBox(height: 6),
                         Text(
                           _formatCurrency(stats.totalPending),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF92400E),
+                            color: (AppColors.isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E)),
                           ),
                         ),
                         Text(
                           '${stats.pendingCount} biên bản',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             color: Color(0xFFF59E0B),
                           ),

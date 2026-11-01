@@ -19,7 +19,7 @@ BookingRequestModel _booking({
   String id = 'bk1',
   String renterId = 'renter1',
   String hostId = 'host1',
-  String status = 'approved',
+  String status = 'dangO',
   DateTime? createdAt,
 }) {
   return BookingRequestModel(
@@ -119,14 +119,19 @@ void main() {
       expect(HostReviewPolicy.canReviewOwnHost('', 'host1'), isFalse);
     });
 
-    test('đơn approved / đã cọc / đang ở thì được đánh giá', () {
-      expect(HostReviewPolicy.isReviewableBooking(_booking(status: 'approved')), isTrue);
-      expect(HostReviewPolicy.isReviewableBooking(_booking(status: 'deposit_paid')), isTrue);
+    test('đã nhận phòng thì được đánh giá, kể cả sau khi bị đuổi / trả phòng', () {
       expect(HostReviewPolicy.isReviewableBooking(_booking(status: 'active')), isTrue);
       expect(HostReviewPolicy.isReviewableBooking(_booking(status: 'dangO')), isTrue);
+      expect(HostReviewPolicy.isReviewableBooking(_booking(status: 'daNhanPhong')), isTrue);
+      expect(HostReviewPolicy.isReviewableBooking(_booking(status: 'checked_out')), isTrue);
+      expect(HostReviewPolicy.isReviewableBooking(_booking(status: 'moved_out')), isTrue);
     });
 
-    test('đơn chờ / hủy thì không được đánh giá', () {
+    test('đơn đã duyệt, chờ nhận phòng, chờ hoặc hủy thì chưa được đánh giá', () {
+      expect(HostReviewPolicy.isReviewableBooking(_booking(status: 'approved')), isFalse);
+      expect(HostReviewPolicy.isReviewableBooking(_booking(status: 'deposit_paid')), isFalse);
+      expect(HostReviewPolicy.isReviewableBooking(_booking(status: 'daCoc')), isFalse);
+      expect(HostReviewPolicy.isReviewableBooking(_booking(status: 'choNhanPhong')), isFalse);
       expect(HostReviewPolicy.isReviewableBooking(_booking(status: 'pending')), isFalse);
       expect(HostReviewPolicy.isReviewableBooking(_booking(status: 'cancelled')), isFalse);
     });
@@ -179,27 +184,7 @@ void main() {
       expect(HostReviewPolicy.isReviewableBooking(eligible!), isTrue);
     });
 
-    test('người ở ghép phòng chủ khác hoặc đã rời đi thì không được đánh giá', () {
-      final otherHost = HostReviewPolicy.firstEligibleResident(
-        reviewerId: 'roommate1',
-        hostId: 'host1',
-        residents: [
-          ResidentModel(
-            id: 'res_other',
-            periodId: 'p2',
-            roomId: 'room2',
-            userId: 'roommate1',
-            fullName: 'Bạn ở ghép',
-            formId: 'oGhep',
-            statusId: 'dangO',
-            moveInDate: DateTime(2026, 10, 2),
-          ),
-        ],
-        roomHostByRoomId: const {'room2': 'host2'},
-        reviewedBookingIds: {},
-      );
-      expect(otherHost, isNull);
-
+    test('người ở ghép đã rời đi vẫn được đánh giá chủ trọ', () {
       final movedOut = HostReviewPolicy.firstEligibleResident(
         reviewerId: 'roommate1',
         hostId: 'host1',
@@ -219,7 +204,30 @@ void main() {
         roomHostByRoomId: const {'room1': 'host1'},
         reviewedBookingIds: {},
       );
-      expect(movedOut, isNull);
+      expect(movedOut?.id, 'res_left');
+      expect(HostReviewPolicy.isReviewableBooking(movedOut!), isTrue);
+    });
+
+    test('người ở ghép phòng chủ khác thì không được đánh giá', () {
+      final otherHost = HostReviewPolicy.firstEligibleResident(
+        reviewerId: 'roommate1',
+        hostId: 'host1',
+        residents: [
+          ResidentModel(
+            id: 'res_other',
+            periodId: 'p2',
+            roomId: 'room2',
+            userId: 'roommate1',
+            fullName: 'Bạn ở ghép',
+            formId: 'oGhep',
+            statusId: 'dangO',
+            moveInDate: DateTime(2026, 10, 2),
+          ),
+        ],
+        roomHostByRoomId: const {'room2': 'host2'},
+        reviewedBookingIds: {},
+      );
+      expect(otherHost, isNull);
     });
   });
 

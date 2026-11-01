@@ -1,4 +1,3 @@
-import '../theme/admin_colors.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../widgets/admin_page_backdrop.dart';
@@ -8,6 +7,7 @@ import '../../../../core/utils/vietqr_helper.dart';
 import '../utils/booking_utils.dart';
 import '../widgets/admin_branded_title.dart';
 import 'settlement_receipt_screen.dart';
+import '../theme/admin_colors.dart';
 
 class SettlementInvoiceScreen extends StatefulWidget {
   /// Các đơn (document id trong `bookings`) cần quyết toán cho MỘT chủ trọ.
@@ -384,7 +384,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         icon: const Icon(Icons.qr_code_2_rounded, size: 20),
-                        label: const Text(
+                        label: Text(
                           'LƯU & TẠO MÃ VIETQR NGAY',
                           style: TextStyle(
                             fontSize: 13,
@@ -487,7 +487,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
+        title: Text(
           'Xác nhận đã chuyển khoản?',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
@@ -495,16 +495,16 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
           'Bạn xác nhận ĐÃ chuyển ${currencyFormatter.format(netSettlement)} đ '
           'đến $bankName - $accountNo ($hostName) cho ${items.length} đơn?\n\n'
           'Hệ thống chỉ ghi sổ theo xác nhận của bạn và không thể hoàn tác.',
-          style: const TextStyle(fontSize: 13, height: 1.4),
+          style: TextStyle(fontSize: 13, height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Chưa'),
+            child: Text('Chưa'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Đã chuyển xong'),
+            child: Text('Đã chuyển xong'),
           ),
         ],
       ),
@@ -636,7 +636,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AdminColors.danger,
-            content: const Text(
+            content: Text(
               'Không thể ghi sổ giải ngân. Vui lòng thử lại.',
             ),
           ),
@@ -680,7 +680,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
               return Center(
                 child: Text(
                   'Lỗi tải dữ liệu: ${snapshot.error}',
-                  style: const TextStyle(color: Colors.red),
+                  style: TextStyle(color: Colors.red),
                 ),
               );
             }
@@ -764,7 +764,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                       Icon(
                         Icons.receipt_long_outlined,
                         size: 56,
-                        color: Colors.grey.shade300,
+                        color: AdminColors.border,
                       ),
                       const SizedBox(height: 12),
                       Text(
@@ -986,7 +986,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
-                                        color: AdminColors.accent,
+                                        color: AdminColors.accentText,
                                       ),
                                     ),
                                   ],
@@ -1012,7 +1012,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: AdminColors.accent,
+                                color: AdminColors.accentText,
                               ),
                             ),
                           ],
@@ -1181,7 +1181,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                                             style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
-                                              color: AdminColors.accent,
+                                              color: AdminColors.accentText,
                                             ),
                                           ),
                                         ),
@@ -1219,7 +1219,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: AdminColors.accent,
+                                    color: AdminColors.accentText,
                                   ),
                                 ),
                               ],
@@ -1378,7 +1378,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                           height: 200,
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: AdminColors.card,
+                            color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: AdminColors.border),
                           ),
@@ -1427,7 +1427,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                                             hasAccount
                                                 ? 'Chọn ngân hàng / sửa STK'
                                                 : 'Nhập STK tạo QR ngay',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
                                             ),
@@ -1602,11 +1602,11 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                                   accountNo: accountNo,
                                 ),
                           icon: _isProcessing
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 16,
                                   height: 16,
                                   child: CircularProgressIndicator(
-                                    color: Colors.white,
+                                    color: AdminColors.card,
                                     strokeWidth: 2,
                                   ),
                                 )
@@ -1615,7 +1615,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                             _isProcessing
                                 ? 'ĐANG XỬ LÝ...'
                                 : 'XÁC NHẬN ĐÃ CHUYỂN',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w800,
                               fontSize: 12.5,
                             ),

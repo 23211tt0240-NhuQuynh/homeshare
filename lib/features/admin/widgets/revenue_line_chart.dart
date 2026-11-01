@@ -1,16 +1,20 @@
-import '../theme/admin_colors.dart';
 import 'package:flutter/material.dart';
+import '../theme/admin_colors.dart';
 
 class RevenueLineChart extends StatelessWidget {
   final List<double> weeklyData;
   final List<String> labels;
   final int activeIndex;
+  final Color? color;
+  final String? emptyText;
 
   const RevenueLineChart({
     super.key,
     this.weeklyData = const [0, 0, 0, 0, 0, 0, 0],
     this.labels = const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
     this.activeIndex = 0, // điểm được nhấn mạnh (vd: hôm nay)
+    this.color,
+    this.emptyText,
   });
 
   @override
@@ -31,11 +35,11 @@ class RevenueLineChart extends StatelessWidget {
               ),
               if (weeklyData.every((v) => v <= 0))
                 Text(
-                  'Chưa có doanh thu',
+                  emptyText ?? 'Chưa có doanh thu',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: AdminColors.muted,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
             ],
@@ -54,8 +58,8 @@ class RevenueLineChart extends StatelessWidget {
                   fontSize: 12.5,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   color: isSelected
-                      ? AdminColors.accent
-                      : AdminColors.muted,
+                      ? Theme.of(context).colorScheme.onSurface
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               );
             }),

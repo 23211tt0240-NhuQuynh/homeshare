@@ -81,7 +81,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen> {
         if (!didPop) _reject();
       },
       child: Scaffold(
-      backgroundColor: AppColors.textDark,
+      backgroundColor: const Color(0xFF0F172A),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -350,7 +350,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
         if (!didPop) _finish(localStatus: widget.isCaller && _remoteUid == null ? 'cancelled' : 'ended');
       },
       child: Scaffold(
-        backgroundColor: AppColors.textDark,
+        backgroundColor: const Color(0xFF0F172A),
         body: Stack(
           children: [
             if (showVideo && _remoteUid != null)

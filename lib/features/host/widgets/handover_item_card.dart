@@ -1,6 +1,6 @@
-import '../../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import '../../../data/models/handover_item_model.dart';
+import '../../../core/constants/app_colors.dart';
 
 class HandoverItemCard extends StatelessWidget {
   final HandoverItemModel item;
@@ -44,8 +44,8 @@ class HandoverItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.circular(14),
@@ -68,10 +68,10 @@ class HandoverItemCard extends StatelessWidget {
             child: Icon(
               _getIcon(item.itemName),
               size: 20,
-              color: AppColors.primary,
+              color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           // Tên + Mô tả
           Expanded(
             child: Column(
@@ -86,27 +86,27 @@ class HandoverItemCard extends StatelessWidget {
                   ),
                 ),
                 if (item.description.isNotEmpty) ...[
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2),
                   Text(
                     item.description,
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.textMuted,
+                      color: Color(0xFF64748B),
                     ),
                   ),
                 ],
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           // Switch toggle
           Transform.scale(
             scale: 0.85,
             child: Switch(
               value: item.isChecked,
-              activeThumbColor: AppColors.success,
+              activeThumbColor: const Color(0xFF16A34A),
               activeTrackColor: const Color(0xFFBBF7D0),
-              inactiveThumbColor: AppColors.textMuted,
+              inactiveThumbColor: const Color(0xFF94A3B8),
               inactiveTrackColor: AppColors.border,
               onChanged: onToggle,
             ),

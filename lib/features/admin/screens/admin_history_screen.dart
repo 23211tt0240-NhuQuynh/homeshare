@@ -1,4 +1,3 @@
-import '../theme/admin_colors.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +5,8 @@ import 'package:intl/intl.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/login_screen.dart';
 import '../widgets/admin_branded_title.dart';
+import '../widgets/admin_theme_toggle.dart';
+import '../theme/admin_colors.dart';
 
 class AdminHistoryScreen extends ConsumerStatefulWidget {
   const AdminHistoryScreen({super.key});
@@ -104,7 +105,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            child: const Text(
+            child: Text(
               'Đăng xuất',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
@@ -128,7 +129,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: AdminColors.danger,
-              content: const Text('Không thể đăng xuất. Vui lòng thử lại.'),
+              content: Text('Không thể đăng xuất. Vui lòng thử lại.'),
             ),
           );
         }
@@ -283,7 +284,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
             ),
             content: Text(
               'Đã cập nhật hoa hồng sàn thành ${newRate.toStringAsFixed(1)}% lên Firebase!',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14.5,
                 fontWeight: FontWeight.bold,
               ),
@@ -302,7 +303,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
             ),
             content: Text(
               'Không thể cập nhật cấu hình. Vui lòng thử lại.',
-              style: const TextStyle(fontSize: 14),
+              style: TextStyle(fontSize: 14),
             ),
           ),
         );
@@ -404,7 +405,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                   suffixStyle: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AdminColors.accent,
+                    color: AdminColors.accentText,
                   ),
                   filled: true,
                   fillColor: AdminColors.paper,
@@ -454,7 +455,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                     ),
                     elevation: 0,
                   ),
-                  child: const Text(
+                  child: Text(
                     'LƯU CẤU HÌNH MỚI',
                     style: TextStyle(
                       fontSize: 16,
@@ -614,7 +615,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                   style: TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.bold,
-                    color: AdminColors.accent,
+                    color: AdminColors.accentText,
                   ),
                 ),
                 const Spacer(),
@@ -674,6 +675,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
         title: const AdminBrandedTitle(title: 'Lịch sử'),
         centerTitle: false,
         actions: [
+          const AdminThemeToggle(padding: EdgeInsets.only(right: 8)),
           Padding(
             padding: const EdgeInsets.only(right: 14),
             child: InkWell(
@@ -796,7 +798,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    color: AdminColors.accent,
+                    color: AdminColors.accentText,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -905,7 +907,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                                             '${currentRate.toStringAsFixed(1)}%',
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
-                                          color: AdminColors.accent,
+                                          color: AdminColors.accentText,
                                         ),
                                       ),
                                     ],
@@ -925,7 +927,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                                         style: TextStyle(
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.bold,
-                                          color: AdminColors.accent,
+                                          color: AdminColors.accentText,
                                         ),
                                       ),
                                       TextSpan(
@@ -959,7 +961,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            child: const Text(
+                            child: Text(
                               'THAY ĐỔI',
                               style: TextStyle(
                                 fontSize: 12,
@@ -1184,7 +1186,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                               Icon(
                                 Icons.history_toggle_off_rounded,
                                 size: 56,
-                                color: AdminColors.muted,
+                                color: AdminColors.border,
                               ),
                               const SizedBox(height: 12),
                               Text(
@@ -1204,7 +1206,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
-                                      color: AdminColors.accent,
+                                      color: AdminColors.accentText,
                                     ),
                                   ),
                                 ),
@@ -1410,21 +1412,21 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                 Text.rich(
                   TextSpan(
                     text: 'Thực hiện bởi: ',
-                    style: TextStyle(fontSize: 12, color: AdminColors.muted),
+                    style: TextStyle(fontSize: 12, color: AdminColors.mutedStrong),
                     children: [
                       TextSpan(
                         text: performer,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: AdminColors.accent,
+                          color: AdminColors.accentText,
                         ),
                       ),
                       TextSpan(
                         text: ' • $timeStr',
                         style: TextStyle(
                           fontSize: 12,
-                          color: AdminColors.muted,
+                          color: AdminColors.mutedStrong,
                         ),
                       ),
                     ],
