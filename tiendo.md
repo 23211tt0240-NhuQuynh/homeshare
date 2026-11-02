@@ -23,6 +23,21 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.92 - Triển Khai Giải Pháp 3 (Mô Hình Hybrid) Giải Quyết Xung Đột Giữ Phòng QR 15 Phút & Khóa Chờ Duyệt 6 Tiếng:**
+    - **Mục tiêu:** Xử lý triệt để bài toán tranh chấp giữ phòng (Race Condition / Overbooking) khi người dùng quét mã QR thanh toán nhưng không chuyển khoản ngay, chống giữ chỗ ảo làm thất thu cho chủ trọ nhưng vẫn đảm bảo khách thuê được ưu tiên công bằng.
+    - **Kiến trúc triển khai 2 Giai đoạn (Hybrid Concurrency Model):**
+      1. **Giai đoạn 1 (Quét mã QR giữ chỗ - pending_payment):**
+         + Rút ngắn thời gian đếm ngược giữ chỗ từ 6 tiếng xuống chuẩn **15 phút** (`Duration(minutes: 15)`).
+         + Tự động đánh dấu `isHolding = true, holdingExpiresAt, holdingRenterId, holdingBookingId` vào document `host_rooms`.
+         + Khi khách khác (người B) vào xem phòng hoặc bấm Đặt phòng: Hệ thống kiểm tra `host_rooms`, hiển thị Dialog thông báo thân thiện: *"⚠️ Phòng đang có khách quét mã QR giữ chỗ (còn khoảng X phút). Nếu khách không hoàn tất thanh toán, hệ thống sẽ tự động mở lại phòng để bạn đặt!"*. Chặn tạo đơn trùng đè lên nhau.
+         + Nếu sau 15 phút khách A không bấm xác nhận: Hệ thống tự động hủy đơn (`cancelled`), giải phóng `host_rooms` về trạng thái trống (`available`, `isHolding = false`) để người khác vào đặt ngay lập tức.
+      2. **Giai đoạn 2 (Sau khi khách bấm "Tôi đã chuyển khoản thành công" - pending_confirmation):**
+         + Chuyển trạng thái booking sang `pending_confirmation`, giải phóng `isHolding` và cập nhật `host_rooms` sang `pending_confirmation` khóa phòng chính thức trong **6 tiếng** cho Admin/Chủ trọ đối soát sao kê ngân hàng.
+         + Khi Admin duyệt cọc (`approveBooking`) -> Phòng chuyển sang `deposit_paid` / `rented`. Nếu từ chối (`rejectBooking`) -> Phòng mở lại `available`.
+    - **Kiểm định chất lượng:**
+      + flutter analyze lib/: No issues found!
+      + flutter test: 131/131 unit & widget tests passed 100%.
+
   * **Phase 2.91 - Ghép Chọn Lọc Tính Năng Từ Nhánh dev-THE (Commit bc5b647) & Đạt 100% Quality Gates:**
     - **Mục tiêu:** Hợp nhất chuẩn xác các tính năng cải tiến từ nhánh dev-THE vào dev-TOAN theo đúng danh sách được phê duyệt, bảo toàn 100% các tính năng hiện hữu (phân hệ notification_user, auto-prune thống kê cá nhân 00, deep-link thông báo thông minh).
     - **Các tính năng đã tích hợp:**

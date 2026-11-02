@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -87,7 +88,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
     return list;
   }
 
-  void _onQuickBookingPressed() {
+  Future<void> _onQuickBookingPressed() async {
     final user = ref.read(currentUserProvider);
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -123,12 +124,76 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => RoomBookingDetailScreen(room: _room),
-      ),
-    );
+    // Kiểm tra trạng thái phòng trên host_rooms trước khi chuyển màn hình
+    if (_room.id.isNotEmpty) {
+      try {
+        final hostRoomSnap = await FirebaseFirestore.instance.collection('host_rooms').doc(_room.id).get();
+        if (hostRoomSnap.exists) {
+          final rData = hostRoomSnap.data() ?? {};
+          final rStatus = (rData['status'] ?? '').toString().toLowerCase();
+          if (rStatus == 'pending_confirmation') {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Phòng này vừa có khách chuyển khoản cọc và đang chờ xác nhận. Vui lòng chọn phòng khác!'),
+                  backgroundColor: Color(0xFFB54708),
+                ),
+              );
+            }
+            return;
+          }
+
+          final isHolding = rData['isHolding'] == true;
+          final holdingExpiresAt = (rData['holdingExpiresAt'] as Timestamp?)?.toDate();
+          final holdingRenterId = (rData['holdingRenterId'] ?? '').toString();
+          if (isHolding && holdingExpiresAt != null && holdingExpiresAt.isAfter(DateTime.now())) {
+            if (holdingRenterId.isNotEmpty && holdingRenterId != user.uid) {
+              final diffMinutes = holdingExpiresAt.difference(DateTime.now()).inMinutes + 1;
+              if (mounted) {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    title: const Row(
+                      children: [
+                        Icon(Icons.hourglass_top_rounded, color: Color(0xFFB54708)),
+                        SizedBox(width: 8),
+                        Text('Phòng đang được giữ chỗ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      ],
+                    ),
+                    content: Text(
+                      'Phòng này hiện đang có khách quét mã QR chuyển khoản giữ chỗ (còn khoảng $diffMinutes phút).\n\nNếu khách không hoàn tất thanh toán trong thời gian trên, hệ thống sẽ tự động mở lại phòng để bạn đặt!',
+                      style: const TextStyle(fontSize: 13.5, height: 1.4),
+                    ),
+                    actions: [
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Đã hiểu'),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return;
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RoomBookingDetailScreen(room: _room),
+        ),
+      );
+    }
   }
 
   void _onReportHostPressed() {

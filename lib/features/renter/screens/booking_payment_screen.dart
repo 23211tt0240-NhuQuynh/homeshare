@@ -39,9 +39,9 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
   late String _qrImageUrl;
   late String _emvcoPayload;
 
-  static const int timeoutHours = 6;
+  static const int timeoutMinutes = 15; // Giai đoạn 1: 15 phút đếm ngược quét QR giữ chỗ
   Timer? _countdownTimer;
-  int _secondsRemaining = timeoutHours * 3600; // 6 tiếng đếm ngược giữ phòng
+  int _secondsRemaining = timeoutMinutes * 60; // 15 phút đếm ngược giữ phòng
   bool _isConfirming = false;
   bool _isAutoCancelling = false;
   bool _useVectorQrFallback = false;
@@ -80,9 +80,9 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
       bankBin: VietQRHelper.defaultBankBin,
     );
 
-    // Tính toán thời gian còn lại (6 tiếng tính từ lúc tạo đơn)
+    // Tính toán thời gian còn lại (15 phút tính từ lúc tạo đơn)
     final created = widget.booking.createdAt;
-    final expiresAt = created.add(const Duration(hours: timeoutHours));
+    final expiresAt = created.add(const Duration(minutes: timeoutMinutes));
     final diff = expiresAt.difference(DateTime.now()).inSeconds;
     _secondsRemaining = diff > 0 ? diff : 0;
 
@@ -160,13 +160,26 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
       if (widget.booking.id.isNotEmpty) {
         await FirebaseFirestore.instance.collection('bookings').doc(widget.booking.id).set({
           'status': 'cancelled',
-          'cancelReason': 'Tự động hủy do quá thời gian thanh toán 6 tiếng',
+          'cancelReason': 'Tự động hủy do quá thời hạn quét mã QR giữ chỗ 15 phút',
           'subTag': 'Đã hủy',
-          'description': 'Quá hạn thanh toán 6 tiếng',
+          'description': 'Quá hạn quét mã QR 15 phút',
           'cancelledAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
           'daHuy': true,
         }, SetOptions(merge: true));
+
+        // Giải phóng giữ phòng trên host_rooms để người khác có thể đặt ngay
+        final roomId = widget.room.id.isNotEmpty ? widget.room.id : widget.booking.roomId;
+        if (roomId.isNotEmpty) {
+          await FirebaseFirestore.instance.collection('host_rooms').doc(roomId).set({
+            'status': 'available',
+            'isHolding': false,
+            'holdingBookingId': FieldValue.delete(),
+            'holdingRenterId': FieldValue.delete(),
+            'holdingExpiresAt': FieldValue.delete(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
       }
     } catch (e) {
       debugPrint('Error auto cancelling booking: $e');
@@ -190,7 +203,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           ],
         ),
         content: const Text(
-          'Đã quá thời hạn 6 tiếng để hoàn tất thanh toán. Đơn đặt phòng này đã tự động hủy để giải phóng phòng.',
+          'Đã quá thời hạn 15 phút để hoàn tất quét mã QR thanh toán. Đơn đặt phòng này đã tự động hủy để giải phóng phòng cho người khác.',
           style: TextStyle(fontSize: 13.5, height: 1.4),
         ),
         actions: [
@@ -247,7 +260,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
     if (_secondsRemaining <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Thời gian giữ phòng 6 tiếng đã hết. Đơn đã tự động hủy!'),
+          content: Text('Thời gian quét mã QR 15 phút đã hết. Đơn đã tự động hủy!'),
           backgroundColor: AppColors.danger,
         ),
       );
@@ -264,6 +277,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
       final amountFormatted = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(widget.paymentAmount);
 
       // 1. Cập nhật trạng thái booking thành chờ Admin xác nhận trong Firestore (100% tiếng Anh)
+      final confirmationExpiresAt = DateTime.now().add(const Duration(hours: 6));
       if (widget.booking.id.isNotEmpty) {
         await FirebaseFirestore.instance.collection('bookings').doc(widget.booking.id).set({
           'status': 'pending_confirmation',
@@ -276,6 +290,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           'durationText': durationText,
           'note': isFullPayment ? 'Thanh toán toàn bộ tiền phòng (không tính cọc)' : 'Đặt cọc giữ phòng',
           'confirmedAt': FieldValue.serverTimestamp(),
+          'confirmationDeadline': Timestamp.fromDate(confirmationExpiresAt),
           'updatedAt': FieldValue.serverTimestamp(),
           // Xóa triệt để các trường tiếng Việt trên Firebase
           'trangThai': FieldValue.delete(),
@@ -289,6 +304,21 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           'ghiChu': FieldValue.delete(),
           'ngayXacNhan': FieldValue.delete(),
           'ngayCapNhat': FieldValue.delete(),
+        }, SetOptions(merge: true));
+      }
+
+      // 1b. Giai đoạn 2: Chuyển host_rooms sang pending_confirmation (khóa phòng 6 tiếng chờ Admin/Host đối soát)
+      final targetRoomId = widget.room.id.isNotEmpty ? widget.room.id : widget.booking.roomId;
+      if (targetRoomId.isNotEmpty) {
+        await FirebaseFirestore.instance.collection('host_rooms').doc(targetRoomId).set({
+          'isHolding': false,
+          'status': 'pending_confirmation',
+          'depositStatus': 'pending_confirmation',
+          'holdingBookingId': FieldValue.delete(),
+          'holdingRenterId': FieldValue.delete(),
+          'holdingExpiresAt': FieldValue.delete(),
+          'confirmationDeadline': Timestamp.fromDate(confirmationExpiresAt),
+          'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       }
 
@@ -468,7 +498,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
   }
 
   Widget _buildCountdownBanner() {
-    final isExpiringSoon = _secondsRemaining < 3600; // Dưới 1 tiếng
+    final isExpiringSoon = _secondsRemaining < 300; // Dưới 5 phút
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -492,12 +522,12 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Phòng đang được tạm giữ (Tối đa 6 tiếng)',
+                  'Phòng đang được tạm giữ (Thời hạn 15 phút)',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
                 ),
                 Text(
                   _secondsRemaining > 0
-                      ? 'Vui lòng chuyển khoản trước khi hết hạn để tránh bị tự hủy đơn'
+                      ? 'Vui lòng chuyển khoản trong 15 phút để hoàn tất giữ chỗ'
                       : 'Đơn đặt phòng đã hết thời hạn giữ phòng',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 ),

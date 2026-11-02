@@ -25,9 +25,10 @@ class BookingService {
             roomCode: booking.roomId,
           );
     final now = DateTime.now();
+    // Giai đoạn 1 (Hybrid): Quét mã QR giữ chỗ trong 15 phút (trước khi khách bấm xác nhận đã chuyển khoản)
     final expiresAt = (booking.createdAt.year > 2000)
-        ? booking.createdAt.add(const Duration(hours: 6))
-        : now.add(const Duration(hours: 6));
+        ? booking.createdAt.add(const Duration(minutes: 15))
+        : now.add(const Duration(minutes: 15));
     final hostRoomTitle = await titleFromHostRooms(booking.roomId);
     final stored = hostRoomTitle.isNotEmpty
         ? booking.copyWith(roomTitle: hostRoomTitle)
@@ -40,6 +41,17 @@ class BookingService {
       'expiresAt': Timestamp.fromDate(expiresAt),
       'deadline': Timestamp.fromDate(expiresAt),
     });
+
+    // Cập nhật trạng thái giữ phòng tạm thời 15 phút trên host_rooms
+    if (booking.roomId.isNotEmpty) {
+      await _firestore.collection('host_rooms').doc(booking.roomId).set({
+        'isHolding': true,
+        'holdingBookingId': bookingId,
+        'holdingRenterId': booking.renterId,
+        'holdingExpiresAt': Timestamp.fromDate(expiresAt),
+        'updatedAt': Timestamp.fromDate(now),
+      }, SetOptions(merge: true));
+    }
     return bookingId;
   }
 
@@ -131,15 +143,19 @@ class BookingService {
       if (exp == null) {
         final createdAt = data['createdAt'] as Timestamp?;
         if (createdAt != null) {
+          final isPendingPayment = status == 'pending_payment';
           exp = Timestamp.fromDate(
-            createdAt.toDate().add(const Duration(hours: 6)),
+            createdAt.toDate().add(Duration(minutes: isPendingPayment ? 15 : 360)),
           );
         }
       }
       if (exp != null && exp.toDate().isBefore(DateTime.now())) {
+        final isPendingPayment = status == 'pending_payment';
         await cancelBooking(
           doc.id,
-          reason: 'Tự động hủy do quá thời gian thanh toán 6 tiếng',
+          reason: isPendingPayment
+              ? 'Tự động hủy do quá thời gian quét mã QR giữ chỗ (15 phút)'
+              : 'Tự động hủy do quá thời gian chờ xác nhận (6 tiếng)',
         );
       }
     } catch (e) {
@@ -399,10 +415,14 @@ class BookingService {
       'ngayCapNhat': FieldValue.delete(),
     }, SetOptions(merge: true));
 
-    // Giải phóng phòng về available nếu phòng đang bị lock
+    // Giải phóng phòng về available nếu phòng đang bị lock hoặc đang giữ chỗ
     if (roomId.isNotEmpty) {
       await _firestore.collection('host_rooms').doc(roomId).set({
         'status': 'available',
+        'isHolding': false,
+        'holdingBookingId': FieldValue.delete(),
+        'holdingRenterId': FieldValue.delete(),
+        'holdingExpiresAt': FieldValue.delete(),
         'updatedAt': Timestamp.fromDate(now),
       }, SetOptions(merge: true));
     }

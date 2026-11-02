@@ -264,6 +264,45 @@ class _RoomBookingDetailScreenState
           }
           return;
         }
+
+        // Kiểm tra phòng đang chờ duyệt chuyển khoản cọc (Giai đoạn 2)
+        if (rStatus == 'pending_confirmation') {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Phòng này vừa có khách chuyển khoản cọc và đang chờ xác nhận. Vui lòng chọn phòng khác!',
+                ),
+                backgroundColor: Color(0xFFB54708),
+              ),
+            );
+          }
+          return;
+        }
+
+        // Kiểm tra phòng đang được quét mã QR giữ chỗ 15 phút (Giai đoạn 1)
+        final isHolding = rData['isHolding'] == true;
+        final holdingExpiresAt = (rData['holdingExpiresAt'] as Timestamp?)?.toDate();
+        final holdingRenterId = (rData['holdingRenterId'] ?? '').toString();
+        final currentUserId = user?.uid ?? '';
+
+        if (isHolding && holdingExpiresAt != null && holdingExpiresAt.isAfter(DateTime.now())) {
+          if (holdingRenterId.isNotEmpty && holdingRenterId != currentUserId) {
+            final diffMinutes = holdingExpiresAt.difference(DateTime.now()).inMinutes + 1;
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    '⚠️ Phòng đang có khách quét mã QR giữ chỗ (còn khoảng $diffMinutes phút). Vui lòng thử lại sau!',
+                  ),
+                  backgroundColor: const Color(0xFFB54708),
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            }
+            return;
+          }
+        }
       }
 
       final profile = ref.read(userProfileProvider).value;
@@ -336,6 +375,18 @@ class _RoomBookingDetailScreenState
           .read(bookingServiceProvider)
           .createBooking(booking, propertyId: widget.room.propertyId);
       final finalBooking = booking.copyWith(id: createdBookingId);
+
+      // Cập nhật trạng thái giữ phòng tạm thời 15 phút trên host_rooms
+      if (widget.room.id.isNotEmpty) {
+        final holdingDeadline = DateTime.now().add(const Duration(minutes: 15));
+        await FirebaseFirestore.instance.collection('host_rooms').doc(widget.room.id).set({
+          'isHolding': true,
+          'holdingBookingId': createdBookingId,
+          'holdingRenterId': user?.uid ?? 'guest',
+          'holdingExpiresAt': Timestamp.fromDate(holdingDeadline),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
 
       if (mounted) {
 

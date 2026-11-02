@@ -113,11 +113,11 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
     final now = DateTime.now();
     for (final b in bookings) {
       if (b.status == 'pending_payment' && !b.isCancelled) {
-        final expiresAt = b.createdAt.add(const Duration(hours: 6));
+        final expiresAt = b.createdAt.add(const Duration(minutes: 15));
         if (now.isAfter(expiresAt)) {
           ref.read(bookingServiceProvider).cancelBooking(
             b.id,
-            reason: 'Tự động hủy do quá thời gian thanh toán 6 tiếng',
+            reason: 'Tự động hủy do quá thời gian quét mã QR 15 phút',
           );
         }
       }
@@ -125,16 +125,16 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
   }
 
   Future<void> _openPaymentScreen(BookingRequestModel b) async {
-    final expiresAt = b.createdAt.add(const Duration(hours: 6));
+    final expiresAt = b.createdAt.add(const Duration(minutes: 15));
     if (DateTime.now().isAfter(expiresAt)) {
       await ref.read(bookingServiceProvider).cancelBooking(
         b.id,
-        reason: 'Tự động hủy do quá thời gian thanh toán 6 tiếng',
+        reason: 'Tự động hủy do quá thời gian quét mã QR 15 phút',
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Đơn đặt phòng này đã quá hạn thanh toán 6 tiếng và đã tự động hủy.'),
+            content: Text('Đơn đặt phòng này đã quá hạn quét mã QR 15 phút và đã tự động hủy.'),
             backgroundColor: Color(0xFFD92D20),
           ),
         );
@@ -445,7 +445,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                     final statusText = _getStatusText(b);
                     final priceStr =
                         '${currencyFormatter.format(b.roomPrice)} đ/tháng';
-                    final expiresAt = b.createdAt.add(const Duration(hours: 6));
+                    final expiresAt = b.createdAt.add(const Duration(minutes: 15));
                     final remaining = expiresAt.difference(DateTime.now());
                     final isPaymentPending =
                         b.status == 'pending_payment' && !b.isCancelled;
@@ -675,8 +675,8 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                           children: [
                                             Text(
                                               remaining.isNegative
-                                                  ? 'Đã hết hạn thanh toán (6 tiếng)'
-                                                  : 'Thời gian thanh toán còn lại: ${_formatRemainingTime(remaining)}',
+                                                  ? 'Đã hết hạn quét mã QR giữ chỗ (15 phút)'
+                                                  : 'Thời gian quét QR còn lại: ${_formatRemainingTime(remaining)}',
                                               style: TextStyle(
                                                 fontSize: 12.5,
                                                 fontWeight: FontWeight.bold,
