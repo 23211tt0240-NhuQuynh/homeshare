@@ -23,6 +23,36 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.75 - Tự Động Khôi Phục Hiển Thị Bài Đăng Sau Khi Check-out & Khóa Chặt Phòng Có Người Ở Khi Tạo Bài Đăng:**
+    - **Tự động mở lại hiển thị bài đăng khi hoàn tất Check-out ([checkin_checkout_repository.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/repositories/checkin_checkout_repository.dart)):**
+      + Trong `performCheckout`: Sau khi lập biên bản trả phòng và chuyển đơn thuê sang `daKetThuc`, hệ thống lập tức quét toàn bộ bài đăng liên quan trong collection `posts` (theo doc ID, `roomId`, `phongId`, `hostRoomId`, `id`).
+      + Chuyển trạng thái bài đăng trở lại `status: 'approved'`, `statusId: 'approved'`, `trangThai: 'daDuyet'`, `trangThai_id: 'daDuyet'`, `isAvailable: true` và xóa bỏ `hiddenReason`. Bài đăng lập tức xuất hiện trở lại trên các màn hình tìm kiếm, danh sách phòng của người thuê.
+      + Đồng thời xóa sạch `tenantName: ''`, `tenantPhone: ''`, `contractId: ''`, đặt `isAvailable: true`, `status: 'available'` trên cả 2 collection `host_rooms` và `rooms`, giải phóng phòng hoàn toàn.
+    - **Khóa chặt phòng đã có người ở khi tạo bài đăng mới ([HostCreatePostScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_create_post_screen.dart)):**
+      + Bảo đảm khóa an toàn 5 tầng: Vô hiệu hóa lựa chọn trong Dropdown với biểu tượng Khóa đỏ `Icons.lock_rounded` và huy hiệu `Đang ở`, chặn chọn trong `onChanged`, kiểm tra trong `validator` của Form, chặn lưu trong hàm `_save()`, và từ chối tự động điền nếu mở từ phòng đang thuê trong `initState()`.
+  * **Phase 2.74 - Tối Ưu Quản Lý Vi Phạm: 3 Tầng Chọn Đối Tượng (Khu Nhà ➜ Phòng ➜ Người Thuê) & Chuẩn Hóa Luồng Phạt Ngoài App:**
+    - **Bộ 3 Dropdown Phân Cấp Lập Biên Bản Vi Phạm ([HostCreateViolationScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_create_violation_screen.dart)):**
+      + **Tầng 1 - Chọn Nhà / Khu nhà trọ:** Tích hợp `allProperties` từ `hostPropertiesProvider` và các khu nhà từ `hostOccupiedRoomsProvider`. Hiển thị tên tòa nhà kèm badge số lượng phòng đang có người ở. Khi đổi khu nhà, tự động reset lựa chọn phòng và người thuê.
+      + **Tầng 2 - Chọn Phòng thuộc khu nhà:** Lọc danh sách phòng theo khu nhà đã chọn ở tầng 1. Hiển thị mã phòng và badge số lượng người đang cư trú. Khóa dropdown nếu chưa chọn khu nhà.
+      + **Tầng 3 - Kèm Người thuê phòng vi phạm:** Lọc danh sách cư dân (chính chủ hoặc ở ghép) đang thực tế ở trong phòng đã chọn. Hiển thị tên, nhãn `Cư dân chính` / `Ở ghép` và số điện thoại. Tự động chọn người thuê nếu phòng chỉ có 1 cư dân.
+      + **Thẻ xác nhận trực quan:** Khi đã chọn xong người thuê, hiển thị thẻ xanh tổng hợp đầy đủ: Tên người thuê, vai trò, số phòng, tên khu nhà, số điện thoại.
+    - **Lọc cư dân đang ở thực tế từ collection `residents` ([violation_repository.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/repositories/violation_repository.dart)):**
+      + Quét phòng thuộc chủ trọ từ `host_rooms` (và fallback `rooms`), kết hợp thông tin tòa nhà từ `properties`.
+      + **Khóa chặt điều kiện "Đang ở thực tế" (chưa ở hoặc đã rời đi tuyệt đối không thể lập biên bản):** Chỉ lấy cư dân có `statusId == 'dangO'` hoặc `status == 'active'`, ngày bắt đầu dọn vào `moveInDate <= DateTime.now()` và hạn kết thúc `moveOutDate >= DateTime.now()`. Người chưa dọn vào phòng hoặc đã trả phòng sẽ bị loại trừ 100%.
+      + Phân biệt chính xác vai trò người ở: Cư dân chính (`formId: 'chinh'`) và Người ở ghép (`formId: 'oGhep'`), hiển thị rõ trong dropdown để phạt đúng người vi phạm.
+      + Fallback an toàn qua `bookings`: Chỉ lấy đơn có `b.isActive == true` (đã nhận phòng/đang ở) và `hasMovedIn == true`.
+    - **Chuẩn hóa Luồng Gửi Biên Bản & Nộp Phạt Phù Hợp Giai Đoạn Đầu Của App:**
+      + **Lập biên bản ([HostCreateViolationScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_create_violation_screen.dart)):** Chủ trọ chọn qua 3 tầng (nhà ➜ phòng ➜ người thuê), chọn lỗi, nhập mức tiền phạt và tải ảnh bằng chứng. Bỏ phương thức trừ hóa đơn, hiển thị rõ quy định thanh toán trực tiếp ngoài đời (tiền mặt / chuyển khoản riêng). Nút hành động: *"Gửi biên bản vi phạm đến người thuê"*.
+      + **Màn hình thông báo Người thuê ([UserNotificationsScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/renter/screens/user_notifications_screen.dart)):** Giữ nguyên bản thiết kế gốc ban đầu của phía người thuê, nhận thông báo chuẩn từ Firestore mà không can thiệp thay đổi cấu trúc UI.
+      + **Xác nhận thu tiền ngoài app ([ViolationRecordCard](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/widgets/violation_record_card.dart) & [PaymentActionSheet](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/widgets/payment_action_sheet.dart)):** Bỏ nút "Trừ hóa đơn". Khi người thuê đã nộp tiền ngoài app, chủ trọ bấm *"Xác nhận đã thu tiền"* -> hệ thống cập nhật bản ghi thành `PAID`. Có nút *"Nhắc nộp"* để gửi thông báo nhắc nhở khi cần.
+      + **Khắc phục triệt để lỗi crash `[cloud_firestore/not-found]` khi thu tiền mặt ([violation_repository.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/repositories/violation_repository.dart)):** Loại bỏ lệnh `batch.update` trên doc `notification_user` không tồn tại. Tách biệt cập nhật `violation_records` sang `PAID` bằng `SetOptions(merge: true)` đảm bảo 100% thành công, đồng thời bọc try-catch độc lập khi cập nhật thông báo để không bao giờ làm gián đoạn luồng thu tiền của chủ trọ.
+    - **Loại bỏ Tab "Đã trừ tiền thuê" ([HostViolationManagementScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_violation_management_screen.dart)):**
+      + Tinh giản bộ lọc thanh trạng thái, chỉ giữ 3 tab rõ ràng: `Tất cả`, `Chờ nộp`, `Đã nộp`.
+    - **Khóa chỉnh sửa bài đăng ở trạng thái Tạm ẩn (Hidden):**
+      + Bổ sung getter `isHidden` và `canEdit => !isApprovedOrActive && !isHidden` trong [HostPostModel](file:///d:/DownLoad/homeshare-dev-TOAN/lib/data/models/host_post_model.dart).
+      + Xóa bỏ nút "Chỉnh sửa" trong thẻ bài đăng và PopupMenu trên [HostPostManagementScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_post_management_screen.dart) khi bài đăng bị ẩn; hiển thị huy hiệu `Đã ẩn`.
+      + Khóa thanh đáy trên [HostPostDetailScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_post_detail_screen.dart) hiển thị nhãn `Bài đăng đang tạm ẩn (Không thể chỉnh sửa)`.
+      + Chặn mở form sửa trong [HostCreatePostScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_create_post_screen.dart) nếu bài đăng đang ẩn.
   * **Phase 2.73 - Cập Nhật Bộ Lọc Theo Khu Vực Mới Gộp Của Việt Nam (34 Tỉnh/TP & Đơn Vị Sáp Nhập) Cho Role Chủ Trọ:**
     - **Cập nhật danh mục Địa giới hành chính mới ([vietnam_locations.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/core/constants/vietnam_locations.dart)):**
       + Tích hợp 34 Tỉnh và Thành phố trực thuộc Trung ương của Việt Nam theo Nghị quyết số 202/2025/QH15 (`provinces34`).
@@ -39,8 +69,9 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
     - **Xử lý lọc thông minh đối chiếu Firebase ([host_home_provider.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/providers/host_home_provider.dart)):**
       + So sánh chuẩn hóa không phân biệt hoa/thường, có dấu/không dấu qua `normalizeVietnameseComparison`.
       + **Tương thích ngược dữ liệu bài đăng:** Chủ trọ chọn `TP. Thủ Đức` tự động quét khớp bài đăng ghi `Quận 2`, `Quận 9`, `Thủ Đức`; chọn `Huyện Long Đất` tự động khớp `Long Điền` và `Đất Đỏ`; chọn `Huế` tự động khớp `Thừa Thiên Huế`.
-    - **Ràng buộc Quản lý Bài đăng ([host_post_management_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_post_management_screen.dart)):**
-      + Khóa chức năng chỉnh sửa đối với các bài đăng đã được duyệt (`approved` / `daDuyet`), bảo vệ dữ liệu đã qua kiểm duyệt.
+    - **Ràng buộc Quản lý Bài đăng ([host_post_management_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_post_management_screen.dart), [host_post_detail_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_post_detail_screen.dart), [host_create_post_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_create_post_screen.dart)):**
+      + Khóa chức năng chỉnh sửa đối với các bài đăng đã được duyệt (`approved` / `daDuyet`) và các bài đăng ở trạng thái ẩn (`hidden` / `daan`), bảo vệ tính toàn vẹn dữ liệu.
+      + Ẩn hoàn toàn nút "Chỉnh sửa" ở thẻ bài đăng và trong PopupMenu, thay thế bằng nhãn thông tin hoặc nút "Xem chi tiết". Thêm chốt chặn bảo vệ trong `HostCreatePostScreen` để từ chối chỉnh sửa nếu bài đăng bị ẩn hoặc đã duyệt.
   * **Phase 2.72 - Hoàn Thiện Màn Hình Quản Lý Vi Phạm (Nội Quy & Tiền Phạt Ngoài App) & Chuẩn Hóa Thông Báo Chuẩn Tiếng Anh:**
     - **Xây dựng Màn hình Quản lý Vi phạm nội quy trọ cho Chủ trọ ([HostViolationManagementScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_violation_management_screen.dart)):**
       + Xử lý quan hệ trực tiếp giữa Chủ trọ và Người thuê theo nội quy nhà trọ (không thông qua Admin sàn).

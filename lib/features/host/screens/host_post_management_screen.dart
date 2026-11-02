@@ -13,7 +13,7 @@ import 'host_create_post_screen.dart';
 import 'host_post_detail_screen.dart';
 
 /// Màn hình Quản lý bài đăng dành riêng cho Role Chủ trọ.
-/// Cho phép lọc các bài: Bị từ chối, Chờ duyệt, Đang hiển thị và Tất cả.
+/// Cho phép lọc các bài: Tất cả, Chờ duyệt, Đang hiển thị và Bị từ chối.
 /// Hỗ trợ xem lý do từ chối từ Firestore, Chỉnh sửa và Gửi lại bài đăng để Admin duyệt lại.
 class HostPostManagementScreen extends ConsumerStatefulWidget {
   final int initialTabIndex;
@@ -168,6 +168,17 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Bài đăng đã được duyệt không thể chỉnh sửa.'),
+          backgroundColor: Color(0xFFE11D48),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (post.isHidden) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bài đăng ở trạng thái ẩn không thể chỉnh sửa.'),
           backgroundColor: Color(0xFFE11D48),
           behavior: SnackBarBehavior.floating,
         ),
@@ -336,6 +347,32 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
       );
     }
 
+    if (post.isHidden) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFFCBD5E1)),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.visibility_off_rounded, size: 13, color: Color(0xFF64748B)),
+            SizedBox(width: 4),
+            Text(
+              'Đã ẩn',
+              style: TextStyle(
+                color: Color(0xFF475569),
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -421,7 +458,7 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
                                   ],
                                 ),
                               ),
-                              if (!post.isApprovedOrActive)
+                              if (post.canEdit)
                                 const PopupMenuItem(
                                   value: 'edit',
                                   child: Row(
@@ -597,7 +634,7 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
           // Khối hành động chính
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: post.isRejected
+            child: (post.isRejected && !post.isHidden)
                 ? Row(
                     children: [
                       // Nút Xem chi tiết
@@ -649,7 +686,7 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
                           ),
                         ),
                       ),
-                      if (!post.isApprovedOrActive) ...[
+                      if (post.canEdit) ...[
                         const SizedBox(width: 8),
                         Expanded(
                           child: FilledButton.icon(
@@ -921,25 +958,23 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
                     Tab(
                       child: Row(
                         children: [
-                          const Text('Bị từ chối'),
-                          if (rejectedPosts.isNotEmpty) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFDC2626),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '${rejectedPosts.length}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                          const Text('Tất cả'),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF64748B),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${allPosts.length}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ],
+                          ),
                         ],
                       ),
                     ),
@@ -996,23 +1031,25 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
                     Tab(
                       child: Row(
                         children: [
-                          const Text('Tất cả'),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF64748B),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '${allPosts.length}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.bold,
+                          const Text('Bị từ chối'),
+                          if (rejectedPosts.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDC2626),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${rejectedPosts.length}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ),
@@ -1022,15 +1059,15 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
 
               const Divider(height: 1, color: Color(0xFFE2E8F0)),
 
-              // Nội dung từng Tab
+              // Nội dung từng Tab: Tất cả, Chờ duyệt, Đang hiển thị, Bị từ chối
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildTabContent(rejectedPosts, emptyType: 'rejected'),
+                    _buildTabContent(allPosts, emptyType: 'all'),
                     _buildTabContent(pendingPosts, emptyType: 'pending'),
                     _buildTabContent(activePosts, emptyType: 'active'),
-                    _buildTabContent(allPosts, emptyType: 'all'),
+                    _buildTabContent(rejectedPosts, emptyType: 'rejected'),
                   ],
                 ),
               ),

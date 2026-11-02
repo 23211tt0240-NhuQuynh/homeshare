@@ -186,6 +186,23 @@ class HostPostModel {
         sId == 'published';
   }
 
+  bool get isHidden {
+    final s = status.toLowerCase().trim();
+    final sId = statusId.toLowerCase().trim();
+    return s == 'hidden' ||
+        s == 'daan' ||
+        s == 'da_an' ||
+        s == 'an' ||
+        sId == 'hidden' ||
+        sId == 'daan' ||
+        sId == 'da_an' ||
+        sId == 'an';
+  }
+
+  /// Bài đăng có thể chỉnh sửa: chỉ cho phép khi bị từ chối / chờ duyệt,
+  /// TUYỆT ĐỐI KHÔNG cho phép chỉnh sửa khi bài đã duyệt/đang hiển thị hoặc đang ở trạng thái ẩn (hidden).
+  bool get canEdit => !isApprovedOrActive && !isHidden;
+
   bool get isActive {
     final sId = statusId.toLowerCase().trim();
     final s = status.toLowerCase().trim();

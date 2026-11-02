@@ -914,7 +914,7 @@ class _HostPostDetailScreenState extends ConsumerState<HostPostDetailScreen> {
         ),
         child: SafeArea(
           child: isOwnPost
-              ? (post.isRejected
+              ? ((post.isRejected && !post.isHidden)
                   ? SizedBox(
                       height: 48,
                       child: ElevatedButton.icon(
@@ -947,30 +947,57 @@ class _HostPostDetailScreenState extends ConsumerState<HostPostDetailScreen> {
                         ),
                       ),
                     )
-                  : Container(
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFBFDBFE)),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.check_circle_outline, color: Color(0xFF1E40AF), size: 18),
-                          SizedBox(width: 8),
-                          Text(
-                            'Bài đăng của bạn',
-                            style: TextStyle(
-                              color: Color(0xFF1E40AF),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
+                  : (post.isHidden
+                      ? Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFCBD5E1)),
                           ),
-                        ],
-                      ),
-                    ))
+                          alignment: Alignment.center,
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.visibility_off_rounded,
+                                  color: Color(0xFF64748B), size: 18),
+                              SizedBox(width: 8),
+                              Text(
+                                'Bài đăng đang tạm ẩn (Không thể chỉnh sửa)',
+                                style: TextStyle(
+                                  color: Color(0xFF475569),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.check_circle_outline,
+                                  color: Color(0xFF1E40AF), size: 18),
+                              SizedBox(width: 8),
+                              Text(
+                                'Bài đăng của bạn',
+                                style: TextStyle(
+                                  color: Color(0xFF1E40AF),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )))
               : Row(
                   children: [
                     // Nút Báo cáo

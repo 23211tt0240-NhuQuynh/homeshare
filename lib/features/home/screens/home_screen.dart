@@ -835,7 +835,7 @@ class HomeScreen extends ConsumerWidget {
                               context,
                               MaterialPageRoute(
                                 builder: (_) => HostPostManagementScreen(
-                                  initialTabIndex: rejectedPostsCount > 0 ? 0 : 2,
+                                  initialTabIndex: rejectedPostsCount > 0 ? 3 : 0,
                                 ),
                               ),
                             );

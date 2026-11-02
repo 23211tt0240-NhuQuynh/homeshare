@@ -91,6 +91,24 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     super.initState();
     if (widget.postToEdit != null) {
       final p = widget.postToEdit!;
+      if (!p.canEdit) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                p.isHidden
+                    ? 'Bài đăng ở trạng thái ẩn không thể chỉnh sửa.'
+                    : 'Bài đăng đã được duyệt không thể chỉnh sửa.',
+              ),
+              backgroundColor: const Color(0xFFDC2626),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        });
+        return;
+      }
       _title.text = p.title;
       _price.text = p.rentalPrice > 0 ? p.rentalPrice.toInt().toString() : '';
       _depositController.text =
@@ -117,6 +135,21 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           .then((doc) {
         if (!mounted || !doc.exists || doc.data() == null) return;
         final p = HostPostModel.fromFirestore(doc);
+        if (!p.canEdit) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                p.isHidden
+                    ? 'Bài đăng ở trạng thái ẩn không thể chỉnh sửa.'
+                    : 'Bài đăng đã được duyệt không thể chỉnh sửa.',
+              ),
+              backgroundColor: const Color(0xFFDC2626),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          return;
+        }
         setState(() {
           _title.text = p.title;
           _price.text = p.rentalPrice > 0 ? p.rentalPrice.toInt().toString() : '';

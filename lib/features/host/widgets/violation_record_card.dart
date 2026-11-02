@@ -3,14 +3,14 @@ import '../models/violation_record_model.dart';
 
 class ViolationRecordCard extends StatefulWidget {
   final ViolationRecordModel record;
-  final VoidCallback onDeductInvoice;
+  final VoidCallback? onDeductInvoice;
   final VoidCallback onCollectCash;
   final VoidCallback onSendReminder;
 
   const ViolationRecordCard({
     super.key,
     required this.record,
-    required this.onDeductInvoice,
+    this.onDeductInvoice,
     required this.onCollectCash,
     required this.onSendReminder,
   });
@@ -258,84 +258,58 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
             const SizedBox(height: 10),
             Row(
               children: [
-                // Nút 1: Trừ hóa đơn
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: widget.onDeductInvoice,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        'Trừ hóa đơn',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF334155),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Nút 2: Thu tiền mặt
+                // Nút 1: Xác nhận đã thu tiền phạt trực tiếp từ người thuê
                 Expanded(
                   child: ElevatedButton(
                     onPressed: widget.onCollectCash,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF16A34A),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(vertical: 9),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(9),
                       ),
                     ),
-                    child: const FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text('💵 ', style: TextStyle(fontSize: 12)),
-                          Text(
-                            'Thu tiền mặt',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_circle_outline,
+                            size: 16, color: Colors.white),
+                        SizedBox(width: 6),
+                        Text(
+                          'Xác nhận đã thu tiền',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Nút 3: Gửi nhắc nộp
+                // Nút 2: Gửi nhắc nộp phạt đến người thuê
                 InkWell(
                   onTap: widget.onSendReminder,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(9),
                   child: Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                     decoration: BoxDecoration(
                       color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(9),
                       border: Border.all(color: const Color(0xFFBFDBFE)),
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.send_rounded,
-                            size: 14, color: Color(0xFF2563EB)),
+                        Icon(Icons.notifications_active_outlined,
+                            size: 15, color: Color(0xFF2563EB)),
                         SizedBox(width: 4),
                         Text(
-                          'Nhắc',
+                          'Nhắc nộp',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 12.5,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF2563EB),
                           ),
@@ -346,46 +320,27 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
                 ),
               ],
             ),
-          ] else if (r.isAddedToInvoice) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.info_outline, size: 14, color: Color(0xFF2563EB)),
-                  SizedBox(width: 6),
-                  Text(
-                    'Đã ghi nhận cộng vào hóa đơn tiền phòng tháng sau',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1D4ED8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ] else if (r.isPaid) ...[
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFFF0FDF4),
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFBBF7D0)),
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.check_circle_outline,
-                      size: 14, color: Color(0xFF16A34A)),
-                  SizedBox(width: 6),
-                  Text(
-                    'Đã nộp tiền mặt và xuất biên lai',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF15803D),
+                  Icon(Icons.check_circle,
+                      size: 16, color: Color(0xFF16A34A)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Đã thu tiền phạt trực tiếp từ người thuê ✓',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF15803D),
+                      ),
                     ),
                   ),
                 ],

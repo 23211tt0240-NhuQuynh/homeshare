@@ -474,7 +474,7 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
                                         context,
                                         MaterialPageRoute(
                                           builder: (_) => HostPostManagementScreen(
-                                            initialTabIndex: rejectedCount > 0 ? 0 : 2,
+                                            initialTabIndex: rejectedCount > 0 ? 3 : 0,
                                           ),
                                         ),
                                       );

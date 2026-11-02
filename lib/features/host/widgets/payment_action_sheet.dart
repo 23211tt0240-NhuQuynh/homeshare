@@ -57,7 +57,7 @@ class PaymentActionSheet {
                 const SizedBox(height: 12),
                 const Center(
                   child: Text(
-                    'Xác nhận thu tiền mặt',
+                    'Xác nhận đã nhận tiền phạt',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -68,7 +68,7 @@ class PaymentActionSheet {
                 const SizedBox(height: 4),
                 const Center(
                   child: Text(
-                    'Ghi nhận đã thu trực tiếp từ khách thuê',
+                    'Ghi nhận đã thu trực tiếp ngoài ứng dụng (tiền mặt / chuyển khoản riêng)',
                     style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                   ),
                 ),
