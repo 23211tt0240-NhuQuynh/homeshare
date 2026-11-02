@@ -305,6 +305,21 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           'ngayXacNhan': FieldValue.delete(),
           'ngayCapNhat': FieldValue.delete(),
         }, SetOptions(merge: true));
+
+        // Chuyển phòng sang trạng thái pending_confirmation (Khóa chính thức 6 tiếng chờ Admin/Host duyệt)
+        final targetRoomId = widget.room.id.isNotEmpty ? widget.room.id : widget.booking.roomId;
+        if (targetRoomId.isNotEmpty) {
+          await FirebaseFirestore.instance.collection('host_rooms').doc(targetRoomId).set({
+            'isHolding': false,
+            'status': 'pending_confirmation',
+            'depositStatus': 'pending_confirmation',
+            'holdingBookingId': FieldValue.delete(),
+            'holdingRenterId': FieldValue.delete(),
+            'holdingExpiresAt': FieldValue.delete(),
+            'confirmationDeadline': Timestamp.fromDate(DateTime.now().add(const Duration(hours: 6))),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
       }
 
       // 1b. Giai đoạn 2: Chuyển host_rooms sang pending_confirmation (khóa phòng 6 tiếng chờ Admin/Host đối soát)
