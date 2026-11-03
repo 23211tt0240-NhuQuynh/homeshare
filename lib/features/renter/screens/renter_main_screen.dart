@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/localization/app_translations.dart';
 import '../../../core/providers/app_settings_provider.dart';
+import '../../../core/theme/app_theme_controller.dart';
 import '../../home/screens/home_screen.dart';
 import '../../chat/screens/chat_list_screen.dart';
 import 'renter_dashboard_screen.dart';
@@ -26,14 +27,6 @@ class RenterMainScreen extends ConsumerStatefulWidget {
 }
 
 class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
-  final List<Widget> _screens = const [
-    RenterDashboardScreen(),
-    ChatListScreen(),
-    CreateRoommatePostScreen(),
-    RoommateCommunityScreen(),
-    HomeScreen(),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -42,16 +35,39 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
     });
   }
 
+  Brightness _resolvedBrightness() {
+    final mode =
+        ref.watch(appThemeControllerProvider).value?.mode ?? ThemeMode.light;
+    switch (mode) {
+      case ThemeMode.dark:
+        return Brightness.dark;
+      case ThemeMode.light:
+        return Brightness.light;
+      case ThemeMode.system:
+        return MediaQuery.platformBrightnessOf(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final brightness = _resolvedBrightness();
+    AppColors.bind(brightness);
     final currentIndex = ref.watch(renterBottomNavIndexProvider);
     final currentLang = ref.watch(appLanguageProvider);
     final colors = AppColors.of(context);
+    // Không const — IndexedStack bỏ qua widget identical khi đổi theme.
+    final screens = [
+      RenterDashboardScreen(),
+      ChatListScreen(),
+      CreateRoommatePostScreen(),
+      RoommateCommunityScreen(),
+      HomeScreen(),
+    ];
 
     return Scaffold(
       body: IndexedStack(
         index: currentIndex,
-        children: _screens,
+        children: screens,
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(

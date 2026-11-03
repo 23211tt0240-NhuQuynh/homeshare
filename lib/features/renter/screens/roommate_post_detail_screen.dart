@@ -477,6 +477,7 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
 
   @override
   Widget build(BuildContext context) {
+    AppColors.bind(Theme.of(context).brightness);
     final currencyFmt = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
     final post = widget.post;
 

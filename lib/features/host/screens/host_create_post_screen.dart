@@ -584,6 +584,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
 
   @override
   Widget build(BuildContext context) {
+    AppColors.bind(Theme.of(context).brightness);
     final session = ref.watch(hostSessionProvider).value;
     final profile = ref.watch(userProfileProvider).value;
     final amenities = ref.watch(hostAmenitiesProvider);

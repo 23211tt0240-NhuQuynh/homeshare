@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:latlong2/latlong.dart';
 
 import 'vietnam_address_parser.dart';
+import 'vietnamese_utils.dart';
 
 const unresolvedMapAddressLabel = 'Không xác định được địa điểm này trên bản đồ';
 
@@ -39,15 +40,18 @@ Future<MapLocation?> locateAddressOnMap({
   double? latitude,
   double? longitude,
 }) async {
-  final stored = storedMapLocation(latitude, longitude);
-  if (stored != null) return stored;
-
   final query = address.trim();
-  if (isMissingMapAddress(query)) return null;
+  if (isMissingMapAddress(query)) {
+    return storedMapLocation(latitude, longitude);
+  }
 
-  final hit = await photonSearch(query, bias: knownPlaceBias(query));
-  if (hit == null || !isRealMapHit(query: query, hit: hit)) return null;
-  return MapLocation(hit.point.latitude, hit.point.longitude);
+  final hits = await photonSearch(query, bias: knownPlaceBias(query));
+  for (final hit in hits) {
+    if (isRealMapHit(query: query, hit: hit)) {
+      return MapLocation(hit.point.latitude, hit.point.longitude);
+    }
+  }
+  return null;
 }
 
 /// Kết quả Photon chỉ được chấp nhận khi nằm ở Việt Nam và khớp địa chỉ,
@@ -58,30 +62,36 @@ bool isRealMapHit({
 }) {
   if (!isInVietnam(hit.point.latitude, hit.point.longitude)) return false;
   final street = VietnamAddressParser.resolve(query).specificAddress.trim();
-  if (street.isEmpty) return true;
+  if (street.isEmpty) return false;
 
-  final type = hit.type.toLowerCase();
-  final hay = '${hit.name} ${hit.street} ${hit.houseNumber}'.toLowerCase();
-  final tokens = street
-      .toLowerCase()
-      .split(RegExp(r'[\s,./]+'))
-      .where((token) => token.length > 2 && int.tryParse(token) == null)
-      .where((token) => token != 'đường' && token != 'phố' && token != 'số')
+  final hay = normalizeVietnameseComparison(
+    '${hit.name} ${hit.street} ${hit.houseNumber}',
+  );
+  final tokens = normalizeVietnameseComparison(street)
+      .split(RegExp(r'[^a-z0-9]+'))
+      .where((token) => token.length >= 4 && int.tryParse(token) == null)
+      .where((token) => !_mapStopWords.contains(token))
       .toList();
-  if (tokens.any((token) => hay.contains(token))) return true;
-
-  const coarse = {
-    'city',
-    'district',
-    'county',
-    'state',
-    'country',
-    'locality',
-    'localadmin',
-  };
-  if (coarse.contains(type)) return false;
-  return true;
+  if (tokens.isEmpty) return false;
+  return tokens.every((token) => hay.contains(token));
 }
+
+const _mapStopWords = {
+  'duong',
+  'pho',
+  'phuong',
+  'quan',
+  'huyen',
+  'thanh',
+  'tinh',
+  'ngach',
+  'hem',
+  'ngo',
+  'khu',
+  'thon',
+  'thixa',
+  'thitran',
+};
 
 class PhotonHit {
   final LatLng point;
@@ -110,12 +120,12 @@ String displayedMapAddress({
   return value.isEmpty ? 'Chưa có địa chỉ' : value;
 }
 
-Future<PhotonHit?> photonSearch(String query, {LatLng? bias}) async {
+Future<List<PhotonHit>> photonSearch(String query, {LatLng? bias}) async {
   final client = HttpClient();
   try {
     final uri = Uri.https('photon.komoot.io', '/api/', {
       'q': query,
-      'limit': '1',
+      'limit': '5',
       'lat': '${bias?.latitude ?? 10.7769}',
       'lon': '${bias?.longitude ?? 106.7009}',
     });
@@ -126,31 +136,35 @@ Future<PhotonHit?> photonSearch(String query, {LatLng? bias}) async {
     );
     request.headers.set(HttpHeaders.acceptHeader, 'application/json');
     final response = await request.close().timeout(const Duration(seconds: 8));
-    if (response.statusCode != 200) return null;
+    if (response.statusCode != 200) return const [];
     final body = await response.transform(utf8.decoder).join();
     final decoded = jsonDecode(body);
-    if (decoded is! Map) return null;
+    if (decoded is! Map) return const [];
     final features = decoded['features'];
-    if (features is! List || features.isEmpty) return null;
-    final geometry = features.first is Map ? features.first['geometry'] : null;
-    if (geometry is! Map) return null;
-    final coordinates = geometry['coordinates'];
-    if (coordinates is! List || coordinates.length < 2) return null;
-    final lon = double.tryParse('${coordinates[0]}');
-    final lat = double.tryParse('${coordinates[1]}');
-    if (lat == null || lon == null) return null;
-    final properties =
-        features.first is Map ? features.first['properties'] : null;
-    final props = properties is Map ? properties : const {};
-    return PhotonHit(
-      point: LatLng(lat, lon),
-      type: '${props['type'] ?? props['osm_value'] ?? ''}',
-      name: '${props['name'] ?? ''}',
-      street: '${props['street'] ?? ''}',
-      houseNumber: '${props['housenumber'] ?? ''}',
-    );
+    if (features is! List || features.isEmpty) return const [];
+    final hits = <PhotonHit>[];
+    for (final feature in features) {
+      if (feature is! Map) continue;
+      final geometry = feature['geometry'];
+      if (geometry is! Map) continue;
+      final coordinates = geometry['coordinates'];
+      if (coordinates is! List || coordinates.length < 2) continue;
+      final lon = double.tryParse('${coordinates[0]}');
+      final lat = double.tryParse('${coordinates[1]}');
+      if (lat == null || lon == null) continue;
+      final properties = feature['properties'];
+      final props = properties is Map ? properties : const {};
+      hits.add(PhotonHit(
+        point: LatLng(lat, lon),
+        type: '${props['type'] ?? props['osm_value'] ?? ''}',
+        name: '${props['name'] ?? ''}',
+        street: '${props['street'] ?? ''}',
+        houseNumber: '${props['housenumber'] ?? ''}',
+      ));
+    }
+    return hits;
   } catch (_) {
-    return null;
+    return const [];
   } finally {
     client.close(force: true);
   }

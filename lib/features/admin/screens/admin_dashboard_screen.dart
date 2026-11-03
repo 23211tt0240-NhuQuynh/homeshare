@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'admin_notifications_screen.dart';
 import '../utils/booking_utils.dart';
 import '../widgets/admin_branded_title.dart';
-import '../widgets/admin_theme_toggle.dart';
 import '../widgets/revenue_line_chart.dart';
 import '../widgets/revenue_bar_chart.dart';
 import 'cancellation_invoice_screen.dart';
@@ -329,7 +328,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               : 'Dữ liệu tổng quan toàn hệ thống',
         ),
         actions: [
-          const AdminThemeToggle(padding: EdgeInsets.only(right: 8)),
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: StreamBuilder<QuerySnapshot>(

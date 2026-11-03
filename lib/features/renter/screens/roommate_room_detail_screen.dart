@@ -73,6 +73,13 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
 
   String get _verifiedLabel => _post.isVerified ? 'Đã xác minh' : 'Chưa xác minh';
 
+  IconData get _seekIcon {
+    final raw = _post.targetGender.trim().toLowerCase();
+    if (raw == 'nu' || raw == 'nữ' || raw == 'female') return Icons.female_rounded;
+    if (raw == 'nam' || raw == 'male') return Icons.male_rounded;
+    return Icons.people_alt_rounded;
+  }
+
   String get _seekLabel {
     final raw = _post.targetGender.trim().toLowerCase();
     if (raw == 'nu' || raw == 'nữ' || raw == 'female') return 'Chỉ tìm nữ';
@@ -145,15 +152,12 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
     return title.isEmpty ? 'Tin ở ghép chưa có tiêu đề' : title;
   }
 
-  /// Địa chỉ hiện một lần, dưới tiêu đề. Ưu tiên địa chỉ bài đăng chủ nhà / cơ sở.
+  /// Địa chỉ hiện một lần, dưới tiêu đề. Phòng đang thuê lấy đúng địa chỉ chủ trọ.
   String get _address {
+    final fromRoom = _facts?.address.trim() ?? '';
+    if (fromRoom.isNotEmpty) return fromRoom;
     final best = VietnamAddressParser.pickBest([
-      _facts?.address.trim() ?? '',
       _post.address.trim(),
-      VietnamAddressParser.composeParts(
-        street: _post.address,
-        district: _post.district,
-      ),
     ]);
     return best.isEmpty ? 'Chưa có địa chỉ' : best;
   }
@@ -344,6 +348,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
 
   @override
   Widget build(BuildContext context) {
+    AppColors.bind(Theme.of(context).brightness);
     final profile = ref.watch(userProfileProvider).value;
     final photos = _photos;
 
@@ -463,7 +468,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
         ClipRRect(
           borderRadius: BorderRadius.circular(18),
           child: ColoredBox(
-            color: const Color(0xFFE8EEF5),
+            color: AppColors.surfaceVariant,
             child: SizedBox(
               height: 320,
               width: double.infinity,
@@ -481,10 +486,10 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
           spacing: 6,
           runSpacing: 6,
           children: [
-            _pill(_statusLabel, const Color(0xFFE8F8EF), const Color(0xFF067647)),
-            _pill(_seekLabel, const Color(0xFFFFF1F3), const Color(0xFFE11D48), icon: Icons.female_rounded),
-            _pill(_verifiedLabel, AppColors.textDark, Colors.white, icon: Icons.verified_rounded),
-            _pill('${_photoIndex + 1}/${photos.length} ảnh thực tế', AppColors.textDark, Colors.white),
+            _pill(_statusLabel, AppColors.successContainer, AppColors.success),
+            _pill(_seekLabel, AppColors.dangerContainer, AppColors.danger, icon: _seekIcon),
+            _pill(_verifiedLabel, AppColors.surfaceVariant, AppColors.textDark, icon: Icons.verified_rounded),
+            _pill('${_photoIndex + 1}/${photos.length} ảnh thực tế', AppColors.surfaceVariant, AppColors.textDark),
           ],
         ),
         const SizedBox(height: 8),
@@ -537,7 +542,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
           children: [
             CircleAvatar(
               radius: 24,
-              backgroundColor: const Color(0xFFE8F0FE),
+              backgroundColor: AppColors.primaryContainer,
               backgroundImage: _avatarProvider(_peerAvatar),
               child: _avatarProvider(_peerAvatar) == null
                   ? Text(
@@ -571,7 +576,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
                 children: [
                   GestureDetector(
                     onTap: _openAuthorProfile,
-                    child: Text(_posterName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                    child: Text(_posterName, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppColors.textDark)),
                   ),
                   const SizedBox(width: 6),
                   if (_ageLabel.isNotEmpty) Text(_ageLabel, style: TextStyle(color: AppColors.textMuted, fontSize: 15)),
@@ -610,7 +615,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
   /// Thẻ độ tương thích. Phần trăm lấy từ `matchRate`. Ba chip lối sống vẫn là chữ cố định.
   Widget _matchCard() {
     return _infoCard(
-      color: const Color(0xFFF3F7FF),
+      color: AppColors.primaryContainer,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -620,7 +625,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
               const SizedBox(width: 6),
               Text('$_matchRate%', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.primary)),
               SizedBox(width: 8),
-              const Text('Tương\nthích', style: TextStyle(fontWeight: FontWeight.w700, height: 1.15)),
+              Text('Tương\nthích', style: TextStyle(fontWeight: FontWeight.w700, height: 1.15, color: AppColors.textDark)),
               const Spacer(),
               Text('Dựa trên lối sống\n& thói quen', textAlign: TextAlign.right, style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
             ],
@@ -981,7 +986,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
         fit: fit,
         width: double.infinity,
         height: double.infinity,
-        errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFFE4E7EC), child: Icon(Icons.image_not_supported_outlined)),
+        errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceVariant, child: Icon(Icons.image_not_supported_outlined, color: AppColors.textMuted)),
       );
     }
     if (url.startsWith('data:image')) {
@@ -1038,14 +1043,11 @@ class _AddressMapState extends State<_AddressMap> {
       });
     }
 
-    if (isMissingMapAddress(widget.address) &&
-        storedMapLocation(widget.latitude, widget.longitude) == null) {
-      notify(true);
-      return;
-    }
-    final stored = storedMapLocation(widget.latitude, widget.longitude);
-    if (stored != null) {
-      _point = stored.latLng;
+    if (isMissingMapAddress(widget.address)) {
+      final stored = storedMapLocation(widget.latitude, widget.longitude);
+      if (stored != null && mounted) {
+        setState(() => _point = stored.latLng);
+      }
       notify(true);
       return;
     }

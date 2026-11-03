@@ -887,7 +887,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     child: Text(
-                      post.hasRoom ? 'Xem hồ sơ' : 'Xem chi tiết',
+                      'Xem chi tiết',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),

@@ -71,6 +71,31 @@ abstract final class VietnamAddressParser {
           : (wards.isNotEmpty ? wards.first : '');
     }
 
+    // "Hiệp Bình Chánh" từng bị nhận nhầm thành "Bình Chánh". Nếu một phường
+    // khác trong cùng tỉnh khớp rõ hơn quận đang chọn thì lấy quận của phường đó.
+    final districtScore = _matchScore(address, district);
+    final ownWardScore = _matchScore(address, ward);
+    var bestWard = '';
+    var bestWardScore = 0;
+    var bestWardDistrict = '';
+    for (final candidateDistrict in VietnamLocations.getAdministrativeDistricts(province)) {
+      for (final candidateWard in VietnamLocations.getWards(province, candidateDistrict)) {
+        final score = _matchScore(address, candidateWard);
+        if (score > bestWardScore) {
+          bestWardScore = score;
+          bestWard = candidateWard;
+          bestWardDistrict = candidateDistrict;
+        }
+      }
+    }
+    if (bestWard.isNotEmpty &&
+        bestWardScore > ownWardScore &&
+        bestWardScore > districtScore &&
+        VietnamLocations.getAdministrativeDistricts(province).contains(bestWardDistrict)) {
+      district = bestWardDistrict;
+      ward = bestWard;
+    }
+
     final administrativeLabels = [
       province,
       district,
@@ -195,6 +220,7 @@ abstract final class VietnamAddressParser {
         caseSensitive: false,
       );
       if (!pattern.hasMatch(normalizedAddress)) continue;
+      if (_previousWordBreaksPlace(normalizedAddress, alias)) continue;
       final exactSegment = normalizedAddress
           .split(' ')
           .join(' ')
@@ -203,6 +229,30 @@ abstract final class VietnamAddressParser {
       if (score > best) best = score;
     }
     return best;
+  }
+
+  /// "bình chánh" không được khớp vào "hiệp bình chánh".
+  static bool _previousWordBreaksPlace(String normalizedAddress, String alias) {
+    final pattern = RegExp('(^| )${RegExp.escape(alias)}(\$| )');
+    final match = pattern.firstMatch(normalizedAddress);
+    if (match == null) return false;
+    final before = normalizedAddress.substring(0, match.start).trim();
+    if (before.isEmpty) return false;
+    const prefixes = {
+      'phuong',
+      'p',
+      'xa',
+      'quan',
+      'q',
+      'huyen',
+      'tp',
+      'thi',
+      'tran',
+      'thanh',
+      'pho',
+      'tinh',
+    };
+    return !prefixes.contains(before.split(' ').last);
   }
 
   static Set<String> _aliases(String label) {

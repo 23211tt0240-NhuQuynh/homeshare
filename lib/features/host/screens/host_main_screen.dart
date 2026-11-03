@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/localization/app_translations.dart';
 import '../../../core/providers/app_settings_provider.dart';
+import '../../../core/theme/app_theme_controller.dart';
 import '../../chat/screens/chat_list_screen.dart';
 import '../../home/screens/home_screen.dart';
 import 'host_dashboard_screen.dart';
@@ -224,8 +225,23 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
 
   // Chủ trọ - Hiển thị khung chủ trọ - Luồng đi: Dashboard là tab mặc định;
   // IndexedStack giữ trạng thái giao diện khi chuyển qua lại giữa các tab.
+  Brightness _resolvedBrightness() {
+    final mode =
+        ref.watch(appThemeControllerProvider).value?.mode ?? ThemeMode.light;
+    switch (mode) {
+      case ThemeMode.dark:
+        return Brightness.dark;
+      case ThemeMode.light:
+        return Brightness.light;
+      case ThemeMode.system:
+        return MediaQuery.platformBrightnessOf(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final brightness = _resolvedBrightness();
+    AppColors.bind(brightness);
     final currentLang = ref.watch(appLanguageProvider);
     final colors = AppColors.of(context);
     final labels = [
@@ -245,9 +261,9 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
         body: IndexedStack(
           index: _currentIndex,
           children: [
-            const HostDashboardScreen(),
-            const ChatListScreen(),
-            const HostCreatePostScreen(),
+            HostDashboardScreen(),
+            ChatListScreen(),
+            HostCreatePostScreen(),
             IndexedStack(
               index: _managementIndex,
               children: [
@@ -259,10 +275,10 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
                   title: 'Thêm mới',
                   icon: Icons.add_home_outlined,
                 ),
-                const HostFinanceScreen(),
+                HostFinanceScreen(),
               ],
             ),
-            const HomeScreen(),
+            HomeScreen(),
           ],
         ),
         bottomNavigationBar: _currentIndex == 3

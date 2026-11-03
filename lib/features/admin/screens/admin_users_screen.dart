@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../widgets/admin_branded_title.dart';
-import '../widgets/admin_theme_toggle.dart';
 import '../../renter/screens/room_detail_screen.dart';
 import '../../../core/services/room_service.dart';
 import '../../../core/services/violation_rules_service.dart';
@@ -751,7 +750,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           subtitle: 'Duyệt báo cáo vi phạm & duyệt bài đăng repost',
         ),
         actions: [
-          const AdminThemeToggle(padding: EdgeInsets.only(right: 8)),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: TextButton.icon(
@@ -2740,9 +2738,7 @@ class _WarningDialogState extends State<_WarningDialog> {
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: _applyCustomOtherViolation
-                                  ? (AdminColors.isDark
-                                      ? const Color(0xFF3A1528)
-                                      : const Color(0xFFFDF2FA))
+                                  ? const Color(0xFFFDF2FA)
                                   : AdminColors.paper,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(

@@ -23,6 +23,14 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.87 - Địa Chỉ Ở Ghép Theo Phòng Chủ Trọ, Bản Đồ Không Ghim Sai, Hồ Sơ Chat, Admin Luôn Sáng:**
+    - **Chi tiết tin đã có phòng:** địa chỉ dưới tiêu đề lấy từ phòng chủ trọ (`host_rooms` / đơn thuê), không lấy câu địa chỉ bài đã bị ghép sai quận.
+    - **Bản đồ:** chỉ ghim khi tên đường trong địa chỉ có trong kết quả tìm. Địa chỉ bịa hoặc không khớp hiện "Không xác định được địa điểm này trên bản đồ", không ghim ngôi nhà gần đó. Tọa độ lưu sẵn không đè lên địa chỉ chữ.
+    - **Parser địa chỉ:** "Hiệp Bình Chánh" không còn bị nhận thành "Huyện Bình Chánh" / "Xã Bình Chánh".
+    - **Chip giới tính & nút thẻ:** icon theo nam / nữ / tất cả. Nút trên thẻ Tìm ở ghép ghi **Xem chi tiết** (vẫn mở chi tiết bài).
+    - **Chat:** bấm avatar hoặc tên đối tác mở hồ sơ thật (`RoleAwareProfileScreen`), kể cả chủ trọ.
+    - **Admin:** luôn giao diện sáng, gỡ nút mặt trời/mặt trăng. Host và người thuê vẫn đổi Graphite; tab IndexedStack gắn lại màu khi đổi theme.
+    - **Xác nhận chuyển khoản:** không xóa các field tiếng Việt trên document `bookings`.
   * **Phase 2.86 - Tên Phòng `host_rooms`, Chip Đã Trả Phòng, Lịch Sử Nhà Đã Ở, Gỡ Nút Báo Cáo Chủ Trọ, Dọn `roommate_posts` Đóng:**
     - **Tên trên đơn thuê / lịch sử:** thẻ Quản lý Đơn Thuê và tab Lịch sử nhà đã ở lấy `title` phòng cụ thể từ `host_rooms`, không lấy title bài đăng (`posts`, ví dụ Blastoise). `createBooking` ghi `roomTitle` theo `host_rooms`; đọc lại đơn (`getBookingById`, `stayFromResident`, danh sách người thuê) overlay cùng nguồn.
     - **Chip Đã trả phòng:** bộ lọc trên [renter_bookings_screen.dart](file:///d:/Downloads/homeshare-dev-TOAN/lib/features/renter/screens/renter_bookings_screen.dart) thêm chip **Đã trả phòng**, lọc `booking.isEnded`.
@@ -2824,5 +2832,32 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
      - Xóa document `roommate_posts` có `status = daDong` và ảnh liên quan `roommate_post_images`. Giữ tin còn mở.
   8. **Kiểm tra:**
      - `flutter test test/my_homes_screen_test.dart test/renter_resident_stay_test.dart test/host_review_test.dart`.
+
+---
+
+### Phase 2.87: Địa Chỉ Ở Ghép Theo Phòng Chủ Trọ, Bản Đồ Không Ghim Sai, Hồ Sơ Chat, Admin Luôn Sáng
+* **Ngày hoàn thành:** 03/11/2026
+* **Yêu cầu người dùng & Thực hiện:**
+  1. **Chi tiết tin "Đã có phòng" lấy địa chỉ phòng chủ trọ:**
+     - Bài Phòng SE từng hiện `Six Seven, Xã Bình Chánh, Huyện Bình Chánh` trong khi phòng chủ trọ và đơn thuê là `Six Seven, Phường Hiệp Bình Chánh`.
+     - [roommate_room_detail_screen.dart](file:///d:/Downloads/homeshare-dev-TOAN/lib/features/renter/screens/roommate_room_detail_screen.dart): khi đã resolve được phòng đang thuê thì dùng địa chỉ đó, không chọn câu dài hơn trên bài đăng.
+  2. **Parser không nuốt "Hiệp Bình Chánh" thành "Bình Chánh":**
+     - [vietnam_address_parser.dart](file:///d:/Downloads/homeshare-dev-TOAN/lib/core/utils/vietnam_address_parser.dart): alias ngắn không khớp khi đứng sau một từ địa danh khác (`hiep` + `binh chanh`). Nếu một phường trong tỉnh khớp rõ hơn quận đang chọn thì lấy quận cha của phường đó.
+  3. **Google Map không ghim địa chỉ xàm:**
+     - Trước đó kết quả loại `house` vẫn được nhận dù tên đường không có trong kết quả, nên `shsjsjjs` / `abahhah` bị ghim trường Nguyễn Trung Trực, và `64 Đổng Trác` bị ghim Trạm Y tế Linh Đông.
+     - [map_address_locator.dart](file:///d:/Downloads/homeshare-dev-TOAN/lib/core/utils/map_address_locator.dart): mọi từ đường (bỏ "đường", "phường", số nhà) phải có trong tên/đường của kết quả. Không khớp thì không ghim và hiện **Không xác định được địa điểm này trên bản đồ**. Tọa độ đã lưu không được dùng để chèn ghim khi địa chỉ chữ không khớp.
+  4. **Chip giới tính và nút thẻ:**
+     - Icon chip tìm bạn theo nam / nữ / tất cả, không còn luôn là icon nữ.
+     - [roommate_community_screen.dart](file:///d:/Downloads/homeshare-dev-TOAN/lib/features/renter/screens/roommate_community_screen.dart): nút trên thẻ ghi **Xem chi tiết** ở cả hai tab. Bấm vẫn mở chi tiết bài đăng.
+  5. **Chat mở hồ sơ thật của đối tác:**
+     - [chat_detail_screen.dart](file:///d:/Downloads/homeshare-dev-TOAN/lib/features/chat/screens/chat_detail_screen.dart): bấm avatar, tên, hoặc **Xem hồ sơ đối tác** đẩy `RoleAwareProfileScreen(userId)`. Chủ trọ vào hồ sơ chủ trọ, người thuê vào hồ sơ cá nhân. Bỏ dialog điểm uy tín giả 100/100.
+  6. **Admin luôn sáng; host và người thuê vẫn đổi theme:**
+     - [main.dart](file:///d:/Downloads/homeshare-dev-TOAN/lib/main.dart): `isAdmin` thì `ThemeMode.light`.
+     - [admin_colors.dart](file:///d:/Downloads/homeshare-dev-TOAN/lib/features/admin/theme/admin_colors.dart) cố định palette sáng. Xóa [admin_theme_toggle.dart](file:///d:/Downloads/homeshare-dev-TOAN/lib/features/admin/widgets/admin_theme_toggle.dart) và gỡ nút trên các tab admin.
+     - Host / người thuê: `AppColors.bind` theo mode đã chọn; bỏ `const` IndexedStack để tab đổi màu cùng lúc.
+  7. **Xác nhận chuyển khoản không xóa field tiếng Việt:**
+     - [booking_payment_screen.dart](file:///d:/Downloads/homeshare-dev-TOAN/lib/features/renter/screens/booking_payment_screen.dart): bỏ `FieldValue.delete()` các khóa `trangThai`, `moTa`, `daThanhToan`, ... khi người thuê bấm đã chuyển khoản.
+  8. **Kiểm tra:**
+     - `dart analyze` các file địa chỉ, bản đồ, chi tiết ở ghép và thẻ cộng đồng: **No issues found!**.
 
 

@@ -30,6 +30,8 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeState = ref.watch(appThemeControllerProvider).value;
+    // Admin luôn sáng; Graphite chỉ áp host / người thuê.
+    final isAdmin = ref.watch(userProfileProvider).value?.isAdmin == true;
     return MaterialApp(
       title: 'HomeShare',
       debugShowCheckedModeBanner: false,
@@ -37,7 +39,9 @@ class MyApp extends ConsumerWidget {
       navigatorKey: navigatorKey,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: themeState?.mode ?? ThemeMode.light,
+      themeMode: isAdmin
+          ? ThemeMode.light
+          : (themeState?.mode ?? ThemeMode.light),
       builder: (context, child) {
         AppColors.bind(Theme.of(context).brightness);
         return DefaultTextStyle.merge(

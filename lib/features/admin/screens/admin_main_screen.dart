@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/theme/app_theme_controller.dart';
 import '../../auth/providers/user_provider.dart';
 import '../theme/admin_colors.dart';
 import 'admin_dashboard_screen.dart';
@@ -142,36 +141,22 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
     });
   }
 
-  Brightness _resolvedBrightness() {
-    final mode =
-        ref.watch(appThemeControllerProvider).value?.mode ?? ThemeMode.light;
-    switch (mode) {
-      case ThemeMode.dark:
-        return Brightness.dark;
-      case ThemeMode.light:
-        return Brightness.light;
-      case ThemeMode.system:
-        return MediaQuery.platformBrightnessOf(context);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final brightness = _resolvedBrightness();
-    AppColors.bind(brightness);
+    // Admin luôn sáng — không theo Graphite của host/renter.
+    AppColors.bind(Brightness.light);
     final size = MediaQuery.sizeOf(context);
     final useNavigationRail = size.width >= 700 || size.width > size.height;
     final List<Widget> screens = [
       AdminDashboardScreen(
-        key: ValueKey('admin-dash-$brightness'),
         onNavigateToOrders: () => _onSelectTab(2),
         onNavigateToPosts: () => _onSelectTab(1),
         onNavigateToHistory: () => _onSelectTab(4),
       ),
-      AdminPostsScreen(key: ValueKey('admin-posts-$brightness')),
-      AdminOrdersScreen(key: ValueKey('admin-orders-$brightness')),
-      AdminUsersScreen(key: ValueKey('admin-users-$brightness')),
-      AdminHistoryScreen(key: ValueKey('admin-history-$brightness')),
+      const AdminPostsScreen(),
+      const AdminOrdersScreen(),
+      const AdminUsersScreen(),
+      const AdminHistoryScreen(),
     ];
 
     final pages = CustomErrorTabScope(
@@ -413,8 +398,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
     int badgeCount = 0,
   }) {
     final isSelected = _currentIndex == index;
-    final activeColor =
-        AdminColors.isDark ? AdminColors.ink : AdminColors.accent;
+    final activeColor = AdminColors.accent;
     final inactiveColor = AdminColors.navInactive;
 
     return InkWell(

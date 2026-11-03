@@ -5,7 +5,6 @@ import 'package:home_share/features/admin/services/post_review_service.dart';
 import '../../../data/models/room_model.dart';
 import 'admin_post_review_detail_screen.dart';
 import '../widgets/admin_branded_title.dart';
-import '../widgets/admin_theme_toggle.dart';
 import '../theme/admin_colors.dart';
 
 class AdminPostsScreen extends ConsumerStatefulWidget {
@@ -292,7 +291,6 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
           subtitle: 'Duyệt & kiểm duyệt tin phòng trọ',
         ),
         centerTitle: false,
-        actions: const [AdminThemeToggle()],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

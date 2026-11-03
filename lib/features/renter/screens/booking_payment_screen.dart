@@ -280,18 +280,6 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           'note': isFullPayment ? 'Thanh toán toàn bộ tiền phòng (không tính cọc)' : 'Đặt cọc giữ phòng',
           'confirmedAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
-          // Xóa triệt để các trường tiếng Việt trên Firebase
-          'trangThai': FieldValue.delete(),
-          'moTa': FieldValue.delete(),
-          'daThanhToan': FieldValue.delete(),
-          'hinhThucThanhToan': FieldValue.delete(),
-          'soTienThanhToan': FieldValue.delete(),
-          'ghiChuChuyenKhoan': FieldValue.delete(),
-          'maNguoiDung': FieldValue.delete(),
-          'hanChuyen': FieldValue.delete(),
-          'ghiChu': FieldValue.delete(),
-          'ngayXacNhan': FieldValue.delete(),
-          'ngayCapNhat': FieldValue.delete(),
         }, SetOptions(merge: true));
       }
 

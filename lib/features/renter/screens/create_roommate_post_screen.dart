@@ -614,6 +614,7 @@ class _CreateRoommatePostScreenState
 
   @override
   Widget build(BuildContext context) {
+    AppColors.bind(Theme.of(context).brightness);
     final user = ref.watch(currentUserProvider);
     final profile = ref.watch(userProfileProvider).value;
     final isHost = profile?.isHost == true || profile?.role == 'host';

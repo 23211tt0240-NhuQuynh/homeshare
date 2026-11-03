@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../utils/booking_utils.dart';
 import '../widgets/admin_branded_title.dart';
-import '../widgets/admin_theme_toggle.dart';
 import 'cancellation_invoice_screen.dart';
 import 'settlement_invoice_screen.dart';
 import '../../../core/utils/id_generator.dart';
@@ -611,7 +610,6 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
           subtitle: 'Theo dõi cọc, nhận phòng & giải ngân',
         ),
         centerTitle: false,
-        actions: const [AdminThemeToggle()],
       ),
       body: Column(
         children: [
@@ -1668,9 +1666,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: AdminColors.isDark
-                  ? AdminColors.dangerContainer
-                  : const Color(0xFFFFFBFB),
+              color: const Color(0xFFFFFBFB),
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(13)),
               border: Border(top: BorderSide(color: AdminColors.dangerContainer)),
             ),
@@ -2237,9 +2233,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
             decoration: BoxDecoration(
               color: isCheckIn
                   ? AdminColors.paper
-                  : (AdminColors.isDark
-                      ? AdminColors.warningContainer
-                      : const Color(0xFFFEFBF0)),
+                  : const Color(0xFFFEFBF0),
               borderRadius: const BorderRadius.vertical(
                 bottom: Radius.circular(13),
               ),
