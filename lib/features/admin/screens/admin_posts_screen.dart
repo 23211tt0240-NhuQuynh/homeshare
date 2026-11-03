@@ -1273,6 +1273,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                                 : '${DateFormat('dd/MM/yyyy').format(_dateRange!.start)} – ${DateFormat('dd/MM/yyyy').format(_dateRange!.end)}',
                           ),
                           style: OutlinedButton.styleFrom(
+                            backgroundColor: Colors.white,
                             foregroundColor: const Color(0xFF475467),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
@@ -1903,6 +1904,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                     child: OutlinedButton(
                       onPressed: () => _openDetailPreview(doc),
                       style: OutlinedButton.styleFrom(
+                        backgroundColor: Colors.white,
                         side: const BorderSide(color: Color(0xFFFDA29B)),
                         foregroundColor: const Color(0xFFD92D20),
                         padding: const EdgeInsets.symmetric(vertical: 8),

@@ -12,12 +12,14 @@ class AdminDashboardScreen extends StatefulWidget {
   final VoidCallback? onNavigateToOrders;
   final VoidCallback? onNavigateToPosts;
   final VoidCallback? onNavigateToHistory;
+  final VoidCallback? onNavigateToUsers;
 
   const AdminDashboardScreen({
     super.key,
     this.onNavigateToOrders,
     this.onNavigateToPosts,
     this.onNavigateToHistory,
+    this.onNavigateToUsers,
   });
 
   @override
@@ -37,15 +39,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => AdminNotificationsBottomSheet(
-        onNavigateTarget: (type, targetId) {
-          if ((type == 'disbursement' || type == 'booking') &&
-              widget.onNavigateToOrders != null) {
-            widget.onNavigateToOrders!();
-          } else if (type == 'post_approval' &&
-              widget.onNavigateToPosts != null) {
-            widget.onNavigateToPosts!();
-          } else if (widget.onNavigateToHistory != null) {
-            widget.onNavigateToHistory!();
+        onNavigateTarget: (category, type, targetId, data) {
+          if (category == 'orders') {
+            widget.onNavigateToOrders?.call();
+          } else if (category == 'posts') {
+            widget.onNavigateToPosts?.call();
+          } else if (category == 'users') {
+            widget.onNavigateToUsers?.call();
+          } else if (category == 'history') {
+            widget.onNavigateToHistory?.call();
+          } else {
+            widget.onNavigateToOrders?.call();
           }
         },
       ),

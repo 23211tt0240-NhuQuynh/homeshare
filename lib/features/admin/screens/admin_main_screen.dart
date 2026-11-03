@@ -205,6 +205,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
         onNavigateToOrders: () => _onSelectTab(2),
         onNavigateToPosts: () => _onSelectTab(1),
         onNavigateToHistory: () => _onSelectTab(3),
+        onNavigateToUsers: () => _onSelectTab(4),
       ),
       const AdminPostsScreen(),
       const AdminOrdersScreen(),
@@ -216,35 +217,109 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
       child: IndexedStack(index: _currentIndex, children: screens),
     );
 
-    return Theme(
-      data: Theme.of(context).copyWith(
-        colorScheme: Theme.of(context).colorScheme.copyWith(
-          primary: const Color(0xFF398FC0),
-          secondary: const Color(0xFF89CFF0),
-          surface: Colors.white,
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF4F9FF),
-        appBarTheme: Theme.of(context).appBarTheme.copyWith(
+    final adminTheme = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      primaryColor: const Color(0xFF398FC0),
+      scaffoldBackgroundColor: const Color(0xFFF4F9FF),
+      cardColor: Colors.white,
+      canvasColor: const Color(0xFFF4F9FF),
+      dialogBackgroundColor: Colors.white,
+      colorScheme: const ColorScheme.light(
+        primary: Color(0xFF398FC0),
+        secondary: Color(0xFF89CFF0),
+        surface: Colors.white,
+        surfaceContainerHighest: Color(0xFFEAF4FA),
+        onPrimary: Colors.white,
+        onSurface: Color(0xFF101828),
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: Color(0xFF17324D),
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
           backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF344054),
           surfaceTintColor: Colors.transparent,
-          foregroundColor: const Color(0xFF17324D),
-          elevation: 0,
-        ),
-        navigationRailTheme: const NavigationRailThemeData(
-          selectedIconTheme: IconThemeData(color: Color(0xFF398FC0)),
-          unselectedIconTheme: IconThemeData(color: Color(0xFF7890A4)),
-          indicatorColor: Color(0xFFE3F3FB),
-          selectedLabelTextStyle: TextStyle(
-            color: Color(0xFF287AA8),
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-          ),
-          unselectedLabelTextStyle: TextStyle(
-            color: Color(0xFF7890A4),
-            fontSize: 11,
+          side: const BorderSide(color: Color(0xFFD0D5DD)),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(8)),
           ),
         ),
       ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF398FC0),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(8)),
+          ),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFF398FC0),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(8)),
+          ),
+        ),
+      ),
+      inputDecorationTheme: const InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(10)),
+          borderSide: BorderSide(color: Color(0xFFD0D5DD)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(10)),
+          borderSide: BorderSide(color: Color(0xFFD0D5DD)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(10)),
+          borderSide: BorderSide(color: Color(0xFF398FC0), width: 1.5),
+        ),
+      ),
+      cardTheme: const CardThemeData(
+        color: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+      ),
+      dialogTheme: const DialogThemeData(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+      ),
+      navigationRailTheme: const NavigationRailThemeData(
+        backgroundColor: Colors.white,
+        selectedIconTheme: IconThemeData(color: Color(0xFF398FC0)),
+        unselectedIconTheme: IconThemeData(color: Color(0xFF7890A4)),
+        indicatorColor: Color(0xFFE3F3FB),
+        selectedLabelTextStyle: TextStyle(
+          color: Color(0xFF287AA8),
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+        unselectedLabelTextStyle: TextStyle(
+          color: Color(0xFF7890A4),
+          fontSize: 11,
+        ),
+      ),
+    );
+
+    return Theme(
+      data: adminTheme,
       child: Scaffold(
         backgroundColor: const Color(0xFFF4F9FF),
         body: Stack(
