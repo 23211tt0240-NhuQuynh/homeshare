@@ -507,13 +507,15 @@ class CheckinCheckoutRepository {
 
       Future<void> restorePostDoc(DocumentReference ref) async {
         await ref.set({
-          'status': 'approved',
-          'statusId': 'approved',
-          'trangThai': 'daDuyet',
-          'trangThai_id': 'daDuyet',
+          'status': 'active',
           'isAvailable': true,
           'hiddenReason': FieldValue.delete(),
           'updatedAt': Timestamp.fromDate(now),
+          // Dọn sạch hoàn toàn các trường trạng thái thừa/cũ trên Firestore
+          'statusId': FieldValue.delete(),
+          'trang_thai': FieldValue.delete(),
+          'trangThai': FieldValue.delete(),
+          'trangThai_id': FieldValue.delete(),
         }, SetOptions(merge: true));
       }
 

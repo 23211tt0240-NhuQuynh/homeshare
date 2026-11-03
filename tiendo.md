@@ -23,6 +23,22 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.76 - Chuẩn Hóa Tuyệt Đối 4 Trạng Thái Bài Đăng (`pending`, `active`, `rejected`, `hidden`) & Dọn Sạch Toàn Bộ Trường Dư Thừa (`statusId`, `trang_thai`, `trangThai`, `trangThai_id`):**
+    - **Chuẩn hóa 4 trạng thái bài đăng duy nhất qua [PostStatus](file:///d:/DownLoad/homeshare-dev-TOAN/lib/data/models/host_post_model.dart):**
+      + `pending`: Chờ duyệt (khi chủ trọ tạo bài mới hoặc gửi duyệt lại sau khi sửa bài bị từ chối).
+      + `active`: Đã duyệt / Đang hiển thị công khai (sau khi Admin duyệt hoặc khôi phục từ phòng hủy cọc / check-out).
+      + `rejected`: Bị Admin từ chối kèm lý do vi phạm.
+      + `hidden`: Đã ẩn (khi phòng có khách đặt cọc đang chờ xử lý, hoặc chủ trọ / Admin chủ động ẩn tạm thời).
+    - **Loại bỏ hoàn toàn việc tạo và lưu các trường trạng thái rác/trùng lặp:**
+      + Trong [HostCreatePostScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_create_post_screen.dart): Loại bỏ toàn bộ `statusId`, `trangThai`, `trangThai_id` và các alias tiếng Việt (`tieuDe`, `moTa`, `giaThue`,...). Chỉ lưu duy nhất `status: 'pending'`, đồng thời gửi `FieldValue.delete()` dọn sạch các trường cũ trên document Firestore.
+      + Trong [BookingService](file:///d:/DownLoad/homeshare-dev-TOAN/lib/core/services/booking_service.dart): Khi ẩn bài (`hidePostOnPendingBooking`) chỉ ghi `status: 'hidden'`. Khi khôi phục bài (`restorePostOnCancelledBooking`) chuyển thẳng sang `status: 'active'`. Tự động gọi `FieldValue.delete()` xóa bỏ triệt để `statusId`, `trang_thai`, `trangThai`, `trangThai_id`.
+      + Trong [CheckinCheckoutRepository](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/repositories/checkin_checkout_repository.dart): Khi khôi phục bài sau khi checkout, ghi chuẩn `status: 'active'` và tự động xóa `statusId`, `trang_thai`, `trangThai`, `trangThai_id`.
+      + Trong [PostReviewService](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/admin/services/post_review_service.dart), [AdminPostsScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/admin/screens/admin_posts_screen.dart) & [AdminUsersScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/admin/screens/admin_users_screen.dart): Phê duyệt đặt `status: 'active'`, từ chối đặt `status: 'rejected'`, ẩn bài đặt `status: 'hidden'`, dọn sạch các trường legacy qua `FieldValue.delete()`.
+    - **Tối ưu hóa Model [HostPostModel](file:///d:/DownLoad/homeshare-dev-TOAN/lib/data/models/host_post_model.dart):**
+      + Chuẩn hóa bằng `PostStatus.normalize()` cả trong constructor, `fromMap()`, và `toFirestore()`.
+      + Chuyển `statusId`, `trangThaiId`, `trangThai` thành getter alias trả về giá trị của `status`, đảm bảo an toàn 100% tương thích ngược trong toàn bộ codebase mà không ghi trường rác sang Firestore.
+      + Loại bỏ `toBaiDangChoThueSql()` để triệt tiêu hoàn toàn nguồn phát sinh trường `trang_thai`.
+      + Bổ sung bộ kiểm thử tự động toàn diện [host_post_clean_status_test.dart](file:///d:/DownLoad/homeshare-dev-TOAN/test/host_post_clean_status_test.dart) đạt tỷ lệ Pass 100%.
   * **Phase 2.75 - Tự Động Khôi Phục Hiển Thị Bài Đăng Sau Khi Check-out & Khóa Chặt Phòng Có Người Ở Khi Tạo Bài Đăng:**
     - **Tự động mở lại hiển thị bài đăng khi hoàn tất Check-out ([checkin_checkout_repository.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/repositories/checkin_checkout_repository.dart)):**
       + Trong `performCheckout`: Sau khi lập biên bản trả phòng và chuyển đơn thuê sang `daKetThuc`, hệ thống lập tức quét toàn bộ bài đăng liên quan trong collection `posts` (theo doc ID, `roomId`, `phongId`, `hostRoomId`, `id`).

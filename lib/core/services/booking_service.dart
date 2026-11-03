@@ -505,20 +505,23 @@ class BookingService {
       final now = DateTime.now();
       final hiddenReason = reason ?? 'Đang có yêu cầu đặt phòng chờ xử lý';
       final postsRef = _firestore.collection('posts');
+      final hidePayload = <String, dynamic>{
+        'status': 'hidden',
+        'isAvailable': false,
+        'hiddenReason': hiddenReason,
+        'updatedAt': Timestamp.fromDate(now),
+        // Dọn sạch hoàn toàn các trường trạng thái thừa/cũ trên Firestore
+        'statusId': FieldValue.delete(),
+        'trang_thai': FieldValue.delete(),
+        'trangThai': FieldValue.delete(),
+        'trangThai_id': FieldValue.delete(),
+      };
 
       // 1. Kiểm tra trực tiếp document theo doc ID == roomId
       try {
         final directDoc = await postsRef.doc(roomId).get();
         if (directDoc.exists) {
-          await postsRef.doc(roomId).set({
-            'status': 'hidden',
-            'statusId': 'hidden',
-            'trangThai': 'tamAn',
-            'trangThai_id': 'tamAn',
-            'isAvailable': false,
-            'hiddenReason': hiddenReason,
-            'updatedAt': Timestamp.fromDate(now),
-          }, SetOptions(merge: true));
+          await postsRef.doc(roomId).set(hidePayload, SetOptions(merge: true));
         }
       } catch (e) {
         debugPrint('Error hiding post directDoc $roomId: $e');
@@ -529,15 +532,7 @@ class BookingService {
         final queryByRoomId =
             await postsRef.where('roomId', isEqualTo: roomId).get();
         for (final doc in queryByRoomId.docs) {
-          await doc.reference.set({
-            'status': 'hidden',
-            'statusId': 'hidden',
-            'trangThai': 'tamAn',
-            'trangThai_id': 'tamAn',
-            'isAvailable': false,
-            'hiddenReason': hiddenReason,
-            'updatedAt': Timestamp.fromDate(now),
-          }, SetOptions(merge: true));
+          await doc.reference.set(hidePayload, SetOptions(merge: true));
         }
       } catch (e) {
         debugPrint('Error hiding posts by roomId $roomId: $e');
@@ -548,15 +543,7 @@ class BookingService {
         final queryByPhongId =
             await postsRef.where('phongId', isEqualTo: roomId).get();
         for (final doc in queryByPhongId.docs) {
-          await doc.reference.set({
-            'status': 'hidden',
-            'statusId': 'hidden',
-            'trangThai': 'tamAn',
-            'trangThai_id': 'tamAn',
-            'isAvailable': false,
-            'hiddenReason': hiddenReason,
-            'updatedAt': Timestamp.fromDate(now),
-          }, SetOptions(merge: true));
+          await doc.reference.set(hidePayload, SetOptions(merge: true));
         }
       } catch (e) {
         debugPrint('Error hiding posts by phongId $roomId: $e');
@@ -567,15 +554,7 @@ class BookingService {
         final queryById =
             await postsRef.where('id', isEqualTo: roomId).get();
         for (final doc in queryById.docs) {
-          await doc.reference.set({
-            'status': 'hidden',
-            'statusId': 'hidden',
-            'trangThai': 'tamAn',
-            'trangThai_id': 'tamAn',
-            'isAvailable': false,
-            'hiddenReason': hiddenReason,
-            'updatedAt': Timestamp.fromDate(now),
-          }, SetOptions(merge: true));
+          await doc.reference.set(hidePayload, SetOptions(merge: true));
         }
       } catch (e) {
         debugPrint('Error hiding posts by id $roomId: $e');
@@ -616,13 +595,15 @@ class BookingService {
 
       Future<void> restoreDoc(DocumentReference ref) async {
         await ref.set({
-          'status': 'approved',
-          'statusId': 'approved',
-          'trangThai': 'daDuyet',
-          'trangThai_id': 'daDuyet',
+          'status': 'active',
           'isAvailable': true,
           'hiddenReason': FieldValue.delete(),
           'updatedAt': Timestamp.fromDate(now),
+          // Dọn sạch hoàn toàn các trường trạng thái thừa/cũ trên Firestore
+          'statusId': FieldValue.delete(),
+          'trang_thai': FieldValue.delete(),
+          'trangThai': FieldValue.delete(),
+          'trangThai_id': FieldValue.delete(),
         }, SetOptions(merge: true));
       }
 
@@ -633,7 +614,8 @@ class BookingService {
           final data = directDoc.data() ?? {};
           if (data['hiddenReason'] == 'Đang có yêu cầu đặt phòng chờ xử lý' ||
               data['status'] == 'hidden' ||
-              data['statusId'] == 'hidden') {
+              data['statusId'] == 'hidden' ||
+              data['trang_thai'] == 'hidden') {
             await restoreDoc(postsRef.doc(roomId));
           }
         }
@@ -647,7 +629,8 @@ class BookingService {
           final data = doc.data();
           if (data['hiddenReason'] == 'Đang có yêu cầu đặt phòng chờ xử lý' ||
               data['status'] == 'hidden' ||
-              data['statusId'] == 'hidden') {
+              data['statusId'] == 'hidden' ||
+              data['trang_thai'] == 'hidden') {
             await restoreDoc(doc.reference);
           }
         }
@@ -661,7 +644,8 @@ class BookingService {
           final data = doc.data();
           if (data['hiddenReason'] == 'Đang có yêu cầu đặt phòng chờ xử lý' ||
               data['status'] == 'hidden' ||
-              data['statusId'] == 'hidden') {
+              data['statusId'] == 'hidden' ||
+              data['trang_thai'] == 'hidden') {
             await restoreDoc(doc.reference);
           }
         }
@@ -675,7 +659,8 @@ class BookingService {
           final data = doc.data();
           if (data['hiddenReason'] == 'Đang có yêu cầu đặt phòng chờ xử lý' ||
               data['status'] == 'hidden' ||
-              data['statusId'] == 'hidden') {
+              data['statusId'] == 'hidden' ||
+              data['trang_thai'] == 'hidden') {
             await restoreDoc(doc.reference);
           }
         }

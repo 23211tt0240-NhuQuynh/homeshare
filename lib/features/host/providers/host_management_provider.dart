@@ -10,6 +10,7 @@ import '../../../core/constants/firestore_collections.dart';
 import '../../../core/constants/vietnam_locations.dart';
 import '../../../core/utils/room_identity.dart';
 import '../../../core/utils/room_deposit.dart';
+import '../../../data/models/host_post_model.dart';
 import '../../../data/models/room_model.dart';
 import '../data/host_property.dart';
 
@@ -1136,8 +1137,8 @@ class HostRepository {
       if (existingService > 0) 'serviceFee': existingService,
       'images': finalUrls,
       'amenities': selectedAmenities.toList(),
-      'status': status.isNotEmpty ? status : 'pending',
-      'isAvailable': status == 'active' || status == 'approved',
+      'status': PostStatus.normalize(status),
+      'isAvailable': PostStatus.normalize(status) == PostStatus.active,
       'isPinned': false,
       'createdAt': FieldValue.serverTimestamp(),
     };
