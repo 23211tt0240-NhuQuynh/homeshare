@@ -747,9 +747,11 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           'amenities': _selectedAmenities.toList(),
           'images': finalImages,
           'status': 'pending',
-          if (widget.isResubmitting) 'rejectReason': FieldValue.delete(),
-          if (widget.isResubmitting) 'lyDoTuChoi': FieldValue.delete(),
-          'hostResubmittedAt': FieldValue.serverTimestamp(),
+          if (widget.isResubmitting) 'hostResubmittedAt': FieldValue.serverTimestamp(),
+          // Giữ lại lý do từ chối chuẩn để Admin nắm được lịch sử vi phạm khi duyệt lại
+          if (widget.isResubmitting && (widget.postToEdit?.rejectReason ?? '').isNotEmpty)
+            'rejectReason': widget.postToEdit!.rejectReason,
+          'lyDoTuChoi': FieldValue.delete(),
           'updatedAt': FieldValue.serverTimestamp(),
           // Xóa triệt để các trường tiếng Việt và trường thừa cũ trên Firestore
           'statusId': FieldValue.delete(),
