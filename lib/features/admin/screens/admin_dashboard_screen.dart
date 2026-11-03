@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'admin_notifications_screen.dart';
@@ -7,7 +5,6 @@ import '../utils/booking_utils.dart';
 import '../widgets/admin_branded_title.dart';
 import '../widgets/revenue_line_chart.dart';
 import '../widgets/revenue_bar_chart.dart';
-import 'cancellation_invoice_screen.dart';
 
 enum RevenueTimeRange { week, month, year }
 
@@ -29,58 +26,9 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   RevenueTimeRange _selectedTimeRange = RevenueTimeRange.year;
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _checkinsSub;
-  Set<String> _checkedInBookingIds = {};
-
-  @override
-  void initState() {
-    super.initState();
-    try {
-      _checkinsSub = FirebaseFirestore.instance
-          .collection('checkins')
-          .snapshots()
-          .listen(
-            (snapshot) {
-              final ids = <String>{};
-              for (final doc in snapshot.docs) {
-                final data = doc.data();
-                final bookingId = (data['bookingId'] ?? data['donId'] ?? '')
-                    .toString()
-                    .trim();
-                if (bookingId.isNotEmpty) ids.add(bookingId);
-                ids.add(doc.id);
-              }
-              if (mounted) setState(() => _checkedInBookingIds = ids);
-            },
-            onError: (Object error) {
-              debugPrint('Lỗi tải checkins cho dashboard: $error');
-            },
-          );
-    } on FirebaseException catch (error) {
-      debugPrint('Chưa thể khởi tạo dữ liệu checkins: ${error.code}');
-    }
-  }
-
-  @override
-  void dispose() {
-    _checkinsSub?.cancel();
-    super.dispose();
-  }
 
   String _formatMoney(num amount) {
     return "${amount.toStringAsFixed(0).replaceAll(RegExp(r'\B(?=(\d{3})+(?!\d))'), '.')} đ";
-  }
-
-  void _showNotice(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   void _openNotificationsBottomSheet() {
@@ -101,212 +49,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           }
         },
       ),
-    );
-  }
-
-  void _showDisbursementDialog(DocumentSnapshot bookingDoc) {
-    final data = BookingUtils.canonical(
-      bookingDoc.data() as Map<String, dynamic>? ?? {},
-    );
-    final bookingId = bookingDoc.id;
-    final orderCode =
-        data['orderCode'] ??
-        '#${bookingId.substring(0, bookingId.length > 6 ? 6 : bookingId.length).toUpperCase()}';
-    final hostName = data['hostName'] ?? 'Chủ trọ';
-    final hostPhone =
-        data['hostPhone'] ?? data['landlordPhone'] ?? 'Đang cập nhật';
-    final hostBank = data['hostBankName'] ?? 'MB Bank';
-    final hostAcc = data['hostAccountNumber'] ?? '---';
-    final roomTitle = data['roomTitle'] ?? 'Phòng trọ';
-    final amount = BookingUtils.amount(data);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFECFDF3),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.account_balance_wallet_outlined,
-                    color: Color(0xFF12B76A),
-                    size: 26,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Phê Duyệt Giải Ngân Cọc',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF101828),
-                        ),
-                      ),
-                      Text(
-                        'Mã đơn: $orderCode',
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: Color(0xFF667085),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF4F9FF),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Column(
-                children: [
-                  _buildDetailRow('Tên chủ trọ:', hostName),
-                  const Divider(height: 16),
-                  _buildDetailRow('Số điện thoại:', hostPhone),
-                  const Divider(height: 16),
-                  _buildDetailRow(
-                    'Ngân hàng thụ hưởng:',
-                    '$hostBank ($hostAcc)',
-                  ),
-                  const Divider(height: 16),
-                  _buildDetailRow('Phòng liên kết:', roomTitle),
-                  const Divider(height: 16),
-                  _buildDetailRow(
-                    'Số tiền cọc giải ngân:',
-                    _formatMoney(amount),
-                    isHighlight: true,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: Color(0xFFD0D5DD)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Đóng',
-                      style: TextStyle(
-                        color: Color(0xFF344054),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      Navigator.pop(ctx);
-                      try {
-                        await FirebaseFirestore.instance
-                            .collection('bookings')
-                            .doc(bookingId)
-                            .update({
-                              'isDisbursed': true,
-                              'disbursedAt': FieldValue.serverTimestamp(),
-                              'updatedAt': FieldValue.serverTimestamp(),
-                            });
-                        _showNotice(
-                          'Đã cập nhật giải ngân đơn $orderCode thành công!',
-                        );
-                      } catch (e) {
-                        _showNotice(
-                          'Không thể cập nhật trạng thái. Vui lòng thử lại.',
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF12B76A),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Xác nhận Chuyển tiền',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(
-    String label,
-    String value, {
-    bool isHighlight = false,
-  }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12.5, color: Color(0xFF667085)),
-        ),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: isHighlight ? 15 : 13,
-              fontWeight: isHighlight ? FontWeight.w800 : FontWeight.w600,
-              color: isHighlight
-                  ? const Color(0xFF398FC0)
-                  : const Color(0xFF101828),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -395,6 +137,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           }
         }(),
         builder: (context, bookingSnapshot) {
+          if (bookingSnapshot.hasError) {
+            debugPrint('Lỗi tải bookings trên dashboard: ${bookingSnapshot.error}');
+            return const Center(
+              child: Text(
+                'Không tải được dữ liệu đơn hàng. Kiểm tra mạng hoặc quyền Firestore.',
+                textAlign: TextAlign.center,
+              ),
+            );
+          }
           return StreamBuilder<QuerySnapshot>(
             stream: () {
               try {
@@ -406,6 +157,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               }
             }(),
             builder: (context, userSnapshot) {
+              if (userSnapshot.hasError) {
+                debugPrint('Lỗi tải users trên dashboard: ${userSnapshot.error}');
+                return const Center(
+                  child: Text(
+                    'Không tải được dữ liệu người dùng. Kiểm tra mạng hoặc quyền Firestore.',
+                    textAlign: TextAlign.center,
+                  ),
+                );
+              }
               final now = DateTime.now();
               final isYearView = _selectedTimeRange == RevenueTimeRange.year;
               final isWeekView = _selectedTimeRange == RevenueTimeRange.week;
@@ -471,18 +231,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               double previousTotalFlow = 0;
               double netRevenue = 0;
               int successfulTxCount = 0;
-              int depositTxCount = 0;
-              int cancellationTxCount = 0;
+              int settledDepositTxCount = 0;
+              int settledFullPaymentTxCount = 0;
+              int settledCancellationTxCount = 0;
 
               List<double> weekChartData = List.filled(7, 0.0);
               List<double> monthChartData = List.filled(4, 0.0);
               List<double> yearChartData = List.filled(12, 0.0);
 
               for (var doc in bookingDocs) {
-                final data = doc.data() as Map<String, dynamic>? ?? {};
+                final rawData = doc.data() as Map<String, dynamic>? ?? {};
+                final data = BookingUtils.canonical(rawData);
                 final double amount = BookingUtils.amount(data);
                 final String? status = BookingUtils.status(data);
-                final rawStatus = (data['status'] ?? data['trangThai'] ?? '')
+                final rawStatus = (data['status'] ?? '')
                     .toString()
                     .toLowerCase();
                 final bool isDisbursed = data['isDisbursed'] == true;
@@ -502,15 +264,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
                 double orderCommission = 0.0;
 
-                // Tổng dòng tiền là tiền cọc đã xác nhận thu vào; số đơn thành
-                // công cũng không phải đợi đến lúc admin giải ngân cho chủ trọ.
+                // Ghi nhận tiền khi Admin đã xác nhận khoản thanh toán của
+                // khách hoặc đã giải ngân cho chủ trọ. Hai mốc này được lưu
+                // bằng isPaid và isDisbursed tương ứng.
                 bool contributesToCashFlow = false;
                 if (status == BookingUtils.statusDepositPaid ||
                     status == BookingUtils.statusCompleted) {
-                  depositTxCount++;
-                  successfulTxCount++;
-                  contributesToCashFlow = true;
-                  if (isDisbursed) {
+                  if (isPaid || isDisbursed) {
+                    successfulTxCount++;
+                    if (status == BookingUtils.statusCompleted) {
+                      settledFullPaymentTxCount++;
+                    } else {
+                      settledDepositTxCount++;
+                    }
+                    contributesToCashFlow = true;
                     final storedFee = data['platformFee'];
                     final storedRate = data['platformFeeRate'];
                     orderCommission = storedFee is num
@@ -530,9 +297,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     rawStatus == 'dahuy') {
                   contributesToCashFlow = isPaid || isRefunded;
                   if (isRefunded) {
-                    cancellationTxCount++;
                     successfulTxCount++;
-                    orderCommission = amount * BookingUtils.cancelPlatformRate;
+                    settledCancellationTxCount++;
+                    final cancellationFee = data['cancellationPlatformFee'];
+                    final cancellationRate = data['cancellationCommissionRate'];
+                    orderCommission = cancellationFee is num
+                        ? cancellationFee.toDouble()
+                        : amount *
+                              (cancellationRate is num
+                                  ? cancellationRate.toDouble() / 100
+                                  : BookingUtils.cancelPlatformRate);
                     netRevenue += orderCommission;
                   }
                 }
@@ -570,7 +344,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 }
               }
 
-              final totalUsers = userDocs.length;
+              int hostCount = 0;
+              int renterCount = 0;
               int newHostsCount = 0;
               int newRentersCount = 0;
 
@@ -584,36 +359,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     uTime.toDate().year == now.year;
 
                 if (role == 'host' || role == 'landlord' || role == 'chutro') {
+                  hostCount++;
                   if (isThisMonth) newHostsCount++;
-                } else {
+                } else if (role != 'admin') {
+                  // Chỉ tính renter/tenant, bỏ qua admin
+                  renterCount++;
                   if (isThisMonth) newRentersCount++;
                 }
               }
 
-              final pendingTransferDocs = bookingDocs.where((doc) {
-                final data = doc.data() as Map<String, dynamic>? ?? {};
-                final booking = BookingUtils.canonical(data);
-                final status = BookingUtils.status(booking);
-                final bookingStatus = (booking['status'] ?? '').toString();
-                final isCancellation =
-                    bookingStatus == 'cancelled' || bookingStatus == 'rejected';
-                if (isCancellation) {
-                  // Đơn hủy chưa được admin ghi nhận hoàn tiền/bồi thường.
-                  return booking['isRefunded'] != true &&
-                      BookingUtils.amount(booking) > 0;
-                }
-
-                final bookingId = (booking['bookingId'] ?? '').toString();
-                final orderCode = (booking['orderCode'] ?? '').toString();
-                final hasCheckInRecord =
-                    _checkedInBookingIds.contains(doc.id) ||
-                    _checkedInBookingIds.contains(bookingId) ||
-                    _checkedInBookingIds.contains(orderCode);
-                return (booking['isCheckIn'] == true || hasCheckInRecord) &&
-                    booking['isDisbursed'] != true &&
-                    (status == BookingUtils.statusDepositPaid ||
-                        status == BookingUtils.statusCompleted);
-              }).toList();
+              final totalUsers = hostCount + renterCount;
 
               final String periodLabel = isWeekView
                   ? 'tuần trước'
@@ -649,7 +404,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               }
 
               // Định dạng ghi chú biến động thành viên mới trong tháng
-              final String userBadgeText;
+              final String? userBadgeText;
               if (newHostsCount > 0 && newRentersCount > 0) {
                 userBadgeText =
                     '+$newHostsCount chủ trọ  +$newRentersCount khách mới';
@@ -658,7 +413,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               } else if (newRentersCount > 0) {
                 userBadgeText = '▲ +$newRentersCount khách thuê mới';
               } else {
-                userBadgeText = 'Thành viên toàn hệ thống';
+                userBadgeText = null;
               }
 
               return SingleChildScrollView(
@@ -713,7 +468,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             value: '$successfulTxCount Đơn',
                             valueColor: const Color(0xFFD97706),
                             subtext:
-                                '$depositTxCount đơn cọc • $cancellationTxCount đơn hủy',
+                                '$settledDepositTxCount đơn cọc • $settledFullPaymentTxCount đơn trả hết • $settledCancellationTxCount đơn hủy',
                             subtextColor: const Color(0xFF64748B),
                           ),
                         ),
@@ -725,6 +480,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 : 'TỔNG USER HỆ THỐNG',
                             value: '$totalUsers Users',
                             valueColor: const Color(0xFF101828),
+                            subtext:
+                                '$hostCount chủ trọ • $renterCount khách thuê',
+                            subtextColor: const Color(0xFF64748B),
                             badgeText: userBadgeText,
                             badgeColor:
                                 (newHostsCount > 0 || newRentersCount > 0)
@@ -858,244 +616,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 18),
-
-                    // Việc cần xử lý
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Text(
-                              'VIỆC CẦN XỬ LÝ',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF344054),
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEF3F2),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: const Color(0xFFFECDCA),
-                                ),
-                              ),
-                              child: Text(
-                                '${pendingTransferDocs.length} việc chờ chuyển tiền',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFFB42318),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (widget.onNavigateToOrders != null)
-                          TextButton(
-                            onPressed: widget.onNavigateToOrders,
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: const Text(
-                              'Xem tất cả',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF398FC0),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-
-                    if (pendingTransferDocs.isNotEmpty) ...[
-                      for (var pendingDoc in pendingTransferDocs.take(3)) ...[
-                        _buildPendingTransferAlertItem(pendingDoc),
-                        const SizedBox(height: 10),
-                      ],
-                    ] else ...[
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFDCEAF5)),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFECFDF3),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.check_circle_outline_rounded,
-                                  color: Color(0xFF12B76A),
-                                  size: 22,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Tất cả tác vụ đã hoàn tất',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF101828),
-                                    ),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    'Hiện không có đơn nào chờ chuyển tiền',
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      color: Color(0xFF667085),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
                   ],
                 ),
               );
             },
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildPendingTransferAlertItem(DocumentSnapshot doc) {
-    final data = BookingUtils.canonical(
-      doc.data() as Map<String, dynamic>? ?? {},
-    );
-    final status = (data['status'] ?? '').toString();
-    final isCancellation = status == 'cancelled' || status == 'rejected';
-    final orderCode =
-        data['orderCode'] ??
-        '#${doc.id.substring(0, doc.id.length > 6 ? 6 : doc.id.length).toUpperCase()}';
-    final hostName = data['hostName'] ?? 'Chủ trọ';
-    final amount = BookingUtils.amount(data);
-    final cancelSplit = BookingUtils.cancellationSplit(amount);
-    final actionTitle = isCancellation
-        ? 'Quyết toán đơn hủy $orderCode'
-        : 'Giải ngân cọc $orderCode';
-    final actionDetail = isCancellation
-        ? 'Hoàn khách ${_formatMoney(cancelSplit['refundAmount'] ?? 0)} • Bồi thường chủ trọ ${_formatMoney(cancelSplit['hostAmount'] ?? 0)}'
-        : 'Chủ trọ: $hostName • Quyết toán: ${_formatMoney(amount)}';
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFDCEAF5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFEF3F2),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Center(
-              child: Text(
-                '!',
-                style: TextStyle(
-                  color: Color(0xFFF04438),
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  actionTitle,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF101828),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  actionDetail,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: Color(0xFF667085),
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () {
-              if (isCancellation) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        CancellationInvoiceScreen(bookingIds: [doc.id]),
-                  ),
-                );
-              } else {
-                _showDisbursementDialog(doc);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF12B76A),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text(
-              'Xử lý ngay',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1113,7 +639,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     Color borderColor = const Color(0xFFDCEAF5),
   }) {
     return Container(
-      height: 108,
+      constraints: const BoxConstraints(minHeight: 108),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: backgroundColor,

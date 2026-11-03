@@ -86,10 +86,7 @@ class AdminKpiCard extends StatelessWidget {
             // Badge / Subtext
             if (badgeText != null)
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 7,
-                  vertical: 2.5,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                 decoration: BoxDecoration(
                   color: badgeColor ?? const Color(0xFFECFDF3),
                   borderRadius: BorderRadius.circular(6),

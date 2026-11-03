@@ -280,7 +280,7 @@ void main() {
         'gioiTinh': 'Nam',
         'diaChi': 'Linh Trung, Thủ Đức',
         'queQuan': 'Đồng Nai',
-        'diemUyTin': 100,
+        'reputationScore': 100,
         'ngheNghiep': 'Kỹ sư phần mềm',
         'soThich': ['Đọc sách', 'Thể thao'],
       };

@@ -52,9 +52,7 @@ class RevenueLineChart extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  color: isSelected
-                      ? const Color(0xFF398FC0)
-                      : const Color(0xFF64748B),
+                  color: isSelected ? const Color(0xFF398FC0) : const Color(0xFF64748B),
                 ),
               );
             }),
@@ -110,8 +108,7 @@ class _SplineLineChartPainter extends CustomPainter {
       final double normalized = (data[i] - minVal) / range;
       // Invert Y for canvas coordinate system (0 is top)
       final double x = paddingHorizontal + (i * stepX);
-      final double y =
-          paddingTop + (chartHeight * (1.0 - (normalized * 0.85 + 0.1)));
+      final double y = paddingTop + (chartHeight * (1.0 - (normalized * 0.85 + 0.1)));
       points.add(Offset(x, y));
     }
 

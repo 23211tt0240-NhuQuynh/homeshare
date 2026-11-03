@@ -1,6 +1,10 @@
+﻿import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
 import 'core/services/call_push_service.dart';
@@ -19,9 +23,14 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  // Tạo kênh chuông "Cuộc gọi" và đăng ký handler khi app ở nền hoặc đã tắt.
-  await CallPushService.prepare();
   runApp(const ProviderScope(child: MyApp()));
+  // Khởi tạo thông báo sau frame đầu tiên để thao tác native không giữ màn hình
+  // khởi động. Hàm vẫn đăng ký background handler ngay khi bắt đầu chạy.
+  unawaited(
+    CallPushService.prepare().catchError((Object error, StackTrace stack) {
+      debugPrint('Không thể khởi tạo thông báo cuộc gọi: $error');
+    }),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -90,27 +99,113 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
 
     return profileAsync.when(
       data: (profile) {
-        if (profile?.isAdmin == true ||
-            profile?.role == 'admin' ||
-            profile?.role == 'administrator' ||
-            profile?.role == 'quantri') {
-          return const AdminMainScreen();
+        if (profile?.isAccessBlocked == true) {
+          final until = profile!.suspendedUntil;
+          final message = profile.accountDeleted
+              ? 'Tài khoản đã bị xóa quyền đăng nhập.'
+              : until != null
+              ? 'Tài khoản tạm khóa đến ${until.toLocal()}.'
+              : 'Tài khoản đang bị khóa. Vui lòng liên hệ admin.';
+          return Scaffold(
+            backgroundColor: const Color(0xFFF4F9FF),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.lock_outline,
+                      size: 56,
+                      color: Color(0xFFD92D20),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Tài khoản bị hạn chế',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(message, textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: () => ref.read(authServiceProvider).signOut(),
+                      icon: const Icon(Icons.logout),
+                      label: const Text('Đăng xuất'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
         }
-        if (profile?.isHost == true ||
-            profile?.role == 'host' ||
-            profile?.role == 'landlord' ||
-            profile?.role == 'chutro') {
-          return const HostMainScreen();
-        }
-        return const RenterMainScreen();
+        return _buildSignedInDestination(profile);
       },
       loading: () => const Scaffold(
         backgroundColor: Colors.white,
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (error, stack) => Scaffold(
-        body: Center(child: Text('Lỗi tải thông tin tài khoản: $error')),
+        backgroundColor: const Color(0xFFF4F9FF),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error_outline_rounded,
+                  size: 56,
+                  color: Color(0xFFD92D20),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Lỗi tải thông tin tài khoản',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$error',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 13, color: Colors.black54),
+                ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF006948),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => ref.read(authServiceProvider).signOut(),
+                  icon: const Icon(Icons.logout_rounded, size: 18),
+                  label: const Text('Đăng xuất'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
+
+  Widget _buildSignedInDestination(dynamic profile) {
+    if (profile?.isAdmin == true ||
+        profile?.role == 'admin' ||
+        profile?.role == 'administrator' ||
+        profile?.role == 'quantri') {
+      return const AdminMainScreen();
+    }
+    if (profile?.isHost == true ||
+        profile?.role == 'host' ||
+        profile?.role == 'landlord' ||
+        profile?.role == 'chutro') {
+      return const HostMainScreen();
+    }
+    return const RenterMainScreen();
+  }
 }
+

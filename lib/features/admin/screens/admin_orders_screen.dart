@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../utils/booking_utils.dart';
+import '../services/admin_audit_identity.dart';
+import '../utils/commission_rate_service.dart';
 import '../widgets/admin_branded_title.dart';
 import 'cancellation_invoice_screen.dart';
 import 'settlement_invoice_screen.dart';
@@ -26,7 +28,6 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
       'deposit_paid'; // 'pending', 'deposit_paid', 'completed', 'cancelled'
   String _selectedHostArea = 'Tất cả chủ trọ';
   DateTime? _selectedDate;
-  DateTime get effectiveSelectedDate => _selectedDate ?? DateTime.now();
 
   final currencyFormatter = NumberFormat('#,###', 'vi_VN');
 
@@ -43,10 +44,91 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
   List<String> _hostDropdownItems = ['Tất cả chủ trọ'];
   bool _isLoading = true;
 
+  Future<void> _pickReconciliationDate() async {
+    var draftDate = _selectedDate ?? DateTime.now();
+    var clearReconciliation = false;
+    final selected = await showDialog<DateTime>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        child: StatefulBuilder(
+          builder: (context, setDialogState) => ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Chọn ngày đối soát',
+                        style: TextStyle(
+                          color: Color(0xFF667085),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        DateFormat('EEE, MMM d').format(draftDate),
+                        style: const TextStyle(
+                          color: Color(0xFF667085),
+                          fontSize: 32,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                CalendarDatePicker(
+                  initialDate: draftDate,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                  onDateChanged: (date) {
+                    setDialogState(() => draftDate = date);
+                  },
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 16, 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          clearReconciliation = true;
+                          Navigator.pop(dialogContext);
+                        },
+                        child: const Text('Hủy đối soát'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.pop(dialogContext, draftDate),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (mounted && (clearReconciliation || selected != null)) {
+      setState(() => _selectedDate = clearReconciliation ? null : selected);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _selectedDate = DateTime.now();
     _searchCtrl.addListener(() {
       _searchQuery.value = _searchCtrl.text;
     });
@@ -54,38 +136,36 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
   }
 
   void _initFirestore() {
-    try {
-      final firestore = FirebaseFirestore.instance;
-      _usersSub = firestore.collection('users').snapshots().listen((snap) {
-        _rawUserDocs = snap.docs;
-        _recalculateOrders();
-      }, onError: (err) => debugPrint('Lỗi tải users: $err'));
+    _usersSub = FirebaseFirestore.instance
+        .collection('users')
+        .snapshots()
+        .listen((snap) {
+          _rawUserDocs = snap.docs;
+          _recalculateOrders();
+        }, onError: (err) => debugPrint('Lỗi tải users: $err'));
 
-      _bookingsSub = firestore
-          .collection('bookings')
-          .snapshots()
-          .listen(
-            (snap) {
-              _rawBookingDocs = snap.docs;
-              _isLoading = false;
-              _recalculateOrders();
-            },
-            onError: (err) {
-              debugPrint('Lỗi tải bookings: $err');
-              if (mounted) setState(() => _isLoading = false);
-            },
-          );
+    _bookingsSub = FirebaseFirestore.instance
+        .collection('bookings')
+        .snapshots()
+        .listen(
+          (snap) {
+            _rawBookingDocs = snap.docs;
+            _isLoading = false;
+            _recalculateOrders();
+          },
+          onError: (err) {
+            debugPrint('Lỗi tải bookings: $err');
+            if (mounted) setState(() => _isLoading = false);
+          },
+        );
 
-      _checkinsSub = firestore.collection('checkins').snapshots().listen((
-        snap,
-      ) {
-        _rawCheckinDocs = snap.docs;
-        _recalculateOrders();
-      }, onError: (err) => debugPrint('Lỗi tải checkins: $err'));
-    } on FirebaseException catch (error) {
-      _isLoading = false;
-      debugPrint('Chưa thể khởi tạo dữ liệu đơn: ${error.code}');
-    }
+    _checkinsSub = FirebaseFirestore.instance
+        .collection('checkins')
+        .snapshots()
+        .listen((snap) {
+          _rawCheckinDocs = snap.docs;
+          _recalculateOrders();
+        }, onError: (err) => debugPrint('Lỗi tải checkins: $err'));
   }
 
   @override
@@ -145,9 +225,15 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
       item['transferNote'],
       item['userCode'],
       item['renterName'],
+      item['renterPhone'],
       item['roomTitle'],
       item['hostName'],
       item['id'],
+      item['deposit'],
+      item['formattedDeposit'],
+      item['note'],
+      item['subTag'],
+      item['deadline'],
     ];
 
     for (final c in candidates) {
@@ -218,27 +304,62 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
   String _formatOrderTimeInfo(Map<String, dynamic> data, String tab) {
     if (tab == 'cancelled') {
       final cancelledAt =
-          data['cancelledAt'] ??
-          data['ngayHuy'] ??
-          data['updatedAt'] ??
-          data['createdAt'];
-      if (cancelledAt is Timestamp) {
-        return 'Hủy: ${DateFormat('dd/MM').format(cancelledAt.toDate())}';
+          asDateTime(data['cancelledAt']) ??
+          asDateTime(data['ngayHuy']) ??
+          asDateTime(data['updatedAt']) ??
+          asDateTime(data['createdAt']);
+      if (cancelledAt != null) {
+        return 'Hủy: ${DateFormat('dd/MM').format(cancelledAt)}';
       }
       return 'Đã hủy';
     } else if (tab == 'pending') {
-      // Đơn Chờ duyệt: Là hạn khách chuyển tiền / xác nhận
+      // 1. Kiểm tra nếu có trường thời hạn chót kiểu Timestamp / DateTime / chuỗi
+      final deadlineDt =
+          asDateTime(data['deadline']) ??
+          asDateTime(data['hanChuyen']) ??
+          asDateTime(data['expireAt']) ??
+          asDateTime(data['expiresAt']);
+      if (deadlineDt != null) {
+        final now = DateTime.now();
+        final diff = deadlineDt.difference(now);
+        if (diff.isNegative) {
+          return 'Hạn: Quá hạn';
+        }
+        if (diff.inMinutes < 60) {
+          return 'Hạn: Còn ${diff.inMinutes}p';
+        }
+        if (diff.inHours < 24) {
+          return 'Hạn: ${DateFormat('HH:mm').format(deadlineDt)}';
+        }
+        return 'Hạn: ${DateFormat('HH:mm dd/MM').format(deadlineDt)}';
+      }
+
+      // 2. Kiểm tra nếu có chuỗi mô tả thời gian (ví dụ durationText: "Còn 14:59")
+      final durationText = (data['durationText'] ?? '').toString().trim();
+      if (durationText.isNotEmpty &&
+          durationText != '—' &&
+          !durationText.contains('Timestamp(')) {
+        return durationText.startsWith('Hạn')
+            ? durationText
+            : 'Hạn: $durationText';
+      }
+
       final rawDeadline = (data['deadline'] ?? data['hanChuyen'] ?? '')
           .toString()
           .trim();
-      if (rawDeadline.isNotEmpty && rawDeadline != '—') {
+      if (rawDeadline.isNotEmpty &&
+          rawDeadline != '—' &&
+          !rawDeadline.contains('Timestamp(')) {
         return rawDeadline.startsWith('Hạn')
             ? rawDeadline
             : 'Hạn: $rawDeadline';
       }
-      final createdAt = data['createdAt'] ?? data['ngayTao'];
-      if (createdAt is Timestamp) {
-        final expireTime = createdAt.toDate().add(const Duration(minutes: 15));
+
+      // 3. Fallback: Dùng createdAt + 15 phút đếm ngược
+      final createdAt =
+          asDateTime(data['createdAt']) ?? asDateTime(data['ngayTao']);
+      if (createdAt != null) {
+        final expireTime = createdAt.add(const Duration(minutes: 15));
         final diff = expireTime.difference(DateTime.now());
         if (diff.isNegative) {
           return 'Hạn: Quá hạn';
@@ -247,19 +368,38 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
       }
       return 'Hạn: Còn 15p';
     } else {
-      // Đơn Đã cọc / Đã trả hết: Khách ĐÃ CHUYỂN TIỀN XONG, hạn ở đây là HẸN NGÀY VÀO Ở (check-in)
+      // Đơn Đã cọc / Đã trả hết: ưu tiên thời gian tạo đơn, không hiển thị "Hẹn vào"
+      final createdAt =
+          asDateTime(data['createdAt']) ?? asDateTime(data['ngayTao']);
+      if (createdAt != null) {
+        return DateFormat('dd/MM/yyyy HH:mm').format(createdAt);
+      }
+
       final checkIn =
-          data['checkInDate'] ?? data['ngayNhanPhong'] ?? data['checkIn'];
+          asDateTime(data['checkInDate']) ??
+          asDateTime(data['ngayNhanPhong']) ??
+          asDateTime(data['checkIn']) ??
+          asDateTime(data['moveInDate']);
       if (checkIn != null) {
-        if (checkIn is Timestamp) {
-          return 'Hẹn vào: ${DateFormat('dd/MM/yyyy').format(checkIn.toDate())}';
-        }
-        return 'Hẹn vào: $checkIn';
+        return 'Hẹn vào: ${DateFormat('dd/MM/yyyy').format(checkIn)}';
       }
-      final createdAt = data['createdAt'] ?? data['ngayTao'];
-      if (createdAt is Timestamp) {
-        return 'Đặt ngày: ${DateFormat('dd/MM').format(createdAt.toDate())}';
+
+      final rawCheckIn =
+          (data['checkInDate'] ??
+                  data['ngayNhanPhong'] ??
+                  data['checkIn'] ??
+                  data['moveInDate'] ??
+                  '')
+              .toString()
+              .trim();
+      if (rawCheckIn.isNotEmpty &&
+          rawCheckIn != '—' &&
+          !rawCheckIn.contains('Timestamp(')) {
+        return rawCheckIn.startsWith('Hẹn vào')
+            ? rawCheckIn
+            : 'Hẹn vào: $rawCheckIn';
       }
+
       return 'Chờ nhận phòng';
     }
   }
@@ -268,17 +408,38 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
   void _recalculateOrders() {
     final Map<String, String> hostPrefixMap = {};
     final Map<String, String> hostOnlyPrefixMap = {};
+    final Map<String, String> userNamesById = {};
     final List<String> dropdownItems = ['Tất cả chủ trọ'];
     int hostCounter = 1;
 
-    // 1. Quét chủ trọ từ 'users'
+    String extractBookingHostId(Map<String, dynamic> map) {
+      return (map['hostId'] ??
+              map['landlordId'] ??
+              map['hostUserId'] ??
+              map['landlordUserId'] ??
+              map['ownerId'] ??
+              map['propertyOwnerId'] ??
+              '')
+          .toString()
+          .trim();
+    }
+
+    // 1. Quét chủ trọ từ 'users' (đồng thời lưu map uid -> tên mới nhất)
     for (final uDoc in _rawUserDocs) {
       final uData = uDoc.data() as Map<String, dynamic>? ?? {};
+      final hName = (uData['fullName'] ??
+              uData['displayName'] ??
+              uData['name'] ??
+              uData['hostName'] ??
+              '')
+          .toString()
+          .trim();
+      if (hName.isNotEmpty && hName != 'Tất cả chủ trọ') {
+        userNamesById[uDoc.id] = hName;
+      }
+
       final role = (uData['role'] ?? '').toString().toLowerCase();
       if (role == 'host' || role == 'landlord' || role == 'chutro') {
-        final hName = (uData['fullName'] ?? uData['name'] ?? '')
-            .toString()
-            .trim();
         if (hName.isEmpty || hName == 'Tất cả chủ trọ') continue;
 
         String cleanName = hName;
@@ -303,9 +464,11 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
     // 2. Quét bổ sung từ 'bookings' nếu có chủ trọ chưa nằm trong users
     for (final bDoc in _rawBookingDocs) {
       final bData = bDoc.data() as Map<String, dynamic>? ?? {};
-      final rawHName = (bData['hostName'] ?? bData['tenChuNha'] ?? '')
-          .toString()
-          .trim();
+      final bHostId = extractBookingHostId(bData);
+      final profileName = bHostId.isNotEmpty ? (userNamesById[bHostId] ?? '') : '';
+      final rawHName = profileName.isNotEmpty
+          ? profileName
+          : (bData['hostName'] ?? bData['tenChuNha'] ?? '').toString().trim();
       if (rawHName.isEmpty || rawHName == 'Tất cả chủ trọ') continue;
 
       String cleanName = rawHName;
@@ -351,7 +514,13 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
         continue;
       }
 
-      final rawHostName = (data['hostName'] ?? 'Chủ trọ').toString().trim();
+      final bookingHostId = extractBookingHostId(data);
+      final latestProfileHostName = bookingHostId.isNotEmpty
+          ? (userNamesById[bookingHostId] ?? '')
+          : '';
+      final rawHostName = latestProfileHostName.isNotEmpty
+          ? latestProfileHostName
+          : (data['hostName'] ?? 'Chủ trọ').toString().trim();
       String cleanHostName = rawHostName;
       if (RegExp(r'^\d+-').hasMatch(cleanHostName)) {
         cleanHostName = cleanHostName.replaceFirst(RegExp(r'^\d+-'), '').trim();
@@ -393,19 +562,19 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
 
       final amount = BookingUtils.amount(data);
 
-      String targetTab;
-      if (rawStatus == 'cancelled' ||
+      // Dùng cùng quy tắc trạng thái chuẩn với dashboard, để đơn đã thanh toán
+      // hoặc giải ngân không bị rơi sang tab khác chỉ vì tên status cũ/mới.
+      final isCancelled = rawStatus == 'cancelled' ||
           rawStatus == 'canceled' ||
           rawStatus == 'rejected' ||
-          rawStatus == 'dahuy') {
-        targetTab = 'cancelled'; // Tab "Đơn hủy"
-      } else if (rawStatus == 'pending') {
-        targetTab = 'pending';
-      } else if (isFullPayment) {
-        targetTab = 'completed'; // Tab "Đã cọc hết"
-      } else {
-        targetTab = 'deposit_paid'; // Tab "Đã cọc" (1 phần)
-      }
+          rawStatus == 'dahuy';
+      final targetTab = isCancelled
+          ? 'cancelled'
+          : (rawStatus == 'pending'
+                ? 'pending'
+                : (isFullPayment
+                      ? 'completed'
+                      : (BookingUtils.uiStatus(data) ?? 'deposit_paid')));
 
       final String finalOrderCode = _formatShortOrderCode(
         hostPrefix,
@@ -421,6 +590,16 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
         'transferNote': (data['transferNote'] ?? '').toString(),
         'userCode': (data['userCode'] ?? '').toString(),
         'renterId': data['renterId'] ?? '',
+        'renterPhone': (data['renterPhone'] ?? data['phoneNumber'] ?? '')
+            .toString(),
+        'hostId':
+            data['hostId'] ??
+            data['landlordId'] ??
+            data['hostUserId'] ??
+            data['landlordUserId'] ??
+            data['ownerId'] ??
+            data['propertyOwnerId'] ??
+            '',
         'subTag':
             data['subTag']?.toString() ??
             (targetTab == 'cancelled'
@@ -433,24 +612,13 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
         'renterName': (data['renterName'] ?? 'Khách thuê').toString(),
         'roomTitle': (data['roomTitle'] ?? 'Phòng trọ').toString(),
         'deposit': amount,
+        'formattedDeposit': currencyFormatter.format(amount),
         'status': targetTab,
         'isFullPayment': isFullPayment,
         'paymentOption': paymentOption,
-        'note':
-            data['note']?.toString() ??
-            (targetTab == 'cancelled'
-                ? 'Đơn đã hủy • Cần hoàn tiền'
-                : (targetTab == 'pending'
-                      ? (isFullPayment
-                            ? 'Thanh toán toàn bộ'
-                            : 'Đặt cọc giữ phòng')
-                      : (isDisbursed
-                            ? 'Đã quyết toán cho chủ trọ'
-                            : (isLocked
-                                  ? 'Chưa nhận phòng'
-                                  : (isFullPayment
-                                        ? 'Thanh toán đủ • Đã nhận phòng'
-                                        : 'Đã cọc • Đã nhận phòng'))))),
+        'note': targetTab == 'cancelled'
+            ? (data['note']?.toString() ?? 'Đơn đã hủy • Cần hoàn tiền')
+            : (isFullPayment ? 'Cọc đảm bảo nhận phòng' : 'Cọc giữ phòng'),
         'deadline': timeInfo,
         'hostName': formattedHostName,
         'rawHostName': rawHostName,
@@ -458,8 +626,22 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
         'isCheckIn': isCheckIn,
         'isDisbursed': isDisbursed,
         'reconciliationDate': _orderReconciliationDate(data, targetTab),
+        'sortDate':
+            asDateTime(data['createdAt']) ??
+            asDateTime(data['ngayTao']) ??
+            asDateTime(data['bookingDate']) ??
+            DateTime.fromMillisecondsSinceEpoch(0),
       });
     }
+
+    orders.sort((a, b) {
+      final aDate = a['sortDate'] as DateTime;
+      final bDate = b['sortDate'] as DateTime;
+      final byDate = bDate.compareTo(aDate);
+      return byDate != 0
+          ? byDate
+          : (b['id'] as String).compareTo(a['id'] as String);
+    });
 
     if (mounted) {
       setState(() {
@@ -472,7 +654,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
     }
   }
 
-  void _navigateToSettlementInvoice(List<Map<String, dynamic>> orders) {
+  Future<void> _navigateToSettlementInvoice(
+    List<Map<String, dynamic>> orders,
+  ) async {
     final checkInOrderIds = orders
         .where(
           (order) => order['isCheckIn'] == true && order['isDisbursed'] != true,
@@ -492,17 +676,104 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            SettlementInvoiceScreen(selectedBookingIds: checkInOrderIds),
-      ),
+    final groups = <String, List<String>>{};
+    final groupLabels = <String, String>{};
+    for (final order in orders.where(
+      (o) => checkInOrderIds.contains(o['id']),
+    )) {
+      final hostKey = _hostGroupKey(order);
+      groups.putIfAbsent(hostKey, () => []).add(order['id'] as String);
+      groupLabels.putIfAbsent(hostKey, () => _hostGroupLabel(order));
+    }
+    await _chooseInvoiceGroup(
+      groups,
+      cancellation: false,
+      groupLabels: groupLabels,
     );
   }
 
-  void _navigateToCancellationInvoice(List<String> bookingIds) {
-    if (bookingIds.isEmpty) {
+  String _hostGroupKey(Map<String, dynamic> order) {
+    final hostId = (order['hostId'] ?? '').toString().trim();
+    if (hostId.isNotEmpty) return 'id:$hostId';
+    final hostName = (order['rawHostName'] ?? order['hostName'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    return 'name:$hostName';
+  }
+
+  String _hostGroupLabel(Map<String, dynamic> order) {
+    final hostName = (order['rawHostName'] ?? order['hostName'] ?? '')
+        .toString()
+        .trim();
+    final hostId = (order['hostId'] ?? '').toString().trim();
+    if (hostName.isEmpty || hostName == 'Chủ trọ') {
+      return hostId.isEmpty ? 'Chủ trọ' : 'Chủ trọ • $hostId';
+    }
+    return hostName;
+  }
+
+  Future<void> _chooseInvoiceGroup(
+    Map<String, List<String>> groups, {
+    required bool cancellation,
+    Map<String, String> groupLabels = const {},
+  }) async {
+    if (groups.isEmpty) return;
+    String? selected;
+    if (groups.length == 1) {
+      selected = groups.keys.first;
+    } else {
+      selected = await showModalBottomSheet<String>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const ListTile(
+                title: Text(
+                  'Chọn nhóm hóa đơn',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              for (final key in groups.keys)
+                ListTile(
+                  leading: const Icon(
+                    Icons.account_balance_outlined,
+                    color: Color(0xFF398FC0),
+                  ),
+                  title: Text(groupLabels[key] ?? key),
+                  subtitle: Text('${groups[key]!.length} đơn'),
+                  onTap: () => Navigator.pop(ctx, key),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (!mounted || selected == null) return;
+    if (cancellation) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              CancellationInvoiceScreen(bookingIds: groups[selected]!),
+        ),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              SettlementInvoiceScreen(selectedBookingIds: groups[selected]!),
+        ),
+      );
+    }
+  }
+
+  Future<void> _navigateToCancellationInvoice(
+    List<Map<String, dynamic>> orders,
+  ) async {
+    if (orders.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Chưa có đơn hủy nào để tạo hóa đơn!'),
@@ -512,11 +783,24 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CancellationInvoiceScreen(bookingIds: bookingIds),
-      ),
+    final groups = <String, List<String>>{};
+    final groupLabels = <String, String>{};
+    for (final order in orders) {
+      final ownerKey = _hostGroupKey(order);
+      final kind = order['isFullPayment'] == true ? 'Trả hết' : 'Chỉ cọc';
+      final hostKey = '$ownerKey::$kind';
+      groups
+          .putIfAbsent(hostKey, () => [])
+          .add(order['id'] as String);
+      groupLabels.putIfAbsent(
+        hostKey,
+        () => '${_hostGroupLabel(order)} • $kind',
+      );
+    }
+    await _chooseInvoiceGroup(
+      groups,
+      cancellation: true,
+      groupLabels: groupLabels,
     );
   }
 
@@ -527,31 +811,54 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
     return 0.0;
   }
 
-  DateTime? _asDateTime(dynamic value) {
+  DateTime? asDateTime(dynamic value) {
+    if (value == null) return null;
     if (value is Timestamp) return value.toDate();
     if (value is DateTime) return value;
-    if (value is String) return DateTime.tryParse(value);
+    if (value is int) {
+      if (value > 1000000000000) {
+        return DateTime.fromMillisecondsSinceEpoch(value);
+      }
+      if (value > 1000000000) {
+        return DateTime.fromMillisecondsSinceEpoch(value * 1000);
+      }
+    }
+    if (value is String) {
+      final s = value.trim();
+      if (s.isEmpty || s == '—') return null;
+      // Nếu chuỗi chứa "Timestamp(seconds=123456789, ...)"
+      if (s.contains('seconds=')) {
+        final match = RegExp(r'seconds=(\d+)').firstMatch(s);
+        if (match != null) {
+          final sec = int.tryParse(match.group(1)!);
+          if (sec != null) {
+            return DateTime.fromMillisecondsSinceEpoch(sec * 1000);
+          }
+        }
+      }
+      return DateTime.tryParse(s);
+    }
     return null;
   }
 
   DateTime? _orderReconciliationDate(Map<String, dynamic> data, String status) {
     if (status == 'cancelled') {
-      return _asDateTime(data['refundedAt']) ??
-          _asDateTime(data['cancellationSettledAt']) ??
-          _asDateTime(data['cancelledAt']) ??
-          _asDateTime(data['updatedAt']) ??
-          _asDateTime(data['createdAt']) ??
-          _asDateTime(data['ngayTao']);
+      return asDateTime(data['refundedAt']) ??
+          asDateTime(data['cancellationSettledAt']) ??
+          asDateTime(data['cancelledAt']) ??
+          asDateTime(data['updatedAt']) ??
+          asDateTime(data['createdAt']) ??
+          asDateTime(data['ngayTao']);
     }
     if (data['isDisbursed'] == true) {
-      return _asDateTime(data['disbursedAt']) ??
-          _asDateTime(data['updatedAt']) ??
-          _asDateTime(data['createdAt']) ??
-          _asDateTime(data['ngayTao']);
+      return asDateTime(data['disbursedAt']) ??
+          asDateTime(data['updatedAt']) ??
+          asDateTime(data['createdAt']) ??
+          asDateTime(data['ngayTao']);
     }
-    return _asDateTime(data['createdAt']) ??
-        _asDateTime(data['ngayTao']) ??
-        _asDateTime(data['bookingDate']);
+    return asDateTime(data['createdAt']) ??
+        asDateTime(data['ngayTao']) ??
+        asDateTime(data['bookingDate']);
   }
 
   @override
@@ -560,19 +867,15 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
         ? _allOrders
         : _allOrders.where((e) => e['hostName'] == _selectedHostArea).toList();
 
-    final selectedDay = DateTime(
-      effectiveSelectedDate.year,
-      effectiveSelectedDate.month,
-      effectiveSelectedDate.day,
-    );
-    final visibleByDate = _selectedDate == null
+    final selectedDate = _selectedDate;
+    final visibleByDate = selectedDate == null
         ? visibleByHost
         : visibleByHost.where((item) {
             final date = item['reconciliationDate'] as DateTime?;
             return date != null &&
-                date.year == selectedDay.year &&
-                date.month == selectedDay.month &&
-                date.day == selectedDay.day;
+                date.year == selectedDate.year &&
+                date.month == selectedDate.month &&
+                date.day == selectedDate.day;
           }).toList();
 
     final cPending = visibleByDate
@@ -687,177 +990,64 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
             ),
           ),
 
-          // ── Khối 2: Ô Tìm Kiếm & Ngày Đối Soát (Gõ mượt mà 100%, không lag/freeze) ──
+          // 2. Search & Date Filter Row
           Container(
             color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: Row(
               children: [
                 Expanded(
-                  child: SizedBox(
-                    height: 46,
-                    child: TextField(
-                      key: const ValueKey('admin_orders_search_input'),
-                      controller: _searchCtrl,
-                      focusNode: _searchFocusNode,
-                      onChanged: (val) {
-                        _searchQuery.value = val;
-                      },
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF101828),
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: (val) => setState(() {}),
+                    style: const TextStyle(fontSize: 12.5),
+                    decoration: InputDecoration(
+                      hintText: 'Tìm theo Mã HĐ, Tên khách...',
+                      hintStyle: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF98A2B3),
                       ),
-                      decoration: InputDecoration(
-                        hintText: 'Tìm theo Mã HĐ, tên khách, chủ trọ...',
-                        hintStyle: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF98A2B3),
-                        ),
-                        prefixIcon: const Icon(
-                          Icons.search,
-                          size: 20,
-                          color: Color(0xFF667085),
-                        ),
-                        suffixIcon: ValueListenableBuilder<String>(
-                          valueListenable: _searchQuery,
-                          builder: (context, query, _) {
-                            if (query.trim().isEmpty) {
-                              return const SizedBox.shrink();
-                            }
-                            return IconButton(
-                              icon: const Icon(
-                                Icons.cancel,
-                                size: 18,
-                                color: Color(0xFF98A2B3),
-                              ),
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                _searchQuery.value = '';
-                              },
-                            );
-                          },
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFD0D5DD),
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFD0D5DD),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF398FC0),
-                            width: 1.5,
-                          ),
-                        ),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        size: 18,
+                        color: Color(0xFF667085),
+                      ),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 0,
+                        horizontal: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                InkWell(
-                  onTap: () async {
-                    DateTime pickedDate = effectiveSelectedDate;
-                    final result = await showDialog<bool>(
-                      context: context,
-                      builder: (dialogContext) => StatefulBuilder(
-                        builder: (context, setDialogState) => AlertDialog(
-                          title: const Text('Ngày đối soát'),
-                          contentPadding: const EdgeInsets.fromLTRB(
-                            12,
-                            8,
-                            12,
-                            0,
-                          ),
-                          content: SizedBox(
-                            width: 330,
-                            child: CalendarDatePicker(
-                              initialDate: effectiveSelectedDate,
-                              firstDate: DateTime(2025),
-                              lastDate: DateTime(2028),
-                              onDateChanged: (date) =>
-                                  setDialogState(() => pickedDate = date),
-                            ),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () =>
-                                  Navigator.pop(dialogContext, false),
-                              child: const Text('Bỏ lọc'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(dialogContext),
-                              child: const Text('Hủy'),
-                            ),
-                            TextButton(
-                              onPressed: () =>
-                                  Navigator.pop(dialogContext, true),
-                              child: const Text('Xong'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                    if (result != null) {
-                      setState(
-                        () => _selectedDate = result ? pickedDate : null,
-                      );
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    height: 46,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFD0D5DD)),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _pickReconciliationDate,
+                  icon: const Icon(Icons.calendar_today_outlined, size: 15),
+                  label: Text(
+                    _selectedDate == null
+                        ? 'Tất cả ngày'
+                        : 'Đối soát: ${DateFormat('dd/MM/yyyy').format(_selectedDate!)}',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF475467),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 14,
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.calendar_month_outlined,
-                          size: 19,
-                          color: Color(0xFF475467),
-                        ),
-                        const SizedBox(width: 6),
-                        Text.rich(
-                          TextSpan(
-                            text: 'Đối soát: ',
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              color: Color(0xFF475467),
-                            ),
-                            children: [
-                              TextSpan(
-                                text: _selectedDate == null
-                                    ? 'Tất cả ngày'
-                                    : DateFormat(
-                                        'dd/MM/yyyy',
-                                      ).format(effectiveSelectedDate),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF101828),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
+                    side: const BorderSide(color: Color(0xFFD0D5DD)),
                   ),
                 ),
               ],
@@ -867,7 +1057,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
           // ── Khối 3: Tab Lọc Trạng Thái (Bao gồm Đơn Hủy) ──
           Container(
             color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
+            padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
             child: Row(
               children: [
                 _buildStatusPill(
@@ -876,21 +1066,21 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                   value: 'pending',
                   dotColor: const Color(0xFFF79009),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 6),
                 _buildStatusPill(
                   label: 'Đã cọc',
                   count: cDeposit,
                   value: 'deposit_paid',
                   dotColor: const Color(0xFF398FC0),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 6),
                 _buildStatusPill(
                   label: 'Đã trả hết',
                   count: cCompleted,
                   value: 'completed',
                   dotColor: const Color(0xFF12B76A),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 6),
                 _buildStatusPill(
                   label: 'Đơn hủy',
                   count: cCancelled,
@@ -917,9 +1107,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                 Text(
                   _filter == 'cancelled'
                       ? 'MÃ GD / NGÀY HỦY'
-                      : (_filter == 'pending'
-                            ? 'MÃ GD / HẠN KHÁCH THUÊ CHUYỂN'
-                            : 'MÃ GD / PHÂN LOẠI CỌC'),
+                      : (_filter == 'pending' ? 'MÃ GD' : 'MÃ GD / NGÀY VÀO Ở'),
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
@@ -962,15 +1150,13 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                   autoCheckInAmount += _parseToDouble(item['deposit']);
                 }
 
-                // Tính toán cho tab Đơn Hủy
-                double totalCancelDeposit = 0.0;
-                if (_filter == 'cancelled') {
-                  for (final item in filteredList) {
-                    totalCancelDeposit += _parseToDouble(item['deposit']);
-                  }
-                }
-                final int totalRefund = (totalCancelDeposit * 0.85).round();
-                final int totalHostComp = (totalCancelDeposit * 0.10).round();
+                final fullCancelledCount = filteredList
+                    .where(
+                      (item) =>
+                          item['status'] == 'cancelled' &&
+                          item['isFullPayment'] == true,
+                    )
+                    .length;
 
                 if (_isLoading && _allOrders.isEmpty) {
                   return const Center(
@@ -1110,11 +1296,12 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                           if (_filter == 'cancelled') {
                             return _buildCancelledOrderCard(
                               orderCode: item['orderCode'],
+                              deadline: (item['deadline'] ?? '').toString(),
                               renterName: item['renterName'],
                               roomTitle: item['roomTitle'],
                               hostName: item['hostName'],
                               deposit: _parseToDouble(item['deposit']),
-                              deadline: item['deadline'],
+                              isFullPayment: item['isFullPayment'] == true,
                             );
                           } else if (_filter == 'pending') {
                             return _buildPendingOrderCard(
@@ -1124,7 +1311,6 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               roomTitle: item['roomTitle'],
                               deposit: _parseToDouble(item['deposit']),
                               subTag: item['subTag'],
-                              deadline: item['deadline'],
                               note: item['note'],
                               isFullPayment: item['isFullPayment'] == true,
                               onActionPressed: () => _confirmOrder(item),
@@ -1134,13 +1320,13 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               id: id,
                               orderCode: item['orderCode'],
                               subTag: item['subTag'],
+                              deadline: (item['deadline'] ?? '').toString(),
                               renterName: item['renterName'],
                               roomTitle: item['roomTitle'],
                               hostName: item['hostName'],
                               deposit: _parseToDouble(item['deposit']),
                               status: item['status'],
                               note: item['note'],
-                              deadline: item['deadline'],
                               isFullPayment: item['isFullPayment'] == true,
                               isLocked: item['isLocked'] == true,
                               isCheckIn: item['isCheckIn'] == true,
@@ -1192,19 +1378,24 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                           ),
                                         ),
                                         const SizedBox(width: 6),
-                                        Text(
-                                          'Đã tự lọc: ${filteredList.length} đơn hủy',
-                                          style: const TextStyle(
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFFB42318),
+                                        Expanded(
+                                          child: Text(
+                                            'Đã tự lọc: ${filteredList.length} đơn hủy',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFFB42318),
+                                            ),
                                           ),
                                         ),
                                       ],
                                     ),
                                     const SizedBox(height: 3),
                                     Text(
-                                      'Hoàn khách 85%: ${currencyFormatter.format(totalRefund)}đ • Bồi thường chủ: ${currencyFormatter.format(totalHostComp)}đ',
+                                      '$fullCancelledCount đơn trả hết • ${filteredList.length - fullCancelledCount} đơn chỉ cọc',
+                                      maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         fontSize: 11.5,
@@ -1218,10 +1409,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               const SizedBox(width: 10),
                               ElevatedButton.icon(
                                 onPressed: () {
-                                  final ids = filteredList
-                                      .map((e) => e['id'] as String)
-                                      .toList();
-                                  _navigateToCancellationInvoice(ids);
+                                  _navigateToCancellationInvoice(filteredList);
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFFD92D20),
@@ -1240,7 +1428,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                   size: 18,
                                 ),
                                 label: Text(
-                                  'HÓA ĐƠN HỦY (${filteredList.length})',
+                                  'TẠO HÓA ĐƠN HỦY',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w900,
                                     fontSize: 12.5,
@@ -1291,45 +1479,54 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                           ),
                                         ),
                                         const SizedBox(width: 6),
-                                        Text(
-                                          'Đã tự lọc: ${checkInOrders.length} đơn đã check-in',
-                                          style: TextStyle(
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: checkInOrders.isNotEmpty
-                                                ? const Color(0xFF027A48)
-                                                : const Color(0xFFB54708),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Row(
-                                      children: [
-                                        const Text(
-                                          'Tổng giải ngân: ',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xFF475467),
-                                          ),
-                                        ),
                                         Expanded(
-                                          child: Text(
-                                            '${currencyFormatter.format(autoCheckInAmount)} đ',
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w900,
-                                              color: Color(0xFF398FC0),
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: Text(
+                                              'Đã tự lọc: ${checkInOrders.length} đơn đã check-in',
+                                              maxLines: 1,
+                                              style: TextStyle(
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.w700,
+                                                color: checkInOrders.isNotEmpty
+                                                    ? const Color(0xFF027A48)
+                                                    : const Color(0xFFB54708),
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ],
                                     ),
+                                    const SizedBox(height: 3),
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Text(
+                                            'Tổng giải ngân: ',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFF475467),
+                                            ),
+                                          ),
+                                          Text(
+                                            '${currencyFormatter.format(autoCheckInAmount)} đ',
+                                            style: const TextStyle(
+                                              fontSize: 15.5,
+                                              fontWeight: FontWeight.w900,
+                                              color: Color(0xFF398FC0),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 8),
                               ElevatedButton.icon(
                                 onPressed: () =>
                                     _navigateToSettlementInvoice(filteredList),
@@ -1338,8 +1535,8 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                   foregroundColor: Colors.white,
                                   elevation: 0,
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 18,
-                                    vertical: 13,
+                                    horizontal: 12,
+                                    vertical: 12,
                                   ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
@@ -1347,13 +1544,13 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                 ),
                                 icon: const Icon(
                                   Icons.receipt_long_rounded,
-                                  size: 18,
+                                  size: 16,
                                 ),
                                 label: Text(
                                   'TẠO HÓA ĐƠN (${checkInOrders.length})',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w900,
-                                    fontSize: 13,
+                                    fontSize: 12,
                                   ),
                                 ),
                               ),
@@ -1384,81 +1581,76 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
         onTap: () => setState(() => _filter = value),
         borderRadius: BorderRadius.circular(22),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
           decoration: BoxDecoration(
             color: isSelected
                 ? const Color(0xFF398FC0)
                 : const Color(0xFFEAF4FA),
             borderRadius: BorderRadius.circular(22),
           ),
-          child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (isSelected && dotColor != Colors.transparent) ...[
-                      Container(
-                        width: 5.5,
-                        height: 5.5,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFDB022),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 3),
-                    ] else if (dotColor == const Color(0xFFD92D20)) ...[
-                      Container(
-                        width: 5.5,
-                        height: 5.5,
-                        decoration: BoxDecoration(
-                          color: isSelected ? Colors.white : dotColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 3),
-                    ],
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: isSelected ? Colors.white : const Color(0xFF344054),
-                      ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isSelected && dotColor != Colors.transparent) ...[
+                  Container(
+                    width: 6.5,
+                    height: 6.5,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFDB022),
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(width: 3.5),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4.5,
-                        vertical: 1.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? const Color(0xFFF79009)
-                            : (dotColor == const Color(0xFFD92D20)
-                                  ? const Color(0xFFFEE4E2)
-                                  : const Color(0xFFE4E7EC)),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '$count',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: isSelected
-                              ? Colors.white
-                              : (dotColor == const Color(0xFFD92D20)
-                                    ? const Color(0xFFB42318)
-                                    : const Color(0xFF344054)),
-                        ),
-                      ),
+                  ),
+                  const SizedBox(width: 3),
+                ] else if (dotColor == const Color(0xFFD92D20)) ...[
+                  Container(
+                    width: 6.5,
+                    height: 6.5,
+                    decoration: BoxDecoration(
+                      color: isSelected ? Colors.white : dotColor,
+                      shape: BoxShape.circle,
                     ),
-                  ],
+                  ),
+                  const SizedBox(width: 3),
+                ],
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? Colors.white : const Color(0xFF344054),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 1.5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFFF79009)
+                        : (dotColor == const Color(0xFFD92D20)
+                              ? const Color(0xFFFEE4E2)
+                              : const Color(0xFFE4E7EC)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected
+                          ? Colors.white
+                          : (dotColor == const Color(0xFFD92D20)
+                                ? const Color(0xFFB42318)
+                                : const Color(0xFF344054)),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -1469,16 +1661,13 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
   /// Card Đơn Hàng Bị Hủy
   Widget _buildCancelledOrderCard({
     required String orderCode,
+    required String deadline,
     required String renterName,
     required String roomTitle,
     required String hostName,
     required double deposit,
-    required String deadline,
+    required bool isFullPayment,
   }) {
-    final split = BookingUtils.cancellationSplit(deposit);
-    final renterRefund = split['refundAmount'] ?? (deposit * 0.85).round();
-    final hostCompensation = split['hostAmount'] ?? (deposit * 0.10).round();
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1500,50 +1689,60 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // CỘT 1: Mã GD (tiết đầu tố) & Ngày hủy
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3F2),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFFECDCA)),
-                      ),
-                      child: Text(
-                        orderCode,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFFD92D20),
+                // CỘT 1: Mã GD (tiết đầu tố) & Thời gian hủy
+                SizedBox(
+                  width: 88,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.cancel_outlined,
-                          size: 13,
-                          color: Color(0xFFD92D20),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3F2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFECDCA)),
                         ),
-                        const SizedBox(width: 3),
-                        Text(
-                          deadline,
+                        child: Text(
+                          orderCode,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
                             color: Color(0xFFD92D20),
                           ),
                         ),
+                      ),
+                      if (deadline.isNotEmpty && deadline != '—') ...[
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.event_busy_rounded,
+                              size: 11,
+                              color: Color(0xFFD92D20),
+                            ),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                deadline,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFB42318),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(width: 10),
 
@@ -1679,7 +1878,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Hoàn khách 85% (${currencyFormatter.format(renterRefund)}đ) • Bồi thường chủ 10% (${currencyFormatter.format(hostCompensation)}đ)',
+                    isFullPayment
+                        ? 'Hoàn khách 50% cọc • Chủ trọ nhận 50% còn lại sau hoa hồng'
+                        : 'Khách mất cọc • Chủ trọ nhận cọc sau hoa hồng sàn',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1705,7 +1906,6 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
     required String roomTitle,
     required double deposit,
     required String subTag,
-    required String deadline,
     required String note,
     required bool isFullPayment,
     required VoidCallback onActionPressed,
@@ -1731,50 +1931,27 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // CỘT 1: Mã GD (tiết đầu tố) & Hạn
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE9F5FC),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFB2DDFF)),
-                      ),
-                      child: Text(
-                        orderCode,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF398FC0),
-                        ),
-                      ),
+                // CỘT 1: Mã GD (tiết đầu tố)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE9F5FC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFB2DDFF)),
+                  ),
+                  child: Text(
+                    orderCode,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF398FC0),
                     ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.access_time_rounded,
-                          size: 13,
-                          color: Color(0xFFF79009),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          deadline,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFB54708),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(width: 10),
 
@@ -1946,13 +2123,13 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
     required String id,
     required String orderCode,
     required String subTag,
+    required String deadline,
     required String renterName,
     required String roomTitle,
     required String hostName,
     required double deposit,
     required String status,
     required String note,
-    required String deadline,
     required bool isFullPayment,
     required bool isLocked,
     required bool isCheckIn,
@@ -1983,64 +2160,62 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // CỘT 1: Mã GD (tiết đầu tố) & Thông tin hẹn vào
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isFullPayment
-                            ? const Color(0xFFECFDF3)
-                            : const Color(0xFFE9F5FC),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isFullPayment
-                              ? const Color(0xFFA6F4C5)
-                              : const Color(0xFFB2DDFF),
+                // CỘT 1: Mã GD (tiết đầu tố) & Ngày hẹn vào ở
+                SizedBox(
+                  width: 92,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
                         ),
-                      ),
-                      child: Text(
-                        orderCode,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: isFullPayment
-                              ? const Color(0xFF027A48)
-                              : const Color(0xFF398FC0),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isCheckIn
-                              ? Icons.check_circle_outline_rounded
-                              : Icons.calendar_today_rounded,
-                          size: 13,
-                          color: isCheckIn
-                              ? const Color(0xFF12B76A)
-                              : const Color(0xFF667085),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          deadline,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: isCheckIn
-                                ? const Color(0xFF027A48)
-                                : const Color(0xFF475467),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE9F5FC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFFB2DDFF),
                           ),
                         ),
+                        child: Text(
+                          orderCode,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF398FC0),
+                          ),
+                        ),
+                      ),
+                      if (deadline.isNotEmpty && deadline != '—') ...[
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_today_rounded,
+                              size: 11,
+                              color: const Color(0xFF175CD3),
+                            ),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                deadline,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF175CD3),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(width: 10),
 
@@ -2111,9 +2286,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                           vertical: 3.5,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF9F5FF),
+                        color: const Color(0xFFE9F5FC),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFD6BBFB)),
+                        border: Border.all(color: const Color(0xFFB2DDFF)),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
@@ -2121,7 +2296,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                             Icon(
                               Icons.check_circle_rounded,
                               size: 7,
-                              color: Color(0xFF6941C6),
+                              color: Color(0xFF398FC0),
                             ),
                             SizedBox(width: 4),
                             Text(
@@ -2129,7 +2304,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFF6941C6),
+                                color: Color(0xFF398FC0),
                               ),
                             ),
                           ],
@@ -2173,9 +2348,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                           vertical: 3.5,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFEF0C7),
+                        color: const Color(0xFFE9F5FC),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFFEDF89)),
+                        border: Border.all(color: const Color(0xFFB2DDFF)),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
@@ -2183,7 +2358,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                             Icon(
                               Icons.circle,
                               size: 6,
-                              color: Color(0xFFF79009),
+                              color: Color(0xFF398FC0),
                             ),
                             SizedBox(width: 4),
                             Text(
@@ -2191,7 +2366,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFFB54708),
+                                color: Color(0xFF398FC0),
                               ),
                             ),
                           ],
@@ -2217,17 +2392,13 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: isCheckIn
-                  ? const Color(0xFFF4F9FF)
-                  : const Color(0xFFFEFBF0),
+              color: const Color(0xFFF4F9FF),
               borderRadius: const BorderRadius.vertical(
                 bottom: Radius.circular(13),
               ),
               border: Border(
                 top: BorderSide(
-                  color: isCheckIn
-                      ? const Color(0xFFDCEAF5)
-                      : const Color(0xFFFEF0C7),
+                  color: const Color(0xFFDCEAF5),
                 ),
               ),
             ),
@@ -2239,9 +2410,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     vertical: 2.5,
                   ),
                   decoration: BoxDecoration(
-                    color: isFullPayment
-                        ? const Color(0xFFECFDF3)
-                        : const Color(0xFFE9F5FC),
+                    color: const Color(0xFFE9F5FC),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -2249,9 +2418,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
-                      color: isFullPayment
-                          ? const Color(0xFF027A48)
-                          : const Color(0xFF175CD3),
+                      color: const Color(0xFF175CD3),
                     ),
                   ),
                 ),
@@ -2268,11 +2435,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
-                      color: isDisbursed
-                          ? const Color(0xFF6941C6)
-                          : (isCheckIn
-                                ? const Color(0xFF027A48)
-                                : const Color(0xFFB54708)),
+                      color: isCheckIn
+                          ? const Color(0xFF027A48)
+                          : const Color(0xFF398FC0),
                     ),
                   ),
                 ),
@@ -2293,10 +2458,17 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
     final actionText = isFull ? 'thanh toán đủ' : 'tiền cọc';
 
     try {
+      final createdAt = item['sortDate'] as DateTime?;
+      final rateAtBooking = await CommissionRateService.rateAt(
+        createdAt != null && createdAt.millisecondsSinceEpoch > 0
+            ? createdAt
+            : null,
+      );
       await FirebaseFirestore.instance.collection('bookings').doc(id).set({
         'status': targetStatus,
         'subTag': targetSubTag,
         'isPaid': true,
+        'commissionRateAtBooking': rateAtBooking * 100,
         'approvedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -2320,7 +2492,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
 
       await FirebaseFirestore.instance.collection('audit_logs').add({
         'action': 'Duyệt $actionText',
-        'actor': 'Admin',
+        ...await AdminAuditIdentity.currentActorFields(),
         'category': 'taiChinh',
         'details':
             'Admin đã xác nhận $actionText cho đơn ${item['orderCode']} của khách ${item['renterName']}. Chuyển vào mục "$targetTabName".',
@@ -2343,7 +2515,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: const Color(0xFFD92D20),
-            content: const Text('Không thể cập nhật đơn. Vui lòng thử lại.'),
+            content: Text('Lỗi cập nhật: $e'),
           ),
         );
       }

@@ -9,23 +9,12 @@ class RevenueBarChart extends StatelessWidget {
   const RevenueBarChart({
     super.key,
     this.monthlyData = const [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      null, null, null, null, null, null, null, null, null, null, null, null
     ],
   });
 
   /// 1.234.567 (đ)
-  static String _formatVnd(double vnd) {
+  String _formatVnd(double vnd) {
     final s = vnd.round().toString();
     final buf = StringBuffer();
     for (int i = 0; i < s.length; i++) {
@@ -52,7 +41,7 @@ class RevenueBarChart extends StatelessWidget {
         peakIndex = i;
       }
     }
-    final double peakVnd = maxVal * 1000000;
+final double peakVnd = maxVal * 1000000;
     final bool hasData = maxVal > 0;
     final double avgVnd = (total / currentMonth) * 1000000;
 
@@ -62,9 +51,8 @@ class RevenueBarChart extends StatelessWidget {
     final String avgText = '${_formatVnd(avgVnd)} đ';
 
     // Căn tooltip theo vị trí cột đỉnh
-    final double tooltipAlignX = hasData
-        ? (-1 + 2 * peakIndex / (monthlyData.length - 1))
-        : 1;
+    final double tooltipAlignX =
+        hasData ? (-1 + 2 * peakIndex / (monthlyData.length - 1)) : 1;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -76,18 +64,14 @@ class RevenueBarChart extends StatelessWidget {
               ? Align(
                   alignment: Alignment(tooltipAlignX.clamp(-0.7, 1.0), 0),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFF398FC0),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(
-                            0xFF398FC0,
-                          ).withValues(alpha: 0.25),
+                          color: const Color(0xFF398FC0).withValues(alpha: 0.25),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -139,8 +123,8 @@ class RevenueBarChart extends StatelessWidget {
                     color: isPeak
                         ? const Color(0xFF398FC0)
                         : (isFuture
-                              ? const Color(0xFF94A3B8)
-                              : const Color(0xFF64748B)),
+                            ? const Color(0xFF94A3B8)
+                            : const Color(0xFF64748B)),
                   ),
                 ),
               );
@@ -279,7 +263,7 @@ class _BarChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _BarChartPainter oldDelegate) {
+  bool shouldRepaint(_BarChartPainter oldDelegate) {
     return oldDelegate.data != data ||
         oldDelegate.peakIndex != peakIndex ||
         oldDelegate.currentMonth != currentMonth;

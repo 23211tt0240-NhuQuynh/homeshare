@@ -388,9 +388,7 @@ class SettlementReceiptScreen extends StatelessWidget {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(
-                                  'Không thể xuất PDF. Vui lòng thử lại.',
-                                ),
+                                content: Text('Không thể xuất PDF: $error'),
                               ),
                             );
                           }
