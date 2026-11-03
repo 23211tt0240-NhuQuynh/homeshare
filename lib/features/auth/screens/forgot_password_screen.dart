@@ -81,7 +81,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 Text(
                   _sent
                       ? 'Firebase đã gửi link đổi mật khẩu tới $email. Mở thư, bấm link, đặt mật khẩu mới. Sau đó quay lại app và đăng nhập bằng mật khẩu vừa đổi.'
-                      : 'Firebase sẽ gửi một link đổi mật khẩu vào Gmail này. Mật khẩu mới có hiệu lực ngay khi bạn đăng nhập lại.',
+                      : 'Firebase sẽ gửi một link đổi mật khẩu vào email này. Mật khẩu mới có hiệu lực ngay khi bạn đăng nhập lại.',
                   style: PhongSangText.body.copyWith(fontSize: 16),
                 ),
                 const SizedBox(height: 22),
@@ -93,7 +93,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                         AuthTextField(
                           controller: _emailController,
                           label: 'Email',
-                          hint: 'vidu@gmail.com',
+                          hint: 'an.nguyen@email.com',
                           icon: Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
                           validator: (val) {

@@ -606,7 +606,9 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
 
     // Lọc danh sách phòng theo nhaTroId đã chọn
     final propertyRooms = _property != null
-        ? allRooms.where((r) => r.propertyId == _property!.id).toList()
+        ? allRooms
+              .where((r) => r.propertyId == _property!.id && r.canBeListed)
+              .toList()
         : <RoomModel>[];
 
     return PopScope(
@@ -867,7 +869,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       roomHint = 'Lỗi Firestore';
       roomEnabled = false;
     } else if (propertyRooms.isEmpty) {
-      roomHint = 'Nhà chưa có phòng';
+      roomHint = 'Không có phòng trống để đăng bài';
       roomEnabled = false;
     } else if (_selectedRoom == null) {
       roomHint = 'Chưa chọn phòng';

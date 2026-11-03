@@ -1,3 +1,6 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/theme/app_theme_controller.dart';
+import '../theme/admin_colors.dart';
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -327,6 +330,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               : 'Dữ liệu tổng quan toàn hệ thống',
         ),
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final mode =
+                    ref.watch(appThemeControllerProvider).value?.mode ??
+                    ThemeMode.light;
+                final isDarkMode = mode == ThemeMode.dark;
+                return InkWell(
+                  onTap: () {
+                    ref.read(appThemeControllerProvider.notifier).setMode(
+                      isDarkMode ? ThemeMode.light : ThemeMode.dark,
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AdminColors.accentSoft,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isDarkMode
+                          ? Icons.wb_sunny_outlined
+                          : Icons.nightlight_round_outlined,
+                      color: AdminColors.mutedStrong,
+                      size: 21,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: StreamBuilder<QuerySnapshot>(

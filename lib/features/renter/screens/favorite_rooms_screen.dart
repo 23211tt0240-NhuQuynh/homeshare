@@ -1,3 +1,4 @@
+import '../../profile/widgets/host_reputation_stars.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -297,19 +298,14 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                               color: AppColors.primary,
                             ),
                           ),
-                          Row(
-                            children: [
-                              const Icon(Icons.star_rounded, size: 15, color: Color(0xFFF59E0B)),
-                              const SizedBox(width: 2),
-                              Text(
-                                '${room.rating}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF334155),
-                                ),
-                              ),
-                            ],
+                          HostReputationStarLabel(
+                            hostId: room.hostId,
+                            iconSize: 15,
+                            textStyle: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF334155),
+                            ),
                           ),
                         ],
                       ),

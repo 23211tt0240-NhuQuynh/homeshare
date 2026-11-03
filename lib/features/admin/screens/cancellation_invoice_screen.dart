@@ -864,9 +864,11 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
             ),
             icon: const Icon(Icons.send_rounded, size: 18),
             label: Text(
-              _isProcessing
-                  ? 'ĐANG XỬ LÝ...'
-                  : 'XÁC NHẬN & GỬI HÓA ĐƠN CHO CHỦ TRỌ',
+              _bookingDataList.any((b) => b['cancellationHostPaid'] == true)
+                  ? 'ĐÃ GHI NHẬN CHUYỂN'
+                  : (_isProcessing
+                        ? 'ĐANG XỬ LÝ...'
+                        : 'XÁC NHẬN & GỬI HÓA ĐƠN CHO CHỦ TRỌ'),
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
             ),
           ),
@@ -1109,7 +1111,11 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
 
           // Nút xác nhận & gửi hóa đơn cho người thuê
           ElevatedButton.icon(
-            onPressed: _isProcessing
+            onPressed:
+                _isProcessing ||
+                    _bookingDataList.any(
+                      (b) => b['cancellationRenterRefunded'] == true,
+                    )
                 ? null
                 : () => _sendNotificationAndRecord(
                     targetRole: 'renter',
@@ -1137,9 +1143,13 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
             ),
             icon: const Icon(Icons.send_rounded, size: 18),
             label: Text(
-              _isProcessing
-                  ? 'ĐANG XỬ LÝ...'
-                  : 'XÁC NHẬN & GỬI HÓA ĐƠN CHO NGƯỜI THUÊ',
+              _bookingDataList.any(
+                    (b) => b['cancellationRenterRefunded'] == true,
+                  )
+                  ? 'ĐÃ GHI NHẬN HOÀN TIỀN'
+                  : (_isProcessing
+                        ? 'ĐANG XỬ LÝ...'
+                        : 'XÁC NHẬN & GỬI HÓA ĐƠN CHO NGƯỜI THUÊ'),
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
             ),
           ),
@@ -1156,22 +1166,31 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
     Color? color,
   }) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            color: color ?? const Color(0xFF475467),
-            fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              color: color ?? const Color(0xFF475467),
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+            ),
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 13.5,
-            color: color ?? const Color(0xFF101828),
-            fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13.5,
+              color: color ?? const Color(0xFF101828),
+              fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+            ),
           ),
         ),
       ],

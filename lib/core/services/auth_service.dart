@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../features/auth/providers/user_provider.dart';
+import 'push_notification_service.dart';
 
 class AuthService {
   static const lockedAccountMessage =
@@ -116,6 +117,9 @@ class AuthService {
   Future<void> signOut() async {
     final uid = _auth.currentUser?.uid;
     if (uid != null) {
+      try {
+        await PushNotificationService.unbindUser(uid);
+      } catch (_) {}
       await _firestore.collection('users').doc(uid).set({
         'fcmToken': FieldValue.delete(),
       }, SetOptions(merge: true));

@@ -1,3 +1,4 @@
+import '../../profile/widgets/host_reputation_stars.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -143,14 +144,6 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                 ),
               );
             },
-          ),
-          IconButton(
-            icon: const Badge(
-              smallSize: 8,
-              backgroundColor: AppColors.danger,
-              child: Icon(Icons.notifications_none_outlined),
-            ),
-            onPressed: () {},
           ),
         ],
       ),
@@ -531,22 +524,10 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
+                          color: AppColors.textDark,
                         ),
                       ),
-                      Row(
-                        children: [
-                          const Icon(Icons.star, size: 14, color: Colors.amber),
-                          const SizedBox(width: 2),
-                          Text(
-                            '${room.rating}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
+                      HostReputationStarLabel(hostId: room.hostId),
                     ],
                   ),
                   const SizedBox(height: 6),

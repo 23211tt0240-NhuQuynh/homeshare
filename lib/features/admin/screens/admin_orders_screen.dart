@@ -1,3 +1,4 @@
+import '../../../core/services/booking_service.dart';
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,8 @@ import '../utils/booking_utils.dart';
 import '../widgets/admin_branded_title.dart';
 import 'cancellation_invoice_screen.dart';
 import 'settlement_invoice_screen.dart';
+import '../../../core/utils/id_generator.dart';
+import '../../host/notifications/notification_types.dart';
 
 class AdminOrdersScreen extends ConsumerStatefulWidget {
   const AdminOrdersScreen({super.key});
@@ -421,6 +424,13 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
         'transferNote': (data['transferNote'] ?? '').toString(),
         'userCode': (data['userCode'] ?? '').toString(),
         'renterId': data['renterId'] ?? '',
+        'hostId': (data['hostId'] ?? data['chuNhaId'] ?? '').toString(),
+        'roomId': (data['roomId'] ?? data['phongId'] ?? '').toString(),
+        'roomCode': (data['roomCode'] ?? data['maPhong'] ?? '').toString(),
+        'roomFloorInfo': (data['roomFloorInfo'] ?? data['thongTinTang'] ?? '')
+            .toString(),
+        'checkInDate':
+            data['checkInDate'] ?? data['ngayNhanPhong'] ?? data['checkIn'],
         'subTag':
             data['subTag']?.toString() ??
             (targetTab == 'cancelled'
@@ -1426,7 +1436,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: isSelected ? Colors.white : const Color(0xFF344054),
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFF344054),
                       ),
                     ),
                     const SizedBox(width: 3.5),
@@ -2293,15 +2305,53 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
     final actionText = isFull ? 'thanh toán đủ' : 'tiền cọc';
 
     try {
-      await FirebaseFirestore.instance.collection('bookings').doc(id).set({
+      await BookingService().confirmPayment(id, {
         'status': targetStatus,
         'subTag': targetSubTag,
         'isPaid': true,
         'approvedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      });
 
+      // Lấy thông tin booking bổ sung nếu item thiếu hostId
+      String hostId = (item['hostId'] ?? '').toString();
+      String roomId = (item['roomId'] ?? '').toString();
+      String roomCode = (item['roomCode'] ?? '').toString();
+      String roomTitle = (item['roomTitle'] ?? 'Phòng trọ').toString();
+      String roomFloorInfo = (item['roomFloorInfo'] ?? '').toString();
+      dynamic checkInDate = item['checkInDate'];
       final renterId = (item['renterId'] ?? '').toString();
+
+      if (hostId.isEmpty || roomId.isEmpty) {
+        final bDoc = await FirebaseFirestore.instance
+            .collection('bookings')
+            .doc(id)
+            .get();
+        final bData = bDoc.data() ?? {};
+        if (hostId.isEmpty) {
+          hostId = (bData['hostId'] ?? bData['chuNhaId'] ?? '').toString();
+        }
+        if (roomId.isEmpty) {
+          roomId = (bData['roomId'] ?? bData['phongId'] ?? '').toString();
+        }
+        if (roomCode.isEmpty) {
+          roomCode = (bData['roomCode'] ?? bData['maPhong'] ?? '').toString();
+        }
+        if (roomTitle == 'Phòng trọ') {
+          roomTitle =
+              (bData['roomTitle'] ?? bData['tieuDePhong'] ?? 'Phòng trọ')
+                  .toString();
+        }
+        if (roomFloorInfo.isEmpty) {
+          roomFloorInfo =
+              (bData['roomFloorInfo'] ?? bData['thongTinTang'] ?? '')
+                  .toString();
+        }
+        checkInDate ??=
+            bData['checkInDate'] ?? bData['ngayNhanPhong'] ?? bData['checkIn'];
+      }
+
+      // 1. Gửi thông báo đến người thuê
       if (renterId.isNotEmpty && renterId != 'guest') {
         await FirebaseFirestore.instance.collection('notifications').add({
           'recipientId': renterId,
@@ -2310,12 +2360,87 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
               ? 'Thanh toán thành công'
               : 'Duyệt tiền cọc thành công',
           'body':
-              'Admin đã xác nhận $actionText cho phòng "${item['roomTitle']}". Bạn có thể chuẩn bị dọn vào ở!',
+              'Admin đã xác nhận $actionText cho phòng "$roomTitle". Bạn có thể chuẩn bị dọn vào ở!',
+          'message':
+              'Admin đã xác nhận $actionText cho phòng "$roomTitle". Bạn có thể chuẩn bị dọn vào ở!',
           'notificationType': 'booking',
           'bookingId': id,
           'isRead': false,
           'createdAt': FieldValue.serverTimestamp(),
         });
+      }
+
+      // 2. Cập nhật và đồng bộ thông báo cho Chủ trọ (Role Host)
+      final targetType = isFull
+          ? HostNotificationType.paymentCompleted
+          : HostNotificationType.deposit;
+      final targetStatusId = isFull ? 'completed' : 'deposited';
+      final hostTitle = isFull
+          ? 'Khách đã thanh toán đủ toàn bộ'
+          : 'Đã duyệt tiền cọc thành công';
+      final hostMessage = isFull
+          ? 'Admin đã xác nhận khách ${item['renterName']} thanh toán đủ cho phòng "$roomTitle". Sẵn sàng tiếp nhận check-in.'
+          : 'Admin đã duyệt tiền cọc cho khách ${item['renterName']} tại phòng "$roomTitle". Khách sẵn sàng nhận phòng.';
+
+      final hostNotifQuery = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('bookingId', isEqualTo: id)
+          .get();
+
+      bool hostNotifFound = false;
+      for (final doc in hostNotifQuery.docs) {
+        final dData = doc.data();
+        final rRole = (dData['recipientRole'] ?? '').toString().toLowerCase();
+        final recId = (dData['receiverId'] ?? '').toString();
+        if (rRole == 'host' ||
+            (hostId.isNotEmpty && recId == hostId) ||
+            dData.containsKey('roomFloorInfo')) {
+          await doc.reference.set({
+            'notificationType': targetType.code,
+            'type': targetType.code,
+            'statusId': targetStatusId,
+            'status': targetStatus,
+            'title': hostTitle,
+            'message': hostMessage,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+          hostNotifFound = true;
+        }
+      }
+
+      // Nếu chưa có thông báo nào cho host về booking này, tạo mới
+      if (!hostNotifFound && hostId.isNotEmpty && hostId != 'guest') {
+        final hostNotifId = IdGenerator.notification();
+        await FirebaseFirestore.instance
+            .collection('notifications')
+            .doc(hostNotifId)
+            .set({
+              'id': hostNotifId,
+              'notificationId': hostNotifId,
+              'receiverId': hostId,
+              'senderId': renterId,
+              'recipientRole': 'host',
+              'notificationType': targetType.code,
+              'type': targetType.code,
+              'title': hostTitle,
+              'message': hostMessage,
+              'bookingId': id,
+              'bookingCode': item['rawOrderCode'] ?? id,
+              'roomId': roomId,
+              'roomCode': roomCode,
+              'roomTitle': roomTitle,
+              'roomFloorInfo': roomFloorInfo,
+              'amount': item['deposit'] ?? 0.0,
+              'statusId': targetStatusId,
+              'status': targetStatus,
+              'isRead': false,
+              'createdAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+              'renterName': item['renterName'] ?? '',
+              'renterAvatarUrl': '',
+              'checkInDate': ?checkInDate,
+              'paymentMethod': 'Chuyển khoản QR',
+            });
       }
 
       await FirebaseFirestore.instance.collection('audit_logs').add({

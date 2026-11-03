@@ -163,26 +163,31 @@ class ProfileHeaderCard extends StatelessWidget {
                             spacing: 6,
                             runSpacing: 3,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                  vertical: 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceVariant,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: AppColors.border),
-                                ),
-                                child: Text(
-                                  'ID: $userCodeText',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textDark,
-                                    letterSpacing: 0.3,
+                              if (profile?.isHost == true ||
+                                  profile?.role == 'host' ||
+                                  profile?.role == 'landlord' ||
+                                  profile?.role == 'chutro' ||
+                                  profile?.role == 'admin')
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceVariant,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: AppColors.border),
+                                  ),
+                                  child: Text(
+                                    'ID: $userCodeText',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textDark,
+                                      letterSpacing: 0.3,
+                                    ),
                                   ),
                                 ),
-                              ),
                               ConstrainedBox(
                                 constraints: BoxConstraints(
                                   maxWidth: maxContentWidth,

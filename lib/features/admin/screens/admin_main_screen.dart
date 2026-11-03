@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/user_provider.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_posts_screen.dart';
+import 'admin_users_screen.dart';
 import 'admin_orders_screen.dart';
 import 'admin_history_screen.dart';
 
@@ -146,10 +147,11 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
       AdminDashboardScreen(
         onNavigateToOrders: () => _onSelectTab(2),
         onNavigateToPosts: () => _onSelectTab(1),
-        onNavigateToHistory: () => _onSelectTab(3),
+        onNavigateToHistory: () => _onSelectTab(4),
       ),
       const AdminPostsScreen(),
       const AdminOrdersScreen(),
+      const AdminUsersScreen(),
       const AdminHistoryScreen(),
     ];
 
@@ -245,6 +247,11 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                         label: Text('Quản lý đơn'),
                       ),
                       NavigationRailDestination(
+                        icon: Icon(Icons.people_alt_rounded),
+                        selectedIcon: Icon(Icons.people_alt_rounded),
+                        label: Text('Người dùng'),
+                      ),
+                      NavigationRailDestination(
                         icon: Icon(Icons.history_rounded),
                         selectedIcon: Icon(Icons.history_rounded),
                         label: Text('Lịch sử'),
@@ -332,8 +339,30 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                             );
                           },
                         ),
+                        // Badge số báo cáo user đang chờ xử lý
+                        StreamBuilder<QuerySnapshot>(
+                          stream: () {
+                            try {
+                              return FirebaseFirestore.instance
+                                  .collection('reports')
+                                  .where('status', isEqualTo: 'pending')
+                                  .snapshots();
+                            } catch (_) {
+                              return const Stream<QuerySnapshot>.empty();
+                            }
+                          }(),
+                          builder: (context, snapshot) {
+                            final count = snapshot.data?.docs.length ?? 0;
+                            return _buildNavItem(
+                              index: 3,
+                              icon: Icons.people_alt_rounded,
+                              label: 'Người dùng',
+                              badgeCount: count,
+                            );
+                          },
+                        ),
                         _buildNavItem(
-                          index: 3,
+                          index: 4,
                           icon: Icons.history_rounded,
                           label: 'Lịch sử',
                         ),

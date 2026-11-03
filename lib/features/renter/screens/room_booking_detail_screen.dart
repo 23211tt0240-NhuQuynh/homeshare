@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,7 +58,6 @@ class _RoomBookingDetailScreenState
   // Kế hoạch dọn vào & ở
   DateTime _moveInDate = DateTime.now().add(const Duration(days: 1));
   int _rentalMonths = 6;
-  int _occupantCount = 1;
   String _renterGender = 'nam'; // 'nam' | 'nu' | 'khac'
 
   // Phương thức thanh toán: 'deposit' (Cọc giữ phòng) hoặc 'full' (Toàn bộ)
@@ -135,14 +135,26 @@ class _RoomBookingDetailScreenState
     });
   }
 
-  /// Ngày rời đi dự kiến = Ngày dọn đến + Thời hạn thuê (tháng)
-  DateTime get _calculatedMoveOutDate {
-    return DateTime(
-      _moveInDate.year,
-      _moveInDate.month + _rentalMonths,
-      _moveInDate.day,
-    );
+  /// Cộng tháng an toàn, không bị tràn ngày khi rơi vào ngày cuối tháng (VD: 31/01 + 1 tháng -> 28/02)
+  DateTime _addMonthsSafe(DateTime date, int months) {
+    var newYear = date.year;
+    var newMonth = date.month + months;
+    while (newMonth > 12) {
+      newYear += 1;
+      newMonth -= 12;
+    }
+    while (newMonth < 1) {
+      newYear -= 1;
+      newMonth += 12;
+    }
+    // Ngày 0 của tháng kế tiếp = ngày cuối cùng của newMonth
+    final daysInTargetMonth = DateTime(newYear, newMonth + 1, 0).day;
+    final safeDay = date.day > daysInTargetMonth ? daysInTargetMonth : date.day;
+    return DateTime(newYear, newMonth, safeDay, date.hour, date.minute, date.second);
   }
+
+  /// Ngày rời đi dự kiến = Ngày dọn đến + Thời hạn thuê (tháng)
+  DateTime get _calculatedMoveOutDate => _addMonthsSafe(_moveInDate, _rentalMonths);
 
   /// Tiền cọc giữ phòng tạm tính
   double get _depositAmount =>
@@ -171,8 +183,28 @@ class _RoomBookingDetailScreenState
   }
 
   Future<void> _onSubmitBooking() async {
+    final user = ref.read(currentUserProvider);
+
+    // 1. Kiểm tra chủ nhà không thể tự đặt phòng của chính mình (Self-Booking Check)
+    if (user != null &&
+        widget.room.hostId.isNotEmpty &&
+        user.uid == widget.room.hostId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Đây là phòng do chính bạn quản lý, không thể tự đặt phòng của mình!',
+          ),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
     final name = _nameController.text.trim();
-    final phone = _phoneController.text.trim().replaceAll(RegExp(r'\s+'), '');
+    // Làm sạch số điện thoại: loại bỏ khoảng trắng, dấu chấm, gạch nối, dấu ngoặc
+    final cleanPhone = _phoneController.text
+        .trim()
+        .replaceAll(RegExp(r'[\s\.\-\(\)]+'), '');
 
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -188,8 +220,9 @@ class _RoomBookingDetailScreenState
       return;
     }
 
-    final phoneRegex = RegExp(r'^(0|\+84)[3|5|7|8|9][0-9]{8}$');
-    if (!phoneRegex.hasMatch(phone)) {
+    // Kiểm tra định dạng số điện thoại Việt Nam (10 số, bắt đầu bằng 03, 05, 07, 08, 09 hoặc +84)
+    final phoneRegex = RegExp(r'^(0|\+84)[35789][0-9]{8}$');
+    if (!phoneRegex.hasMatch(cleanPhone)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -204,13 +237,64 @@ class _RoomBookingDetailScreenState
     setState(() => _isSubmitting = true);
 
     try {
-      final user = ref.read(currentUserProvider);
+      // 2. Kiểm tra trạng thái phòng trước khi tạo đơn (Race Condition / Availability Check)
+      final hostRoomSnap = await FirebaseFirestore.instance
+          .collection('host_rooms')
+          .doc(widget.room.id)
+          .get();
+
+      if (hostRoomSnap.exists) {
+        final rData = hostRoomSnap.data() ?? {};
+        final rStatus = (rData['status'] ?? '').toString().toLowerCase();
+        final isAvail = rData['isAvailable'];
+        if (rStatus == 'occupied' ||
+            rStatus == 'dango' ||
+            rStatus == 'rented' ||
+            rStatus == 'full' ||
+            isAvail == false) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Phòng trọ này hiện đã có người thuê hoặc đang tạm ngưng nhận khách!',
+                ),
+                backgroundColor: AppColors.danger,
+              ),
+            );
+          }
+          return;
+        }
+      }
+
       final profile = ref.read(userProfileProvider).value;
       final renterCode =
           profile?.userCode ??
           (user != null
               ? UserProfile.generateUserCode(seed: user.uid, role: 'renter')
               : 'NT001');
+
+      // Tên và SĐT của tài khoản người đặt hộ (nếu chọn đặt hộ người thân)
+      final accountHolderName = profile?.displayName.isNotEmpty == true
+          ? profile!.displayName
+          : (profile?.cccdFullName.isNotEmpty == true
+              ? profile!.cccdFullName
+              : (user?.displayName ?? 'Chủ tài khoản'));
+      final accountPhone = profile?.phoneNumber.isNotEmpty == true
+          ? profile!.phoneNumber
+          : '';
+
+      // Parse tuổi người ở nếu có nhập
+      final ageText = _ageController.text.trim();
+      final parsedAge = int.tryParse(ageText);
+
+      // Ghi chú đơn: Thêm rõ thông tin người đặt hộ nếu đặt hộ người thân
+      final rawNote = _noteController.text.trim();
+      final fullNote = _isBookingForSelf
+          ? rawNote
+          : (rawNote.isEmpty
+              ? '[Đặt hộ người thân bởi: $accountHolderName - SĐT: $accountPhone]'
+              : '[Đặt hộ người thân bởi: $accountHolderName - SĐT: $accountPhone] - $rawNote');
+
       // Nội dung chuyển khoản chỉ cần lấy ID của phòng
       final roomId = widget.room.id;
       final transferContent = IdGenerator.transferContent(
@@ -223,8 +307,12 @@ class _RoomBookingDetailScreenState
         renterId: user?.uid ?? 'guest',
         renterUserCode: renterCode,
         renterName: name,
-        renterPhone: phone,
+        renterPhone: cleanPhone,
         renterGender: _renterGender,
+        renterAge: parsedAge,
+        isBookingForSelf: _isBookingForSelf,
+        bookedByUserName: _isBookingForSelf ? null : accountHolderName,
+        bookedByUserPhone: _isBookingForSelf ? null : accountPhone,
         roomId: widget.room.id,
         roomTitle: widget.room.title,
         roomAddress: widget.room.address,
@@ -238,18 +326,19 @@ class _RoomBookingDetailScreenState
         paymentOption: _paymentOption,
         transferNote: transferContent,
         moveInDate: _moveInDate,
-        note: _noteController.text.trim(),
+        moveOutDate: _calculatedMoveOutDate,
+        note: fullNote,
         createdAt: DateTime.now(),
       );
 
       // Lưu booking vào Firestore và thu nhận Document ID
       final createdBookingId = await ref
           .read(bookingServiceProvider)
-          .createBooking(booking);
+          .createBooking(booking, propertyId: widget.room.propertyId);
       final finalBooking = booking.copyWith(id: createdBookingId);
 
       if (mounted) {
-        // Chuyển sang Màn hình thanh toán chuẩn Figma với mã QR VietQR MBBank 0382542737
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -297,7 +386,7 @@ class _RoomBookingDetailScreenState
 
             const SizedBox(height: 14),
 
-            // 2. Kế hoạch chuyển đến (Ngày dọn đến, ngày rời đi, thời hạn, số người)
+            // 2. Kế hoạch chuyển đến (Ngày dọn đến, ngày rời đi, thời hạn)
             _buildMoveInPlanCard(),
 
             const SizedBox(height: 14),
@@ -607,7 +696,7 @@ class _RoomBookingDetailScreenState
     );
   }
 
-  /// Card 2: Kế hoạch chuyển đến (đã bỏ mục phương tiện theo yêu cầu)
+  /// Card 2: Kế hoạch chuyển đến (đã bỏ mục phương tiện và số lượng người ở theo yêu cầu)
   Widget _buildMoveInPlanCard() {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -858,107 +947,6 @@ class _RoomBookingDetailScreenState
                       Icons.add,
                       size: 16,
                       color: _rentalMonths < 24
-                          ? const Color(0xFF334155)
-                          : const Color(0xFF94A3B8),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Số lượng người ở (Thanh ngang gọn gàng)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.group_outlined,
-                  size: 16,
-                  color: Color(0xFF64748B),
-                ),
-                const SizedBox(width: 6),
-                const Expanded(
-                  child: Text(
-                    'Số lượng người ở:',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF334155),
-                    ),
-                  ),
-                ),
-                InkWell(
-                  onTap: _occupantCount > 1
-                      ? () => setState(() => _occupantCount--)
-                      : null,
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: _occupantCount > 1
-                          ? Colors.white
-                          : const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFCBD5E1)),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.remove,
-                      size: 16,
-                      color: _occupantCount > 1
-                          ? const Color(0xFF334155)
-                          : const Color(0xFF94A3B8),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDBEAFE),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '$_occupantCount người',
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1D4ED8),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap: _occupantCount < 5
-                      ? () => setState(() => _occupantCount++)
-                      : null,
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: _occupantCount < 5
-                          ? Colors.white
-                          : const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFCBD5E1)),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.add,
-                      size: 16,
-                      color: _occupantCount < 5
                           ? const Color(0xFF334155)
                           : const Color(0xFF94A3B8),
                     ),
