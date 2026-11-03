@@ -7,6 +7,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/firestore_collections.dart';
 import '../../../core/localization/app_translations.dart';
 import '../../../core/services/booking_service.dart';
+import '../../../core/services/resident_service.dart';
 import '../../../core/services/host_review_service.dart';
 import '../../../core/utils/host_review_policy.dart';
 import '../../../data/models/booking_model.dart';
@@ -15,6 +16,7 @@ import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../profile/widgets/host_review_sheet.dart';
 import '../widgets/send_roommate_invite_sheet.dart';
+import '../widgets/report_room_issue_bottom_sheet.dart';
 import 'room_detail_screen.dart';
 
 /// Item tóm tắt lịch sử căn phòng/nhà người dùng đã từng thuê trong quá khứ
@@ -216,7 +218,85 @@ final pastRentalHomesProvider = FutureProvider.autoDispose.family<List<PastRenta
       }
     }
 
-    // 3. Người ở ghép đã rời phòng, không có đơn bookings riêng
+    // 3. Truy vấn trực tiếp cư dân trong bảng residents có trạng thái đã rời phòng (moved_out / daRoi)
+    try {
+      final residentService = ResidentService(firestore);
+      final userResidents = await residentService.forUser(userId);
+      for (final res in userResidents) {
+        if (ResidentService.isActive(res)) continue;
+        if (res.roomId.trim().isEmpty) continue;
+
+        final rawRoomId = res.roomId.trim();
+        var resolvedRoomId = rawRoomId;
+        try {
+          final canon = await residentService.resolveRoomId(rawRoomId);
+          if (canon.isNotEmpty) resolvedRoomId = canon;
+        } catch (_) {}
+
+        if (processedRoomIds.contains(rawRoomId) || processedRoomIds.contains(resolvedRoomId)) {
+          continue;
+        }
+        processedRoomIds.add(rawRoomId);
+        if (resolvedRoomId.isNotEmpty) processedRoomIds.add(resolvedRoomId);
+
+        // Tra cứu thông tin phòng
+        String title = 'Phòng đã thuê';
+        String address = 'Địa chỉ phòng trọ';
+        String hostName = 'Chủ nhà';
+        String hostId = '';
+        String hostPhone = '';
+        double price = 0.0;
+
+        try {
+          DocumentSnapshot<Map<String, dynamic>> roomDoc =
+              await firestore.collection('host_rooms').doc(resolvedRoomId).get();
+          if (!roomDoc.exists && resolvedRoomId != rawRoomId) {
+            roomDoc = await firestore.collection('host_rooms').doc(rawRoomId).get();
+          }
+          if (!roomDoc.exists) {
+            roomDoc = await firestore.collection('rooms').doc(resolvedRoomId).get();
+          }
+          if (!roomDoc.exists) {
+            roomDoc = await firestore.collection('posts').doc(resolvedRoomId).get();
+          }
+
+          if (roomDoc.exists) {
+            final data = roomDoc.data() ?? {};
+            final rawT = (data['title'] ?? data['roomTitle'] ?? data['tieuDe'] ?? data['roomCode'] ?? data['maPhong'] ?? '').toString();
+            if (rawT.isNotEmpty) title = BookingService.formatRoomTitle(rawT);
+            address = data['address'] ?? data['diaChi'] ?? address;
+            hostName = data['hostName'] ?? data['tenChuNha'] ?? hostName;
+            hostId = data['hostId'] ?? data['chuNhaId'] ?? '';
+            hostPhone = data['hostPhone'] ?? data['sdtChuNha'] ?? '';
+            price = ((data['price'] ?? data['roomPrice'] ?? data['giaThue']) as num?)?.toDouble() ?? 0.0;
+          }
+        } catch (_) {}
+
+        items.add(
+          PastRentalHomeItem(
+            id: res.id,
+            roomId: resolvedRoomId.isNotEmpty ? resolvedRoomId : rawRoomId,
+            roomTitle: title,
+            roomAddress: address,
+            hostId: hostId,
+            hostName: hostName,
+            hostPhone: hostPhone,
+            roomPrice: price,
+            depositAmount: 0.0,
+            refundAmount: 0.0,
+            moveInDate: res.moveInDate,
+            moveOutDate: res.moveOutDate ?? DateTime.now(),
+            status: 'Đã hoàn tất trả phòng',
+            note: res.formId == 'oGhep' ? 'Ở ghép' : 'Đã trả phòng',
+            hasCheckoutRecord: false,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error fetching past residents directly: $e');
+    }
+
+    // 4. Người ở ghép đã rời phòng, không có đơn bookings riêng
     try {
       final endedStays = await BookingService(firestore: firestore)
           .loadResidentStays(userId, activeOnly: false);
@@ -249,7 +329,7 @@ final pastRentalHomesProvider = FutureProvider.autoDispose.family<List<PastRenta
       debugPrint('Error fetching past resident stays: $e');
     }
 
-    // 4. Sắp xếp theo ngày kết thúc mới nhất lên đầu
+    // 5. Sắp xếp theo ngày kết thúc mới nhất lên đầu
     items.sort((a, b) {
       final dateA = a.moveOutDate ?? a.moveInDate;
       final dateB = b.moveOutDate ?? b.moveInDate;
@@ -352,160 +432,11 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
     }
   }
 
-  void _showReportIssueSheet(BookingRequestModel b) {
-    final issueController = TextEditingController();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E293B) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 44,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white24 : Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.build_rounded, color: AppColors.primary, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          AppTranslations.tr('report_room_issue'),
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : AppColors.textDark,
-                          ),
-                        ),
-                        Text(
-                          b.roomTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Mô tả chi tiết sự cố (máy lạnh, bóng đèn, điện nước, wifi...):',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: issueController,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: 'Nhập nội dung sự cố cần chủ trọ hỗ trợ sửa chữa...',
-                  hintStyle: TextStyle(
-                    fontSize: 13,
-                    color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
-                  ),
-                  filled: true,
-                  fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    final text = issueController.text.trim();
-                    if (text.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Vui lòng nhập nội dung sự cố')),
-                      );
-                      return;
-                    }
-                    Navigator.pop(ctx);
-                    try {
-                      final notifId = 'NF_ISSUE_${DateTime.now().millisecondsSinceEpoch}';
-                      await FirebaseFirestore.instance.collection('notifications').doc(notifId).set({
-                        'id': notifId,
-                        'recipientId': b.hostId,
-                        'recipientRole': 'host',
-                        'title': 'Báo cáo sự cố phòng: ${b.roomTitle}',
-                        'message': 'Khách thuê ${b.renterName} (${b.renterPhone}) vừa báo cáo sự cố: "$text"',
-                        'roomId': b.roomId,
-                        'bookingId': b.id,
-                        'isRead': false,
-                        'createdAt': FieldValue.serverTimestamp(),
-                      });
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Đã gửi báo cáo sự cố đến chủ trọ thành công!'),
-                            backgroundColor: Color(0xFF027A48),
-                          ),
-                        );
-                      }
-                    } catch (err) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Lỗi gửi báo cáo: $err')),
-                        );
-                      }
-                    }
-                  },
-                  icon: const Icon(Icons.send_rounded, size: 18),
-                  label: const Text('Gửi báo cáo sự cố'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(46),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  Future<void> _showReportIssueSheet(BookingRequestModel b) async {
+    final ok = await showReportRoomIssueBottomSheet(context, booking: b);
+    if (ok == true && mounted) {
+      setState(() {});
+    }
   }
 
   void _showCheckoutDetailModal(PastRentalHomeItem item) {
@@ -799,8 +730,11 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
     final bookingsAsync = ref.watch(renterBookingsStreamProvider(user.uid));
     final pastHomesAsync = ref.watch(pastRentalHomesProvider(user.uid));
 
-    // Đếm số lượng nhà đang ở để gắn Badge trên Tab
-    final activeCount = bookingsAsync.value?.where((b) => b.isActive).length ?? 0;
+    // Lấy tập hợp các phòng trong lịch sử đã ở (đã rời phòng / moved_out / daRoi)
+    final pastRoomIds = pastHomesAsync.value?.map((p) => p.roomId).toSet() ?? {};
+
+    // Đếm số lượng nhà đang ở để gắn Badge trên Tab (loại trừ các phòng đã chuyển sang lịch sử)
+    final activeCount = bookingsAsync.value?.where((b) => b.isActive && !pastRoomIds.contains(b.roomId)).length ?? 0;
     final pastCount = pastHomesAsync.value?.length ?? 0;
 
     return Scaffold(
@@ -893,6 +827,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
           // TAB 1: NHÀ ĐANG Ở
           _buildActiveHomesTab(
             bookingsAsync: bookingsAsync,
+            pastRoomIds: pastRoomIds,
             isDark: isDark,
             cardColor: cardColor,
             borderColor: borderColor,
@@ -917,6 +852,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
   // ==================== TAB 1: NHÀ ĐANG Ở ====================
   Widget _buildActiveHomesTab({
     required AsyncValue<List<BookingRequestModel>> bookingsAsync,
+    required Set<String> pastRoomIds,
     required bool isDark,
     required Color cardColor,
     required Color borderColor,
@@ -925,7 +861,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
   }) {
     return bookingsAsync.when(
       data: (bookings) {
-        final activeList = bookings.where((b) => b.isActive).toList();
+        final activeList = bookings.where((b) => b.isActive && !pastRoomIds.contains(b.roomId)).toList();
 
         if (activeList.isEmpty) {
           return Center(
@@ -1520,45 +1456,25 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                 ],
               ),
             ),
-            const SizedBox(height: 14),
-
-            // Nút bấm hành động
-            Row(
-              children: [
-                if (hasCheckout) ...[
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _showCheckoutDetailModal(item),
-                      icon: const Icon(Icons.receipt_long_rounded, size: 16),
-                      label: Text(AppTranslations.tr('view_checkout_detail')),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF7C3AED),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        minimumSize: const Size.fromHeight(40),
-                        textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _openRoomDetail(item.roomId, item.roomTitle),
-                    icon: const Icon(Icons.refresh_rounded, size: 16),
-                    label: Text(AppTranslations.tr('re_rent_room')),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.primary),
-                      minimumSize: const Size.fromHeight(40),
-                      textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
+            if (hasCheckout) ...[
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _showCheckoutDetailModal(item),
+                  icon: const Icon(Icons.receipt_long_rounded, size: 16),
+                  label: Text(AppTranslations.tr('view_checkout_detail')),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7C3AED),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    minimumSize: const Size.fromHeight(40),
+                    textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ],
         ),
       ),

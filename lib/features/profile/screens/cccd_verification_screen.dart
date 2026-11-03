@@ -1,15 +1,17 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
-import '../models/cccd_data.dart';
 import '../models/cccd_validation_models.dart';
 import '../services/cccd_image_evidence_extractor.dart';
 import '../services/cccd_image_evidence_validator.dart';
-import 'cccd_scanner_screen.dart' hide CccdData;
+import 'cccd_scanner_screen.dart';
 
 /// Trạng thái thẩm định ảnh thẻ CCCD on-device qua Google ML Kit
 enum CccdSideValidationStatus {
@@ -50,12 +52,107 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
   String? _qrRawPayload;
   bool _isSubmitting = false;
 
+  static const String _kDraftFront = 'draft_cccd_front_image';
+  static const String _kDraftBack = 'draft_cccd_back_image';
+  static const String _kDraftData = 'draft_cccd_data_json';
+  static const String _kDraftQr = 'draft_cccd_qr_payload';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDraft();
+  }
+
+  Future<void> _loadDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final frontPath = prefs.getString(_kDraftFront);
+      final backPath = prefs.getString(_kDraftBack);
+      final cccdJson = prefs.getString(_kDraftData);
+      final qrPayload = prefs.getString(_kDraftQr);
+
+      bool hasUpdate = false;
+
+      if (frontPath != null && frontPath.isNotEmpty && File(frontPath).existsSync()) {
+        _frontImage = XFile(frontPath);
+        _frontStatus = CccdSideValidationStatus.valid;
+        _frontMessage = 'Đã khôi phục ảnh mặt trước đã chụp ✓';
+        hasUpdate = true;
+      }
+
+      if (backPath != null && backPath.isNotEmpty && File(backPath).existsSync()) {
+        _backImage = XFile(backPath);
+        _backStatus = CccdSideValidationStatus.valid;
+        _backMessage = 'Đã khôi phục ảnh mặt sau đã chụp ✓';
+        hasUpdate = true;
+      }
+
+      if (cccdJson != null && cccdJson.isNotEmpty) {
+        try {
+          final map = jsonDecode(cccdJson) as Map<String, dynamic>;
+          _cccdData = CccdData.fromMap(map);
+          _qrRawPayload = qrPayload;
+          hasUpdate = true;
+        } catch (_) {}
+      }
+
+      if (hasUpdate && mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint('Lỗi tải draft CCCD: $e');
+    }
+  }
+
+  Future<void> _saveDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_frontImage != null && _frontStatus == CccdSideValidationStatus.valid) {
+        await prefs.setString(_kDraftFront, _frontImage!.path);
+      } else {
+        await prefs.remove(_kDraftFront);
+      }
+
+      if (_backImage != null && _backStatus == CccdSideValidationStatus.valid) {
+        await prefs.setString(_kDraftBack, _backImage!.path);
+      } else {
+        await prefs.remove(_kDraftBack);
+      }
+
+      if (_cccdData != null) {
+        await prefs.setString(_kDraftData, jsonEncode(_cccdData!.toMap()));
+        if (_qrRawPayload != null) {
+          await prefs.setString(_kDraftQr, _qrRawPayload!);
+        }
+      } else {
+        await prefs.remove(_kDraftData);
+        await prefs.remove(_kDraftQr);
+      }
+    } catch (e) {
+      debugPrint('Lỗi lưu draft CCCD: $e');
+    }
+  }
+
+  Future<void> _clearDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kDraftFront);
+      await prefs.remove(_kDraftBack);
+      await prefs.remove(_kDraftData);
+      await prefs.remove(_kDraftQr);
+    } catch (_) {}
+  }
+
+  bool get _hasQrData => _cccdData != null;
+
   bool get _isComplete =>
       _frontImage != null &&
       _frontStatus == CccdSideValidationStatus.valid &&
       _backImage != null &&
       _backStatus == CccdSideValidationStatus.valid &&
-      _cccdData != null;
+      _hasQrData;
+
+  bool get _canSubmit => _isComplete;
 
   int get _completedCount {
     int count = 0;
@@ -240,6 +337,10 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
         });
       }
     }
+
+    if (mounted) {
+      await _saveDraft();
+    }
   }
 
   /// Hiển thị BottomSheet chọn nguồn ảnh
@@ -356,6 +457,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
         await _processAndValidateImage(isFront: true, pickedFile: _frontImage!);
       }
 
+      await _saveDraft();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -374,7 +476,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
 
   /// Nhấn nút Xác thực và lưu toàn bộ thông tin
   Future<void> _submitVerification() async {
-    if (!_isComplete || _isSubmitting) return;
+    if (!_canSubmit || _isSubmitting) return;
 
     if (_frontEvidence != null && _backEvidence != null && _cccdData != null) {
       final proof = _validator.createProof(
@@ -398,7 +500,9 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
 
     try {
       final user = ref.read(currentUserProvider);
-      final uid = user?.uid ?? 'guest_uid';
+      final uid = (user?.uid != null && user!.uid.isNotEmpty)
+          ? user.uid
+          : (FirebaseAuth.instance.currentUser?.uid ?? 'guest_uid');
 
       DateTime? parsedBirth;
       try {
@@ -416,9 +520,12 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
         cccdHometown: _cccdData!.address,
         gender: _cccdData!.gender,
         birthDate: parsedBirth,
-        cccdFrontImageUrl: _frontImage!.path,
-        cccdBackImageUrl: _backImage!.path,
+        cccdFrontImageUrl: _frontImage?.path ?? '',
+        cccdBackImageUrl: _backImage?.path ?? '',
       );
+
+      await _clearDraft();
+      ref.invalidate(userProfileProvider);
 
       if (mounted) {
         showDialog(
@@ -438,15 +545,17 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Tài khoản của bạn đã hoàn tất quy trình eKYC định danh điện tử với đầy đủ:',
+                  'Tài khoản của bạn đã hoàn tất quy trình eKYC định danh điện tử:',
                   style: TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 10),
-                const Text('✓ Ảnh mặt trước thẻ CCCD (đã qua thẩm định Google ML Kit)',
-                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
-                const Text('✓ Ảnh mặt sau thẻ CCCD (đã qua thẩm định Google ML Kit)',
-                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
-                Text('✓ Dữ liệu QR: ${_cccdData!.fullName} - ${_cccdData!.idNumber}',
+                if (_frontImage != null)
+                  const Text('✓ Ảnh mặt trước thẻ CCCD (đã qua thẩm định Google ML Kit)',
+                      style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                if (_backImage != null)
+                  const Text('✓ Ảnh mặt sau thẻ CCCD (đã qua thẩm định Google ML Kit)',
+                      style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                Text('✓ Dữ liệu CCCD: ${_cccdData!.fullName} - ${_cccdData!.idNumber}',
                     style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
               ],
             ),
@@ -483,6 +592,61 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
     }
   }
 
+  Future<void> _confirmResetAllForTesting() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.delete_outline, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Xóa dữ liệu để test lại?'),
+          ],
+        ),
+        content: const Text(
+          'Thao tác này sẽ xóa toàn bộ ảnh 2 mặt, thông tin quét mã QR và bản nháp để bạn có thể kiểm thử lại quy trình từ đầu.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xóa tất cả'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      setState(() {
+        _frontImage = null;
+        _frontStatus = CccdSideValidationStatus.idle;
+        _frontMessage = null;
+        _frontEvidence = null;
+        _backImage = null;
+        _backStatus = CccdSideValidationStatus.idle;
+        _backMessage = null;
+        _backEvidence = null;
+        _cccdData = null;
+        _qrRawPayload = null;
+      });
+      await _clearDraft();
+      final user = ref.read(currentUserProvider);
+      final uid = user?.uid ?? (FirebaseAuth.instance.currentUser?.uid ?? '');
+      await resetCccdVerificationForTesting(uid: uid);
+      ref.invalidate(userProfileProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã xóa toàn bộ dữ liệu xác thực CCCD để test lại ✓'),
+            backgroundColor: Color(0xFF16A34A),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -490,6 +654,13 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
       appBar: AppBar(
         title: const Text('Xác thực CCCD (eKYC)'),
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_outlined, color: Colors.red),
+            tooltip: 'Xóa dữ liệu để test lại',
+            onPressed: _confirmResetAllForTesting,
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -868,7 +1039,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                   style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
             ),
             TextButton.icon(
-              onPressed: () {
+              onPressed: () async {
                 setState(() {
                   if (isFront) {
                     _frontImage = null;
@@ -882,6 +1053,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                     _backEvidence = null;
                   }
                 });
+                await _saveDraft();
               },
               icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
               label: const Text('Xóa', style: TextStyle(color: Colors.red)),
@@ -1148,8 +1320,8 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Thông báo điều kiện xác thực
-            if (!_isComplete)
+            // Thông báo điều kiện xác thực (bắt buộc đủ 3/3 bước)
+            if (!_canSubmit)
               Container(
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -1164,7 +1336,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Thiếu: ${_missingItems.join(', ')}. Cần đủ cả 3 mục hợp lệ để mở nút xác thực.',
+                        'Thiếu: ${_missingItems.join(', ')}. Bắt buộc hoàn tất đủ cả 3 bước (Mặt trước + Mặt sau + Quét mã QR) để gửi xác thực.',
                         style: const TextStyle(fontSize: 11.5, color: Colors.red, fontWeight: FontWeight.w500),
                       ),
                     ),
@@ -1186,7 +1358,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                     SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Đã đủ 3/3 mục hợp lệ! Bạn có thể nhấn nút xác thực bên dưới.',
+                        'Đã đủ 3/3 bước hợp lệ! Bạn có thể nhấn nút xác nhận bên dưới để hoàn tất.',
                         style: TextStyle(fontSize: 11.5, color: AppColors.primary, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -1194,16 +1366,16 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                 ),
               ),
 
-            // NÚT XÁC THỰC: Bị DISABLED (onPressed: null) nếu chưa đủ 3 mục hợp lệ
+            // NÚT XÁC THỰC
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: _isComplete ? AppColors.primary : Colors.grey.shade300,
-                foregroundColor: _isComplete ? Colors.white : Colors.grey.shade500,
-                elevation: _isComplete ? 2 : 0,
+                backgroundColor: _canSubmit ? AppColors.primary : Colors.grey.shade300,
+                foregroundColor: _canSubmit ? Colors.white : Colors.grey.shade500,
+                elevation: _canSubmit ? 2 : 0,
                 padding: const EdgeInsets.symmetric(vertical: 15),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: (_isComplete && !_isSubmitting) ? _submitVerification : null,
+              onPressed: (_canSubmit && !_isSubmitting) ? _submitVerification : null,
               child: _isSubmitting
                   ? const SizedBox(
                       height: 20,
@@ -1214,18 +1386,18 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          _isComplete ? Icons.verified_user : Icons.lock_outline,
+                          _canSubmit ? Icons.verified_user : Icons.lock_outline,
                           size: 18,
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          _isComplete
-                              ? 'XÁC NHẬN & HOÀN TẤT XÁC THỰC'
+                          _canSubmit
+                              ? 'XÁC NHẬN & HOÀN TẤT XÁC THỰC (3/3)'
                               : 'CHƯA ĐỦ ĐIỀU KIỆN XÁC THỰC ($_completedCount/3)',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
-                            color: _isComplete ? Colors.white : Colors.grey.shade600,
+                            color: _canSubmit ? Colors.white : Colors.grey.shade600,
                           ),
                         ),
                       ],

@@ -47,6 +47,11 @@ class HostNotificationModel {
   final String postId;
   final String postTitle;
   final String rejectReason;
+  final String issueId;
+  final String category;
+  final String severity;
+  final String reporterPhone;
+  final List<String> imageUrls;
 
   const HostNotificationModel({
     required this.id,
@@ -89,6 +94,11 @@ class HostNotificationModel {
     this.postId = '',
     this.postTitle = '',
     this.rejectReason = '',
+    this.issueId = '',
+    this.category = '',
+    this.severity = 'medium',
+    this.reporterPhone = '',
+    this.imageUrls = const [],
   });
 
   bool get isRoommateApproval =>
@@ -96,6 +106,12 @@ class HostNotificationModel {
       newRoommateId.isNotEmpty ||
       title.contains('ở ghép') ||
       message.contains('ở ghép');
+
+  bool get isRoomIssue =>
+      actionType == 'room_issue' ||
+      issueId.isNotEmpty ||
+      title.toLowerCase().contains('sự cố') ||
+      message.toLowerCase().contains('sự cố');
 
   bool get isPostRejected =>
       actionType == 'post_rejected' ||
@@ -486,6 +502,11 @@ class HostNotificationModel {
       postId: (data['postId'] ?? data['baiDangId'] ?? '').toString(),
       postTitle: (data['postTitle'] ?? data['tieuDe'] ?? '').toString(),
       rejectReason: (data['reason'] ?? data['rejectReason'] ?? data['lyDoTuChoi'] ?? '').toString(),
+      issueId: (data['issueId'] ?? data['reportId'] ?? '').toString(),
+      category: (data['category'] ?? data['danhMuc'] ?? '').toString(),
+      severity: (data['severity'] ?? data['mucDo'] ?? 'medium').toString(),
+      reporterPhone: (data['reporterPhone'] ?? data['soDienThoai'] ?? data['phone'] ?? '').toString(),
+      imageUrls: (data['imageUrls'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
     );
   }
 
@@ -537,6 +558,11 @@ class HostNotificationModel {
       if (actionType.isNotEmpty) 'actionType': actionType,
       if (userNotificationId.isNotEmpty)
         'userNotificationId': userNotificationId,
+      if (issueId.isNotEmpty) 'issueId': issueId,
+      if (category.isNotEmpty) 'category': category,
+      if (severity.isNotEmpty) 'severity': severity,
+      if (reporterPhone.isNotEmpty) 'reporterPhone': reporterPhone,
+      if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
     };
   }
 }

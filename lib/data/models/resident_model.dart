@@ -17,6 +17,25 @@ class ResidentModel {
   final DateTime moveInDate;
   final DateTime? moveOutDate;
 
+  // Status Helper Getters
+  bool get isMovedOut {
+    final s = statusId.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    return const [
+      'daroi',
+      'movedout',
+      'daketthuc',
+      'cancelled',
+      'dahuy',
+      'checkedout',
+      'checkout',
+      'completed',
+      'ended',
+      'traphong',
+    ].contains(s) || (moveOutDate != null && moveOutDate!.isBefore(DateTime.now()));
+  }
+
+  bool get isActive => !isMovedOut;
+
   // SDS Dual Aliases
   String get residentId => id;
   String get phongId => roomId;
@@ -109,11 +128,7 @@ class ResidentModel {
       roommateRequestId:
           data['roommateRequestId'] ?? data['yeuCauOGhepId'] ?? '',
       formId: data['formId'] ?? data['hinhThuc_id'] ?? 'chinh',
-      statusId:
-          data['statusId'] ??
-          data['trangThai_id'] ??
-          data['trangThai'] ??
-          (data['status'] == 'moved_out' ? 'daRoi' : data['status'] ?? 'dangO'),
+      statusId: _resolveResidentStatusId(data),
       moveInDate: (data['moveInDate'] is Timestamp)
           ? (data['moveInDate'] as Timestamp).toDate()
           : (data['ngayVao'] is Timestamp)
@@ -125,6 +140,40 @@ class ResidentModel {
           ? (data['ngayRoi'] as Timestamp).toDate()
           : null,
     );
+  }
+
+  static String _resolveResidentStatusId(Map<String, dynamic> data) {
+    final rawStatus = (data['status'] ?? '').toString().trim().toLowerCase();
+    final rawStatusId = (data['statusId'] ?? '').toString().trim().toLowerCase();
+    final rawTrangThai = (data['trangThai'] ?? data['trangThai_id'] ?? '').toString().trim().toLowerCase();
+
+    const movedOutKeywords = [
+      'moved_out',
+      'movedout',
+      'daroi',
+      'da_roi',
+      'checked_out',
+      'checkout',
+      'daketthuc',
+      'da_ket_thuc',
+      'completed',
+      'ended',
+      'traphong',
+      'tra_phong',
+      'cancelled',
+      'dahuy',
+    ];
+
+    if (movedOutKeywords.contains(rawStatus) ||
+        movedOutKeywords.contains(rawStatusId) ||
+        movedOutKeywords.contains(rawTrangThai)) {
+      return 'daRoi';
+    }
+
+    if (rawStatusId.isNotEmpty) return rawStatusId;
+    if (rawStatus.isNotEmpty) return rawStatus;
+    if (rawTrangThai.isNotEmpty) return rawTrangThai;
+    return 'dangO';
   }
 
   /// Đường dẫn Sub-collection trên Firestore theo quan hệ 1-N:

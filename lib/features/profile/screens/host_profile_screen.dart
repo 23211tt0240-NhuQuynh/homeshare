@@ -3,12 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/vietnam_banks.dart';
 import '../../../core/services/user_profile_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../renter/screens/report_host_screen.dart';
+import '../../host/data/host_post_repository.dart';
+import '../../host/screens/host_post_management_screen.dart';
 import '../widgets/host_reviews_section.dart';
 import '../widgets/user_avatar.dart';
 import 'cccd_verification_screen.dart';
@@ -373,12 +376,142 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
     }
   }
 
+  Future<void> _confirmResetCccdForTesting() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 24),
+            SizedBox(width: 8),
+            Text('Xóa xác thực CCCD?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+          ],
+        ),
+        content: const Text(
+          'Hệ thống sẽ xóa toàn bộ dữ liệu CCCD (số CCCD, ngày cấp, quê quán, ảnh thẻ) và đặt lại trạng thái về "Chưa xác thực" để bạn có thể kiểm thử lại quy trình xác thực từ đầu.',
+          style: TextStyle(fontSize: 13.5, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Xóa để test'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      final user = ref.read(currentUserProvider);
+      final uid = user?.uid ?? (FirebaseAuth.instance.currentUser?.uid ?? '');
+      await resetCccdVerificationForTesting(uid: uid);
+      ref.invalidate(userProfileProvider);
+      final updated = await ref.read(userProfileProvider.future);
+      if (mounted) {
+        setState(() {
+          _verified = false;
+          if (updated != null) {
+            _hydrate(updated);
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã xóa thông tin xác thực CCCD thành công! Bạn có thể quét/xác thực lại để test.'),
+            backgroundColor: Color(0xFF16A34A),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showCccdVerificationDetails() {
+    final profile = ref.read(userProfileProvider).value;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.verified, color: AppColors.primary, size: 24),
+            SizedBox(width: 8),
+            Text('Thông Tin Đã Xác Thực', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDialogRow('Họ và tên:', profile?.cccdFullName.isNotEmpty == true ? profile!.cccdFullName : _nameController.text),
+            const SizedBox(height: 6),
+            _buildDialogRow('Số CCCD:', profile?.cccdNumber.isNotEmpty == true ? profile!.cccdNumber : 'Đã xác thực'),
+            if (profile?.cccdHometown.isNotEmpty == true) ...[
+              const SizedBox(height: 6),
+              _buildDialogRow('Quê quán:', profile!.cccdHometown),
+            ],
+            if (profile?.cccdIssueDate.isNotEmpty == true) ...[
+              const SizedBox(height: 6),
+              _buildDialogRow('Ngày cấp:', profile!.cccdIssueDate),
+            ],
+          ],
+        ),
+        actions: [
+          if (!_viewOnly)
+            TextButton.icon(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _confirmResetCccdForTesting();
+              },
+              icon: const Icon(Icons.delete_outline, color: Colors.red, size: 16),
+              label: const Text('Xóa để test lại', style: TextStyle(color: Colors.red)),
+            ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDialogRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(width: 80, child: Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted))),
+        Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark))),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
     final profile = profileAsync.value;
     final requested = widget.userId?.trim() ?? '';
     final viewingOther = requested.isNotEmpty && requested != profile?.uid;
+
+    ref.listen<AsyncValue<UserProfile?>>(userProfileProvider, (prev, next) {
+      final updated = next.value;
+      if (updated != null && !viewingOther && !_editing && mounted) {
+        setState(() {
+          _hydrate(updated);
+        });
+      }
+    });
     if (profile != null && !viewingOther) {
       _verified = profile.isCccdVerified;
       _reputationScore = profile.reputationScore;
@@ -451,6 +584,105 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
+                              ),
+                            ] else ...[
+                              const SizedBox(height: 14),
+                              Consumer(
+                                builder: (context, ref, _) {
+                                  final authUser = ref.watch(currentUserProvider);
+                                  final firebaseAuthUser = FirebaseAuth.instance.currentUser;
+                                  final userProfile = ref.watch(userProfileProvider).asData?.value;
+                                  final uid = (authUser?.uid != null && authUser!.uid.isNotEmpty)
+                                      ? authUser.uid
+                                      : (firebaseAuthUser?.uid != null && firebaseAuthUser!.uid.isNotEmpty
+                                          ? firebaseAuthUser.uid
+                                          : (userProfile?.uid ?? ''));
+                                  final rejectedCount = ref.watch(hostRejectedCountProvider(uid)).value ?? 0;
+                                  return InkWell(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => HostPostManagementScreen(
+                                            initialTabIndex: rejectedCount > 0 ? 0 : 2,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: rejectedCount > 0 ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: rejectedCount > 0 ? const Color(0xFFFECDD3) : const Color(0xFFBBF7D0),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: rejectedCount > 0 ? const Color(0xFFFEE2E2) : const Color(0xFFDCFCE7),
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: Icon(
+                                              Icons.post_add_rounded,
+                                              size: 20,
+                                              color: rejectedCount > 0 ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                const Text(
+                                                  'Quản lý bài đăng của bạn',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 14,
+                                                    color: AppColors.textDark,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  rejectedCount > 0
+                                                      ? '$rejectedCount bài đăng bị từ chối duyệt cần xử lý'
+                                                      : 'Quản lý, chỉnh sửa và theo dõi trạng thái duyệt',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: rejectedCount > 0 ? const Color(0xFFB91C1C) : AppColors.textMuted,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          if (rejectedCount > 0) ...[
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFDC2626),
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: Text(
+                                                '$rejectedCount',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                          ],
+                                          const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textMuted),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                             const SizedBox(height: 18),
@@ -583,10 +815,27 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
         ),
         const SizedBox(height: 8),
         InkWell(
-          onTap: _viewOnly || _verified
+          onTap: _viewOnly
               ? null
-              : () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const CccdVerificationScreen()));
+              : () async {
+                  if (_verified) {
+                    _showCccdVerificationDetails();
+                  } else {
+                    final res = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CccdVerificationScreen()),
+                    );
+                    if (res == true && mounted) {
+                      ref.invalidate(userProfileProvider);
+                      final updated = await ref.read(userProfileProvider.future);
+                      if (updated != null && mounted) {
+                        setState(() {
+                          _hydrate(updated);
+                          _verified = updated.isCccdVerified;
+                        });
+                      }
+                    }
+                  }
                 },
           borderRadius: BorderRadius.circular(20),
           child: Container(
@@ -612,10 +861,34 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
                     color: _verified ? AppColors.success : AppColors.warning,
                   ),
                 ),
+                if (_verified && !_viewOnly) ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.info_outline, size: 14, color: AppColors.success),
+                ],
               ],
             ),
           ),
         ),
+        if (_verified && !_viewOnly) ...[
+          const SizedBox(height: 6),
+          TextButton.icon(
+            onPressed: _confirmResetCccdForTesting,
+            icon: const Icon(Icons.delete_outline_rounded, size: 15, color: Color(0xFFDC2626)),
+            label: const Text(
+              'Xóa xác thực CCCD (để test lại)',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFDC2626),
+              ),
+            ),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ],
       ],
     );
   }

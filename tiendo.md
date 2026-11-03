@@ -23,6 +23,287 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.102 - Tối Ưu Lịch Sử Nhà Đã Ở & Đồng Bộ Trạng Thái Cư Dân Đã Rời Phòng (moved_out / daRoi):**
+    - **Yêu cầu & Nghiệp vụ:**
+      + Khi một phòng có bản ghi trong bảng `residents` với trạng thái `status: "moved_out"` hoặc `statusId: "daRoi"`:
+        * Phòng đó **tự động chuyển sang tab "Lịch sử nhà đã ở"** (Past rentals) trong màn hình "Phòng của tôi" (`MyHomesScreen`).
+        * Phòng đó **không còn hiển thị ở tab "Nhà đang ở"** (Active homes) và số đếm Badge trên 2 Tab được đồng bộ chính xác.
+        * Tại tab "Lịch sử nhà đã ở", **loại bỏ hoàn toàn nút "Xem lại phòng"** khỏi tất cả các thẻ phòng; chỉ giữ lại nút "Xem biên bản bàn giao & Trả phòng" khi có biên bản thanh lý hợp đồng `checkout_record`.
+    - **Triển khai kỹ thuật:**
+      1. [resident_model.dart](file:///d:/App/homeshare-dev-TOAN/lib/data/models/resident_model.dart):
+         - Bổ sung helper `isMovedOut` và `isActive`, kiểm tra toàn diện các từ khóa `moved_out`, `daroi`, `daketthuc`, `completed`, `ended`, `traphong`, cũng như mốc thời gian `moveOutDate <= now`.
+         - Bổ sung `_resolveResidentStatusId(data)` để chuẩn hóa bất kỳ trường `status`, `statusId`, `trangThai` nào có giá trị `moved_out` hoặc `daRoi` về `daRoi`.
+      2. [resident_service.dart](file:///d:/App/homeshare-dev-TOAN/lib/core/services/resident_service.dart):
+         - Cập nhật `ResidentService.isActive(resident)` tích hợp `resident.isMovedOut`, đảm bảo các cư dân có `status == 'moved_out'` hoặc `statusId == 'daRoi'` luôn trả về `false`.
+      3. [booking_service.dart](file:///d:/App/homeshare-dev-TOAN/lib/core/services/booking_service.dart):
+         - Nâng cấp `_buildRenterStayList`: Sửa lỗi trích xuất `bookingId` từ `periodId` và `rawDocId` (không còn bị cắt chuỗi sai thành `DP`), nhận diện chính xác các đơn thuê và phòng đã checkout từ bảng `residents` để chuyển sang `checked_out`, loại trừ hoàn toàn khỏi danh sách phòng đang ở.
+      4. [my_homes_screen.dart](file:///d:/App/homeshare-dev-TOAN/lib/features/renter/screens/my_homes_screen.dart):
+         - Cập nhật `pastRentalHomesProvider`: Truy vấn trực tiếp các bản ghi trong collection `residents` của người dùng có trạng thái `isMovedOut` (hoặc `status == 'moved_out'` / `statusId == 'daRoi'`), tự động tra cứu thông tin phòng và đưa vào danh sách lịch sử.
+         - Tab 1 ("Nhà đang ở"): Lọc loại trừ tất cả các phòng đã nằm trong `pastRentalHomesProvider`, cập nhật số lượng Badge trên cả 2 Tab.
+         - Tab 2 ("Lịch sử nhà đã ở"): Bỏ nút **"Xem lại phòng"** khỏi `_buildPastHomeCard`. Nếu có biên bản trả phòng (`hasCheckout`), nút "Xem biên bản trả phòng" hiển thị tràn chiều rộng rõ ràng, tinh gọn.
+    - **Kiểm định chất lượng:**
+      + Unit test [past_homes_resident_moved_out_test.dart](file:///d:/App/homeshare-dev-TOAN/test/past_homes_resident_moved_out_test.dart): 2/2 tests passed 100%.
+      + Toàn bộ bộ test hồi quy (`room_issue_test.dart`, `booking_date_adjustment_flow_test.dart`, `past_homes_resident_moved_out_test.dart`): 19/19 tests passed 100%.
+      + Phân tích mã nguồn tĩnh: `flutter analyze` 0 lỗi, 0 cảnh báo.
+  * **Phase 2.101 - Triển Khai Tính Năng "Báo Cáo Sự Cố Phòng Trọ" Tại Menu Quản Lý & Tiện Ích Trên Trang Cá Nhân:**
+    - **Yêu cầu & Bối cảnh:**
+      + Mục "Báo cáo sự cố phòng trọ" (Máy lạnh, điện nước, wifi) trên Trang cá nhân (`HomeScreen` tab Cá nhân) trước đây đang để trống `onTap: () {}`.
+      + Người thuê đang ở trọ cần có lối tắt nhanh trực tiếp từ Trang cá nhân để gửi phản ánh sự cố phòng cho chủ trọ.
+    - **Triển khai kỹ thuật:**
+      1. [home_screen.dart](file:///d:/App/homeshare-dev-TOAN/lib/features/home/screens/home_screen.dart):
+         - Đã gắn hàm điều hướng thông minh `_handleReportRoomIssue`:
+           * **Nếu chưa có phòng đang thuê (`activeRentals.isEmpty`):** Kiểm tra xem có phòng đã duyệt/đã cọc hay không; nếu hoàn toàn không có phòng, hiển thị thông báo hướng dẫn nhẹ nhàng kèm nút điều hướng đến trang quản lý phòng.
+           * **Nếu có đúng 1 phòng đang thuê (`activeRentals.length == 1`):** Mở trực tiếp [ReportRoomIssueBottomSheet](file:///d:/App/homeshare-dev-TOAN/lib/features/renter/widgets/report_room_issue_bottom_sheet.dart) với 1 chạm.
+           * **Nếu có từ 2 phòng trở lên (`activeRentals.length > 1` - khớp với hình chụp của người dùng có 2 phòng đang hoạt động):** Mở BottomSheet `_showSelectRoomForIssueBottomSheet` hiển thị danh sách các phòng đang thuê với đầy đủ tên phòng, địa chỉ, tên chủ trọ và giá thuê để người dùng chọn đúng phòng cần báo sự cố.
+      2. [report_room_issue_bottom_sheet.dart](file:///d:/App/homeshare-dev-TOAN/lib/features/renter/widgets/report_room_issue_bottom_sheet.dart): Tích hợp hoàn chỉnh với form báo cáo có sẵn danh mục máy lạnh, điện nước, wifi, mức độ khẩn cấp, ảnh chụp hiện trường và chip gợi ý nhanh.
+    - **Kiểm định chất lượng:**
+      + Unit / Widget test [profile_report_issue_action_test.dart](file:///d:/App/homeshare-dev-TOAN/test/profile_report_issue_action_test.dart): 3/3 test cases passed 100%.
+      + Bộ regression test liên quan (`profile_report_issue_action_test`, `booking_date_adjustment_flow_test`, `room_issue_bottom_sheet_test`, `cccd_reset_button_test`): 16/16 tests passed 100%.
+      + Phân tích mã nguồn tĩnh: `flutter analyze lib/ test/` đạt chuẩn tuyệt đối **No issues found!** (0 errors, 0 warnings).
+  * **Phase 2.100 - Hoàn Thiện Luồng Xác Nhận Thay Đổi Thông Tin Cọc / Đổi Ngày Đến Giữa Chủ Trọ & Khách Thuê:**
+    - **Yêu cầu & Nghiệp vụ:**
+      + Sau khi Chủ trọ vào tab "Đã cọc", bấm "Sửa ngày đến", chọn ngày mới (hoặc đổi phòng) và bấm **"Lưu & Gửi xác nhận cho khách"**:
+      + Hệ thống ghi nhận trạng thái đề xuất trên đơn đặt phòng (`bookings/{bookingId}`) và gửi thông báo trực tiếp đến chuông người thuê (`notification_user`).
+      + Bên thông báo của người thuê (`UserNotificationsScreen`): Hiển thị thẻ đối chiếu thông tin (ngày dọn vào cũ -> ngày mới, phòng cũ -> phòng mới, lý do chủ trọ).
+      + Người thuê bấm **"Xác nhận thay đổi thông tin"** (hoặc chạm vào thẻ thông báo): Hiển thị ngay **Hộp thoại Confirm Dialog chi tiết ("Xác nhận thay đổi thông tin")** tóm tắt thông tin phòng, lịch nhận phòng mới và lời nhắc. Khi người thuê bấm xác nhận, hệ thống đồng bộ cập nhật ngày dọn vào trên đơn đặt phòng về trạng thái `daCoc`, cập nhật thẻ thông báo thành "Đã xác nhận thay đổi thông tin thành công" và gửi thông báo phản hồi ngay cho Chủ trọ.
+      + Nếu người thuê bấm **"Từ chối"**: Hiển thị Confirm Dialog từ chối, giữ nguyên lịch cũ và gửi thông báo từ chối cho Chủ trọ.
+      + Đồng thời trên `RenterBookingsScreen`: Đơn chờ xác nhận hiển thị trạng thái *"Đã cọc • Chờ bạn xác nhận đổi ngày đến"* kèm banner hướng dẫn và nút "Xem ngay" chuyển tới Thông báo.
+    - **Các file triển khai & nâng cấp:**
+      1. [host_update_deposit_bottom_sheet.dart](file:///d:/App/homeshare-dev-TOAN/lib/features/host/notifications/widgets/host_update_deposit_bottom_sheet.dart): Bổ sung truyền `hostId` và `renterId` khi gọi `updateDepositAdjustment`.
+      2. [host_notification_repository.dart](file:///d:/App/homeshare-dev-TOAN/lib/features/host/notifications/repositories/host_notification_repository.dart): Tăng cường fallback tìm `renterId` và `hostId` qua nhiều nguồn, ghi `status: 'choXacNhanThayDoi'`, `adjustmentStatus: 'pending'` vào `bookings`, tạo thông báo chuẩn trong `notification_user`.
+      3. [user_notifications_screen.dart](file:///d:/App/homeshare-dev-TOAN/lib/features/renter/screens/user_notifications_screen.dart):
+         - Bổ sung `_showConfirmAdjustmentDialog` (Confirm Dialog xác nhận thay đổi thông tin) và `_showRejectAdjustmentDialog`.
+         - Nâng cấp `_buildBookingAdjustmentCard` với nút nổi bật **"Xác nhận thay đổi thông tin"**, hiển thị ngày cũ ➔ ngày mới trực quan.
+         - Tự động fallback lấy `hostId` từ booking để đảm bảo 100% gửi thông báo phản hồi cho Chủ trọ.
+      4. [renter_bookings_screen.dart](file:///d:/App/homeshare-dev-TOAN/lib/features/renter/screens/renter_bookings_screen.dart) & [booking_model.dart](file:///d:/App/homeshare-dev-TOAN/lib/data/models/booking_model.dart): Nhận diện trạng thái `choXacNhanThayDoi`, hiển thị banner thông báo nổi bật.
+    - **Kiểm định chất lượng:**
+      + Unit test [booking_date_adjustment_flow_test.dart](file:///d:/App/homeshare-dev-TOAN/test/booking_date_adjustment_flow_test.dart): 5/5 test cases passed 100%.
+      + Bộ regression test liên quan (`booking_date_adjustment_flow_test`, `cccd_reset_button_test`, `room_issue_bottom_sheet_test`): 13/13 tests passed 100%.
+      + Phân tích mã nguồn tĩnh: `flutter analyze` đạt chuẩn tuyệt đối **No issues found!** (0 errors, 0 warnings).
+  * **Phase 2.97 - Tái Cấu Trúc Quy Trình Đổi Ngày Dọn Vào (Host Đề Xuất -> User Xác Nhận Cập Nhật Ngày):**
+    - **Bối cảnh & Nghiệp vụ mới:**
+      + Bỏ quyền người thuê (User / Renter) tự ý đổi ngày dọn vào trong đơn thuê để tránh xung đột lịch bàn giao phòng và hợp đồng.
+      + Chuyển giao quyền chủ động cho Chủ trọ (Host): Host gửi đề xuất đổi ngày dọn vào (kèm lý do) cho người thuê.
+      + Hệ thống gửi thông báo trực tiếp đến chuông người thuê để người thuê **Xác nhận (Đồng ý / Từ chối)**. Khi người thuê đồng ý, hệ thống tự động cập nhật ngày dọn vào mới vào đơn đặt phòng và thông báo lại cho Chủ trọ.
+    - **Triển khai kỹ thuật:**
+      1. **Loại bỏ tính năng User tự sửa ngày (`RenterBookingsScreen`):**
+         + Gỡ bỏ hoàn toàn `_canChangeMoveInDate` và `_openChangeMoveInDateSheet` trong [renter_bookings_screen.dart](file:///d:/App/homeshare-dev-TOAN/lib/features/renter/screens/renter_bookings_screen.dart).
+         + Thẻ hiển thị ngày dọn vào chuyển sang chế độ thuần thông tin (read-only), gỡ bỏ icon nút chỉnh sửa.
+         + Xóa các nút "Đổi ngày" / "Đổi ngày dọn vào" tại tất cả trạng thái đơn (`pending`, `pending_payment`, `approved`).
+      2. **Chủ trọ đề xuất đổi ngày dọn vào:**
+         + Tạo mới [HostProposeCheckInDateBottomSheet](file:///d:/App/homeshare-dev-TOAN/lib/features/host/widgets/host_propose_checkin_date_bottom_sheet.dart): Cho phép Host chọn ngày mới từ lịch và nhập lý do điều chỉnh gửi cho khách thuê.
+         + Tích hợp nút **"Đổi ngày"** vào [CheckinCheckoutCard](file:///d:/App/homeshare-dev-TOAN/lib/features/host/widgets/checkin_checkout_card.dart) tại các phòng đang chờ nhận phòng (`isCheckinTab && !isDone`).
+         + Khi Host gửi đề xuất: Tạo bản ghi thông báo trong `notification_user` với `type: 'booking_date_change'`, `status: 'pending'`, kèm `newCheckInDate`, `adjustmentReason`, và cập nhật booking sang `status: 'choXacNhanThayDoi'`.
+      3. **Người thuê nhận thông báo & Xác nhận cập nhật ngày:**
+         + [UserNotificationsScreen](file:///d:/App/homeshare-dev-TOAN/lib/features/renter/screens/user_notifications_screen.dart): Thẻ thông báo `_buildBookingAdjustmentCard` hiển thị rõ thông tin phòng, ngày đề xuất mới, lý do và 2 nút: **Đồng ý** / **Từ chối**.
+         + Khi bấm **"Đồng ý"**: Cập nhật đồng bộ các trường `moveInDate`, `ngayVao`, `ngayDonVao`, `checkInDate`, `expectedCheckInDate` trong `bookings/{bookingId}`, đưa `status` về `daCoc`, cập nhật `notification_user` thành `accepted` và gửi thông báo phản hồi mừng thành công cho Chủ trọ.
+         + Khi bấm **"Từ chối"**: Giữ nguyên ngày cũ, chuyển `status` thông báo sang `rejected` và thông báo cho Chủ trọ.
+    - **Kiểm định chất lượng:**
+      + Unit test [change_move_in_date_test.dart](file:///d:/App/homeshare-dev-TOAN/test/change_move_in_date_test.dart): 5/5 test cases kiểm tra luồng đề xuất, kiểm tra tính toàn vẹn payload thông báo và cập nhật ngày dọn vào trong `BookingRequestModel` đều đạt 100% passed.
+      + Toàn bộ bộ test: **158/158 tests passed 100%**.
+      + Phân tích mã nguồn tĩnh: `flutter analyze` đạt chuẩn tuyệt đối **No issues found!** (0 errors, 0 warnings).
+  * **Phase 2.96 - Hợp Nhất & Hoàn Thiện Phân Hệ Quản Lý Bài Đăng Bên Host (Host Post Management):**
+    - **Bối cảnh & Nguồn gốc:**
+      + Tiếp nhận và đồng bộ toàn diện phân hệ quản lý bài đăng từ không gian làm việc `D:\homeshare-dev-T.ANH` (`lib/features/host/screens/host_post_management_screen.dart`).
+    - **Kiến trúc & Triển khai kỹ thuật:**
+      1. **Màn hình Quản lý bài đăng (`HostPostManagementScreen`):**
+         + Phân loại bài đăng với 4 tab động: **Bị từ chối**, **Chờ duyệt**, **Đang hiển thị**, **Tất cả**, hiển thị số lượng theo thời gian thực (realtime badge count) từ Firestore collection `posts`.
+         + Tự động kích hoạt tab "Bị từ chối" khi chủ trọ có bài đăng bị từ chối duyệt để nhanh chóng xử lý.
+         + Hiển thị nổi bật thông báo màu đỏ/cam ghi rõ **Lý do từ chối duyệt bài** từ Firestore do Admin cung cấp.
+         + Tích hợp nút hành động nổi bật: **"Sửa & Gửi duyệt lại"** (mở `HostCreatePostScreen` với cờ `isResubmitting: true`), **"Xem chi tiết"** (`HostPostDetailScreen`), và menu popup 3 chấm (Xem, Sửa, Xóa bài với dialog xác nhận an toàn).
+         + Thanh tìm kiếm lọc tức thì theo tiêu đề, địa chỉ, quận/huyện và lý do từ chối.
+         + Hỗ trợ nút `+` (Tạo bài mới) trên thanh AppBar và hiển thị Empty State kèm nút "Đăng bài mới" khi danh sách trống.
+      2. **Tích hợp liền mạch khắp ứng dụng (Seamless Multi-Entry Navigation):**
+         + [HostManagementMenu](file:///d:/App/homeshare-dev-TOAN/lib/features/host/screens/host_management_menu.dart): Bổ sung `HostManagementSection.posts` vào menu popup chuyển đổi nhanh (Quản lý bài đăng, Quản lý người thuê, Quản lý Check-in/Check-out, Quản lý vi phạm & Phí phạt).
+         + [HostMainScreen](file:///d:/App/homeshare-dev-TOAN/lib/features/host/screens/host_main_screen.dart): Tích hợp `HostPostManagementScreen` vào bộ phân hệ quản lý của Tab 4 (Quản lý) trong `_buildActiveManagementSection()`.
+         + [HomeScreen](file:///d:/App/homeshare-dev-TOAN/lib/features/home/screens/home_screen.dart): Bổ sung mục menu "Quản lý bài đăng" (`Icons.post_add_rounded`) kèm huy hiệu đỏ (badge count) hiển thị chính xác số bài bị từ chối duyệt cần xử lý.
+         + [HostProfileScreen](file:///d:/App/homeshare-dev-TOAN/lib/features/profile/screens/host_profile_screen.dart): Bổ sung Banner "Quản lý bài đăng của bạn" hiển thị cảnh báo đỏ khi có bài bị từ chối và nút mũi tên điều hướng trực tiếp.
+         + [HostTenantManagementScreen](file:///d:/App/homeshare-dev-TOAN/lib/features/host/screens/host_tenant_management_screen.dart), [HostCheckinCheckoutScreen](file:///d:/App/homeshare-dev-TOAN/lib/features/host/screens/host_checkin_checkout_screen.dart), [HostViolationManagementScreen](file:///d:/App/homeshare-dev-TOAN/lib/features/host/screens/host_violation_management_screen.dart): Hỗ trợ chuyển đổi qua lại mượt mà sang `HostManagementSection.posts`.
+      3. **Đa ngôn ngữ & Tính nhất quán model:**
+         + Bổ sung khóa `manage_posts` và `manage_posts_sub` trong [app_translations.dart](file:///d:/App/homeshare-dev-TOAN/lib/core/localization/app_translations.dart) cho cả tiếng Việt và tiếng Anh.
+         + Tinh chỉnh [HostPostModel](file:///d:/App/homeshare-dev-TOAN/lib/data/models/host_post_model.dart): Khắc phục khởi tạo `statusId = statusId ?? trangThaiId ?? status`, bảo đảm tính nhất quán khi kiểm tra `isRejected` / `isApprovedOrActive`.
+    - **Kiểm định chất lượng:**
+      + Unit tests: Thêm 5 test cases chuyên biệt trong `test/host_post_management_test.dart` (kiểm tra trạng thái bài đăng, lọc 4 tab, tìm kiếm từ khóa, logic chọn tab tự động, phân hệ menu) đạt 100% passed.
+      + Toàn bộ bộ test: **159/159 tests toàn dự án đạt 100% passed**.
+      + Phân tích tĩnh: `flutter analyze` đạt chuẩn tuyệt đối **No issues found!** (0 errors, 0 warnings).
+
+  * **Phase 2.95 - Triển Khai Phân Hệ Báo Cáo Sự Cố Phòng Trọ (Room Incident & Maintenance Reports):**
+    - **Mục tiêu & Nghiệp vụ:** Cho phép người thuê đang cư trú (`isActive` / "Đang ở") gửi báo cáo sự cố (điện, nước, điều hòa, khóa cửa, wifi, thấm dột...) trực tiếp đến chủ trọ với đầy đủ danh mục, mức độ khẩn cấp, mô tả chi tiết, ảnh hiện trường và thông tin liên hệ.
+    - **Kiến trúc & Triển khai kỹ thuật:**
+      1. **Thực thể & Model (`lib/data/models/room_issue_model.dart`):**
+         + Định nghĩa `RoomIssueModel` gồm: `id`, `bookingId`, `roomId`, `roomTitle`, `hostId`, `hostName`, `reporterId`, `reporterName`, `reporterPhone`, `category`, `severity`, `description`, `imageUrls`, `status`, `createdAt`, `updatedAt`, `resolvedAt`.
+         + Chuẩn hóa 8 danh mục `RoomIssueCategories` (Điện & Chiếu sáng, Nước & Vệ sinh, Máy lạnh / Điều hòa, Khóa cửa & An ninh, Internet / Wifi, Đồ đạc & Nội thất, Thấm dột & Tường, Sự cố khác).
+         + Chuẩn hóa 3 mức độ `RoomIssueSeverities` (`low`: Bình thường, `medium`: Cần sửa sớm, `high`: Khẩn cấp) và các trạng thái `RoomIssueStatuses` (`pending`, `in_progress`, `resolved`, `cancelled`).
+      2. **Quy tắc kiểm tra (`lib/core/utils/room_issue_policy.dart`):**
+         + Kiểm tra danh mục hợp lệ, độ dài mô tả tối thiểu 5 ký tự, định dạng số điện thoại liên hệ 9-11 chữ số.
+         + Hàm tiện ích định dạng tin nhắn cho chủ trọ `formatHostMessage` và thông báo cho khách `formatTenantMessage`.
+      3. **Service xử lý đa kênh (`lib/core/services/room_issue_service.dart`):**
+         + Ghi dữ liệu nguyên tử (Firestore batch) đồng thời vào 4 phân hệ:
+           * Collection `reports`: lưu hồ sơ sự cố chi tiết (`targetType: 'room_issue'`).
+           * Collection `notifications`: gửi thông báo realtime cho Chủ trọ (`recipientRole: 'host'`, `notificationType: 'room_issue'`).
+           * Collection `notification_user`: gửi thông báo xác nhận đã tiếp nhận cho Khách thuê (`recipientRole: 'renter'`).
+           * Collection `audit_logs`: ghi nhật ký kiểm toán hành động hệ thống.
+         + Cung cấp Realtime stream lắng nghe theo `bookingId` và theo `renterId`, cùng hàm hủy sự cố `cancelRoomIssue`.
+      4. **Giao diện người dùng (`lib/features/renter/widgets/report_room_issue_bottom_sheet.dart`):**
+         + Thiết kế BottomSheet hiện đại: chọn danh mục bằng chip có icon, chọn 3 mức độ khẩn cấp với màu sắc trực quan (Xanh/Vàng/Đỏ), ô nhập mô tả chi tiết, đính kèm ảnh hiện trường (Camera & Thư viện qua `ImagePicker`), tự động điền họ tên và số điện thoại liên hệ.
+      5. **Tích hợp hai chiều:**
+         + [RenterBookingsScreen](file:///d:/App/homeshare-dev-TOAN/lib/features/renter/screens/renter_bookings_screen.dart): Bổ sung nút **"Báo sự cố phòng"** màu hổ phách (`#D97706`) ngay trên thẻ phòng đang ở (`b.isActive`) cạnh tag "Đang cư trú".
+         + [MyHomesScreen](file:///d:/App/homeshare-dev-TOAN/lib/features/renter/screens/my_homes_screen.dart): Nâng cấp nút "Báo sự cố phòng" sử dụng chung `showReportRoomIssueBottomSheet`.
+    - **Kiểm định chất lượng:**
+      + Unit tests: 11/11 unit tests mới trong `test/room_issue_test.dart` đạt 100% passed.
+      + Toàn bộ bộ test: 154/154 tests toàn dự án đạt 100% passed.
+      + Phân tích tĩnh: `flutter analyze lib/ test/` đạt chuẩn tuyệt đối **No issues found!** (0 errors, 0 warnings).
+
+  * **Phase 2.99 - Kiểm Thử Toàn Diện Bản Web & Tự Động Hóa Bộ Kiểm Thử Widget (End-to-End & Widget Testing):**
+    - **Yêu cầu người dùng:** Yêu cầu AI trực tiếp kiểm thử thực tế ứng dụng web và toàn bộ các tính năng vừa triển khai.
+    - **Tiến trình & Kết quả kiểm thử:**
+      1. **Khởi chạy máy chủ Web Server & Trực quan hóa ứng dụng:**
+         - Khởi chạy thành công Flutter Web Server trên `http://localhost:8080`.
+         - Sử dụng Headless Chromium (Playwright) kết nối trực tiếp vào máy chủ web `localhost:8080`, nạp 2022 module scripts, khởi tạo thành công Flutter Web Engine và Firebase Web SDK (`firebase_core`, `firebase_firestore`, `firebase_auth`).
+         - Chụp ảnh màn hình thực tế lưu trữ tại `web_homepage.png` xác nhận giao diện ứng dụng hiển thị hoàn hảo, không có lỗi runtime.
+      2. **Xây dựng bộ kiểm thử Widget chuyên sâu cho Báo cáo sự cố (`test/room_issue_bottom_sheet_test.dart`):**
+         - Kiểm thử khởi tạo giao diện với đầy đủ thông tin phòng, chủ trọ, người báo: **PASSED**.
+         - Kiểm thử bắt lỗi trực quan khi bỏ trống mô tả (hiển thị `* Bắt buộc nhập`, bôi đỏ viền TextField, hiển thị banner cảnh báo và ngăn gửi): **PASSED**.
+         - Kiểm thử chạm vào chip gợi ý nhanh (Quick Suggestion): tự động điền nội dung vào ô mô tả và tự động xóa cảnh báo lỗi: **PASSED**.
+         - Kiểm thử đổi danh mục sang "Máy lạnh / Điều hòa": tự động cập nhật danh sách gợi ý phù hợp chủ đề: **PASSED**.
+         - Kiểm thử xác thực số điện thoại liên hệ: bắt lỗi khi số điện thoại quá ngắn hoặc không đúng định dạng: **PASSED**.
+      3. **Xây dựng bộ kiểm thử Widget cho Nút Xóa CCCD (`test/cccd_reset_button_test.dart`):**
+         - Kiểm thử hàm `resetCccdVerificationForTesting`: xóa sạch SharedPreferences cache và draft cache: **PASSED**.
+         - Kiểm thử `PersonalProfileScreen` khi tài khoản đã xác thực: hiển thị nút đỏ `[Xóa xác thực CCCD (để test lại)]` và mở popup xác nhận an toàn: **PASSED**.
+         - Kiểm thử `PersonalProfileScreen` khi chưa xác thực: ẩn hoàn toàn nút xóa: **PASSED**.
+    - **Tổng kết kiểm định chất lượng:**
+      + **29/29 tests PASSED 100%** trên toàn bộ 4 bộ test suites liên quan (`room_issue_test.dart`, `room_issue_bottom_sheet_test.dart`, `cccd_verification_test.dart`, `cccd_reset_button_test.dart`).
+      + **Phân tích tĩnh (`flutter analyze`):** Tuyệt đối **No issues found!** (0 errors, 0 warnings).
+
+  * **Phase 2.98 - Khắc Phục Lỗi Gửi Báo Cáo Sự Cố Phòng (Validation Trực Quan, Quick Suggestions & Tự Động Phân Giải HostId):**
+    - **Yêu cầu & Lỗi phát hiện từ người dùng:** Khi người thuê nhấn nút *"GỬI BÁO CÁO SỰ CỐ ĐẾN CHỦ TRỌ"*, màn hình không phản hồi / không gửi được.
+    - **Nguyên nhân phân tích:**
+      1. Trong `ReportRoomIssueBottomSheet`: Khi ô mô tả sự cố bị rỗng (`desc.isEmpty`), code thực hiện `return` và gọi `ScaffoldMessenger.of(context).showSnackBar`. Tuy nhiên, vì `showModalBottomSheet` nằm trên một Overlay Route riêng, SnackBar bị hiển thị ẩn ở đáy Scaffold bên dưới modal, khiến người dùng hoàn toàn không nhìn thấy bất kỳ thông báo lỗi nào.
+      2. Đoạn văn bản gợi ý (`hintText`) trong ô mô tả quá dài (4 dòng) và cùng màu xám đậm, khiến người dùng lầm tưởng ô mô tả đã được điền sẵn nội dung nên không gõ thêm.
+      3. Thiếu cơ chế hiển thị lỗi trực quan nội tuyến (`errorText`, viền đỏ) trên TextField và banner cảnh báo phía trên nút gửi.
+      4. Trong `RoomIssueService`: Nếu đơn thuê từ phía resident khuyết `hostId`, Firestore notification sẽ ghi `receiverId: ""` dẫn đến chủ trọ không nhận được.
+    - **Giải pháp kỹ thuật chi tiết:**
+      1. **Bổ sung hệ thống xác thực trực quan nội tuyến (`ReportRoomIssueBottomSheet`):**
+         - Khởi tạo `_descError`, `_phoneError`, `_submitError`. Khi người dùng bấm gửi mà chưa nhập mô tả hoặc số điện thoại không hợp lệ, hệ thống tự động bôi đỏ ô nhập liệu kèm `errorText`, hiển thị banner cảnh báo đỏ nổi bật ngay phía trên nút gửi, đồng thời tự động cuộn màn hình (`_scrollController.animateTo(120)`) đến vị trí lỗi.
+         - Tích hợp listener tự động xóa lỗi ngay khi người dùng gõ nội dung hợp lệ.
+      2. **Thêm các thẻ gợi ý sự cố nhanh bằng 1 chạm (Quick Suggestion Chips):**
+         - Dưới mục "3. Mô tả cụ thể sự cố (*)", bổ sung các chip gợi ý tự động đổi theo danh mục (vd: *Vòi sen rò rỉ nước*, *Mất điện toàn phòng*, *Máy lạnh không mát*, *Mất kết nối Internet*, *Kẹt khóa cửa*, v.v.). Người dùng chỉ cần chạm 1 lần là tự động điền mô tả, không cần gõ thủ công.
+         - Tối ưu `hintText` ngắn gọn, rõ ràng: `"Nhập vị trí và tình trạng hỏng hóc cần sửa chữa..."`.
+      3. **Tự động phân giải Host ID thông minh (`RoomIssueService`):**
+         - Nếu `cleanHostId` bị rỗng từ đối tượng `booking`, service tự động truy vấn chéo vào `host_rooms`, `rooms`, `bookings`, `users` để trích xuất `hostId` và `hostName` thực tế của chủ trọ, đảm bảo 100% thông báo sự cố luôn đến đúng tài khoản chủ trọ.
+      4. **Bắt lỗi & hiển thị AlertDialog an toàn:**
+         - Nếu có bất kỳ sự cố mạng hoặc ngoại lệ phát sinh khi gửi Firestore, hệ thống mở ngay `AlertDialog` nổi trực tiếp trên modal bottom sheet thông báo rõ nguyên nhân thay vì nuốt lỗi.
+    - **Kiểm định chất lượng:**
+      + Unit tests: 12/12 unit tests trong `test/room_issue_test.dart` đạt 100% passed.
+      + Phân tích tĩnh: `flutter analyze lib/` đạt chuẩn tuyệt đối **No issues found!** (0 errors, 0 warnings).
+
+  * **Phase 2.97 - Bổ Sung Nút Xóa Xác Thực CCCD / eKYC Phục Vụ Kiểm Thử Quy Trình & Reset Dữ Liệu:**
+    - **Yêu cầu người dùng:** Cung cấp nút để khi đã xác thực CCCD rồi, người dùng có thể xóa toàn bộ dữ liệu xác thực để kiểm thử lại toàn bộ quy trình eKYC từ đầu.
+    - **Giải pháp kỹ thuật chi tiết:**
+      1. **Hàm xử lý xóa sạch dữ liệu trên Backend & Local (`resetCccdVerificationForTesting` trong `lib/features/auth/providers/user_provider.dart`):**
+         - Firestore `users/{uid}`: Đặt `isCccdVerified: false`, `daXacThucCccd: false`, `trangThaiXacMinh: 'chuaXacThuc'`, xóa triệt để bằng `FieldValue.delete()` toàn bộ trường CCCD tiếng Anh và tiếng Việt (`cccdNumber`, `soCccd`, `soGiayTo`, `cccdFullName`, `hoTenCccd`, `cccdIssueDate`, `ngayCap`, `cccdHometown`, `queQuanCccd`, `cccdFrontImageUrl`, `cccdBackImageUrl`, `cccdVerifiedAt`, `ngayXacMinh`).
+         - Firestore Subcollection: Xóa tài liệu `users/{uid}/id_verifications/cccd`.
+         - Local SharedPreferences: Xóa sạch cache `cccd_*` (`cccd_verified_*`, `cccd_number_*`, `cccd_name_*`, v.v.) và toàn bộ draft cache (`draft_cccd_front_image`, `draft_cccd_back_image`, `draft_cccd_data_json`, `draft_cccd_qr_payload`).
+         - Làm mới Provider: Invalidate `userProfileProvider` để re-hydrate ngay lập tức về trạng thái chưa xác thực trên toàn ứng dụng.
+      2. **Giao diện Hồ sơ cá nhân (`PersonalProfileScreen`) & Hồ sơ chủ trọ (`HostProfileScreen`):**
+         - Khi đã xác thực (`_verified == true`), bên dưới huy hiệu "Đã xác thực VNeID / CCCD" hiển thị nút TextButton màu đỏ: `[🗑️ Xóa xác thực CCCD (để test lại)]`.
+         - Khi bấm vào chính huy hiệu "Đã xác thực VNeID / CCCD": Mở dialog xem chi tiết thông tin CCCD đã xác thực kèm nút `[Xóa để test]`.
+         - Khi nhấn xóa: Xuất hiện hộp thoại cảnh báo xác nhận an toàn trước khi thực hiện xóa.
+      3. **Màn hình Xác thực CCCD (`CccdVerificationScreen`):**
+         - Trên thanh AppBar bổ sung nút icon `Icons.delete_sweep_outlined` ("Xóa dữ liệu để test lại") cho phép người dùng xóa nhanh toàn bộ ảnh 2 mặt, dữ liệu QR và cache nháp bất kỳ lúc nào để bắt đầu lại từ đầu.
+    - **Kiểm định chất lượng:**
+      + Unit tests: 9/9 tests trong `test/cccd_verification_test.dart` đạt 100% passed.
+      + Phân tích tĩnh: `flutter analyze lib/features/profile/ lib/features/auth/ test/cccd_verification_test.dart` đạt chuẩn tuyệt đối **No issues found!** (0 errors, 0 warnings).
+
+  * **Phase 2.96 - Điều Hướng Báo Cáo Sự Cố Phòng Vào Tab "Đang Xử Lý" Của Chủ Trọ & Hoàn Thiện Quy Trình Khắc Phục:**
+    - **Yêu cầu người dùng:** Khi người thuê nhấn gửi báo cáo sự cố phòng trọ (*"GỬI BÁO CÁO SỰ CỐ ĐẾN CHỦ TRỌ"*), thông báo phải chuyển thẳng vào phần **"Đang xử lý"** (Tab `pendingAction`) của chủ trọ bên giao diện chủ trọ.
+    - **Nguyên nhân phát hiện:**
+      1. Trong `RoomIssueService.submitRoomIssue`: Thuộc tính định danh người nhận trên Firestore collection `notifications` được đặt tên là `recipientId` thay vì chuẩn `receiverId` (`NotificationFields.receiverId`), dẫn đến truy vấn `where('receiverId', isEqualTo: hostId)` của `HostNotificationRepository` bị bỏ sót không lấy được tài liệu.
+      2. Trong `HostNotificationRepository._resolveNotifications`: Khi đơn đặt phòng có trạng thái `active` / `dango` (người thuê đang ở), hàm tự động chuyển đổi mọi thông báo liên kết với booking đó sang tab `"Đang ở"` (`staying`). Vì người thuê gửi sự cố khi đang cư trú tại phòng, sự cố bị ép nhầm sang tab "Đang ở" thay vì nằm ở tab **"Đang xử lý"**.
+    - **Giải pháp kỹ thuật chi tiết:**
+      1. **Chuẩn hóa thông báo sự cố trong `RoomIssueService`:**
+         - Ghi đầy đủ `NotificationFields.receiverId: hostId`, `receiverId: hostId`, `recipientId: hostId`.
+         - Đặt rõ `notificationType: 'pendingAction'` (mã chuẩn của tab "Đang xử lý"), `actionType: 'room_issue'`, `type: 'room_issue'`.
+         - Bổ sung `issueId`, `category`, `severity`, `reporterPhone`, `imageUrls`, `bookingCode`, `roomTitle`, `renterName`.
+         - Xây dựng phương thức `resolveRoomIssue(issueId, hostNotes, hostNotificationId)`: Cập nhật đồng bộ Firestore collection `reports`, cập nhật thông báo `notifications`, và bắn thông báo phản hồi cho người thuê qua `notification_user`.
+      2. **Cập nhật Model & Phân loại trong `HostNotificationModel` & Repository:**
+         - Bổ sung getter `isRoomIssue` nhận diện chính xác sự cố phòng.
+         - Thêm các trường dữ liệu: `issueId`, `category`, `severity`, `reporterPhone`, `imageUrls`.
+         - Trong `HostNotificationRepository._resolveNotifications`: Bảo vệ thông báo sự cố chưa xử lý (`status != 'resolved'`) luôn được giữ nguyên tại tab **"Đang xử lý"** (`HostNotificationType.pendingAction`), ngăn việc bị ghi đè thành `staying`.
+      3. **Tối ưu thẻ thông báo `NotificationCard` cho Sự cố phòng:**
+         - Huy hiệu đầu card: Chuyển sang màu cam dịu (`#FFF7ED`, viền `#FED7AA`, text `#EA580C`) hiển thị mã phòng (vd: "SE") hoặc icon cờ lê sửa chữa kèm tag `#SC_...`.
+         - Khối tóm tắt: Hiển thị "Người báo sự cố", "Loại sự cố" (màu hổ phách), huy hiệu mức độ khẩn cấp (vd: *Cần sửa sớm*, *Khẩn cấp*).
+         - Khối chi tiết: Hiển thị nội dung mô tả của người thuê và danh sách ảnh hiện trường đính kèm (có thể bấm vào để phóng to).
+         - Thanh hành động đáy card tại tab "Đang xử lý":
+           + Nút Outlined: **"Gọi: {số_điện_thoại}"** tích hợp trực tiếp quay số qua `url_launcher`.
+           + Nút ElevatedButton xanh: **"Đã khắc phục xong"** mở Dialog nhập ghi chú hoàn tất và cập nhật trạng thái thời gian thực.
+    - **Kiểm định chất lượng:**
+      + Unit tests: 12/12 unit tests trong `test/room_issue_test.dart` đạt 100% passed.
+      + Phân tích tĩnh: `flutter analyze lib/ test/` đạt chuẩn tuyệt đối **No issues found!** (0 errors, 0 warnings).
+
+  * **Phase 2.95 - Hoàn Thiện Quy Trình eKYC CCCD 3 Bước Bắt Buộc, Khôi Phục Bản Nháp (Draft Persistence) & Đồng Bộ Hồ Sơ Cá Nhân:**
+    - **Yêu cầu & Lỗi cần khắc phục:**
+      1. Khi bấm *"Dùng Thông Tin Này ✓"* trên modal trích xuất mã QR, màn hình camera bị đứng yên, không trả dữ liệu về màn hình xác thực 3 bước.
+      2. Sau khi quét mã QR xong thì hệ thống cho phép bấm nút xác thực luôn mà không cần chụp ảnh 2 mặt. Yêu cầu: Bắt buộc hoàn tất đủ cả 3 bước (Mặt trước + Mặt sau + Quét mã QR) mới được mở khóa nút xác thực.
+      3. Khi người dùng đang thêm thông tin dở dang (chụp mặt trước, mặt sau hoặc quét mã) mà thoát ra ngoài, khi vào lại phải giữ nguyên toàn bộ ảnh và thông tin đã thêm (Draft Persistence).
+      4. Sau khi hoàn tất xác thực 3 bước, hệ thống phải cập nhật Firestore và tự động đồng bộ hiển thị ngay lập tức lên màn hình **"Hồ sơ cá nhân"** (Họ tên, huy hiệu xanh "Đã xác thực VNeID / CCCD", Năm sinh & tuổi, Giới tính).
+    - **Giải pháp kỹ thuật chi tiết:**
+      1. **Khắc phục lỗi đứng yên khi bấm "Dùng Thông Tin Này ✓" (`CccdScannerScreen`):**
+         - Khi mở với cờ `returnDataOnly: true`, modal bottom sheet đóng và gọi ngay `Navigator.of(context).pop(cccd)` để trả thẳng `CccdData` về cho `CccdVerificationScreen` mà không bị kẹt hay chờ Firestore network request.
+         - Sử dụng thống nhất model `CccdData` (`lib/features/profile/models/cccd_data.dart`), loại bỏ class trùng lặp nội bộ.
+      2. **Ràng buộc ngặt nghèo điều kiện xác thực 3 bước (`CccdVerificationScreen`):**
+         - Thiết lập `_canSubmit => _isComplete;` trong đó `_isComplete` đòi hỏi đồng thời:
+           + Ảnh mặt trước hợp lệ (`_frontStatus == CccdSideValidationStatus.valid`).
+           + Ảnh mặt sau hợp lệ (`_backStatus == CccdSideValidationStatus.valid`).
+           + Dữ liệu trích xuất từ mã QR hợp lệ (`_cccdData != null`).
+         - Khi thiếu bất kỳ bước nào: Nút gửi xác thực ở đáy màn hình bị vô hiệu hóa với nhãn `"CHƯA ĐỦ ĐIỀU KIỆN XÁC THỰC (X/3)"` kèm khung cảnh báo chi tiết các bước còn thiếu.
+      3. **Cơ chế lưu trữ & khôi phục bản nháp (Draft Persistence qua SharedPreferences):**
+         - Bổ sung `toMap()` và `fromMap()` cho model `CccdData`.
+         - Khi chụp ảnh mặt trước, mặt sau hoặc quét mã QR hợp lệ: Tự động lưu đường dẫn ảnh và payload JSON vào `SharedPreferences` (`draft_cccd_front_image`, `draft_cccd_back_image`, `draft_cccd_data_json`, `draft_cccd_qr_payload`).
+         - Khi mở lại `CccdVerificationScreen`: `initState()` tự động tải lại toàn bộ ảnh và thông tin đã chụp trước đó.
+         - Khi người dùng xóa ảnh: Tự động dọn dẹp khóa tương ứng trong draft.
+         - Khi hoàn tất xác thực thành công (3/3 bước): Tự động xóa sạch toàn bộ bộ nhớ draft (`_clearDraft()`).
+      4. **Đồng bộ hóa tức thì với Màn hình Hồ sơ cá nhân (`PersonalProfileScreen` & `HostProfileScreen`):**
+         - Đăng ký `ref.listen<AsyncValue<UserProfile?>>(userProfileProvider)`: Khi người dùng không ở chế độ chỉnh sửa (`!_editing`), mọi cập nhật từ Firestore/Riverpod sẽ tự động gọi `_hydrate(updated)` để cập nhật Họ tên, Năm sinh & tuổi, Giới tính, Huy hiệu xác thực xanh.
+         - Bổ sung `await Navigator.push` và `ref.invalidate(userProfileProvider)` khi quay về từ màn hình xác thực CCCD.
+    - **Kiểm định chất lượng:**
+      + Unit tests: 9/9 unit tests trong `test/cccd_verification_test.dart` đạt 100% passed (kiểm tra đầy đủ QR parsing, serialization draft, và các trường hợp khóa nút xác thực khi thiếu bước).
+      + Toàn bộ test suite dự án: 162/162 unit & widget tests đạt 100% passed.
+      + Phân tích tĩnh: `flutter analyze lib/features/profile/ lib/features/home/ test/` đạt chuẩn tuyệt đối **No issues found!** (0 errors, 0 warnings).
+
+  * **Phase 2.94 - Khắc Phục Triệt Để Lỗi Quét CCCD: Nút "Dùng Thông Tin Này" Lưu Firebase & Điều Hướng Không Bị Đơ:**
+    - **Nguyên nhân cốt lõi phát hiện:**
+      1. Trong `CccdScannerScreen._confirmVerification`: Khi mở từ `CccdVerificationScreen` với cờ `returnDataOnly: true`, mã nguồn gặp lệnh `if (widget.returnDataOnly) return;` lập tức thoát ra mà KHÔNG HỀ gọi hàm `saveCccdVerificationToBackend` -> dẫn đến thông tin không được lưu vào Firebase.
+      2. Trong cùng hàm, việc gọi liên tiếp 2 lệnh `Navigator.pop(context)` đồng thời trong cùng một khung hình (một cho BottomSheet xem trước, một cho Màn hình máy quét) gây xung đột hoạt ảnh Navigator, làm màn hình quét bị kẹt/đơ (`_isProcessing = true`) không thể tiếp tục hoạt động.
+      3. Trong `CccdVerificationScreen`: Thuộc tính `_isComplete` đòi hỏi ngặt nghèo cả 3 mục (Ảnh mặt trước + Ảnh mặt sau + Quét mã QR). Khi người dùng quét mã xong và quay lại, nút gửi xác thực ở đáy màn hình vẫn bị vô hiệu hóa (`onPressed: null`) hiển thị "CHƯA ĐỦ ĐIỀU KIỆN XÁC THỰC (1/3)", đồng thời nếu bấm gửi thì toán tử ép null (`_frontImage!.path`) sẽ gây crash lỗi Null Check Operator.
+    - **Giải pháp hoàn thiện:**
+      1. **Khắc phục `CccdScannerScreen`:**
+         + Đồng bộ hóa `_showVerificationModal` thành async, chờ BottomSheet đóng hoàn tất rồi mới điều hướng đóng scanner screen, loại bỏ 100% hiện tượng xung đột Navigator và đơ màn hình.
+         + Gỡ bỏ việc bỏ qua lưu backend khi `returnDataOnly == true`: Mọi luồng quét hoàn tất khi nhấn "Dùng Thông Tin Này ✓" đều gọi `saveCccdVerificationToBackend` lưu trực tiếp vào Firestore và SharedPreferences.
+         + Tự động làm mới giao diện người dùng tức thời qua `ref.invalidate(userProfileProvider)`.
+      2. **Khắc phục `CccdVerificationScreen`:**
+         + Bổ sung getter `_canSubmit => _isComplete || _hasQrData`: Khi đã quét được thông tin CCCD từ Bộ Công An, nút xác thực ở đáy màn hình lập tức được mở khóa.
+         + Cung cấp nhãn trực quan: *"XÁC NHẬN VỚI THÔNG TIN CCCD ĐÃ QUÉT"* kèm banner xanh thông báo rõ ràng cho người dùng.
+         + Xử lý fallback an toàn cho đường dẫn ảnh: `_frontImage?.path ?? ''` và `_backImage?.path ?? ''`, bảo đảm không bao giờ văng ngoại lệ null check.
+      3. **Tối ưu hóa `saveCccdVerificationToBackend` (`user_provider.dart`):**
+         + Tự động fallback lấy UID từ `FirebaseAuth.instance.currentUser?.uid` nếu UID truyền vào bị rỗng hoặc là `'guest_uid'`.
+         + Lưu giữ nguyên vẹn các trường định danh tiếng Việt (`daXacThucCccd`, `soCccd`, `hoTenCccd`) cho các module khác (`HostPostRepository`) đọc trạng thái xác thực.
+         + Lưu trữ tài liệu chi tiết vào subcollection `users/{uid}/id_verifications/cccd` và cập nhật bộ nhớ cục bộ `SharedPreferences`.
+    - **Kiểm định chất lượng:**
+      + Unit tests: 6/6 unit tests mới trong `test/cccd_verification_test.dart` đạt 100% passed.
+      + Toàn bộ bộ test: 143/143 tests toàn dự án đạt 100% passed.
+      + Phân tích tĩnh: `flutter analyze lib/ test/` đạt chuẩn tuyệt đối **No issues found!** (0 errors, 0 warnings).
+
+  * **Phase 2.93 - Cho Phép Thay Đổi Ngày Dọn Vào (Move-in Date) Trong Lịch Xem Phòng & Đơn Thuê Của User:**
+    - **Mục tiêu:** Cho phép người thuê linh hoạt điều chỉnh ngày dọn vào (nhận phòng) cho các đơn đặt phòng đang trong giai đoạn chờ duyệt (`pending`, `choDuyet`, `pending_payment`) hoặc đã được duyệt (`approved`, `daDuyet`, `deposit_paid`).
+    - **Triển khai kỹ thuật:**
+      + Bổ sung `BookingService.updateMoveInDate(bookingId, newDate)`: Cập nhật đồng bộ cả 2 trường `moveInDate` và `ngayDonVao` trên Firestore collection `bookings`.
+      + Xây dựng component `ChangeMoveInDateBottomSheet` (`lib/features/renter/widgets/change_move_in_date_bottom_sheet.dart`) với giao diện chọn ngày trực quan, các phím tắt nhanh (+1 ngày, +3 ngày, +7 ngày), kiểm tra ngày hợp lệ (không chọn ngày trong quá khứ).
+      + Tích hợp vào `RenterBookingsScreen`: Nhấn vào badge ngày dọn vào hoặc nút hành động ở chân thẻ đơn đặt để mở BottomSheet thay đổi ngày dọn vào mượt mà.
+    - **Kiểm định chất lượng:**
+      + Hoàn thành 6/6 unit tests trong `test/change_move_in_date_test.dart` đạt 100% passed.
+      + `flutter analyze lib/`: No issues found!
+
   * **Phase 2.92 - Triển Khai Giải Pháp 3 (Mô Hình Hybrid) Giải Quyết Xung Đột Giữ Phòng QR 15 Phút & Khóa Chờ Duyệt 6 Tiếng:**
     - **Mục tiêu:** Xử lý triệt để bài toán tranh chấp giữ phòng (Race Condition / Overbooking) khi người dùng quét mã QR thanh toán nhưng không chuyển khoản ngay, chống giữ chỗ ảo làm thất thu cho chủ trọ nhưng vẫn đảm bảo khách thuê được ưu tiên công bằng.
     - **Kiến trúc triển khai 2 Giai đoạn (Hybrid Concurrency Model):**
@@ -3048,3 +3329,32 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
   3. **Kiểm tra chất lượng:**
      - `flutter analyze lib/`: **No issues found! (0 errors, 0 warnings)**.
      - `flutter test`: **131/131 tests Passed (100%)**.
+
+
+---
+
+### Phase 2.88: Tính Năng Thay Đổi Ngày Dọn Vào Ở trong Lịch Xem Phòng & Đơn Thuê của Người Thuê (Renter)
+* **Ngày hoàn thành:** 02/11/2026
+* **Yêu cầu & Thực hiện:**
+  1. **Nâng cấp Service Đổi Lịch Dọn Vào (`BookingService.updateMoveInDate`):**
+     - Bổ sung method `updateMoveInDate({required String bookingId, required DateTime newMoveInDate, String? reason, BookingRequestModel? booking})` trong `lib/core/services/booking_service.dart`.
+     - Cập nhật chuẩn hóa dữ liệu ngày vào trên document Firestore `bookings`: `moveInDate`, `ngayVao`, `thoiDiem`, `checkInDate`, `oldMoveInDate`, `adjustmentReason`, `changeDateReason`, `adjustmentStatus: 'updated_by_renter'`, `updatedAt`.
+     - Tự động gửi thông báo trực tiếp đến Chủ trọ (`notifications` collection, `notificationType: 'booking_adjustment'`) kèm ngày dọn vào mới, ngày cũ và lý do dời lịch.
+     - Tự động gửi thông báo xác nhận đến Người thuê (`notification_user` collection chuẩn Phase 2.85).
+     - Ghi nhận lịch sử vào `audit_logs` phục vụ tra cứu minh bạch.
+  2. **Thiết kế Modal BottomSheet Thay Đổi Ngày Dọn Vào (`ChangeMoveInDateBottomSheet`):**
+     - Tạo mới `lib/features/renter/widgets/change_move_in_date_bottom_sheet.dart` với phong cách UI cao cấp:
+       + Khung tóm tắt thông tin phòng & ngày dọn vào hiện tại.
+       + Khung chọn ngày dọn vào mới trực quan, tích hợp `showDatePicker` với ràng buộc an toàn (từ ngày hôm nay đến tối đa 180 ngày tới).
+       + Bộ chip chọn nhanh tiện lợi: `+3 ngày`, `+1 tuần`, `+2 tuần`, `+1 tháng`.
+       + Hỗ trợ các chip gợi ý lý do phổ biến: "Bận việc đột xuất", "Dời lịch công tác", "Chờ bạn cùng phòng", "Chưa dọn xong nhà cũ" và ô nhập tự do.
+       + Hộp thông tin lưu ý an toàn và trạng thái loading khi đang gửi yêu cầu.
+  3. **Tích hợp Vào Màn Hình Quản Lý Đơn Thuê & Lịch Hẹn (`RenterBookingsScreen`):**
+     - Chuẩn hóa tiêu đề màn hình thành `Lịch xem phòng & Đơn thuê` (đồng bộ 100% với mục menu tại `HomeScreen` và từ điển bản địa hóa).
+     - Bổ sung logic kiểm tra quyền đổi ngày `_canChangeMoveInDate(b)`: cho phép thực hiện trên các đơn đang xử lý (`isPending`) hoặc đã duyệt (`isApproved`), tự động khóa khi khách đã vào ở (`isActive`), đã trả phòng (`isEnded`) hoặc đã hủy (`isCancelled`).
+     - Tương tác chạm trực tiếp: Chuyển badge hiển thị ngày dọn vào ở giữa card thành nút chạm tương tác `InkWell` với icon `edit_outlined` nổi bật.
+     - Nút bấm hành động riêng: Bổ sung nút `Đổi ngày` / `Đổi ngày dọn vào` trực quan tại thanh hành động của từng card đơn thuê.
+  4. **Kiểm tra chất lượng & Unit Test:**
+     - Tạo mới bộ test `test/change_move_in_date_test.dart` kiểm tra toàn diện chính sách phân quyền và logic model.
+     - `flutter analyze lib/`: **No issues found! (0 errors, 0 warnings)**.
+     - `flutter test`: **137/137 tests Passed (100%)**.

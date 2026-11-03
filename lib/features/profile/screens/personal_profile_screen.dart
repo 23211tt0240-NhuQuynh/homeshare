@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -484,12 +485,142 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     }
   }
 
+  Future<void> _confirmResetCccdForTesting() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 24),
+            SizedBox(width: 8),
+            Text('Xóa xác thực CCCD?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+          ],
+        ),
+        content: const Text(
+          'Hệ thống sẽ xóa toàn bộ dữ liệu CCCD (số CCCD, ngày cấp, quê quán, ảnh thẻ) và đặt lại trạng thái về "Chưa xác thực" để bạn có thể kiểm thử lại quy trình xác thực từ đầu.',
+          style: TextStyle(fontSize: 13.5, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Xóa để test'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      final user = ref.read(currentUserProvider);
+      final uid = user?.uid ?? (FirebaseAuth.instance.currentUser?.uid ?? '');
+      await resetCccdVerificationForTesting(uid: uid);
+      ref.invalidate(userProfileProvider);
+      final updated = await ref.read(userProfileProvider.future);
+      if (mounted) {
+        setState(() {
+          _verified = false;
+          if (updated != null) {
+            _hydrate(updated);
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã xóa thông tin xác thực CCCD thành công! Bạn có thể quét/xác thực lại để test.'),
+            backgroundColor: Color(0xFF16A34A),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showCccdVerificationDetails() {
+    final profile = ref.read(userProfileProvider).value;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.verified, color: AppColors.primary, size: 24),
+            SizedBox(width: 8),
+            Text('Thông Tin Đã Xác Thực', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDialogRow('Họ và tên:', profile?.cccdFullName.isNotEmpty == true ? profile!.cccdFullName : _nameController.text),
+            const SizedBox(height: 6),
+            _buildDialogRow('Số CCCD:', profile?.cccdNumber.isNotEmpty == true ? profile!.cccdNumber : 'Đã xác thực'),
+            if (profile?.cccdHometown.isNotEmpty == true) ...[
+              const SizedBox(height: 6),
+              _buildDialogRow('Quê quán:', profile!.cccdHometown),
+            ],
+            if (profile?.cccdIssueDate.isNotEmpty == true) ...[
+              const SizedBox(height: 6),
+              _buildDialogRow('Ngày cấp:', profile!.cccdIssueDate),
+            ],
+          ],
+        ),
+        actions: [
+          if (!_viewOnly)
+            TextButton.icon(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _confirmResetCccdForTesting();
+              },
+              icon: const Icon(Icons.delete_outline, color: Colors.red, size: 16),
+              label: const Text('Xóa để test lại', style: TextStyle(color: Colors.red)),
+            ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDialogRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(width: 80, child: Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted))),
+        Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark))),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
     final profile = profileAsync.value;
     final requested = widget.userId?.trim() ?? '';
     final viewingOther = requested.isNotEmpty && requested != profile?.uid;
+
+    ref.listen<AsyncValue<UserProfile?>>(userProfileProvider, (prev, next) {
+      final updated = next.value;
+      if (updated != null && !viewingOther && !_editing && mounted) {
+        setState(() {
+          _hydrate(updated);
+        });
+      }
+    });
     if (profile != null && !viewingOther) {
       _verified = profile.isCccdVerified;
       _reputationScore = profile.reputationScore;
@@ -715,10 +846,27 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
         ),
         const SizedBox(height: 8),
         InkWell(
-          onTap: _viewOnly || _verified
+          onTap: _viewOnly
               ? null
-              : () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const CccdVerificationScreen()));
+              : () async {
+                  if (_verified) {
+                    _showCccdVerificationDetails();
+                  } else {
+                    final res = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CccdVerificationScreen()),
+                    );
+                    if (res == true && mounted) {
+                      ref.invalidate(userProfileProvider);
+                      final updated = await ref.read(userProfileProvider.future);
+                      if (updated != null && mounted) {
+                        setState(() {
+                          _hydrate(updated);
+                          _verified = updated.isCccdVerified;
+                        });
+                      }
+                    }
+                  }
                 },
           borderRadius: BorderRadius.circular(20),
           child: Container(
@@ -744,10 +892,34 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                     color: _verified ? AppColors.success : AppColors.warning,
                   ),
                 ),
+                if (_verified && !_viewOnly) ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.info_outline, size: 14, color: AppColors.success),
+                ],
               ],
             ),
           ),
         ),
+        if (_verified && !_viewOnly) ...[
+          const SizedBox(height: 6),
+          TextButton.icon(
+            onPressed: _confirmResetCccdForTesting,
+            icon: const Icon(Icons.delete_outline_rounded, size: 15, color: Color(0xFFDC2626)),
+            label: const Text(
+              'Xóa xác thực CCCD (để test lại)',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFDC2626),
+              ),
+            ),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ],
       ],
     );
   }

@@ -11,6 +11,7 @@ import '../repositories/tenant_repository.dart';
 import '../widgets/tenant_card.dart';
 import 'host_management_menu.dart';
 import 'host_violation_management_screen.dart';
+import 'host_post_management_screen.dart';
 
 class HostTenantManagementScreen extends ConsumerStatefulWidget {
   final ValueChanged<HostManagementSection>? onSectionChanged;
@@ -193,6 +194,12 @@ class _HostTenantManagementScreenState
       onSelect: (section) {
         if (widget.onSectionChanged != null) {
           widget.onSectionChanged!(section);
+        } else if (section == HostManagementSection.posts) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => const HostPostManagementScreen(),
+            ),
+          );
         } else if (section == HostManagementSection.checkinCheckout) {
           Navigator.of(context).pushReplacementNamed('/host/checkin-checkout');
         } else if (section == HostManagementSection.violations) {

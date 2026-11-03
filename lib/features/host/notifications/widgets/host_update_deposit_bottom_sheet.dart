@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../auth/providers/auth_provider.dart';
 import '../../providers/host_management_provider.dart';
 import '../models/host_notification_model.dart';
 import '../providers/host_notification_provider.dart';
@@ -95,6 +96,7 @@ class _HostUpdateDepositBottomSheetState
     setState(() => _isLoading = true);
     try {
       final repo = ref.read(hostNotificationRepositoryProvider);
+      final currentHostUid = ref.read(currentUserProvider)?.uid ?? '';
       await repo.updateDepositAdjustment(
         notificationId: widget.notification.id,
         bookingId: widget.notification.bookingId,
@@ -102,6 +104,10 @@ class _HostUpdateDepositBottomSheetState
         newRoomTitle: _selectedRoomTitle,
         newCheckInDate: _selectedCheckInDate,
         adjustmentReason: _reasonController.text.trim(),
+        hostId: widget.notification.receiverId.isNotEmpty
+            ? widget.notification.receiverId
+            : currentHostUid,
+        renterId: widget.notification.senderId,
       );
 
       if (mounted) {

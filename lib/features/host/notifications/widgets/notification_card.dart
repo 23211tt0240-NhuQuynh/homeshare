@@ -1,6 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/services/room_issue_service.dart';
+import '../../../../data/models/room_issue_model.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../screens/host_checkin_checkout_screen.dart';
 import '../models/host_notification_model.dart';
@@ -36,7 +40,10 @@ class NotificationCard extends ConsumerWidget {
     }
   }
 
-  Color _getBadgeBg(String roomCode) {
+  Color _getBadgeBg(String roomCode, {bool isRoomIssue = false}) {
+    if (isRoomIssue) {
+      return const Color(0xFFFFF7ED); // Cam nhạt dịu cho sự cố
+    }
     if (roomCode.startsWith('3')) {
       return const Color(0xFFECFDF3); // Xanh lá dịu
     } else if (roomCode.startsWith('2')) {
@@ -45,7 +52,10 @@ class NotificationCard extends ConsumerWidget {
     return const Color(0xFFEFF8FF); // Xanh dương
   }
 
-  Color _getBadgeTextColor(String roomCode) {
+  Color _getBadgeTextColor(String roomCode, {bool isRoomIssue = false}) {
+    if (isRoomIssue) {
+      return const Color(0xFFEA580C); // Cam đậm
+    }
     if (roomCode.startsWith('3')) {
       return const Color(0xFF027A48);
     } else if (roomCode.startsWith('2')) {
@@ -115,7 +125,7 @@ class NotificationCard extends ConsumerWidget {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: _getBadgeBg(notif.displayRoomCode),
+                        color: _getBadgeBg(notif.displayRoomCode, isRoomIssue: notif.isRoomIssue),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       alignment: Alignment.center,
@@ -123,17 +133,19 @@ class NotificationCard extends ConsumerWidget {
                         fit: BoxFit.scaleDown,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            notif.displayRoomCode,
-                            style: TextStyle(
-                              fontSize: notif.displayRoomCode.length > 3
-                                  ? 12
-                                  : 15,
-                              fontWeight: FontWeight.bold,
-                              color: _getBadgeTextColor(notif.displayRoomCode),
-                            ),
-                            maxLines: 1,
-                          ),
+                          child: notif.isRoomIssue && notif.displayRoomCode.isEmpty
+                              ? const Icon(Icons.build_rounded, size: 20, color: Color(0xFFEA580C))
+                              : Text(
+                                  notif.displayRoomCode.isNotEmpty ? notif.displayRoomCode : 'SC',
+                                  style: TextStyle(
+                                    fontSize: notif.displayRoomCode.length > 3
+                                        ? 12
+                                        : 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: _getBadgeTextColor(notif.displayRoomCode, isRoomIssue: notif.isRoomIssue),
+                                  ),
+                                  maxLines: 1,
+                                ),
                         ),
                       ),
                     ),
@@ -184,15 +196,20 @@ class NotificationCard extends ConsumerWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEFF8FF),
+                        color: notif.isRoomIssue ? const Color(0xFFFFF7ED) : const Color(0xFFEFF8FF),
                         borderRadius: BorderRadius.circular(8),
+                        border: notif.isRoomIssue ? Border.all(color: const Color(0xFFFED7AA)) : null,
                       ),
                       child: Text(
-                        notif.displayBookingCode,
-                        style: const TextStyle(
+                        notif.isRoomIssue
+                            ? (notif.issueId.isNotEmpty
+                                ? '#SC_${notif.issueId.length > 5 ? notif.issueId.substring(notif.issueId.length - 5) : notif.issueId}'
+                                : notif.displayBookingCode)
+                            : notif.displayBookingCode,
+                        style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
+                          color: notif.isRoomIssue ? const Color(0xFFC2410C) : AppColors.primary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -236,9 +253,9 @@ class NotificationCard extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Khách thuê',
-                              style: TextStyle(
+                            Text(
+                              notif.isRoomIssue ? 'Người báo sự cố' : 'Khách thuê',
+                              style: const TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF667085),
                               ),
@@ -258,29 +275,33 @@ class NotificationCard extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      // Số tiền cọc
+                      // Loại sự cố hoặc Số tiền cọc
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            currentTabType ==
-                                    HostNotificationType.paymentCompleted
-                                ? 'Đã thanh toán'
-                                : (currentTabType ==
-                                          HostNotificationType.staying
-                                      ? 'Tiền cọc / phí phòng'
-                                      : 'Tiền cọc giữ phòng'),
+                            notif.isRoomIssue
+                                ? 'Loại sự cố'
+                                : currentTabType ==
+                                        HostNotificationType.paymentCompleted
+                                    ? 'Đã thanh toán'
+                                    : (currentTabType ==
+                                              HostNotificationType.staying
+                                          ? 'Tiền cọc / phí phòng'
+                                          : 'Tiền cọc giữ phòng'),
                             style: const TextStyle(
                               fontSize: 11,
                               color: Color(0xFF667085),
                             ),
                           ),
                           Text(
-                            _formatCurrency(notif.amount),
-                            style: const TextStyle(
-                              fontSize: 14,
+                            notif.isRoomIssue
+                                ? (notif.category.isNotEmpty ? notif.category : 'Sự cố phòng')
+                                : _formatCurrency(notif.amount),
+                            style: TextStyle(
+                              fontSize: notif.isRoomIssue ? 12 : 14,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
+                              color: notif.isRoomIssue ? const Color(0xFFD97706) : AppColors.primary,
                             ),
                           ),
                         ],
@@ -291,28 +312,127 @@ class NotificationCard extends ConsumerWidget {
 
                 const SizedBox(height: 10),
 
-                // 3. Ngày nhận phòng & thời gian gửi
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.calendar_today_outlined,
-                      size: 13,
-                      color: Color(0xFF667085),
+                // 3. Chi tiết sự cố (nếu là Room Issue) hoặc Ngày nhận phòng
+                if (notif.isRoomIssue) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Dự kiến nhận phòng: $checkInStr  •  $relativeTimeStr',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF667085),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, size: 16, color: Color(0xFFD97706)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                notif.category.isNotEmpty ? notif.category : 'Chi tiết sự cố',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                  color: Color(0xFF92400E),
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: notif.severity == 'high' ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                RoomIssueSeverities.toDisplayVi(notif.severity),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: notif.severity == 'high' ? const Color(0xFFDC2626) : const Color(0xFFB45309),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                        if (notif.message.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            notif.message,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: Color(0xFF451A03),
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                        if (notif.imageUrls.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 60,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: notif.imageUrls.length,
+                              separatorBuilder: (_, index) => const SizedBox(width: 8),
+                              itemBuilder: (ctx, idx) {
+                                final imgPath = notif.imageUrls[idx];
+                                final isLocal = File(imgPath).existsSync();
+                                return InkWell(
+                                  onTap: () => _showImageDialog(context, imgPath),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: isLocal
+                                        ? Image.file(File(imgPath), width: 60, height: 60, fit: BoxFit.cover)
+                                        : Container(
+                                            width: 60,
+                                            height: 60,
+                                            color: Colors.grey.shade200,
+                                            child: const Icon(Icons.image, size: 24, color: Colors.grey),
+                                          ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time_rounded, size: 13, color: Color(0xFF667085)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Thời gian gửi: $relativeTimeStr',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF667085)),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_today_outlined,
+                        size: 13,
+                        color: Color(0xFF667085),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Dự kiến nhận phòng: $checkInStr  •  $relativeTimeStr',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF667085),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
 
                 const SizedBox(height: 12),
 
@@ -331,6 +451,9 @@ class NotificationCard extends ConsumerWidget {
     WidgetRef ref,
     HostNotificationModel notif,
   ) {
+    if (notif.isRoomIssue) {
+      return _buildRoomIssueAction(context, ref, notif);
+    }
     if (notif.isRoommateApproval) {
       if (notif.statusId == 'approved' || notif.statusId == 'accepted') {
         return Container(
@@ -663,5 +786,207 @@ class NotificationCard extends ConsumerWidget {
     } else {
       return const SizedBox.shrink();
     }
+  }
+
+  Widget _buildRoomIssueAction(
+    BuildContext context,
+    WidgetRef ref,
+    HostNotificationModel notif,
+  ) {
+    final isResolved = notif.statusId == 'resolved' || notif.statusId == 'completed';
+
+    if (isResolved) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFECFDF3),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFA6F4C5)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF12B76A)),
+            SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Đã khắc phục & hoàn tất xử lý sự cố ✓',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF027A48),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        if (notif.reporterPhone.isNotEmpty) ...[
+          Expanded(
+            flex: 2,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final phoneUri = Uri(scheme: 'tel', path: notif.reporterPhone);
+                if (await canLaunchUrl(phoneUri)) {
+                  await launchUrl(phoneUri);
+                } else if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Số điện thoại liên hệ: ${notif.reporterPhone}')),
+                  );
+                }
+              },
+              icon: const Icon(Icons.phone_in_talk_rounded, size: 14),
+              label: Text(
+                'Gọi: ${notif.reporterPhone}',
+                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF2563EB),
+                side: const BorderSide(color: Color(0xFF93C5FD)),
+                padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+        Expanded(
+          flex: 3,
+          child: ElevatedButton.icon(
+            onPressed: () => _showResolveIssueDialog(context, ref, notif),
+            icon: const Icon(Icons.check_circle_outline_rounded, size: 15),
+            label: const Text(
+              'Đã khắc phục xong',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF16A34A),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showResolveIssueDialog(
+    BuildContext context,
+    WidgetRef ref,
+    HostNotificationModel notif,
+  ) async {
+    final notesController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.task_alt_rounded, color: Color(0xFF16A34A)),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Xác nhận đã khắc phục',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Bạn xác nhận đã xử lý xong sự cố "${notif.category}" tại phòng ${notif.roomTitle}?',
+              style: const TextStyle(fontSize: 13.5),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: notesController,
+              decoration: InputDecoration(
+                labelText: 'Ghi chú xử lý (Tùy chọn)',
+                hintText: 'Ví dụ: Đã thay bóng đèn, sửa vòi sen...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Đóng'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF16A34A),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Xác nhận hoàn tất'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await ref.read(roomIssueServiceProvider).resolveRoomIssue(
+              issueId: notif.issueId,
+              hostNotes: notesController.text.trim(),
+              hostNotificationId: notif.id,
+            );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã cập nhật trạng thái sự cố: Đã khắc phục xong ✓'),
+              backgroundColor: Color(0xFF16A34A),
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Lỗi khi cập nhật sự cố: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _showImageDialog(BuildContext context, String path) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(File(path), fit: BoxFit.contain),
+            ),
+            IconButton(
+              icon: const CircleAvatar(
+                backgroundColor: Colors.black54,
+                child: Icon(Icons.close, color: Colors.white, size: 18),
+              ),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

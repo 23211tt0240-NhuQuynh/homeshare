@@ -8,6 +8,7 @@ import '../widgets/violation_record_card.dart';
 import '../widgets/violation_summary_card.dart';
 import 'host_create_violation_screen.dart';
 import 'host_management_menu.dart';
+import 'host_post_management_screen.dart';
 
 class HostViolationManagementScreen extends ConsumerStatefulWidget {
   final ValueChanged<HostManagementSection>? onSectionChanged;
@@ -32,6 +33,12 @@ class _HostViolationManagementScreenState
       onSelect: (section) {
         if (widget.onSectionChanged != null) {
           widget.onSectionChanged!(section);
+        } else if (section == HostManagementSection.posts) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => const HostPostManagementScreen(),
+            ),
+          );
         } else if (section == HostManagementSection.tenants) {
           Navigator.of(context).pushReplacementNamed('/host/tenants');
         } else if (section == HostManagementSection.checkinCheckout) {

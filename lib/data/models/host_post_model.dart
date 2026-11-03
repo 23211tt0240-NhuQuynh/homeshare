@@ -108,7 +108,7 @@ class HostPostModel {
        hostId = hostId ?? chuNhaId ?? '',
        locationId = locationId ?? diaDiemId ?? '',
        rentalTypeId = rentalTypeId ?? loaiThueId ?? 'thang',
-       statusId = statusId ?? trangThaiId ?? 'dangHienThi',
+       statusId = statusId ?? trangThaiId ?? status,
        title = title ?? tieuDe ?? '',
        description = description ?? moTa ?? '',
        rentalPrice = rentalPrice ?? giaThue ?? 0.0,

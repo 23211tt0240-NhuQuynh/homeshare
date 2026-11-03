@@ -143,4 +143,10 @@ class IdGenerator {
   static String postReport() {
     return 'BCB_${DateTime.now().millisecondsSinceEpoch}';
   }
+
+  /// Sinh Document ID Báo cáo sự cố phòng (reports):
+  /// SC_1729837200000
+  static String roomIssue() {
+    return 'SC_${DateTime.now().millisecondsSinceEpoch}';
+  }
 }

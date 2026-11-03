@@ -201,6 +201,26 @@ class CccdData {
     );
   }
 
+  Map<String, dynamic> toMap() => {
+        'idNumber': idNumber,
+        'oldCmnd': oldCmnd,
+        'fullName': fullName,
+        'birthDate': birthDate,
+        'gender': gender,
+        'address': address,
+        'issueDate': issueDate,
+      };
+
+  factory CccdData.fromMap(Map<String, dynamic> map) => CccdData(
+        idNumber: map['idNumber'] ?? '',
+        oldCmnd: map['oldCmnd'] ?? '',
+        fullName: map['fullName'] ?? '',
+        birthDate: map['birthDate'] ?? '',
+        gender: map['gender'] ?? '',
+        address: map['address'] ?? '',
+        issueDate: map['issueDate'] ?? '',
+      );
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

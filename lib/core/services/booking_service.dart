@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../data/models/booking_model.dart';
 import '../../data/models/resident_model.dart';
 import '../constants/firestore_collections.dart';
@@ -463,6 +464,138 @@ class BookingService {
     }
   }
 
+  /// Người thuê yêu cầu thay đổi / dời ngày dọn vào ở (Move-in Date)
+  Future<void> updateMoveInDate({
+    required String bookingId,
+    required DateTime newMoveInDate,
+    String? reason,
+    BookingRequestModel? booking,
+  }) async {
+    if (bookingId.isEmpty) return;
+    final now = DateTime.now();
+
+    final docSnap =
+        await _firestore.collection('bookings').doc(bookingId).get();
+    final data = docSnap.data() ?? {};
+    final renterId = (booking?.renterId.isNotEmpty == true
+            ? booking!.renterId
+            : (data['renterId'] ?? data['nguoiDungId'] ?? ''))
+        .toString();
+    final renterName = (booking?.renterName.isNotEmpty == true
+            ? booking!.renterName
+            : (data['renterName'] ?? data['tenNguoiO'] ?? 'Khách thuê'))
+        .toString();
+    final hostId = (booking?.hostId.isNotEmpty == true
+            ? booking!.hostId
+            : (data['hostId'] ?? data['chuNhaId'] ?? ''))
+        .toString();
+    final roomId = (booking?.roomId.isNotEmpty == true
+            ? booking!.roomId
+            : (data['roomId'] ?? data['phongId'] ?? ''))
+        .toString();
+    final roomTitle = (booking?.roomTitle.isNotEmpty == true
+            ? booking!.roomTitle
+            : (data['roomTitle'] ?? data['tieuDePhong'] ?? 'Phòng trọ'))
+        .toString();
+    final oldDate = booking?.moveInDate ??
+        ((data['moveInDate'] is Timestamp)
+            ? (data['moveInDate'] as Timestamp).toDate()
+            : ((data['ngayVao'] is Timestamp)
+                ? (data['ngayVao'] as Timestamp).toDate()
+                : null));
+
+    final oldDateStr =
+        oldDate != null ? DateFormat('dd/MM/yyyy').format(oldDate) : '';
+    final newDateStr = DateFormat('dd/MM/yyyy').format(newMoveInDate);
+    final cleanReason = reason?.trim();
+
+    // 1. Cập nhật booking document trong collection 'bookings'
+    await _firestore.collection('bookings').doc(bookingId).set({
+      'moveInDate': Timestamp.fromDate(newMoveInDate),
+      'ngayVao': Timestamp.fromDate(newMoveInDate),
+      'thoiDiem': Timestamp.fromDate(newMoveInDate),
+      'checkInDate': Timestamp.fromDate(newMoveInDate),
+      if (oldDate != null) 'oldMoveInDate': Timestamp.fromDate(oldDate),
+      if (cleanReason != null && cleanReason.isNotEmpty) ...{
+        'adjustmentReason': cleanReason,
+        'changeDateReason': cleanReason,
+      },
+      'adjustmentStatus': 'updated_by_renter',
+      'updatedAt': Timestamp.fromDate(now),
+    }, SetOptions(merge: true));
+
+    // 2. Gửi thông báo đến chủ trọ (Host) trong collection 'notifications'
+    if (hostId.isNotEmpty && hostId != 'guest') {
+      final hostNotifId = IdGenerator.notification();
+      final reasonPart = cleanReason != null && cleanReason.isNotEmpty
+          ? '\nLý do: $cleanReason'
+          : '';
+      final oldPart = oldDateStr.isNotEmpty ? ' (cũ: $oldDateStr)' : '';
+      await _firestore.collection('notifications').doc(hostNotifId).set({
+        'id': hostNotifId,
+        'notificationId': hostNotifId,
+        'receiverId': hostId,
+        'recipientRole': 'host',
+        'title': 'Khách thuê dời ngày dọn vào',
+        'message':
+            'Khách thuê $renterName đã dời ngày dọn vào phòng "$roomTitle" sang ngày $newDateStr$oldPart.$reasonPart',
+        'notificationType': 'booking_adjustment',
+        'type': 'booking_adjustment',
+        'bookingId': bookingId,
+        'roomId': roomId,
+        'roomTitle': roomTitle,
+        if (oldDate != null) 'oldCheckInDate': Timestamp.fromDate(oldDate),
+        'newCheckInDate': Timestamp.fromDate(newMoveInDate),
+        'checkInDate': Timestamp.fromDate(newMoveInDate),
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    // 3. Gửi thông báo xác nhận đến người thuê (Renter) trong collection 'notification_user'
+    if (renterId.isNotEmpty && renterId != 'guest') {
+      final renterNotifId = IdGenerator.notification();
+      final reasonPart = cleanReason != null && cleanReason.isNotEmpty
+          ? ' (Lý do: $cleanReason)'
+          : '';
+      await _firestore
+          .collection(FirestoreCollections.notificationUser)
+          .doc(renterNotifId)
+          .set({
+            'id': renterNotifId,
+            'recipientId': renterId,
+            'receiverId': renterId,
+            'userId': renterId,
+            'recipientRole': 'renter',
+            'title': 'Thay đổi ngày dọn vào thành công ✓',
+            'message':
+                'Bạn đã dời ngày dọn vào phòng "$roomTitle" sang ngày $newDateStr thành công.$reasonPart',
+            'notificationType': 'booking_adjustment',
+            'type': 'booking_adjustment',
+            'bookingId': bookingId,
+            'roomId': roomId,
+            'roomTitle': roomTitle,
+            if (oldDate != null) 'oldCheckInDate': Timestamp.fromDate(oldDate),
+            'newCheckInDate': Timestamp.fromDate(newMoveInDate),
+            'checkInDate': Timestamp.fromDate(newMoveInDate),
+            'isRead': false,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+    }
+
+    // 4. Ghi audit log
+    await _firestore.collection('audit_logs').add({
+      'action': 'Đổi ngày dọn vào',
+      'actor': 'Người thuê ($renterName)',
+      'bookingId': bookingId,
+      'oldDate': oldDateStr,
+      'newDate': newDateStr,
+      'reason': cleanReason ?? '',
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
   // 4. CHUYỂN TRẠNG THÁI TỔNG QUÁT (choDuyet, daDuyet, dangO, daHuy)
   Future<void> transitionStatus(
     String bookingId,
@@ -912,18 +1045,35 @@ class BookingService {
         final r = ResidentModel.fromFirestore(doc);
         if (r.userId != renterId) continue;
         final roomId = r.roomId.trim();
-        String? bId;
+        final rawDocId = doc.id.trim();
+
+        // Thu thập các candidate ID liên kết từ periodId và resident doc id
+        final candidateBookingIds = <String>{};
         if (r.periodId.isNotEmpty) {
-          bId = r.periodId.startsWith('checkin_')
-              ? r.periodId.substring('checkin_'.length)
-              : r.periodId;
-          if (bId.contains('_')) {
-            bId = bId.split('_').first;
-          }
-          if (roomId.isNotEmpty && bId.isNotEmpty) {
-            residentRoomForBooking[bId] = roomId;
+          candidateBookingIds.add(r.periodId);
+          if (r.periodId.startsWith('checkin_')) {
+            candidateBookingIds.add(r.periodId.substring('checkin_'.length));
           }
         }
+        if (rawDocId.isNotEmpty) {
+          candidateBookingIds.add(rawDocId);
+          if (rawDocId.startsWith('checkin_')) {
+            candidateBookingIds.add(rawDocId.substring('checkin_'.length));
+          }
+          if (rawDocId.contains('_${r.userId}')) {
+            candidateBookingIds.add(rawDocId.replaceAll('_${r.userId}', ''));
+            if (rawDocId.startsWith('checkin_')) {
+              candidateBookingIds.add(rawDocId.substring('checkin_'.length).replaceAll('_${r.userId}', ''));
+            }
+          }
+        }
+
+        for (final cid in candidateBookingIds) {
+          if (roomId.isNotEmpty && cid.isNotEmpty) {
+            residentRoomForBooking[cid] = roomId;
+          }
+        }
+
         if (ResidentService.isActive(r)) {
           if (roomId.isNotEmpty) {
             activeResidentRooms.add(roomId);
@@ -931,9 +1081,9 @@ class BookingService {
               activeResidentRooms.add(await residentService.resolveRoomId(roomId));
             } catch (_) {}
           }
-          if (bId != null && bId.isNotEmpty) activeResidentBookingIds.add(bId);
-          if (r.periodId.isNotEmpty) activeResidentBookingIds.add(r.periodId);
+          activeResidentBookingIds.addAll(candidateBookingIds);
         } else {
+          // Resident đã rời phòng (status == 'moved_out' || statusId == 'daRoi' || isMovedOut)
           if (roomId.isNotEmpty) {
             checkedOutRooms.add(roomId);
             try {
@@ -941,13 +1091,7 @@ class BookingService {
               if (canonical.isNotEmpty) checkedOutRooms.add(canonical);
             } catch (_) {}
           }
-          if (r.periodId.isNotEmpty) {
-            if (r.periodId.startsWith('checkin_')) {
-              checkedOutBookingIds.add(r.periodId.substring('checkin_'.length));
-            }
-            checkedOutBookingIds.add(r.periodId);
-            if (bId != null && bId.isNotEmpty) checkedOutBookingIds.add(bId);
-          }
+          checkedOutBookingIds.addAll(candidateBookingIds);
         }
       } catch (e) {
         debugPrint('Error parsing resident for stay list: $e');
@@ -968,15 +1112,16 @@ class BookingService {
         } catch (_) {}
       }
 
-      final isActiveInResident = activeResidentBookingIds.contains(booking.id) ||
-          activeResidentRooms.contains(roomId) ||
-          (canonicalRoomId.isNotEmpty && activeResidentRooms.contains(canonicalRoomId));
-
-      final isMatchingCheckout = !isActiveInResident && (
-          checkedOutBookingIds.contains(booking.id) ||
+      final isExplicitlyCheckedOut = checkedOutBookingIds.contains(booking.id) ||
+          checkedOutBookingIds.any((cid) => cid.contains(booking.id) || booking.id.contains(cid)) ||
           ((checkedOutRooms.contains(roomId) || checkedOutRooms.contains(canonicalRoomId)) &&
               !activeResidentRooms.contains(roomId) &&
-              !activeResidentRooms.contains(canonicalRoomId)));
+              !activeResidentRooms.contains(canonicalRoomId));
+
+      final isActiveInResident = !isExplicitlyCheckedOut && (
+          activeResidentBookingIds.contains(booking.id) ||
+          activeResidentRooms.contains(roomId) ||
+          (canonicalRoomId.isNotEmpty && activeResidentRooms.contains(canonicalRoomId)));
 
       if (isActiveInResident) {
         // Cư dân đã check-in trong bảng residents -> đơn thuê chuyển sang 'dangO' (Đang ở)
@@ -985,7 +1130,7 @@ class BookingService {
         );
         if (roomId.isNotEmpty) activeRoomsCovered.add(roomId);
         if (canonicalRoomId.isNotEmpty) activeRoomsCovered.add(canonicalRoomId);
-      } else if (isMatchingCheckout && !booking.isCheckedOut && !booking.isCancelled) {
+      } else if (isExplicitlyCheckedOut && !booking.isCheckedOut && !booking.isCancelled) {
         // Cư dân đã check out trong bảng residents -> chuyển đơn thuê sang hoàn tất/checked_out (vào lịch sử đã ở, KHÔNG vào đã hủy)
         booking = booking.copyWith(
           status: 'checked_out',

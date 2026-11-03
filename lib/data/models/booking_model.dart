@@ -56,6 +56,7 @@ class BookingRequestModel {
         s == 'paid' ||
         s == 'completed' ||
         s == 'dacoc' ||
+        s == 'choxacnhanthaydoi' ||
         s == 'chonhanphong';
   }
 
