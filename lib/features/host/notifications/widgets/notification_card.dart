@@ -215,7 +215,7 @@ class NotificationCard extends ConsumerWidget {
                           color: notif.isRoomIssue ? const Color(0xFFC2410C) : AppColors.primary,
                         ),
                       ),
-                    ],
+                    ),
                   ],
                 ),
 

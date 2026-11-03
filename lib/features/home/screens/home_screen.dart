@@ -756,10 +756,7 @@ class HomeScreen extends ConsumerWidget {
         : null;
     final hostBookings = hostBookingsAsync?.value ?? const <BookingRequestModel>[];
     final hostRentedCount = hostBookings.where((b) => b.isActive).length;
-    final rejectedCountAsync = currentUid.isNotEmpty
-        ? ref.watch(hostRejectedCountProvider(currentUid))
-        : null;
-    final rejectedPostsCount = rejectedCountAsync?.value ?? 0;
+
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = Theme.of(context).scaffoldBackgroundColor;

@@ -171,7 +171,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
     );
   }
 
-  void _onQuickBookingPressed() {    final user = ref.read(currentUserProvider);
+  void _onQuickBookingPressed() async {    final user = ref.read(currentUserProvider);
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Vui lòng đăng nhập để đặt phòng')),

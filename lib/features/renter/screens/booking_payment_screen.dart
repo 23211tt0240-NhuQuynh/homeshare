@@ -401,16 +401,16 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
 
       // 2c. Ẩn bài đăng ngay khi gửi thông báo đặt phòng đang chờ xử lý
       final bookingService = BookingService();
-      final targetRoomId = widget.booking.roomId.isNotEmpty
+      final pendingRoomId = widget.booking.roomId.isNotEmpty
           ? widget.booking.roomId
           : widget.room.id;
-      if (targetRoomId.isNotEmpty) {
+      if (pendingRoomId.isNotEmpty) {
         await bookingService.hidePostOnPendingBooking(
-          targetRoomId,
+          pendingRoomId,
           reason: 'Đang có yêu cầu đặt phòng chờ xử lý',
         );
       }
-      if (widget.room.id.isNotEmpty && widget.room.id != targetRoomId) {
+      if (widget.room.id.isNotEmpty && widget.room.id != pendingRoomId) {
         await bookingService.hidePostOnPendingBooking(
           widget.room.id,
           reason: 'Đang có yêu cầu đặt phòng chờ xử lý',

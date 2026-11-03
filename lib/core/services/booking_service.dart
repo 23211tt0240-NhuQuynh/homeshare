@@ -1,3 +1,4 @@
+import '../../data/models/room_model.dart';
 import 'resident_service.dart';
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -226,6 +227,140 @@ class BookingService {
     return null;
   }
 
+    static DateTime stayStartedAt(BookingRequestModel stay) {
+    return stay.acceptedDate ?? stay.createdAt;
+  }
+
+  /// Checkout cũ không được đè lên lần nhận phòng mới hơn.
+  /// Cùng giây vẫn tính là đã trả phòng (nhận rồi đá ngay).
+  @visibleForTesting
+  static bool checkoutAppliesToStay({
+    required DateTime checkoutAt,
+    required DateTime stayStartedAt,
+  }) {
+    return !checkoutAt.isBefore(stayStartedAt);
+  }
+
+  /// Overlay `checkout_records` lên một đơn: chỉ kết thúc kỳ ở nếu checkout
+  /// sau lần nhận phòng này; khôi phục `dangO` nếu đơn bị heal nhầm.
+  @visibleForTesting
+  static BookingRequestModel applyCheckoutOverlayToStay({
+    required BookingRequestModel stay,
+    DateTime? latestCheckoutAt,
+  }) {
+    if (latestCheckoutAt == null) return stay;
+    final applies = checkoutAppliesToStay(
+      checkoutAt: latestCheckoutAt,
+      stayStartedAt: stayStartedAt(stay),
+    );
+    if (stay.isActive) {
+      return applies ? stay.copyWith(status: 'checked_out') : stay;
+    }
+    if (stay.isEnded && !applies) {
+      return stay.copyWith(status: 'dangO');
+    }
+    return stay;
+  }
+
+  /// Occupancy (`residents.dangO`) thắng biên bản trả phòng cũ.
+  /// Host đọc bảng này, nên đơn thuê phải cùng trạng thái khi còn cư dân đang ở.
+  @visibleForTesting
+  static BookingRequestModel reconcileStayWithOccupancy({
+    required BookingRequestModel stay,
+    required bool hasActiveResident,
+    DateTime? latestCheckoutAt,
+  }) {
+    if (hasActiveResident) {
+      return stay.isActive ? stay : stay.copyWith(status: 'dangO');
+    }
+    return applyCheckoutOverlayToStay(
+      stay: stay,
+      latestCheckoutAt: latestCheckoutAt,
+    );
+  }
+
+  
+  Future<void> confirmPayment(
+    String bookingId,
+    Map<String, dynamic> patch,
+  ) async {
+    final bookingRef = _firestore.collection('bookings').doc(bookingId);
+    final snapshot = await bookingRef.get();
+    if (!snapshot.exists) throw StateError('Không tìm thấy đơn đặt phòng');
+    final data = snapshot.data()!;
+    final reference =
+        (data['phongId'] ?? data['roomId'] ?? data['baiDangId'] ?? '')
+            .toString();
+    final roomId = await ResidentService(_firestore).resolveRoomId(reference);
+    final roomRef = _firestore.collection('host_rooms').doc(roomId);
+    await _firestore.runTransaction((transaction) async {
+      final booking = await transaction.get(bookingRef);
+      final room = await transaction.get(roomRef);
+      if (!booking.exists || !room.exists) {
+        throw StateError('Không tìm thấy đơn đặt phòng hoặc phòng');
+      }
+      final status = (booking.data()?['status'] ?? '').toString().toLowerCase();
+      if (const [
+        'cancelled',
+        'canceled',
+        'dahuy',
+        'expired',
+        'rejected',
+      ].contains(status)) {
+        throw StateError('Không thể xác nhận cọc cho đơn đã hủy hoặc hết hạn.');
+      }
+      final owner = room.data()?['reservedBookingId'];
+      if (owner != bookingId &&
+          (owner != null || !RoomModel.fromFirestore(room).canBeListed)) {
+        throw StateError(
+          'Phòng đã được người khác đặt cọc hoặc không còn trống.',
+        );
+      }
+      // Post creation also touches roomRef. A concurrent new listing forces
+      // this transaction to retry and collect that listing before hiding it.
+      final posts = <String, DocumentReference<Map<String, dynamic>>>{};
+      for (final collection in ['posts', 'bai_dang_cho_thue', 'rooms']) {
+        for (final field in [
+          'hostRoomId',
+          'roomId',
+          'phongId',
+          'room_id',
+          'phong_tro_id',
+        ]) {
+          for (final id in {roomId, reference}) {
+            final result = await _firestore
+                .collection(collection)
+                .where(field, isEqualTo: id)
+                .get();
+            for (final doc in result.docs) {
+              posts[doc.reference.path] = doc.reference;
+            }
+          }
+        }
+      }
+      transaction.update(bookingRef, {...patch, 'isPaid': true});
+      transaction.update(roomRef, {
+        'status': room.data()?['status'] == 'occupied'
+            ? 'occupied'
+            : 'reserved',
+        'isAvailable': false,
+        'reservedBookingId': bookingId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      for (final post in posts.values) {
+        transaction.update(post, {
+          'status': 'hidden',
+          'statusId': 'hidden',
+          'trang_thai': 'hidden',
+          'isAvailable': false,
+          'hiddenReason': 'room_reserved',
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    });
+  }
+
+  
   // 1. DUYỆT ĐƠN (Chuyển sang Đã duyệt / approved)
   Future<void> approveBooking(String bookingId, {String? note}) async {
     if (bookingId.isEmpty) return;
@@ -522,21 +657,6 @@ class BookingService {
         'holdingBookingId': FieldValue.delete(),
         'holdingRenterId': FieldValue.delete(),
         'holdingExpiresAt': FieldValue.delete(),
-        'updatedAt': Timestamp.fromDate(now),
-      }, SetOptions(merge: true));
-
-      try {
-        await _firestore.collection('rooms').doc(realRoomId).set({
-          'status': 'available',
-          'isAvailable': true,
-          'bookingStatus': 'available',
-          'updatedAt': Timestamp.fromDate(now),
-        }, SetOptions(merge: true));
-      } catch (_) {}
-    }
-    if (roomId.isNotEmpty) {
-      await restorePostOnCancelledBooking(roomId);
-    }
         'updatedAt': Timestamp.fromDate(now),
       }, SetOptions(merge: true));
 
