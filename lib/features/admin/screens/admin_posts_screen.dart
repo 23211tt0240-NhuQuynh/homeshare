@@ -1,7 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -22,9 +22,8 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
   String _filter = 'all'; // all, pending, active, rejected, attention
   DateTimeRange? _dateRange;
   final TextEditingController _searchController = TextEditingController();
-  String? _selectedHostId;
-  Map<String, String> _hostOptions = {};
   final Map<String, Future<Map<String, dynamic>?>> _hostProfiles = {};
+  final Map<String, Future<List<String>>> _roomImageLoads = {};
   final Map<String, Future<String?>> _imageScans = {};
   final Map<String, String?> _imageScanResults = {};
   bool _hasAttentionPosts = false;
@@ -68,11 +67,30 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
     super.dispose();
   }
 
+  bool _isHostResubmitted(Map<String, dynamic> data) {
+    if (data['hostResubmittedAt'] != null || data['resubmittedAt'] != null) {
+      return true;
+    }
+    DateTime? parseTime(dynamic value) {
+      if (value is Timestamp) return value.toDate();
+      if (value is DateTime) return value;
+      return DateTime.tryParse(value?.toString() ?? '');
+    }
+
+    final reviewedAt = parseTime(data['reviewedAt']);
+    final updatedAt = parseTime(data['updatedAt']);
+    if (reviewedAt != null && updatedAt != null) {
+      return updatedAt.difference(reviewedAt).inSeconds > 2;
+    }
+    return false;
+  }
+
   String _normalizedPostStatus(Map<String, dynamic> data) {
-    final status = (data['status'] ?? 'pending')
-        .toString()
-        .trim()
-        .toLowerCase();
+    final status =
+        (data['status'] ?? data['statusId'] ?? data['status_id'] ?? 'pending')
+            .toString()
+            .trim()
+            .toLowerCase();
     if (const {
       'active',
       'approved',
@@ -85,11 +103,29 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
     }.contains(status)) {
       return 'active';
     }
+    if (data['deletedAt'] != null ||
+        const {
+          'deleted',
+          'da xoa',
+          'đã xóa',
+          'da_xoa',
+          'removed',
+        }.contains(status)) {
+      return 'rejected';
+    }
+    if (_isHostResubmitted(data)) {
+      return 'pending';
+    }
     if (const {
       'rejected',
+      'reject',
+      'denied',
       'tuchoi',
-      'từ chối',
       'tu choi',
+      'từ chối',
+      'da tu choi',
+      'đã từ chối',
+      'da_tu_choi',
       'hidden',
       'đã ẩn',
       'da an',
@@ -119,9 +155,15 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
 
   Future<String?> _scanPostImages(DocumentSnapshot doc, List<String> images) {
     return _imageScans.putIfAbsent(doc.id, () async {
-      final result = await PostContentScreeningService.scanImages(images);
-      if (mounted) setState(() => _imageScanResults[doc.id] = result);
-      return result;
+      try {
+        final result = await PostContentScreeningService.scanImages(images);
+        if (mounted) setState(() => _imageScanResults[doc.id] = result);
+        return result;
+      } catch (error) {
+        debugPrint('OCR bài đăng ${doc.id} thất bại: $error');
+        if (mounted) setState(() => _imageScanResults[doc.id] = null);
+        return null;
+      }
     });
   }
 
@@ -562,21 +604,30 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
         data['photoUrls'] ??
         data['danhSachAnh'] ??
         data['hinhAnh'] ??
+        data['hinh_anh'] ??
         data['anhList'] ??
         data['imageUrl'] ??
         data['photoUrl'] ??
         data['thumbnailUrl'] ??
         data['coverImage'] ??
+        data['anh_bia'] ??
+        data['anhBia'] ??
         data['image'];
 
     String? imageUrl(dynamic item) {
       if (item is String) {
-        var value = item.trim();
+        var value = item.trim().replaceAll('"', '').replaceAll("'", "");
         if (value.startsWith('{') && value.endsWith('}')) {
           final match = RegExp(
-            r'''(?:duongDan|url|image|imageUrl|downloadURL):\s*["']?([^,"'}]+)''',
+            r'''(?:duongDan|url|image|imageUrl|downloadURL|link):\s*["']?([^,"'}]+)''',
           ).firstMatch(value);
-          if (match != null) value = match.group(1)!.trim();
+          if (match != null) {
+            value = match
+                .group(1)!
+                .trim()
+                .replaceAll('"', '')
+                .replaceAll("'", "");
+          }
         }
         return value.isEmpty ? null : value;
       }
@@ -589,14 +640,250 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
             item['downloadURL'] ??
             item['downloadUrl'] ??
             item['storageUrl'] ??
-            item['duong_dan'];
-        return value is String && value.trim().isNotEmpty ? value.trim() : null;
+            item['duong_dan'] ??
+            item['link'];
+        return value is String && value.trim().isNotEmpty
+            ? value.trim().replaceAll('"', '').replaceAll("'", "")
+            : null;
       }
       return null;
     }
 
     final items = raw is List ? raw : [raw];
     return items.map(imageUrl).whereType<String>().toSet().toList();
+  }
+
+  Future<List<String>> _loadImagesFromRoom(
+    String roomId, {
+    String? postId,
+    String? propertyId,
+  }) async {
+    final normalizedId = roomId.trim();
+    final normalizedPostId = (postId ?? '').trim();
+    final normalizedPropId = (propertyId ?? '').trim();
+    if (normalizedId.isEmpty &&
+        normalizedPostId.isEmpty &&
+        normalizedPropId.isEmpty) {
+      return const [];
+    }
+
+    final results = <String>[];
+    void addAllUnique(Iterable<String> urls) {
+      for (final u in urls) {
+        final clean = u.trim();
+        if (clean.isNotEmpty && !results.contains(clean)) {
+          results.add(clean);
+        }
+      }
+    }
+
+    String? extractImageDocUrl(Map<String, dynamic> data) {
+      final raw =
+          data['url'] ??
+          data['url_anh'] ??
+          data['duongDan'] ??
+          data['imageUrl'] ??
+          data['image'] ??
+          data['downloadURL'] ??
+          data['downloadUrl'] ??
+          data['storageUrl'] ??
+          data['duong_dan'] ??
+          data['link'];
+      if (raw is String && raw.trim().isNotEmpty) {
+        return raw.trim().replaceAll('"', '').replaceAll("'", "");
+      }
+      final listImgs = _postImages(data);
+      return listImgs.isNotEmpty ? listImgs.first : null;
+    }
+
+    final db = FirebaseFirestore.instance;
+
+    try {
+      if (normalizedId.isNotEmpty) {
+        final roomDoc = await db.collection('rooms').doc(normalizedId).get();
+        if (roomDoc.exists) {
+          addAllUnique(
+            _postImages(roomDoc.data() ?? const <String, dynamic>{}),
+          );
+          if (results.isNotEmpty) return results;
+        }
+
+        final snapshots = await Future.wait([
+          db
+              .collection('rooms')
+              .where('roomId', isEqualTo: normalizedId)
+              .limit(1)
+              .get(),
+          db
+              .collection('posts')
+              .where('roomId', isEqualTo: normalizedId)
+              .limit(1)
+              .get(),
+          db
+              .collection('room_images')
+              .where('roomId', isEqualTo: normalizedId)
+              .get(),
+        ]);
+
+        for (final d in snapshots[0].docs) {
+          addAllUnique(_postImages(d.data()));
+        }
+        for (final d in snapshots[1].docs) {
+          addAllUnique(_postImages(d.data()));
+        }
+        for (final d in snapshots[2].docs) {
+          final u = extractImageDocUrl(d.data());
+          if (u != null) addAllUnique([u]);
+        }
+        if (results.isNotEmpty) return results;
+      }
+
+      if (normalizedPostId.isNotEmpty) {
+        final snap = await db
+            .collection('room_images')
+            .where('postId', isEqualTo: normalizedPostId)
+            .get();
+        for (final d in snap.docs) {
+          final u = extractImageDocUrl(d.data());
+          if (u != null) addAllUnique([u]);
+        }
+      }
+    } catch (_) {
+      // Ignore room image fetch errors and keep the post card usable.
+    }
+
+    return results;
+  }
+
+  Widget _buildPostThumbWidget(
+    List<String> postImages,
+    String roomId, {
+    String? postId,
+    String? propertyId,
+    int index = 0,
+  }) {
+    final normalizedRoomId = roomId.trim();
+    if (index < postImages.length) {
+      final url = postImages[index].trim();
+      if (url.isNotEmpty) {
+        return _networkPostThumbnail(
+          url,
+          onError: () => _buildPostThumbWidget(
+            postImages,
+            normalizedRoomId,
+            postId: postId,
+            propertyId: propertyId,
+            index: index + 1,
+          ),
+        );
+      }
+    }
+    return _buildRoomImageFallback(
+      normalizedRoomId,
+      postId: postId,
+      propertyId: propertyId,
+      failedUrls: postImages.toSet(),
+    );
+  }
+
+  Widget _networkPostThumbnail(String url, {Widget Function()? onError}) {
+    if (url.startsWith('data:image/') && url.contains('base64,')) {
+      try {
+        final bytes = base64Decode(url.substring(url.indexOf('base64,') + 7));
+        return Image.memory(
+          bytes,
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) =>
+              onError?.call() ?? _postThumbnailPlaceholder(),
+        );
+      } catch (_) {
+        return onError?.call() ?? _postThumbnailPlaceholder();
+      }
+    }
+
+    final isFirebaseStorageUrl =
+        url.contains('firebasestorage.googleapis.com') ||
+        url.contains('storage.googleapis.com');
+    return Image.network(
+      url,
+      width: double.infinity,
+      height: double.infinity,
+      fit: BoxFit.cover,
+      webHtmlElementStrategy: isFirebaseStorageUrl
+          ? WebHtmlElementStrategy.prefer
+          : WebHtmlElementStrategy.fallback,
+      errorBuilder: (context, error, stackTrace) =>
+          onError?.call() ?? _postThumbnailPlaceholder(),
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return const Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Color(0xFF398FC0),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRoomImageFallback(
+    String roomId, {
+    String? postId,
+    String? propertyId,
+    Set<String> failedUrls = const {},
+  }) {
+    final cacheKey =
+        '${roomId.trim()}|${(postId ?? '').trim()}|${(propertyId ?? '').trim()}';
+    if (cacheKey == '||') return _postThumbnailPlaceholder();
+
+    final imagesFuture = _roomImageLoads.putIfAbsent(
+      cacheKey,
+      () => _loadImagesFromRoom(
+        roomId,
+        postId: postId,
+        propertyId: propertyId,
+      ),
+    );
+    return FutureBuilder<List<String>>(
+      future: imagesFuture,
+      builder: (context, snapshot) {
+        final candidates = (snapshot.data ?? const <String>[])
+            .where((image) => !failedUrls.contains(image))
+            .toList();
+        if (candidates.isEmpty) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFF398FC0),
+                ),
+              ),
+            );
+          }
+          return _postThumbnailPlaceholder();
+        }
+        return _networkPostThumbnail(candidates.first);
+      },
+    );
+  }
+
+  Widget _postThumbnailPlaceholder() {
+    return const Center(
+      child: Icon(
+        Icons.broken_image_outlined,
+        size: 28,
+        color: Color(0xFF7AA6C2),
+      ),
+    );
   }
 
   // Chuyển DocumentSnapshot (collection posts) thành RoomModel
@@ -686,20 +973,11 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
     }
   }
 
-  Future<void> _openDetailPreview(DocumentSnapshot doc) async {
+  void _openDetailPreview(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
-    final hostId =
-        (data['hostId'] ?? data['landlordId'] ?? data['userId'] ?? '')
-            .toString();
-    Map<String, dynamic>? hostProfile;
-    try {
-      hostProfile = await _hostProfile(hostId);
-    } catch (_) {
-      // Keep post-level contact fields if the user profile is unavailable.
-    }
+    final posts = _docToRoomModel(doc);
+    final status = _normalizedPostStatus(data);
     if (!mounted) return;
-    final posts = _docToRoomModel(doc, hostProfile: hostProfile);
-
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -719,12 +997,8 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
             'likes',
             'likeCount',
           ]),
-          canApprove:
-              ![
-                'rejected',
-                'tuchoi',
-              ].contains((data['status'] ?? '').toString().toLowerCase()) ||
-              data['hostResubmittedAt'] != null,
+          postStatus: status,
+          canApprove: status != 'rejected' || _isHostResubmitted(data),
           onApproved: () async {
             try {
               await PostReviewService.approve(doc.id);
@@ -944,10 +1218,6 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                     final searchWidth = constraints.maxWidth > 700
                         ? 360.0
                         : constraints.maxWidth;
-                    final selectedHostId =
-                        _hostOptions.containsKey(_selectedHostId)
-                        ? _selectedHostId
-                        : null;
                     return Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -987,43 +1257,6 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                                 borderSide: const BorderSide(
                                   color: Color(0xFFE2E8F0),
                                 ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 190,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: const Color(0xFFD0D5DD),
-                              ),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: selectedHostId,
-                                isExpanded: true,
-                                hint: const Text(
-                                  'Tất cả chủ trọ',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                items: _hostOptions.entries
-                                    .map(
-                                      (entry) => DropdownMenuItem<String>(
-                                        value: entry.key,
-                                        child: Text(
-                                          entry.value,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (value) =>
-                                    setState(() => _selectedHostId = value),
                               ),
                             ),
                           ),
@@ -1072,49 +1305,49 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                 }
               }(),
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  debugPrint('Lỗi tải posts trong Admin: ${snapshot.error}');
+                  if (_hasAttentionPosts) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted && _hasAttentionPosts) {
+                        setState(() => _hasAttentionPosts = false);
+                      }
+                    });
+                  }
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text(
+                        'Không tải được bài đăng. Kiểm tra mạng hoặc quyền đọc collection posts.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
                 final docs = snapshot.data?.docs ?? [];
-                final hostOptions = <String, String>{};
-                for (final doc in docs) {
+
+                final searchText = _searchController.text
+                    .trim()
+                    .toLowerCase();
+
+                bool isAttentionDoc(DocumentSnapshot doc) {
                   final data = doc.data() as Map<String, dynamic>? ?? {};
-                  final hostId =
-                      (data['hostId'] ??
-                              data['landlordId'] ??
-                              data['userId'] ??
-                              data['ownerId'] ??
-                              '')
-                          .toString()
-                          .trim();
-                  if (hostId.isEmpty) continue;
-                  final hostName =
-                      (data['hostName'] ?? data['landlordName'] ?? '')
-                          .toString()
-                          .trim();
-                  final label = hostName.isEmpty ? hostId : hostName;
-                  hostOptions.putIfAbsent(
-                    hostId,
-                    () =>
-                        '$label (${hostId.substring(0, hostId.length.clamp(0, 6))})',
-                  );
-                }
-                if (!mapEquals(_hostOptions, hostOptions)) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted || mapEquals(_hostOptions, hostOptions)) {
-                      return;
-                    }
-                    setState(() {
-                      _hostOptions = hostOptions;
-                      if (!_hostOptions.containsKey(_selectedHostId)) {
-                        _selectedHostId = null;
-                      }
-                    });
-                  });
+                  final relevantDate = _attentionCreatedAt(doc.id, data);
+                  if (!_isWithinSelectedDateRange(relevantDate)) {
+                    return false;
+                  }
+                  if (searchText.isNotEmpty &&
+                      !_postSearchText(data, doc.id).contains(searchText)) {
+                    return false;
+                  }
+                  return _containsReviewFlag(doc);
                 }
 
-                final hasAttentionPosts = docs.any(_containsReviewFlag);
+                final hasAttentionPosts = docs.any(isAttentionDoc);
                 if (hasAttentionPosts != _hasAttentionPosts) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted && _hasAttentionPosts != hasAttentionPosts) {
@@ -1125,29 +1358,14 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
 
                 // Lọc danh sách theo Tab đang chọn (Đã chuẩn hóa status)
                 final filteredDocs = docs.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>? ?? {};
-                  final hostId =
-                      (data['hostId'] ??
-                              data['landlordId'] ??
-                              data['userId'] ??
-                              data['ownerId'] ??
-                              '')
-                          .toString()
-                          .trim();
-                  if (_selectedHostId != null && hostId != _selectedHostId) {
-                    return false;
-                  }
+                  if (_filter == 'attention') return isAttentionDoc(doc);
 
-                  final relevantDate = _filter == 'attention'
-                      ? _attentionCreatedAt(doc.id, data)
-                      : _postCreatedAt(data);
+                  final data = doc.data() as Map<String, dynamic>? ?? {};
+                  final relevantDate = _postCreatedAt(data);
                   if (!_isWithinSelectedDateRange(relevantDate)) {
                     return false;
                   }
 
-                  final searchText = _searchController.text
-                      .trim()
-                      .toLowerCase();
                   if (searchText.isNotEmpty &&
                       !_postSearchText(data, doc.id).contains(searchText)) {
                     return false;
@@ -1155,7 +1373,6 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
 
                   final status = _normalizedPostStatus(data);
                   if (_filter == 'all') return true;
-                  if (_filter == 'attention') return _containsReviewFlag(doc);
                   if (_filter == 'pending') return status == 'pending';
                   if (_filter == 'active') return status == 'active';
                   if (_filter == 'rejected') return status == 'rejected';
@@ -1311,49 +1528,52 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
     final rejectReason = rawRejectReason?.toString();
     final isReported = _reportedPostIds.contains(id);
 
-    // Lấy ảnh hiển thị
+    // Lấy danh sách ảnh hiển thị
     final images = _postImages(data);
-    final imageUrl = images.isEmpty ? null : images.first;
 
     final status = _normalizedPostStatus(data);
     final isPending = status == 'pending';
     final isActive = status == 'active';
     final isRejected = status == 'rejected';
-    final canReviewAgain = isRejected && data['hostResubmittedAt'] != null;
+    final canReviewAgain = isRejected && _isHostResubmitted(data);
     final reviewReasons = isPending
         ? PostContentScreeningService.reviewReasons(data)
         : const <String>[];
     final imageUrls = _postImages(data);
-    final imageScan = isPending && imageUrls.isNotEmpty
-        ? _scanPostImages(doc, imageUrls)
-        : null;
+    if (isPending &&
+        imageUrls.isNotEmpty &&
+        PostContentScreeningService.supportsImageScanning) {
+      _scanPostImages(doc, imageUrls);
+    }
     final imageText = _imageScanResults[id];
     final imageReasons = !isPending || imageText == null
         ? const <String>[]
         : PostContentScreeningService.reviewReasons(data, extraText: imageText);
 
-    return InkWell(
-      onTap: () => _openDetailPreview(doc),
+    return Material(
+      color: Colors.white,
       borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isPending
-                ? const Color(0xFFB9DDF1)
-                : const Color(0xFFDCEAF3),
-            width: isPending ? 1.4 : 1.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+      child: InkWell(
+        onTap: () => _openDetailPreview(doc),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isPending
+                  ? const Color(0xFFB9DDF1)
+                  : const Color(0xFFDCEAF3),
+              width: isPending ? 1.4 : 1.0,
             ),
-          ],
-        ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1423,26 +1643,18 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                     width: 84,
                     height: 84,
                     color: const Color(0xFFE6F1F8),
-                    child: imageUrl != null && imageUrl.isNotEmpty
-                        ? Image.network(
-                            imageUrl,
-                            fit: BoxFit.cover,
-                            webHtmlElementStrategy:
-                                imageUrl.contains(
-                                      'firebasestorage.googleapis.com',
-                                    ) ||
-                                    imageUrl.contains('storage.googleapis.com')
-                                ? WebHtmlElementStrategy.prefer
-                                : WebHtmlElementStrategy.fallback,
-                            errorBuilder: (ctx, err, stack) => const Icon(
-                              Icons.apartment_rounded,
-                              color: Color(0xFF98A2B3),
-                            ),
-                          )
-                        : const Icon(
-                            Icons.apartment_rounded,
-                            color: Color(0xFF98A2B3),
-                          ),
+                    child: _buildPostThumbWidget(
+                      images,
+                      (data['roomId'] ??
+                              data['phongId'] ??
+                              data['roomCode'] ??
+                              '')
+                          .toString(),
+                      postId: id,
+                      propertyId:
+                          (data['propertyId'] ?? data['batDongSanId'] ?? '')
+                              .toString(),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1511,10 +1723,17 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                               ),
                             ),
                           const Spacer(),
-                          const Icon(
-                            Icons.arrow_forward_ios_rounded,
-                            size: 13,
-                            color: Color(0xFF98A2B3),
+                          InkWell(
+                            onTap: () => _openDetailPreview(doc),
+                            borderRadius: BorderRadius.circular(16),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 14,
+                                color: Color(0xFF98A2B3),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -1585,9 +1804,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
               ],
             ),
 
-            if (reviewReasons.isNotEmpty ||
-                imageReasons.isNotEmpty ||
-                imageScan != null) ...[
+            if (reviewReasons.isNotEmpty || imageReasons.isNotEmpty) ...[
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(10),
@@ -1644,41 +1861,6 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                             ),
                           ),
                         ),
-                    if (imageScan != null && !_imageScanResults.containsKey(id))
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4),
-                        child: Text(
-                          'Đang quét chữ trong ảnh…',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Color(0xFF98A2B3),
-                          ),
-                        ),
-                      ),
-                    if (_imageScanResults.containsKey(id) && imageText == null)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4),
-                        child: Text(
-                          'Chưa quét được ảnh trên thiết bị này; admin vui lòng xem ảnh trực tiếp.',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Color(0xFF98A2B3),
-                          ),
-                        ),
-                      ),
-                    if (_imageScanResults.containsKey(id) &&
-                        imageText != null &&
-                        imageReasons.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4),
-                        child: Text(
-                          'Đã quét chữ trong ảnh, chưa phát hiện cụm từ cần lưu ý.',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Color(0xFF98A2B3),
-                          ),
-                        ),
-                      ),
                     const SizedBox(height: 4),
                     const Text(
                       'Gợi ý tự động để tham khảo; admin cần kiểm tra nội dung đầy đủ.',
@@ -1846,6 +2028,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
             ],
           ],
         ),
+      ),
       ),
     );
   }

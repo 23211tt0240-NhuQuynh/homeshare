@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'admin_audit_identity.dart';
 
 /// Duyệt / từ chối bài đăng và gửi thông báo cho chủ trọ.
 /// Dữ liệu được đọc từ chính document trong collection `posts`.
@@ -34,6 +35,8 @@ class PostReviewService {
     String penaltyType = 'reject_only',
     required String performer,
   }) async {
+    final actorFields = await AdminAuditIdentity.currentActorFields();
+    final actorName = (actorFields['performer'] ?? performer).toString();
     final postRef = _db.collection('posts').doc(postId);
     final snap = await postRef.get();
     if (!snap.exists) {
@@ -42,10 +45,40 @@ class PostReviewService {
 
     // ===== Lấy dữ liệu từ bảng posts =====
     final data = snap.data() ?? {};
-    final currentStatus = (data['status'] ?? 'pending').toString().toLowerCase();
-    if (approved &&
-        (currentStatus == 'rejected' || currentStatus == 'tuchoi') &&
-        data['hostResubmittedAt'] == null) {
+    final currentStatus =
+        (data['status'] ?? data['statusId'] ?? data['status_id'] ?? 'pending')
+            .toString()
+            .trim()
+            .toLowerCase();
+    final isRejected = const {
+      'rejected',
+      'reject',
+      'denied',
+      'tuchoi',
+      'tu choi',
+      'từ chối',
+      'đã từ chối',
+      'da tu choi',
+      'da_tu_choi',
+      'hidden',
+      'da an',
+      'đã ẩn',
+    }.contains(currentStatus);
+    DateTime? parseTime(dynamic value) {
+      if (value is Timestamp) return value.toDate();
+      if (value is DateTime) return value;
+      return DateTime.tryParse(value?.toString() ?? '');
+    }
+
+    final reviewedAt = parseTime(data['reviewedAt']);
+    final updatedAt = parseTime(data['updatedAt']);
+    final isResubmitted =
+        data['hostResubmittedAt'] != null ||
+        data['resubmittedAt'] != null ||
+        (reviewedAt != null &&
+            updatedAt != null &&
+            updatedAt.difference(reviewedAt).inSeconds > 2);
+    if (approved && isRejected && !isResubmitted) {
       throw StateError('Chủ trọ cần chỉnh sửa và gửi lại bài trước khi duyệt.');
     }
     final hostId =
@@ -94,7 +127,8 @@ class PostReviewService {
       'status': approved ? 'active' : 'rejected',
       if (!approved) 'hostResubmittedAt': FieldValue.delete(),
       'rejectReason': approved ? FieldValue.delete() : cleanReason,
-      'reviewedBy': performer,
+      'reviewedBy': actorName,
+      'reviewedById': actorFields['actorUid'],
       'reviewedAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -122,12 +156,12 @@ class PostReviewService {
 
     // 3) Nhật ký kiểm toán
     batch.set(_db.collection('audit_logs').doc(), {
+      ...actorFields,
       'title': approved ? 'Duyệt Tin Đăng $code' : 'Từ Chối Bài Đăng $code',
       'subtitle': approved
           ? 'Phê duyệt hiển thị phòng: $title'
           : 'Từ chối bài đăng: $title ($cleanReason)',
       'category': 'post',
-      'performer': performer,
       'code': code,
       'timeStr': DateFormat('HH:mm:ss').format(now),
       'dateGroup': 'HÔM NAY - ${DateFormat('dd/MM/yyyy').format(now)}',

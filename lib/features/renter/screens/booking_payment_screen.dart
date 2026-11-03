@@ -265,12 +265,19 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
         'id': logId,
         'action': 'Khách xác nhận chuyển khoản',
         'actor': widget.booking.renterName,
+        'actorRole': 'renter',
+        'actorUid': widget.booking.renterId,
+        'actorId': widget.booking.renterId,
+        'performer': widget.booking.renterName,
+        'performerId': widget.booking.renterId,
         'category': 'taiChinh',
-        'details': 'Khách ${widget.booking.renterName} (Mã: $_transferContent) báo đã chuyển khoản ngoài app số tiền $amountFormatted ($typeTitle). Ghi chú CK: "$_transferContent". Đang chờ Admin đối soát.',
+        'details':
+            'Khách ${widget.booking.renterName} (Mã: $_transferContent) báo đã chuyển khoản ngoài app số tiền $amountFormatted ($typeTitle). Ghi chú CK: "$_transferContent". Đang chờ Admin đối soát.',
         'target': 'Đơn ${widget.booking.id}',
         'createdAt': FieldValue.serverTimestamp(),
       });
 
+      // 4. Thông báo hoàn tất thanh toán
       if (mounted) {
         showDialog(
           context: context,

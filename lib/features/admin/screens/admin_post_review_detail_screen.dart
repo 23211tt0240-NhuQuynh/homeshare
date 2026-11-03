@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../data/models/room_model.dart';
@@ -16,6 +17,7 @@ class AdminPostReviewDetailScreen extends StatefulWidget {
   final VoidCallback? onApproved;
   final VoidCallback? onRejected;
   final bool canApprove;
+  final String postStatus;
 
   const AdminPostReviewDetailScreen({
     super.key,
@@ -27,6 +29,7 @@ class AdminPostReviewDetailScreen extends StatefulWidget {
     this.onApproved,
     this.onRejected,
     this.canApprove = true,
+    this.postStatus = 'pending',
   });
 
   @override
@@ -37,6 +40,232 @@ class AdminPostReviewDetailScreen extends StatefulWidget {
 class _AdminPostReviewDetailScreenState
     extends State<AdminPostReviewDetailScreen> {
   int _currentImageIndex = 0;
+  late RoomModel _room = widget.room;
+
+  @override
+  void initState() {
+    super.initState();
+    _hydrateFullPostDetails();
+  }
+
+  List<String> _extractImages(Map<String, dynamic> data) {
+    final raw =
+        data['images'] ??
+        data['roomImages'] ??
+        data['anhPhong'] ??
+        data['imageUrls'] ??
+        data['photos'] ??
+        data['photoUrls'] ??
+        data['danhSachAnh'] ??
+        data['hinhAnh'] ??
+        data['hinh_anh'] ??
+        data['anhList'] ??
+        data['imageUrl'] ??
+        data['photoUrl'] ??
+        data['thumbnailUrl'] ??
+        data['coverImage'] ??
+        data['anh_bia'] ??
+        data['anhBia'] ??
+        data['image'] ??
+        data['url'] ??
+        data['url_anh'] ??
+        data['duongDan'];
+
+    String? parseItem(dynamic item) {
+      if (item is String) {
+        final v = item.trim().replaceAll('"', '').replaceAll("'", "");
+        return v.isEmpty ? null : v;
+      }
+      if (item is Map) {
+        final v =
+            item['url'] ??
+            item['url_anh'] ??
+            item['duongDan'] ??
+            item['image'] ??
+            item['imageUrl'] ??
+            item['downloadURL'];
+        return v is String && v.trim().isNotEmpty
+            ? v.trim().replaceAll('"', '').replaceAll("'", "")
+            : null;
+      }
+      return null;
+    }
+
+    final items = raw is List ? raw : [raw];
+    return items.map(parseItem).whereType<String>().toSet().toList();
+  }
+
+  List<String> _extractAmenities(Map<String, dynamic> data) {
+    final raw =
+        data['amenities'] ??
+        data['tienIch'] ??
+        data['roomAmenities'] ??
+        data['features'] ??
+        data['amenityName'] ??
+        data['name'] ??
+        data['ten_tien_ich'];
+    final items = raw is List ? raw : (raw == null ? const [] : [raw]);
+    return items
+        .map((v) {
+          if (v is Map) {
+            return (v['name'] ?? v['amenityName'] ?? v['title'] ?? '')
+                .toString()
+                .trim();
+          }
+          return v?.toString().trim() ?? '';
+        })
+        .where((s) => s.isNotEmpty)
+        .toSet()
+        .toList();
+  }
+
+  Future<void> _hydrateFullPostDetails() async {
+    try {
+      final db = FirebaseFirestore.instance;
+      var updated = _room;
+      final roomKey = updated.roomCode.trim();
+      final postId = (widget.docId ?? updated.id).trim();
+
+      // 1. Bổ sung thông tin chủ trọ nếu thiếu
+      if (updated.hostId.trim().isNotEmpty &&
+          (updated.hostName == 'Chủ trọ' ||
+              updated.hostName.trim().isEmpty ||
+              updated.hostAvatar.trim().isEmpty)) {
+        try {
+          final uDoc = await db
+              .collection('users')
+              .doc(updated.hostId.trim())
+              .get();
+          final uData = uDoc.data();
+          if (uData != null) {
+            final name =
+                (uData['displayName'] ??
+                        uData['hoTen'] ??
+                        uData['fullName'] ??
+                        uData['name'] ??
+                        '')
+                    .toString()
+                    .trim();
+            final avatar =
+                (uData['avatarUrl'] ?? uData['anhDaiDien'] ?? '')
+                    .toString()
+                    .trim();
+            updated = updated.copyWith(
+              hostName:
+                  (updated.hostName == 'Chủ trọ' || updated.hostName.isEmpty) &&
+                      name.isNotEmpty
+                  ? name
+                  : updated.hostName,
+              hostAvatar: updated.hostAvatar.isEmpty && avatar.isNotEmpty
+                  ? avatar
+                  : updated.hostAvatar,
+            );
+          }
+        } catch (_) {}
+      }
+
+      // 2. Bổ sung thông tin phòng (ảnh, tiện ích, mô tả, diện tích, địa chỉ) từ collection 'rooms' và 'room_images' / 'room_amenities'
+      final extraImages = <String>[...updated.images];
+      final extraAmenities = <String>[...updated.amenities];
+
+      void mergeRoomDoc(Map<String, dynamic> rData) {
+        for (final img in _extractImages(rData)) {
+          if (!extraImages.contains(img)) extraImages.add(img);
+        }
+        for (final am in _extractAmenities(rData)) {
+          if (!extraAmenities.contains(am)) extraAmenities.add(am);
+        }
+        final desc =
+            (rData['description'] ?? rData['moTa'] ?? rData['noiDung'] ?? '')
+                .toString()
+                .trim();
+        final addr =
+            (rData['address'] ?? rData['diaChi'] ?? '').toString().trim();
+        final areaVal = rData['area'] ?? rData['areaM2'] ?? rData['dienTich'];
+        final rType =
+            (rData['roomType'] ?? rData['loaiPhong'] ?? '').toString().trim();
+
+        updated = updated.copyWith(
+          description: updated.description.trim().isEmpty && desc.isNotEmpty
+              ? desc
+              : updated.description,
+          address:
+              (updated.address == 'Đang cập nhật địa chỉ' ||
+                  updated.address.trim().isEmpty) &&
+              addr.isNotEmpty
+              ? addr
+              : updated.address,
+          area: updated.area <= 0 && areaVal is num
+              ? areaVal.toDouble()
+              : updated.area,
+          roomType:
+              (updated.roomType == 'Phòng trọ' || updated.roomType.isEmpty) &&
+              rType.isNotEmpty
+              ? rType
+              : updated.roomType,
+        );
+      }
+
+      if (roomKey.isNotEmpty) {
+        final rDoc = await db.collection('rooms').doc(roomKey).get();
+        if (rDoc.exists && rDoc.data() != null) {
+          mergeRoomDoc(rDoc.data()!);
+        } else {
+          final byField = await db
+              .collection('rooms')
+              .where('roomId', isEqualTo: roomKey)
+              .limit(1)
+              .get();
+          if (byField.docs.isNotEmpty) {
+            mergeRoomDoc(byField.docs.first.data());
+          }
+        }
+
+        final imgSnap = await db
+            .collection('room_images')
+            .where('roomId', isEqualTo: roomKey)
+            .get();
+        for (final d in imgSnap.docs) {
+          for (final img in _extractImages(d.data())) {
+            if (!extraImages.contains(img)) extraImages.add(img);
+          }
+        }
+
+        final amSnap = await db
+            .collection('room_amenities')
+            .where('roomId', isEqualTo: roomKey)
+            .get();
+        for (final d in amSnap.docs) {
+          for (final am in _extractAmenities(d.data())) {
+            if (!extraAmenities.contains(am)) extraAmenities.add(am);
+          }
+        }
+      }
+
+      if (extraImages.isEmpty && postId.isNotEmpty) {
+        final postImgSnap = await db
+            .collection('room_images')
+            .where('postId', isEqualTo: postId)
+            .get();
+        for (final d in postImgSnap.docs) {
+          for (final img in _extractImages(d.data())) {
+            if (!extraImages.contains(img)) extraImages.add(img);
+          }
+        }
+      }
+
+      updated = updated.copyWith(
+        images: extraImages,
+        amenities: extraAmenities,
+      );
+
+      if (mounted) {
+        setState(() {
+          _room = updated;
+        });
+      }
+    } catch (_) {}
+  }
 
   String _formatMoney(num amount) {
     return "${amount.toStringAsFixed(0).replaceAll(RegExp(r'\B(?=(\d{3})+(?!\d))'), '.')} đ";
@@ -82,8 +311,8 @@ class _AdminPostReviewDetailScreenState
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _RejectBottomSheet(
-        room: widget.room,
-        docId: widget.docId ?? widget.room.id,
+        room: _room,
+        docId: widget.docId ?? _room.id,
         onConfirmed: () {
           Navigator.pop(ctx);
           if (widget.onRejected != null) {
@@ -97,7 +326,7 @@ class _AdminPostReviewDetailScreenState
 
   @override
   Widget build(BuildContext context) {
-    final room = widget.room;
+    final room = _room;
     final images = room.images;
 
     return Scaffold(
@@ -535,67 +764,63 @@ class _AdminPostReviewDetailScreenState
         child: SafeArea(
           child: Row(
             children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: widget.canApprove ? _showRejectBottomSheet : null,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: BorderSide(
-                      color: widget.canApprove
-                          ? const Color(0xFFFDA29B)
-                          : const Color(0xFFD0D5DD),
+              if (widget.postStatus != 'rejected')
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _showRejectBottomSheet,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: const BorderSide(color: Color(0xFFFDA29B)),
+                      foregroundColor: const Color(0xFFD92D20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    foregroundColor: widget.canApprove
-                        ? const Color(0xFFD92D20)
-                        : const Color(0xFF667085),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    'Từ chối / Hạ bài',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: widget.canApprove
-                          ? const Color(0xFFD92D20)
-                          : const Color(0xFF667085),
+                    child: const Text(
+                      'Từ chối / Hạ bài',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFD92D20),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: widget.canApprove
-                      ? () {
-                          if (widget.onApproved != null) {
-                            widget.onApproved!();
+              if (widget.postStatus != 'rejected' &&
+                  widget.postStatus != 'active')
+                const SizedBox(width: 12),
+              if (widget.postStatus != 'active')
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: widget.canApprove
+                        ? () {
+                            if (widget.onApproved != null) {
+                              widget.onApproved!();
+                            }
+                            Navigator.pop(context);
                           }
-                          Navigator.pop(context);
-                        }
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: widget.canApprove
-                        ? const Color(0xFF12B76A)
-                        : const Color(0xFFE4E7EC),
-                    foregroundColor: widget.canApprove
-                        ? Colors.white
-                        : const Color(0xFF667085),
-                    disabledBackgroundColor: const Color(0xFFE4E7EC),
-                    disabledForegroundColor: const Color(0xFF667085),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: widget.canApprove
+                          ? const Color(0xFF12B76A)
+                          : const Color(0xFFE4E7EC),
+                      foregroundColor: widget.canApprove
+                          ? Colors.white
+                          : const Color(0xFF667085),
+                      disabledBackgroundColor: const Color(0xFFE4E7EC),
+                      disabledForegroundColor: const Color(0xFF667085),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      widget.canApprove
+                          ? 'Phê duyệt bài'
+                          : 'Chờ chủ trọ chỉnh sửa',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
-                  child: Text(
-                    widget.canApprove
-                        ? 'Phê duyệt bài'
-                        : 'Chờ chủ trọ chỉnh sửa',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
                 ),
-              ),
             ],
           ),
         ),

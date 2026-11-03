@@ -79,6 +79,26 @@ class BookingUtils {
     'completed': 5, // đã giải ngân
   };
 
+  static bool isDisbursed(Map<String, dynamic> data) {
+    final disbursementId = data['disbursementId'] ?? data['disbursement_id'];
+    return data['isDisbursed'] == true ||
+        data['daGiaiNgan'] == true ||
+        data['dagiaingan'] == true ||
+        data['disbursedAt'] != null ||
+        data['ngayGiaiNgan'] != null ||
+        (disbursementId is String && disbursementId.trim().isNotEmpty);
+  }
+
+  static bool isCancellationSettled(Map<String, dynamic> data) {
+    if (data['isRefunded'] == true) return true;
+    final booking = canonical(data);
+    final hostPaid = data['cancellationHostPaid'] == true;
+    final renterRefunded = data['cancellationRenterRefunded'] == true;
+    return booking['isFullPayment'] == true
+        ? hostPaid && renterRefunded
+        : hostPaid || renterRefunded;
+  }
+
   /// Chuẩn hóa một giá trị trạng thái (cũ/mới) về giá trị chuẩn; null nếu không nhận ra.
   static String? _normalizeStatusValue(dynamic v) {
     switch ((v ?? '').toString().trim().toLowerCase()) {
@@ -166,17 +186,11 @@ class BookingUtils {
         po == 'tra het' ||
         po == 'trả hết' ||
         po == 'dathanhtoanhet';
-    out['paymentOption'] = isFullPayment
-        ? 'full'
-        : 'deposit';
+    out['paymentOption'] = isFullPayment ? 'full' : 'deposit';
     out['isFullPayment'] = isFullPayment;
 
     // Đơn chỉ được coi là đã giải ngân khi Admin thực sự đã chuyển tiền và ghi nhận
-    bool disbursed =
-        out['disbursedAt'] != null ||
-        out['isDisbursed'] == true ||
-        data['daGiaiNgan'] == true ||
-        data['dagiaingan'] == true;
+    final disbursed = isDisbursed(out);
 
     if (resolved == 'completed' && !disbursed) {
       resolved = out['paymentOption'] == 'full' ? 'paid' : 'approved';

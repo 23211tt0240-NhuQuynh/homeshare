@@ -7,6 +7,7 @@ import '../../../../core/utils/vietqr_helper.dart';
 import '../utils/booking_utils.dart';
 import '../utils/commission_rate_service.dart';
 import '../widgets/admin_branded_title.dart';
+import '../services/admin_audit_identity.dart';
 import 'cancellation_receipt_screen.dart';
 
 class CancellationInvoiceScreen extends StatefulWidget {
@@ -292,14 +293,127 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
     return null;
   }
 
-  String _transferMemo(String prefix, String reference) {
-    final cleanReference = reference
+  String _extractHostCode(Map<String, dynamic> firstBooking) {
+    // Lưu ý: firstBooking['userCode'] thường là mã người thuê (NT...), chỉ lấy từ _hostProfile nếu là userCode
+    final hostProfileCode = _pick(
+      [_hostProfile],
+      ['hostCode', 'maChuTro', 'userCode', 'maNguoiDung', 'idNguoiDung'],
+    ).toUpperCase();
+    final bookingHostCode = _pick(
+      [firstBooking],
+      ['hostCode', 'maChuTro'],
+    ).toUpperCase();
+    final candidate = hostProfileCode.isNotEmpty ? hostProfileCode : bookingHostCode;
+
+    final ctMatch = RegExp(r'CT\d{2,5}').firstMatch(candidate);
+    if (ctMatch != null) return ctMatch.group(0)!;
+    final ntMatch = RegExp(r'NT(\d{2,5})').firstMatch(candidate);
+    if (ntMatch != null) return 'CT${ntMatch.group(1)!}';
+    final cleanDigits = candidate.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    if (RegExp(r'^\d{3,4}$').hasMatch(cleanDigits)) return 'CT$cleanDigits';
+
+    final hostId = (firstBooking['hostId'] ?? '').toString().trim();
+    if (hostId.isNotEmpty) {
+      var hash = 0;
+      for (var i = 0; i < hostId.length; i++) {
+        hash = (hash * 31 + hostId.codeUnitAt(i)) & 0x7FFFFFFF;
+      }
+      final val = (hash % 900) + 100;
+      return 'CT$val';
+    }
+    return 'CT';
+  }
+
+  String _extractRenterCode(Map<String, dynamic> firstBooking) {
+    final candidates = [
+      _pick(
+        [_renterProfile, firstBooking],
+        ['renterUserCode', 'userCode', 'maNguoiDung', 'idNguoiDung'],
+      ),
+      (firstBooking['orderCode'] ?? '').toString(),
+      (firstBooking['transferNote'] ?? '').toString(),
+      (firstBooking['id'] ?? '').toString(),
+    ];
+    for (final c in candidates) {
+      final match = RegExp(r'NT\d{2,5}').firstMatch(c.toUpperCase());
+      if (match != null) return match.group(0)!;
+    }
+    final raw = candidates.first
         .toUpperCase()
-        .replaceAll(RegExp(r'[^A-Z0-9 ]'), ' ')
+        .replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    if (RegExp(r'^\d{3,4}$').hasMatch(raw)) return 'NT$raw';
+
+    final renterId = (firstBooking['renterId'] ?? '').toString().trim();
+    if (renterId.isNotEmpty) {
+      var hash = 0;
+      for (var i = 0; i < renterId.length; i++) {
+        hash = (hash * 31 + renterId.codeUnitAt(i)) & 0x7FFFFFFF;
+      }
+      final val = (hash % 900) + 100;
+      return 'NT$val';
+    }
+    return 'NT';
+  }
+
+  String _shortOrderCode(Map<String, dynamic> booking, {int maxLen = 4}) {
+    final rawOrder = (booking['orderCode'] ?? '').toString().trim();
+    final docId = (booking['id'] ?? '').toString().trim();
+    final raw = (rawOrder.isNotEmpty ? rawOrder : docId).toUpperCase();
+    if (raw.contains('_')) {
+      final parts = raw
+          .split('_')
+          .where(
+            (p) =>
+                p.isNotEmpty &&
+                p != 'DP' &&
+                !RegExp(r'^20\d{6}$').hasMatch(p) &&
+                !RegExp(r'^(NT|CT)[A-Z0-9]+$').hasMatch(p),
+          )
+          .toList();
+      if (parts.isNotEmpty) {
+        final mid = parts.first.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+        if (mid.isNotEmpty) {
+          return mid.length > maxLen ? mid.substring(mid.length - maxLen) : mid;
+        }
+      }
+    }
+    final clean = raw.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    return clean.length > maxLen ? clean.substring(clean.length - maxLen) : clean;
+  }
+
+  String _transferMemo(String prefix, String reference) {
+    final isHost = prefix == 'QT DON HUY';
+    final cleanParty = reference.trim().toUpperCase();
+    final count = _bookingDataList.length;
+
+    if (count > 1) {
+      final batchPrefix = isHost
+          ? 'QTHUY ${count}D $cleanParty'
+          : 'HOAN ${count}D $cleanParty';
+      for (final len in [4, 3, 2]) {
+        final codes = _bookingDataList
+            .map((b) => _shortOrderCode(b, maxLen: len))
+            .where((c) => c.isNotEmpty)
+            .toList();
+        final joined = '$batchPrefix ${codes.join(' ')}'
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .trim();
+        if (joined.length <= 25) return joined;
+      }
+      final dateStr = DateFormat('ddMM').format(DateTime.now());
+      final fallback = '${isHost ? 'QT HUY' : 'HOAN'} ${count}D $cleanParty $dateStr'
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+      return fallback.length > 25 ? fallback.substring(0, 25).trimRight() : fallback;
+    }
+
+    final singleOrderCode = _bookingDataList.isNotEmpty
+        ? _shortOrderCode(_bookingDataList.first, maxLen: 4)
+        : '';
+    final singlePrefix = isHost ? 'QT HUY' : 'HOAN COC';
+    final memo = '$singlePrefix $cleanParty $singleOrderCode'
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
-    final memo =
-        '$prefix ${cleanReference.isEmpty ? 'DON HUY' : cleanReference}';
     return memo.length > 25 ? memo.substring(0, 25).trimRight() : memo;
   }
 
@@ -520,6 +634,11 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
         }
         for (var i = 0; i < refs.length; i++) {
           final data = snapshots[i].data() ?? {};
+          if (BookingUtils.canonical(data)['status'] != 'cancelled') {
+            throw StateError(
+              'Đơn ${refs[i].id} không còn ở trạng thái hủy.',
+            );
+          }
           final alreadyHandled = targetRole == 'host'
               ? data['cancellationHostPaid'] == true
               : data['cancellationRenterRefunded'] == true;
@@ -609,11 +728,12 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
       final executedAt = DateTime.now();
       final receiptCode =
           '#CXL-${DateFormat('yyyyMMdd-HHmmss').format(executedAt)}-${auditRef.id.substring(0, 4).toUpperCase()}';
+      final actorFields = await AdminAuditIdentity.currentActorFields();
       await auditRef.set({
+        ...actorFields,
         'action': targetRole == 'host'
             ? 'Quyết toán bồi thường đơn hủy cho Chủ trọ'
             : 'Hoàn tiền đơn hủy cho Người thuê',
-        'actor': 'Admin',
         'category': 'taiChinh',
         'details': body,
         'bookingIds': widget.bookingIds,
@@ -726,7 +846,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
 
     final hostName = _pick(
       [_hostProfile, first],
-      ['fullName', 'name', 'hostName', 'tenChuNha'],
+      ['displayName', 'fullName', 'hoTen', 'name', 'hostName', 'tenChuNha'],
     ).trim();
     final hostPhone = _pick(
       [_hostProfile, first],
@@ -756,7 +876,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
 
     final renterName = _pick(
       [_renterProfile, first],
-      ['fullName', 'name', 'renterName', 'tenNguoiO'],
+      ['displayName', 'fullName', 'hoTen', 'name', 'renterName', 'tenNguoiO'],
     ).trim();
     final renterPhone = _pick(
       [_renterProfile, first],
@@ -787,10 +907,8 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
     final orderCodes = _bookingDataList
         .map((e) => (e['orderCode'] ?? e['transferNote'] ?? e['id']).toString())
         .join(', ');
-    final transferReference = _pick(
-      [first],
-      ['userCode', 'renterUserCode', 'transferNote', 'orderCode', 'id'],
-    );
+    final hostTransferRef = _extractHostCode(first);
+    final renterTransferRef = _extractRenterCode(first);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F9FF),
@@ -831,7 +949,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                 children: [
                   _buildHostInvoiceTab(
                     orderCodes: orderCodes,
-                    transferReference: transferReference,
+                    transferReference: hostTransferRef,
                     hostName: hostName.isNotEmpty ? hostName : 'Chủ trọ',
                     hostPhone: hostPhone,
                     hostBank: hostBank,
@@ -848,7 +966,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                   ),
                   _buildRenterInvoiceTab(
                     orderCodes: orderCodes,
-                    transferReference: transferReference,
+                    transferReference: renterTransferRef,
                     renterName: renterName.isNotEmpty
                         ? renterName
                         : 'Khách thuê',
@@ -870,7 +988,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
               )
             : _buildHostInvoiceTab(
                 orderCodes: orderCodes,
-                transferReference: transferReference,
+                transferReference: hostTransferRef,
                 hostName: hostName.isNotEmpty ? hostName : 'Chủ trọ',
                 hostPhone: hostPhone,
                 hostBank: hostBank,
@@ -907,7 +1025,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
     required double effectiveCommissionPercent,
     required String commissionRateLabel,
   }) {
-    final memo = _transferMemo('QUYET TOAN HUY', transferReference);
+    final memo = _transferMemo('QT DON HUY', transferReference);
     final bankBin = hostBankCode == null ? null : _bankBins[hostBankCode];
     final hostAccountHolder = _pick(
       [_hostProfile],
@@ -1310,8 +1428,10 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                 _buildRow(
                   isFullPayment
                       ? 'Hoàn người thuê sau khi trừ phí và phần chủ trọ:'
-                      : 'Hoàn người thuê (50% cọc):',
-                  '-${currencyFormatter.format(renterRefund)} đ',
+                      : 'Hoàn người thuê (0% cọc):',
+                  renterRefund > 0
+                      ? '-${currencyFormatter.format(renterRefund)} đ'
+                      : '0 đ',
                   color: const Color(0xFF667085),
                 ),
                 const SizedBox(height: 8),
@@ -1618,7 +1738,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                   isFullPayment
                       ? 'Phần chủ trọ (50% tổng đơn):'
                       : 'Phần còn lại chuyển chủ trọ trước hoa hồng:',
-                  '${currencyFormatter.format(isFullPayment ? hostGross : totalDeposit - renterRefund)} đ',
+                  '-${currencyFormatter.format(isFullPayment ? hostGross : totalDeposit - renterRefund)} đ',
                   color: const Color(0xFF475467),
                   isBold: true,
                 ),
@@ -1632,7 +1752,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                   padding: const EdgeInsets.only(left: 4, top: 2),
                   child: Text(
                     isFullPayment
-                        ? '• Hoa hồng được trừ khỏi tổng đơn trước khi hoàn phần còn lại cho khách.'
+                        ? '• Khấu trừ 50% tổng đơn bồi thường chủ trọ và $commissionRateLabel hoa hồng sàn trước khi hoàn cho khách.'
                         : '• Hoa hồng trừ trong phần của chủ trọ; khách không được hoàn tiền cọc.',
                     style: const TextStyle(
                       fontSize: 11,
@@ -1653,20 +1773,28 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        isFullPayment
-                            ? 'SỐ TIỀN HOÀN SAU PHÂN BỔ:'
-                            : 'SỐ TIỀN HOÀN (50% CỌC):',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF398FC0),
+                      Expanded(
+                        child: Text(
+                          isFullPayment
+                              ? 'SỐ TIỀN HOÀN SAU PHÂN BỔ:'
+                              : 'SỐ TIỀN HOÀN (50% CỌC):',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF398FC0),
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         '${currencyFormatter.format(renterRefund)} đ',
+                        textAlign: TextAlign.end,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: 16,
                           fontWeight: FontWeight.w900,
                           color: Color(0xFF398FC0),
                         ),

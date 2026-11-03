@@ -1,6 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../auth/providers/user_provider.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_posts_screen.dart';
@@ -34,6 +35,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
     var adminName = '';
     try {
       final profile = await ref.read(userProfileProvider.future);
+      if (profile?.isAdmin != true) return;
       final displayName = profile?.displayName.trim() ?? '';
       if (displayName.isNotEmpty && displayName != 'Người dùng HomeShare') {
         adminName = displayName;
@@ -141,6 +143,61 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final profileState = ref.watch(userProfileProvider);
+    final user = FirebaseAuth.instance.currentUser;
+    if (profileState.isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFF398FC0)),
+        ),
+      );
+    }
+
+    if (profileState.hasError || profileState.value?.isAdmin != true || user == null) {
+      return _buildAccessDenied(context);
+    }
+
+    return _buildAdminPortal(context);
+  }
+
+  Widget _buildAccessDenied(BuildContext context) => Scaffold(
+        backgroundColor: const Color(0xFFF4F9FF),
+        appBar: AppBar(
+          title: const Text('Không có quyền truy cập'),
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF17324D),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.lock_outline_rounded,
+                    size: 56, color: Color(0xFFD92D20)),
+                const SizedBox(height: 12),
+                const Text(
+                  'Tài khoản này không có quyền quản trị viên.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF344054),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  child: const Text('Quay lại'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+  Widget _buildAdminPortal(BuildContext context) {
+
     final size = MediaQuery.sizeOf(context);
     final useNavigationRail = size.width >= 700 || size.width > size.height;
     final List<Widget> screens = [
@@ -251,6 +308,11 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                         selectedIcon: Icon(Icons.history_rounded),
                         label: Text('Lịch sử'),
                       ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.people_alt_rounded),
+                        selectedIcon: Icon(Icons.people_alt_rounded),
+                        label: Text('Người dùng'),
+                      ),
                     ],
                   ),
                   const VerticalDivider(
@@ -334,27 +396,10 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                             );
                           },
                         ),
-                        // Badge số báo cáo user đang chờ xử lý
-                        StreamBuilder<QuerySnapshot>(
-                          stream: () {
-                            try {
-                              return FirebaseFirestore.instance
-                                  .collection('reports')
-                                  .where('status', isEqualTo: 'pending')
-                                  .snapshots();
-                            } catch (_) {
-                              return const Stream<QuerySnapshot>.empty();
-                            }
-                          }(),
-                          builder: (context, snapshot) {
-                            final count = snapshot.data?.docs.length ?? 0;
-                            return _buildNavItem(
-                              index: 4,
-                              icon: Icons.people_alt_rounded,
-                              label: 'Người dùng',
-                              badgeCount: count,
-                            );
-                          },
+                        _buildNavItem(
+                          index: 4,
+                          icon: Icons.people_alt_rounded,
+                          label: 'Người dùng',
                         ),
                         _buildNavItem(
                           index: 3,

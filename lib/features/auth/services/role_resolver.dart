@@ -49,6 +49,11 @@ class RoleResolver {
         lower == 'administrator' ||
         lower == 'quantri' ||
         lower == 'quan_tri' ||
+        lower == 'quan_tri_vien' ||
+        lower == 'quản trị viên' ||
+        lower == 'super_admin' ||
+        lower == 'super admin' ||
+        lower == 'superadmin' ||
         lower == '3') {
       return admin;
     }

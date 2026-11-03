@@ -51,6 +51,8 @@ class PostContentScreeningService {
 
   /// OCRs Firebase-hosted listing photos on Android/iOS. OCR runs locally;
   /// web and unsupported URLs return no extracted text.
+  static bool get supportsImageScanning => image_ocr.supportsImageScanning;
+
   static Future<String?> scanImages(List<String> urls) async {
     return image_ocr.scan(urls);
   }

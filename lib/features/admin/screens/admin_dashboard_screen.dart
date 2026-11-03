@@ -137,6 +137,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           }
         }(),
         builder: (context, bookingSnapshot) {
+          if (bookingSnapshot.hasError) {
+            debugPrint('Lỗi tải bookings trên dashboard: ${bookingSnapshot.error}');
+            return const Center(
+              child: Text(
+                'Không tải được dữ liệu đơn hàng. Kiểm tra mạng hoặc quyền Firestore.',
+                textAlign: TextAlign.center,
+              ),
+            );
+          }
           return StreamBuilder<QuerySnapshot>(
             stream: () {
               try {
@@ -148,6 +157,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               }
             }(),
             builder: (context, userSnapshot) {
+              if (userSnapshot.hasError) {
+                debugPrint('Lỗi tải users trên dashboard: ${userSnapshot.error}');
+                return const Center(
+                  child: Text(
+                    'Không tải được dữ liệu người dùng. Kiểm tra mạng hoặc quyền Firestore.',
+                    textAlign: TextAlign.center,
+                  ),
+                );
+              }
               final now = DateTime.now();
               final isYearView = _selectedTimeRange == RevenueTimeRange.year;
               final isWeekView = _selectedTimeRange == RevenueTimeRange.week;
@@ -326,7 +344,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 }
               }
 
-              final totalUsers = userDocs.length;
               int hostCount = 0;
               int renterCount = 0;
               int newHostsCount = 0;
@@ -344,11 +361,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 if (role == 'host' || role == 'landlord' || role == 'chutro') {
                   hostCount++;
                   if (isThisMonth) newHostsCount++;
-                } else {
+                } else if (role != 'admin') {
+                  // Chỉ tính renter/tenant, bỏ qua admin
                   renterCount++;
                   if (isThisMonth) newRentersCount++;
                 }
               }
+
+              final totalUsers = hostCount + renterCount;
 
               final String periodLabel = isWeekView
                   ? 'tuần trước'
@@ -384,7 +404,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               }
 
               // Định dạng ghi chú biến động thành viên mới trong tháng
-              final String userBadgeText;
+              final String? userBadgeText;
               if (newHostsCount > 0 && newRentersCount > 0) {
                 userBadgeText =
                     '+$newHostsCount chủ trọ  +$newRentersCount khách mới';
@@ -393,7 +413,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               } else if (newRentersCount > 0) {
                 userBadgeText = '▲ +$newRentersCount khách thuê mới';
               } else {
-                userBadgeText = 'Thành viên toàn hệ thống';
+                userBadgeText = null;
               }
 
               return SingleChildScrollView(

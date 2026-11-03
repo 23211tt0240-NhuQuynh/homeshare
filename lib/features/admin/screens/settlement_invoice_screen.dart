@@ -7,6 +7,7 @@ import '../../../../core/utils/vietqr_helper.dart';
 import '../utils/booking_utils.dart';
 import '../utils/commission_rate_service.dart';
 import '../widgets/admin_branded_title.dart';
+import '../services/admin_audit_identity.dart';
 import 'settlement_receipt_screen.dart';
 
 class SettlementInvoiceScreen extends StatefulWidget {
@@ -126,8 +127,9 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
           'ownerId',
           'propertyOwnerId',
         ]) {
-          final candidateId =
-              (rawData[key] ?? canonicalData[key] ?? '').toString().trim();
+          final candidateId = (rawData[key] ?? canonicalData[key] ?? '')
+              .toString()
+              .trim();
           if (candidateId.isNotEmpty) hostIds.add(candidateId);
         }
         final hostId = hostIds.isEmpty ? '' : hostIds.first;
@@ -148,7 +150,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
             'stk',
           ],
         ).isNotEmpty;
-        if (!hasBank) {
+        if (_hostProfile == null && !hasBank) {
           final hostName = (canonicalData['hostName'] ?? '').toString().trim();
           if (hostName.isNotEmpty) {
             final query = await db
@@ -661,6 +663,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
       final now = DateTime.now();
       final receiptCode =
           '#REC-${DateFormat('yyyyMMdd-HHmmss').format(now)}-${disbursementRef.id.substring(0, 4).toUpperCase()}';
+      final actorFields = await AdminAuditIdentity.currentActorFields();
 
       await db.runTransaction((tx) async {
         // Đọc & kiểm tra tất cả đơn trước khi ghi
@@ -670,9 +673,11 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
           if (!snap.exists) {
             throw Exception('Đơn ${item['orderCode']} không còn tồn tại');
           }
-          final st = BookingUtils.status(snap.data() ?? {});
-          final isDisbursed = snap.data()?['isDisbursed'] == true;
+          final booking = BookingUtils.canonical(snap.data() ?? {});
+          final st = BookingUtils.uiStatus(booking);
+          final isDisbursed = BookingUtils.isDisbursed(booking);
           if (isDisbursed ||
+              booking['isCheckIn'] != true ||
               (st != BookingUtils.statusDepositPaid &&
                   st != BookingUtils.statusCompleted)) {
             throw Exception(
@@ -732,8 +737,8 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
         // Nhật ký kiểm toán — ghi đủ cả hai bộ trường đang dùng trong app
         // (xem ghi chú: cần thống nhất khi có admin_history_screen.dart)
         tx.set(auditLogRef, {
+          ...actorFields,
           'action': 'Duyệt giải ngân cọc',
-          'actor': 'Admin',
           'details':
               'Admin xác nhận đã chuyển ${currencyFormatter.format(netSettlement)} đ '
               'cho chủ trọ $hostName ($bankName - $accountNo), ${items.length} đơn. Mã $receiptCode',
@@ -744,7 +749,6 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
           'subtitle':
               'Chuyển ${currencyFormatter.format(netSettlement)} đ ➔ Chủ trọ $hostName',
           'amount': netSettlement,
-          'performer': 'Admin',
           'code': receiptCode,
           'timestamp': FieldValue.serverTimestamp(),
         });
@@ -840,7 +844,8 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
               );
               final st = BookingUtils.uiStatus(data);
               // Cả đơn Đã cọc (deposit_paid) và Đã cọc hết / Đã trả hết (completed / paid) đều được quyết toán nếu chưa giải ngân
-              if (data['isDisbursed'] == true ||
+              if (BookingUtils.isDisbursed(data) ||
+                  data['isCheckIn'] != true ||
                   (st != BookingUtils.statusDepositPaid &&
                       st != BookingUtils.statusCompleted)) {
                 excludedCount++;
@@ -970,7 +975,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
             // hồ sơ users tải theo hostId rồi mới dùng tên trên booking.
             final profileHostName = _pick(
               [_hostProfile],
-              ['fullName', 'displayName', 'name', 'hostName'],
+              ['displayName', 'fullName', 'hoTen', 'name', 'hostName'],
             );
             final bookingHostName = _pick([firstBooking], ['hostName']);
             final hostName = profileHostName.isNotEmpty
@@ -1011,19 +1016,96 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
               'hostAccountHolder',
             ]);
 
-            final orderRef =
-                _removeDiacritics(
-                      (settlementItems.isEmpty
-                              ? ''
-                              : settlementItems.first['orderCode'] ?? '')
-                          .toString(),
+            String extractHostCode() {
+              final hostProfileCode = _pick(
+                [_hostProfile],
+                ['hostCode', 'maChuTro', 'userCode', 'maNguoiDung', 'idNguoiDung'],
+              ).toUpperCase();
+              final bookingHostCode = _pick(
+                [firstBooking],
+                ['hostCode', 'maChuTro'],
+              ).toUpperCase();
+              final candidate = hostProfileCode.isNotEmpty
+                  ? hostProfileCode
+                  : bookingHostCode;
+              final ctMatch = RegExp(r'CT\d{2,5}').firstMatch(candidate);
+              if (ctMatch != null) return ctMatch.group(0)!;
+              final ntMatch = RegExp(r'NT(\d{2,5})').firstMatch(candidate);
+              if (ntMatch != null) return 'CT${ntMatch.group(1)!}';
+              final cleanDigits = candidate.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+              if (RegExp(r'^\d{3,4}$').hasMatch(cleanDigits)) {
+                return 'CT$cleanDigits';
+              }
+              if (hostId.isNotEmpty) {
+                var hash = 0;
+                for (var i = 0; i < hostId.length; i++) {
+                  hash = (hash * 31 + hostId.codeUnitAt(i)) & 0x7FFFFFFF;
+                }
+                final val = (hash % 900) + 100;
+                return 'CT$val';
+              }
+              return 'CT';
+            }
+
+            String shortItemCode(Map<String, dynamic> item, {int maxLen = 4}) {
+              final rawOrder = (item['rawOrderCode'] ?? '').toString().trim();
+              final docId = (item['docId'] ?? '').toString().trim();
+              final raw = (rawOrder.isNotEmpty ? rawOrder : docId).toUpperCase();
+              if (raw.contains('_')) {
+                final parts = raw
+                    .split('_')
+                    .where(
+                      (p) =>
+                          p.isNotEmpty &&
+                          p != 'DP' &&
+                          !RegExp(r'^20\d{6}$').hasMatch(p) &&
+                          !RegExp(r'^(NT|CT)[A-Z0-9]+$').hasMatch(p),
                     )
-                    .toUpperCase()
-                    .replaceAll(RegExp(r'[^A-Z0-9 ]'), ' ')
+                    .toList();
+                if (parts.isNotEmpty) {
+                  final mid = parts.first.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+                  if (mid.isNotEmpty) {
+                    return mid.length > maxLen
+                        ? mid.substring(mid.length - maxLen)
+                        : mid;
+                  }
+                }
+              }
+              final clean = _removeDiacritics(raw)
+                  .replaceAll(RegExp(r'[^A-Z0-9]'), '');
+              return clean.length > maxLen
+                  ? clean.substring(clean.length - maxLen)
+                  : clean;
+            }
+
+            final hostCode = extractHostCode();
+            String transferInfoRaw;
+            if (settlementItems.length > 1) {
+              final batchPrefix = 'QT ${settlementItems.length}D $hostCode';
+              String? matchedBatch;
+              for (final len in [4, 3, 2]) {
+                final codes = settlementItems
+                    .map((item) => shortItemCode(item, maxLen: len))
+                    .where((c) => c.isNotEmpty)
+                    .toList();
+                final candidate = '$batchPrefix ${codes.join(' ')}'
                     .replaceAll(RegExp(r'\s+'), ' ')
                     .trim();
-            final transferInfoRaw =
-                'QUYET TOAN ${orderRef.isEmpty ? 'COC' : orderRef}';
+                if (candidate.length <= 25) {
+                  matchedBatch = candidate;
+                  break;
+                }
+              }
+              transferInfoRaw = matchedBatch ??
+                  'QT ${settlementItems.length}D $hostCode ${DateFormat('ddMM').format(DateTime.now())}';
+            } else {
+              final singleCode = settlementItems.isEmpty
+                  ? ''
+                  : shortItemCode(settlementItems.first, maxLen: 4);
+              transferInfoRaw = 'QT $hostCode $singleCode'
+                  .replaceAll(RegExp(r'\s+'), ' ')
+                  .trim();
+            }
             final transferInfo = transferInfoRaw.length > 25
                 ? transferInfoRaw.substring(0, 25).trimRight()
                 : transferInfoRaw;
@@ -1447,13 +1529,16 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              '1. Tổng tiền cọc giữ chỗ (${settlementItems.length} đơn):',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF667085),
+                            Expanded(
+                              child: Text(
+                                '1. Tổng tiền cọc giữ chỗ (${settlementItems.length} đơn):',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF667085),
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             Text(
                               '${currencyFormatter.format(totalDeposit)} đ',
                               style: const TextStyle(
@@ -1468,13 +1553,16 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              '2. Hoa hồng sàn ($commissionRateLabel) (Trừ):',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFFD92D20),
+                            Expanded(
+                              child: Text(
+                                '2. Hoa hồng sàn ($commissionRateLabel) (Trừ):',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFFD92D20),
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             Text(
                               '-${currencyFormatter.format(platformFee)} đ',
                               style: const TextStyle(
@@ -1495,14 +1583,17 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                'TỔNG CỘNG THỰC CHUYỂN:',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF027A48),
+                              const Expanded(
+                                child: Text(
+                                  'TỔNG CỘNG THỰC CHUYỂN:',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF027A48),
+                                  ),
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               Text(
                                 '${currencyFormatter.format(netSettlement)} đ',
                                 style: const TextStyle(

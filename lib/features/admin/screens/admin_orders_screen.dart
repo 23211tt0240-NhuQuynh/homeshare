@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../utils/booking_utils.dart';
+import '../services/admin_audit_identity.dart';
 import '../utils/commission_rate_service.dart';
 import '../widgets/admin_branded_title.dart';
 import 'cancellation_invoice_screen.dart';
@@ -407,17 +408,38 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
   void _recalculateOrders() {
     final Map<String, String> hostPrefixMap = {};
     final Map<String, String> hostOnlyPrefixMap = {};
+    final Map<String, String> userNamesById = {};
     final List<String> dropdownItems = ['Tất cả chủ trọ'];
     int hostCounter = 1;
 
-    // 1. Quét chủ trọ từ 'users'
+    String extractBookingHostId(Map<String, dynamic> map) {
+      return (map['hostId'] ??
+              map['landlordId'] ??
+              map['hostUserId'] ??
+              map['landlordUserId'] ??
+              map['ownerId'] ??
+              map['propertyOwnerId'] ??
+              '')
+          .toString()
+          .trim();
+    }
+
+    // 1. Quét chủ trọ từ 'users' (đồng thời lưu map uid -> tên mới nhất)
     for (final uDoc in _rawUserDocs) {
       final uData = uDoc.data() as Map<String, dynamic>? ?? {};
+      final hName = (uData['fullName'] ??
+              uData['displayName'] ??
+              uData['name'] ??
+              uData['hostName'] ??
+              '')
+          .toString()
+          .trim();
+      if (hName.isNotEmpty && hName != 'Tất cả chủ trọ') {
+        userNamesById[uDoc.id] = hName;
+      }
+
       final role = (uData['role'] ?? '').toString().toLowerCase();
       if (role == 'host' || role == 'landlord' || role == 'chutro') {
-        final hName = (uData['fullName'] ?? uData['name'] ?? '')
-            .toString()
-            .trim();
         if (hName.isEmpty || hName == 'Tất cả chủ trọ') continue;
 
         String cleanName = hName;
@@ -442,9 +464,11 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
     // 2. Quét bổ sung từ 'bookings' nếu có chủ trọ chưa nằm trong users
     for (final bDoc in _rawBookingDocs) {
       final bData = bDoc.data() as Map<String, dynamic>? ?? {};
-      final rawHName = (bData['hostName'] ?? bData['tenChuNha'] ?? '')
-          .toString()
-          .trim();
+      final bHostId = extractBookingHostId(bData);
+      final profileName = bHostId.isNotEmpty ? (userNamesById[bHostId] ?? '') : '';
+      final rawHName = profileName.isNotEmpty
+          ? profileName
+          : (bData['hostName'] ?? bData['tenChuNha'] ?? '').toString().trim();
       if (rawHName.isEmpty || rawHName == 'Tất cả chủ trọ') continue;
 
       String cleanName = rawHName;
@@ -490,7 +514,13 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
         continue;
       }
 
-      final rawHostName = (data['hostName'] ?? 'Chủ trọ').toString().trim();
+      final bookingHostId = extractBookingHostId(data);
+      final latestProfileHostName = bookingHostId.isNotEmpty
+          ? (userNamesById[bookingHostId] ?? '')
+          : '';
+      final rawHostName = latestProfileHostName.isNotEmpty
+          ? latestProfileHostName
+          : (data['hostName'] ?? 'Chủ trọ').toString().trim();
       String cleanHostName = rawHostName;
       if (RegExp(r'^\d+-').hasMatch(cleanHostName)) {
         cleanHostName = cleanHostName.replaceFirst(RegExp(r'^\d+-'), '').trim();
@@ -680,7 +710,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
     if (hostName.isEmpty || hostName == 'Chủ trọ') {
       return hostId.isEmpty ? 'Chủ trọ' : 'Chủ trọ • $hostId';
     }
-    return hostId.isEmpty ? hostName : '$hostName • $hostId';
+    return hostName;
   }
 
   Future<void> _chooseInvoiceGroup(
@@ -1348,14 +1378,16 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                           ),
                                         ),
                                         const SizedBox(width: 6),
-                                        Text(
-                                          'Đã tự lọc: ${filteredList.length} đơn hủy',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFFB42318),
+                                        Expanded(
+                                          child: Text(
+                                            'Đã tự lọc: ${filteredList.length} đơn hủy',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFFB42318),
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -1447,45 +1479,54 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                           ),
                                         ),
                                         const SizedBox(width: 6),
-                                        Text(
-                                          'Đã tự lọc: ${checkInOrders.length} đơn đã check-in',
-                                          style: TextStyle(
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: checkInOrders.isNotEmpty
-                                                ? const Color(0xFF027A48)
-                                                : const Color(0xFFB54708),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Row(
-                                      children: [
-                                        const Text(
-                                          'Tổng giải ngân: ',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xFF475467),
-                                          ),
-                                        ),
                                         Expanded(
-                                          child: Text(
-                                            '${currencyFormatter.format(autoCheckInAmount)} đ',
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w900,
-                                              color: Color(0xFF398FC0),
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: Text(
+                                              'Đã tự lọc: ${checkInOrders.length} đơn đã check-in',
+                                              maxLines: 1,
+                                              style: TextStyle(
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.w700,
+                                                color: checkInOrders.isNotEmpty
+                                                    ? const Color(0xFF027A48)
+                                                    : const Color(0xFFB54708),
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ],
                                     ),
+                                    const SizedBox(height: 3),
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Text(
+                                            'Tổng giải ngân: ',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFF475467),
+                                            ),
+                                          ),
+                                          Text(
+                                            '${currencyFormatter.format(autoCheckInAmount)} đ',
+                                            style: const TextStyle(
+                                              fontSize: 15.5,
+                                              fontWeight: FontWeight.w900,
+                                              color: Color(0xFF398FC0),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 8),
                               ElevatedButton.icon(
                                 onPressed: () =>
                                     _navigateToSettlementInvoice(filteredList),
@@ -1494,8 +1535,8 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                   foregroundColor: Colors.white,
                                   elevation: 0,
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 18,
-                                    vertical: 13,
+                                    horizontal: 12,
+                                    vertical: 12,
                                   ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
@@ -1503,13 +1544,13 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                 ),
                                 icon: const Icon(
                                   Icons.receipt_long_rounded,
-                                  size: 18,
+                                  size: 16,
                                 ),
                                 label: Text(
                                   'TẠO HÓA ĐƠN (${checkInOrders.length})',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w900,
-                                    fontSize: 13,
+                                    fontSize: 12,
                                   ),
                                 ),
                               ),
@@ -1547,66 +1588,70 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                 : const Color(0xFFEAF4FA),
             borderRadius: BorderRadius.circular(22),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isSelected && dotColor != Colors.transparent) ...[
-                Container(
-                  width: 6.5,
-                  height: 6.5,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFDB022),
-                    shape: BoxShape.circle,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isSelected && dotColor != Colors.transparent) ...[
+                  Container(
+                    width: 6.5,
+                    height: 6.5,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFDB022),
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 3),
-              ] else if (dotColor == const Color(0xFFD92D20)) ...[
-                Container(
-                  width: 6.5,
-                  height: 6.5,
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.white : dotColor,
-                    shape: BoxShape.circle,
+                  const SizedBox(width: 3),
+                ] else if (dotColor == const Color(0xFFD92D20)) ...[
+                  Container(
+                    width: 6.5,
+                    height: 6.5,
+                    decoration: BoxDecoration(
+                      color: isSelected ? Colors.white : dotColor,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 3),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.white : const Color(0xFF344054),
-                ),
-              ),
-              const SizedBox(width: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 5,
-                  vertical: 1.5,
-                ),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFFF79009)
-                      : (dotColor == const Color(0xFFD92D20)
-                            ? const Color(0xFFFEE4E2)
-                            : const Color(0xFFE4E7EC)),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '$count',
+                  const SizedBox(width: 3),
+                ],
+                Text(
+                  label,
                   style: TextStyle(
-                    fontSize: 10.5,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.bold,
-                    color: isSelected
-                        ? Colors.white
-                        : (dotColor == const Color(0xFFD92D20)
-                              ? const Color(0xFFB42318)
-                              : const Color(0xFF344054)),
+                    color: isSelected ? Colors.white : const Color(0xFF344054),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 1.5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFFF79009)
+                        : (dotColor == const Color(0xFFD92D20)
+                              ? const Color(0xFFFEE4E2)
+                              : const Color(0xFFE4E7EC)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected
+                          ? Colors.white
+                          : (dotColor == const Color(0xFFD92D20)
+                                ? const Color(0xFFB42318)
+                                : const Color(0xFF344054)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -2447,7 +2492,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
 
       await FirebaseFirestore.instance.collection('audit_logs').add({
         'action': 'Duyệt $actionText',
-        'actor': 'Admin',
+        ...await AdminAuditIdentity.currentActorFields(),
         'category': 'taiChinh',
         'details':
             'Admin đã xác nhận $actionText cho đơn ${item['orderCode']} của khách ${item['renterName']}. Chuyển vào mục "$targetTabName".',
