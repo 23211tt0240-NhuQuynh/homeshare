@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/firestore_collections.dart';
+import '../../core/utils/vietnam_address_parser.dart';
 
 /// Model Phòng trọ & Bài đăng chuẩn hóa theo Database homeShare
 /// Bảng: Nhà trọ, Phòng, ẢnhPhong, Tiện ích, Bài đăng
@@ -15,6 +16,7 @@ class RoomModel {
   final String tenantName, tenantPhone, tenantAvatar, contractId;
   final DateTime? contractStart, contractEnd, updatedAt;
   final bool hasRentDebt;
+  final String rejectReason;
   final String id; // phongId / baiDangId
   final String title; // tieuDe / tieuDePhong
   final String description; // moTa / noiDung
@@ -104,6 +106,14 @@ class RoomModel {
   String get soPhong => maPhong;
   String get maNhaTro => propertyId;
 
+  bool get canBeListed {
+    final s = status.toLowerCase().trim();
+    if (s == 'occupied' || s == 'dathue' || s == 'da_thue' || s == 'deleted' || s == 'daxoa') {
+      return false;
+    }
+    return isAvailable;
+  }
+
   bool get isApproved {
     final s = status.toLowerCase().trim();
     return s == 'active' ||
@@ -118,6 +128,15 @@ class RoomModel {
   bool get isPending {
     final s = status.toLowerCase().trim();
     return s == 'pending' || s == 'choduyet' || s == 'cho_duyet';
+  }
+
+  bool get isRejected {
+    final s = status.toLowerCase().trim();
+    return s == 'rejected' ||
+        s == 'tuchoi' ||
+        s == 'tu_choi' ||
+        s == 'bituchoi' ||
+        s == 'bi_tu_choi';
   }
 
   bool get isDeleted {
@@ -150,6 +169,19 @@ class RoomModel {
         s == 'unavailable';
   }
 
+  bool get isOccupied {
+    final s = status.toLowerCase().trim();
+    return s == 'occupied' ||
+        s == 'dathue' ||
+        s == 'da_thue' ||
+        s == 'dang_o' ||
+        s == 'dango' ||
+        s == 'đang ở' ||
+        s == 'đã thuê' ||
+        tenantName.trim().isNotEmpty ||
+        contractId.trim().isNotEmpty;
+  }
+
   /// Kiểm tra xem bài đăng có phải bài mẫu hardcode (sample) không
   bool get isSampleOrHardcode {
     if (id.toLowerCase().startsWith('sample')) return true;
@@ -178,14 +210,14 @@ class RoomModel {
         !isPending &&
         !isHiddenOrRejected &&
         isAvailable &&
+        !isOccupied &&
         !isSampleOrHardcode;
   }
 
   String get statusDisplayLabel {
     if (isPending) return 'Chờ duyệt';
     if (isHiddenOrRejected) return 'Đã ẩn';
-    final s = status.toLowerCase().trim();
-    if (s == 'occupied' || s == 'dathue') return 'Đã thuê';
+    if (isOccupied) return 'Đã thuê';
     return 'Đã duyệt';
   }
 
@@ -205,6 +237,7 @@ class RoomModel {
     this.contractEnd,
     this.updatedAt,
     this.hasRentDebt = false,
+    this.rejectReason = '',
     required this.title,
     required this.description,
     required this.price,
@@ -240,9 +273,26 @@ class RoomModel {
       id: id,
       minArea: (data['minArea'] as num?)?.toDouble(),
       maxArea: (data['maxArea'] as num?)?.toDouble(),
-      electricityRate: (data['electricityRate'] as num?)?.toDouble(),
-      waterRate: (data['waterRate'] as num?)?.toDouble(),
-      serviceFee: (data['serviceFee'] as num?)?.toDouble(),
+      electricityRate: _readPositiveDouble(
+        data['electricityRate'] ??
+            data['electricity_rate'] ??
+            data['giaDien'] ??
+            data['gia_dien'],
+      ),
+      waterRate: _readPositiveDouble(
+        data['waterRate'] ??
+            data['water_rate'] ??
+            data['giaNuoc'] ??
+            data['gia_nuoc'],
+      ),
+      serviceFee: _readPositiveDouble(
+        data['serviceFee'] ??
+            data['service_fee'] ??
+            data['wifiRate'] ??
+            data['wifi_rate'] ??
+            data['giaWifi'] ??
+            data['gia_wifi'],
+      ),
       tenantName: data['tenantName'] ?? '',
       tenantPhone: data['tenantPhone'] ?? '',
       tenantAvatar: data['tenantAvatar'] ?? '',
@@ -290,7 +340,13 @@ class RoomModel {
         return (data['isAvailable'] == false) ? 'unavailable' : 'available';
       }(),
       title: data['title'] ?? data['tieuDe'] ?? '',
-      description: data['description'] ?? data['noiDung'] ?? data['moTa'] ?? '',
+      description:
+          data['description'] ??
+          data['notes'] ??
+          data['ghiChu'] ??
+          data['noiDung'] ??
+          data['moTa'] ??
+          '',
       price: () {
         final val =
             data['price'] ??
@@ -363,7 +419,7 @@ class RoomModel {
           final parsed = double.tryParse(cleaned);
           if (parsed != null) return parsed;
         }
-        return 20.0;
+        return 0.0;
       }(),
       roomType: data['roomType'] ?? data['loaiPhong'] ?? 'Phòng trọ',
       amenities: () {
@@ -529,6 +585,13 @@ class RoomModel {
           : (data['ngayDang'] is Timestamp)
           ? (data['ngayDang'] as Timestamp).toDate()
           : DateTime.now(),
+      rejectReason: (data['rejectReason'] ??
+              data['lyDoTuChoi'] ??
+              data['reason'] ??
+              data['ly_do_tu_choi'] ??
+              '')
+          .toString()
+          .trim(),
     );
   }
 
@@ -658,16 +721,12 @@ class RoomModel {
     final roomAddress = room?.address.trim() ?? '';
     final propertyAddress = joinAddress(propertyData);
     final locationAddress = joinAddress(locationData);
-    final hasCurrentAddress = address
-        .replaceAll(RegExp(r'[,\s]'), '')
-        .isNotEmpty;
-    final resolvedAddress = hasCurrentAddress
-        ? address.trim()
-        : roomAddress.isNotEmpty
-        ? roomAddress
-        : propertyAddress.isNotEmpty
-        ? propertyAddress
-        : locationAddress;
+    final resolvedAddress = VietnamAddressParser.pickBest([
+      address.trim(),
+      roomAddress,
+      propertyAddress,
+      locationAddress,
+    ]);
     final resolvedHostId = hostId.trim().isNotEmpty
         ? hostId.trim()
         : (room?.hostId.trim() ?? '').isNotEmpty
@@ -685,6 +744,19 @@ class RoomModel {
 
     return copyWith(
       propertyId: resolvedPropertyId,
+      area: (room?.area ?? 0) > 0 && area <= 0 ? room!.area : area,
+      capacity: (room?.capacity ?? 0) > 0 && capacity <= 0
+          ? room!.capacity
+          : capacity,
+      amenities: amenities.isNotEmpty
+          ? amenities
+          : (room?.amenities ?? amenities),
+      images: images.isNotEmpty
+          ? images
+          : (room?.images ?? images),
+      electricityRate: electricityRate ?? room?.electricityRate,
+      waterRate: waterRate ?? room?.waterRate,
+      serviceFee: serviceFee ?? room?.serviceFee,
       address: resolvedAddress,
       district: district.trim().isNotEmpty
           ? district.trim()
@@ -767,6 +839,7 @@ class RoomModel {
     double? electricityRate,
     double? waterRate,
     double? serviceFee,
+    String? rejectReason,
   }) {
     return RoomModel(
       id: id ?? this.id,
@@ -808,6 +881,26 @@ class RoomModel {
       electricityRate: electricityRate ?? this.electricityRate,
       waterRate: waterRate ?? this.waterRate,
       serviceFee: serviceFee ?? this.serviceFee,
+      rejectReason: rejectReason ?? this.rejectReason,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RoomModel && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
+double? _readPositiveDouble(dynamic raw) {
+  if (raw == null) return null;
+  if (raw is num) return raw.toDouble();
+  if (raw is String) {
+    final text = raw.trim().replaceAll(' ', '').replaceAll(',', '');
+    if (text.isEmpty) return null;
+    return double.tryParse(text);
+  }
+  return null;
 }

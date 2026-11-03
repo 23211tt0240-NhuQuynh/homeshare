@@ -3,6 +3,34 @@ import '../../core/constants/firestore_collections.dart';
 import '../../features/auth/providers/user_provider.dart';
 import 'room_model.dart';
 
+/// Trạng thái chuẩn của bài đăng: pending, active, rejected, hidden
+abstract final class PostStatus {
+  static const pending = 'pending';
+  static const active = 'active';
+  static const rejected = 'rejected';
+  static const hidden = 'hidden';
+
+  static const validStatuses = {pending, active, rejected, hidden};
+
+  static String normalize(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return pending;
+    final s = raw.toLowerCase().trim();
+    if (s == 'active' || s == 'approved' || s == 'daduyet' || s == 'da_duyet' || s == 'danghienthi' || s == 'published') {
+      return active;
+    }
+    if (s == 'rejected' || s == 'tuchoi' || s == 'tu_choi' || s == 'bituchoi') {
+      return rejected;
+    }
+    if (s == 'hidden' || s == 'daan' || s == 'da_an' || s == 'an' || s == 'taman' || s == 'tam_an') {
+      return hidden;
+    }
+    if (s == 'pending' || s == 'choduyet' || s == 'cho_duyet') {
+      return pending;
+    }
+    return pending;
+  }
+}
+
 /// Model Bài đăng Chủ trọ chuẩn hóa theo Database.docx & quy ước schema:
 /// - Code sử dụng biến tiếng Anh chuẩn (roomId, hostId, rentalPrice, depositAmount, ...)
 /// - Khi ghi Firestore: chỉ trả về các field trong [PostFields] bằng [toFirestore()]
@@ -11,10 +39,10 @@ class HostPostModel {
   // Các trường cốt lõi trong Schema Firestore
   final String id; // postId / baiDangId
   final String roomId; // phongId [FK -> rooms]
+  final String propertyId; // nhaTroId [FK -> properties]
   final String hostId; // chuNhaId [FK -> users]
   final String locationId; // diaDiemId [FK -> locations]
   final String rentalTypeId; // loaiThue_id
-  final String statusId; // trangThai_id
   final String title; // tieuDe
   final String description; // moTa
   final double rentalPrice; // giaThue
@@ -25,7 +53,11 @@ class HostPostModel {
   final String address; // diaChi
   final String contactPhone; // soDienThoaiLienHe
   final DateTime createdAt; // ngayDang
-  final String status; // trangThai
+  final String status; // trangThai: active, pending, rejected, hidden
+  final String rejectReason; // lyDoTuChoi (từ Firestore khi admin từ chối)
+  final DateTime? hostResubmittedAt; // thời gian chủ trọ gửi duyệt lại
+  final DateTime? reviewedAt; // thời gian admin duyệt / từ chối
+  final String reviewedBy; // adminId thực hiện duyệt
 
   // Các trường nghiệp vụ giao diện và ghép nối bộ nhớ (IN-MEMORY ONLY - KHÔNG LƯU FIRESTORE)
   final String authorName;
@@ -47,6 +79,7 @@ class HostPostModel {
   HostPostModel({
     required this.id,
     String? roomId,
+    String? propertyId,
     String? hostId,
     String? locationId,
     String? rentalTypeId,
@@ -61,7 +94,11 @@ class HostPostModel {
     this.address = '',
     String? contactPhone,
     DateTime? createdAt,
-    this.status = 'dangHienThi',
+    String? status,
+    String? rejectReason,
+    this.hostResubmittedAt,
+    this.reviewedAt,
+    this.reviewedBy = '',
     // In-memory UI fields
     this.authorName = '',
     this.authorAvatar = '',
@@ -80,6 +117,7 @@ class HostPostModel {
     this.joinedHost,
     // Vietnamese legacy named parameters
     String? phongId,
+    String? nhaTroId,
     String? chuNhaId,
     String? diaDiemId,
     String? loaiThueId,
@@ -91,25 +129,36 @@ class HostPostModel {
     int? phanTramTienCoc,
     String? soDienThoaiLienHe,
     DateTime? ngayDang,
+    String? lyDoTuChoi,
   }) : roomId = roomId ?? phongId ?? '',
+       propertyId = propertyId ?? nhaTroId ?? joinedRoom?.propertyId ?? '',
        hostId = hostId ?? chuNhaId ?? '',
        locationId = locationId ?? diaDiemId ?? '',
        rentalTypeId = rentalTypeId ?? loaiThueId ?? 'thang',
-       statusId = statusId ?? trangThaiId ?? 'dangHienThi',
+       status = PostStatus.normalize(
+           (status != null && status.isNotEmpty)
+               ? status
+               : (statusId ?? trangThaiId ?? 'pending'),
+       ),
        title = title ?? tieuDe ?? '',
        description = description ?? moTa ?? '',
        rentalPrice = rentalPrice ?? giaThue ?? 0.0,
        depositAmount = depositAmount ?? tienCoc ?? 0.0,
        depositPercentage = depositPercentage ?? phanTramTienCoc ?? 20,
        contactPhone = contactPhone ?? soDienThoaiLienHe ?? '',
-       createdAt = createdAt ?? ngayDang ?? DateTime.now();
+       createdAt = createdAt ?? ngayDang ?? DateTime.now(),
+       rejectReason = (rejectReason != null && rejectReason.isNotEmpty)
+           ? rejectReason
+           : (lyDoTuChoi ?? '');
 
   // Vietnamese Schema Aliases for backward compatibility in code
   String get phongId => roomId;
+  String get nhaTroId => propertyId;
   String get chuNhaId => hostId;
   String get diaDiemId => locationId;
   String get loaiThueId => rentalTypeId;
-  String get trangThaiId => statusId;
+  String get statusId => status;
+  String get trangThaiId => status;
   String get tieuDe => title;
   String get moTa => description;
   double get giaThue => rentalPrice;
@@ -121,12 +170,17 @@ class HostPostModel {
   String get soDienThoaiLienHe => contactPhone;
   DateTime get ngayDang => createdAt;
   String get trangThai => status;
+  String get lyDoTuChoi => rejectReason;
 
-  bool get isActive {
-    final sId = statusId.toLowerCase().trim();
-    const activeStatuses = {'active', 'danghienthi', 'published', 'approved'};
-    return activeStatuses.contains(sId);
-  }
+  bool get isRejected => PostStatus.normalize(status) == PostStatus.rejected;
+  bool get isPending => PostStatus.normalize(status) == PostStatus.pending;
+  bool get isActive => PostStatus.normalize(status) == PostStatus.active;
+  bool get isApprovedOrActive => isActive;
+  bool get isHidden => PostStatus.normalize(status) == PostStatus.hidden;
+
+  /// Bài đăng có thể chỉnh sửa: chỉ cho phép khi bị từ chối / chờ duyệt,
+  /// TUYỆT ĐỐI KHÔNG cho phép chỉnh sửa khi bài đã duyệt/đang hiển thị hoặc đang ở trạng thái ẩn (hidden).
+  bool get canEdit => !isApprovedOrActive && !isHidden;
 
   /// Đường dẫn Sub-collection trên Firestore theo quan hệ 1-N:
   /// Path: rooms/{roomId}/rental_posts
@@ -153,35 +207,16 @@ class HostPostModel {
     return {
       'id': id,
       'roomId': roomId,
+      'propertyId': propertyId,
       'hostId': hostId,
       'title': title,
       'description': description,
       'rentalPrice': rentalPrice,
       'depositAmount': depositAmount,
-      'status': status.isNotEmpty ? status : 'active',
+      'status': PostStatus.normalize(status),
       'isPinned': false,
       'createdAt': Timestamp.fromDate(createdAt),
     };
-  }
-
-  /// Mapper chuẩn bảng bai_dang_cho_thue theo SQL_NHOM4_CHUYENDEDIDONG.sql
-  Map<String, dynamic> toBaiDangChoThueSql() => {
-    BaiDangChoThueSqlFields.id: id,
-    BaiDangChoThueSqlFields.phongTroId: roomId,
-    BaiDangChoThueSqlFields.tieuDe: title,
-    BaiDangChoThueSqlFields.noiDung: description,
-    BaiDangChoThueSqlFields.trangThai: status,
-    BaiDangChoThueSqlFields.laBaiGhim: 0,
-    BaiDangChoThueSqlFields.ngayTao: Timestamp.fromDate(createdAt),
-    BaiDangChoThueSqlFields.chuTroId: hostId,
-  };
-
-  /// Factory đọc từ dữ liệu bảng bai_dang_cho_thue chuẩn SQL
-  factory HostPostModel.fromBaiDangChoThueSql(
-    Map<String, dynamic> data,
-    String id,
-  ) {
-    return HostPostModel.fromMap(data, id);
   }
 
   /// Alias kiểm soát: Không tự gom toàn bộ biến object, ủy thác về [toFirestore]
@@ -295,6 +330,14 @@ class HostPostModel {
                   '')
               .toString()
               .trim(),
+      propertyId:
+          (data['propertyId'] ??
+                  data['nhaTroId'] ??
+                  data['nha_tro_id'] ??
+                  data['nhaId'] ??
+                  '')
+              .toString()
+              .trim(),
       hostId:
           (data[BaiDangChoThueSqlFields.chuTroId] ??
                   data['chu_tro_id'] ??
@@ -318,16 +361,6 @@ class HostPostModel {
                   data['rentalTypeId'] ??
                   data['loaiThue_id'] ??
                   'thang')
-              .toString()
-              .trim(),
-      statusId:
-          (data[BaiDangChoThueSqlFields.trangThai] ??
-                  data['trang_thai'] ??
-                  data[PostFields.statusId] ??
-                  data['statusId'] ??
-                  data['trangThai_id'] ??
-                  data['status'] ??
-                  'dangHienThi')
               .toString()
               .trim(),
       title:
@@ -366,13 +399,19 @@ class HostPostModel {
               .toString()
               .trim(),
       createdAt: postDate,
-      status:
-          (data[PostFields.status] ??
-                  data['status'] ??
-                  data['trangThai'] ??
-                  'dangHienThi')
-              .toString()
-              .trim(),
+      status: PostStatus.normalize(
+        (data['status'] ??
+                data[PostFields.status] ??
+                data['statusId'] ??
+                data[PostFields.statusId] ??
+                data['trang_thai'] ??
+                data['trangThai'] ??
+                data['trangThai_id'] ??
+                data[BaiDangChoThueSqlFields.trangThai] ??
+                'pending')
+            .toString()
+            .trim(),
+      ),
       // In-memory UI/Join properties
       authorName: (data['authorName'] ?? data['hostName'] ?? '')
           .toString()
@@ -405,6 +444,26 @@ class HostPostModel {
           data['daXacThuc'] == true,
       isVip: data['isVip'] == true || data['vip'] == true,
       isUserInterested: isUserInterested,
+      rejectReason: (data['rejectReason'] ??
+              data['lyDoTuChoi'] ??
+              data['reason'] ??
+              data['ly_do_tu_choi'] ??
+              '')
+          .toString()
+          .trim(),
+      hostResubmittedAt: data['hostResubmittedAt'] is Timestamp
+          ? (data['hostResubmittedAt'] as Timestamp).toDate()
+          : (data['hostResubmittedAt'] is String
+              ? DateTime.tryParse(data['hostResubmittedAt'])
+              : null),
+      reviewedAt: data['reviewedAt'] is Timestamp
+          ? (data['reviewedAt'] as Timestamp).toDate()
+          : (data['reviewedAt'] is String
+              ? DateTime.tryParse(data['reviewedAt'])
+              : null),
+      reviewedBy: (data['reviewedBy'] ?? data['nguoiDuyet'] ?? '')
+          .toString()
+          .trim(),
     );
   }
 
@@ -470,6 +529,10 @@ class HostPostModel {
     bool? isUserInterested,
     RoomModel? joinedRoom,
     UserProfile? joinedHost,
+    String? rejectReason,
+    DateTime? hostResubmittedAt,
+    DateTime? reviewedAt,
+    String? reviewedBy,
     // Vietnamese legacy named params
     String? phongId,
     String? chuNhaId,
@@ -483,6 +546,7 @@ class HostPostModel {
     int? phanTramTienCoc,
     String? soDienThoaiLienHe,
     DateTime? ngayDang,
+    String? lyDoTuChoi,
   }) {
     return HostPostModel(
       id: id ?? this.id,
@@ -490,7 +554,7 @@ class HostPostModel {
       hostId: hostId ?? chuNhaId ?? this.hostId,
       locationId: locationId ?? diaDiemId ?? this.locationId,
       rentalTypeId: rentalTypeId ?? loaiThueId ?? this.rentalTypeId,
-      statusId: statusId ?? trangThaiId ?? this.statusId,
+      status: status ?? statusId ?? trangThaiId ?? this.status,
       title: title ?? tieuDe ?? this.title,
       description: description ?? moTa ?? this.description,
       rentalPrice: rentalPrice ?? giaThue ?? this.rentalPrice,
@@ -502,7 +566,10 @@ class HostPostModel {
       address: address ?? this.address,
       contactPhone: contactPhone ?? soDienThoaiLienHe ?? this.contactPhone,
       createdAt: createdAt ?? ngayDang ?? this.createdAt,
-      status: status ?? this.status,
+      rejectReason: rejectReason ?? lyDoTuChoi ?? this.rejectReason,
+      hostResubmittedAt: hostResubmittedAt ?? this.hostResubmittedAt,
+      reviewedAt: reviewedAt ?? this.reviewedAt,
+      reviewedBy: reviewedBy ?? this.reviewedBy,
       authorName: authorName ?? this.authorName,
       authorAvatar: authorAvatar ?? this.authorAvatar,
       propertyName: propertyName ?? this.propertyName,
@@ -557,6 +624,46 @@ class HostPostModel {
       district: resolvedDistrict?.isNotEmpty == true
           ? resolvedDistrict
           : district,
+    );
+  }
+
+  /// Chuyển đổi sang RoomModel để mở trực tiếp màn hình chi tiết RoomDetailScreen
+  RoomModel toRoomModel() {
+    final effectiveRoomId = roomId.trim().isNotEmpty
+        ? roomId.trim()
+        : ((joinedRoom?.id.trim().isNotEmpty == true) ? joinedRoom!.id.trim() : id);
+    return RoomModel(
+      id: effectiveRoomId,
+      propertyId: propertyId.isNotEmpty ? propertyId : (joinedRoom?.propertyId ?? ''),
+      roomCode: joinedRoom?.roomCode ?? (roomId.isNotEmpty ? roomId : 'P001'),
+      status: status.isNotEmpty ? status : statusId,
+      title: title.isNotEmpty ? title : (joinedRoom?.title ?? ''),
+      description: description.isNotEmpty ? description : (joinedRoom?.description ?? ''),
+      price: rentalPrice > 0 ? rentalPrice : (joinedRoom?.price ?? 0.0),
+      deposit: depositAmount > 0 ? depositAmount : (joinedRoom?.deposit ?? 0.0),
+      depositPercentage: depositPercentage > 0 ? depositPercentage : joinedRoom?.depositPercentage,
+      address: address.isNotEmpty ? address : (joinedRoom?.address ?? ''),
+      district: district.isNotEmpty ? district : (joinedRoom?.district ?? ''),
+      city: city.isNotEmpty ? city : (joinedRoom?.city ?? 'TP. Hồ Chí Minh'),
+      area: roomArea > 0 ? roomArea : (joinedRoom?.area ?? 25.0),
+      roomType: roomType.isNotEmpty ? roomType : (joinedRoom?.roomType ?? 'Phòng trọ'),
+      amenities: amenities.isNotEmpty ? amenities : (joinedRoom?.amenities ?? const []),
+      images: images.isNotEmpty ? images : (joinedRoom?.images ?? const []),
+      hostId: hostId.isNotEmpty ? hostId : (joinedRoom?.hostId ?? ''),
+      hostName: authorName.isNotEmpty ? authorName : (joinedRoom?.hostName ?? 'Chủ trọ'),
+      hostPhone: contactPhone.isNotEmpty
+          ? contactPhone
+          : (joinedRoom?.hostPhone ?? ''),
+      hostAvatar: authorAvatar.isNotEmpty ? authorAvatar : (joinedRoom?.hostAvatar ?? ''),
+      rating: 5.0,
+      reviewCount: 0,
+      isAvailable: isActive,
+      capacity: joinedRoom?.capacity ?? 2,
+      floor: joinedRoom?.floor ?? 1,
+      createdAt: createdAt,
+      electricityRate: joinedRoom?.electricityRate,
+      waterRate: joinedRoom?.waterRate,
+      serviceFee: joinedRoom?.serviceFee,
     );
   }
 }

@@ -153,8 +153,19 @@ class HostImageUtils {
         bytes[0] == 255 &&
         bytes[1] == 216 &&
         bytes[2] == 255;
+    final isWebp =
+        bytes.length >= 12 &&
+        bytes[0] == 82 &&
+        bytes[1] == 73 &&
+        bytes[2] == 70 &&
+        bytes[3] == 70 &&
+        bytes[8] == 87 &&
+        bytes[9] == 69 &&
+        bytes[10] == 66 &&
+        bytes[11] == 80;
     if (isPng) return 'image/png';
     if (isJpg) return 'image/jpeg';
+    if (isWebp) return 'image/webp';
     return null;
   }
 

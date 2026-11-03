@@ -237,7 +237,7 @@ class _HostCheckinCheckoutScreenState
               qrPayload['deposit'] == 0)) {
         try {
           final roomDoc = await FirebaseFirestore.instance
-              .collection('rooms')
+              .collection('host_rooms')
               .doc(resolvedRoomId)
               .get();
           if (roomDoc.exists && roomDoc.data() != null) {

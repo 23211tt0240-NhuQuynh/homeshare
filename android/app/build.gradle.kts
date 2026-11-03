@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.homeshare.app.home_share"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     // ndkVersion = flutter.ndkVersion
 
 

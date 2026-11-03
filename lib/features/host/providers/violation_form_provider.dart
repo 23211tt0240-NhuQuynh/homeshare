@@ -22,7 +22,7 @@ class ViolationFormState {
     this.selectedRoom,
     this.selectedViolations = const [],
     this.fineAmount = 0.0,
-    this.paymentMethod = 'NEXT_INVOICE',
+    this.paymentMethod = 'CASH',
     this.evidenceFiles = const [],
     this.note = '',
     this.isSubmitting = false,
@@ -85,8 +85,12 @@ class ViolationFormNotifier extends Notifier<ViolationFormState> {
     }
   }
 
-  void selectRoom(HostOccupiedRoomItem room) {
-    state = state.copyWith(selectedRoom: room, clearError: true);
+  void selectRoom(HostOccupiedRoomItem? room) {
+    if (room == null) {
+      state = state.copyWith(clearSelectedRoom: true, clearError: true);
+    } else {
+      state = state.copyWith(selectedRoom: room, clearError: true);
+    }
   }
 
   void toggleViolation(ViolationModel item) {
@@ -213,10 +217,8 @@ class ViolationFormNotifier extends Notifier<ViolationFormState> {
         violationIds: state.selectedViolations.map((v) => v.id).toList(),
         violationTitles: state.selectedViolations.map((v) => v.title).toList(),
         totalFine: state.fineAmount,
-        paymentMethod: state.paymentMethod,
-        status: state.paymentMethod == 'NEXT_INVOICE'
-            ? 'ADDED_TO_INVOICE'
-            : 'PENDING',
+        paymentMethod: 'CASH',
+        status: 'PENDING',
         description: state.note.trim().isNotEmpty
             ? state.note.trim()
             : 'Ghi nhận vi phạm ${state.selectedViolations.map((v) => v.title).join(', ')}',

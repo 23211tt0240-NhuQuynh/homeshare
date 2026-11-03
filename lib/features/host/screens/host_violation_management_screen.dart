@@ -88,36 +88,6 @@ class _HostViolationManagementScreenState
     }
   }
 
-  Future<void> _handleDeductInvoice(ViolationRecordModel record) async {
-    final confirmed = await PaymentActionSheet.showDeductConfirmation(
-      context: context,
-      record: record,
-    );
-
-    if (confirmed == true && mounted) {
-      try {
-        final repo = ref.read(violationRepositoryProvider);
-        await repo.deductToInvoice(record);
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Đã cộng khoản phạt phòng ${record.roomCode} vào hóa đơn tháng sau!'),
-            backgroundColor: const Color(0xFF2563EB),
-          ),
-        );
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi khi trừ vào hóa đơn: $e'),
-            backgroundColor: const Color(0xFFDC2626),
-          ),
-        );
-      }
-    }
-  }
 
   Future<void> _handleSendReminder(ViolationRecordModel record) async {
     try {
@@ -353,11 +323,6 @@ class _HostViolationManagementScreenState
                               'Đã nộp (${stats.paidCount})',
                               'PAID',
                               statusFilter),
-                          const SizedBox(width: 8),
-                          _buildFilterChip(
-                              'Đã trừ tiền thuê',
-                              'ADDED_TO_INVOICE',
-                              statusFilter),
                         ],
                       ),
                     ),
@@ -385,8 +350,6 @@ class _HostViolationManagementScreenState
                           child: ViolationRecordCard(
                             record: record,
                             onCollectCash: () => _handleCollectCash(record),
-                            onDeductInvoice: () =>
-                                _handleDeductInvoice(record),
                             onSendReminder: () =>
                                 _handleSendReminder(record),
                           ),

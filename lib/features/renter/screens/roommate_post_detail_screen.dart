@@ -4,7 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/booking_service.dart';
 import '../../../core/services/favorites_service.dart';
+import '../../../core/services/room_service.dart';
+import '../../../core/services/roommate_listing_facts.dart';
+import '../../../core/utils/map_address_locator.dart';
 import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
@@ -27,11 +31,47 @@ class RoommatePostDetailScreen extends ConsumerStatefulWidget {
 class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScreen> {
   int _currentImageIndex = 0;
   late final PageController _pageController;
+  RoommateListingFacts? _facts;
+  bool? _foundOnMap;
+
+  List<String> get _roomAmenities {
+    final fromRoom = _facts?.amenities ?? const <String>[];
+    if (fromRoom.isNotEmpty) return fromRoom;
+    return widget.post.amenities.where((item) => item.trim().isNotEmpty).toList();
+  }
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+    _loadListingFacts();
+    _verifyMapAddress();
+  }
+
+  Future<void> _verifyMapAddress() async {
+    final post = widget.post;
+    if (isMissingMapAddress(post.address) &&
+        storedMapLocation(post.latitude, post.longitude) == null) {
+      return;
+    }
+    final located = await locateAddressOnMap(
+      address: post.address,
+      latitude: post.latitude,
+      longitude: post.longitude,
+    );
+    if (!mounted) return;
+    setState(() => _foundOnMap = located != null);
+  }
+
+  Future<void> _loadListingFacts() async {
+    if (!widget.post.hasRoom) return;
+    final facts = await RoommateListingFacts.resolve(
+      post: widget.post,
+      rooms: ref.read(roomServiceProvider),
+      bookings: ref.read(bookingServiceProvider),
+    );
+    if (!mounted) return;
+    setState(() => _facts = facts);
   }
 
   @override
@@ -820,10 +860,13 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                post.address,
+                                displayedMapAddress(
+                                  address: post.address,
+                                  foundOnMap: _foundOnMap,
+                                ),
                                 style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFF0F172A), height: 1.3),
                               ),
-                              if (post.district.isNotEmpty) ...[
+                              if (_foundOnMap != false && post.district.isNotEmpty) ...[
                                 const SizedBox(height: 2),
                                 Text(
                                   'Khu vực: ${post.district}',
@@ -1059,8 +1102,7 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
 
                   const SizedBox(height: 18),
 
-                  // 6. Tiện Nghi Căn Phòng (nếu có phòng)
-                  if (post.hasRoom) ...[
+                  if (post.hasRoom && _roomAmenities.isNotEmpty) ...[
                     const Text(
                       'TIỆN NGHI CĂN PHÒNG',
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF64748B), letterSpacing: 0.5),
@@ -1077,14 +1119,8 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
                         spacing: 16,
                         runSpacing: 12,
                         children: [
-                          _buildAmenityBadge(Icons.ac_unit_rounded, 'Máy lạnh'),
-                          _buildAmenityBadge(Icons.local_laundry_service_rounded, 'Máy giặt'),
-                          _buildAmenityBadge(Icons.kitchen_rounded, 'Tủ lạnh'),
-                          _buildAmenityBadge(Icons.wifi_rounded, 'Wifi cáp quang'),
-                          _buildAmenityBadge(Icons.two_wheeler_rounded, 'Chỗ để xe'),
-                          _buildAmenityBadge(Icons.security_rounded, 'Bảo vệ an ninh'),
-                          _buildAmenityBadge(Icons.balcony_rounded, 'Ban công'),
-                          _buildAmenityBadge(Icons.water_drop_rounded, 'Nước nóng lạnh'),
+                          for (final amenity in _roomAmenities)
+                            _buildAmenityBadge(Icons.check_circle_outline, amenity),
                         ],
                       ),
                     ),

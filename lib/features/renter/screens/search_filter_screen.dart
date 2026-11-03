@@ -1,3 +1,4 @@
+import '../../profile/widgets/host_reputation_stars.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -1873,15 +1874,23 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Tiêu đề phòng
-                  Text(
-                    room.title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          room.title,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      HostReputationStarLabel(hostId: room.hostId),
+                    ],
                   ),
                   const SizedBox(height: 3),
 

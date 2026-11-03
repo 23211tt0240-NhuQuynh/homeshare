@@ -1,10 +1,10 @@
+import '../../../core/services/resident_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/constants/firestore_collections.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/checkin_model.dart';
 import '../../../data/models/handover_item_model.dart';
 import '../../../data/models/period_model.dart';
-import '../../../data/models/resident_model.dart';
 import '../../../data/models/room_model.dart';
 
 /// Dữ liệu tổng hợp để hiển thị màn hình Bàn giao & Chốt chỉ số
@@ -67,7 +67,9 @@ class HandoverRepository {
           .doc(roomId)
           .get();
       if (roomDoc.exists) {
-        room = RoomModel.fromFirestore(roomDoc);
+        room = await ResidentService(
+          _firestore,
+        ).hydrateRoom(RoomModel.fromFirestore(roomDoc));
       }
     }
 
@@ -210,9 +212,20 @@ class HandoverRepository {
     final batch = _firestore.batch();
     final now = DateTime.now();
 
-    // 1. Tạo hoặc lấy Period
-    final periodRef = _firestore.collection(FirestoreCollections.periods).doc();
-    final periodId = periodRef.id;
+    final residentService = ResidentService(_firestore);
+    roomId = await residentService.resolveRoomId(roomId);
+    final periodId = await residentService.preparePrimary(
+      batch: batch,
+      bookingId: bookingId,
+      roomId: roomId,
+      userId: renterId,
+      fullName: renterName,
+      phone: renterPhone,
+      now: now,
+    );
+    final periodRef = _firestore
+        .collection(FirestoreCollections.periods)
+        .doc(periodId);
 
     final period = PeriodModel(
       id: periodId,
@@ -250,22 +263,6 @@ class HandoverRepository {
     );
     batch.set(checkinRef, checkin.toMap());
 
-    // 3. Tạo cư dân (resident)
-    final residentRef = _firestore
-        .collection(FirestoreCollections.residents)
-        .doc();
-    final resident = ResidentModel(
-      id: residentRef.id,
-      periodId: periodId,
-      userId: renterId,
-      fullName: renterName,
-      phone: renterPhone,
-      formId: 'chinh',
-      statusId: 'dangO',
-      moveInDate: now,
-    );
-    batch.set(residentRef, resident.toMap());
-
     // 4. Lưu từng hạng mục bàn giao (handover_items)
     for (final item in items) {
       final itemRef = _firestore
@@ -278,18 +275,51 @@ class HandoverRepository {
       batch.set(itemRef, itemData);
     }
 
-    // 5. Cập nhật booking sang trạng thái dangO/active nếu có
+    // 5. Cập nhật booking sang trạng thái dangO nếu có
     if (bookingId.isNotEmpty) {
       final bookingRef = _firestore
           .collection(FirestoreCollections.bookings)
           .doc(bookingId);
-      batch.update(bookingRef, {
-        'status': 'active',
+      batch.set(bookingRef, {
+        'status': 'dangO',
+        'subTag': 'Đang ở',
+        'description': 'Đang ở (Đã bàn giao phòng)',
+        'isCheckIn': true,
+        'daNhanPhong': true,
         'trangThai': 'dangO',
         'checkinAt': FieldValue.serverTimestamp(),
+        'checkedInAt': FieldValue.serverTimestamp(),
         'acceptedDate': Timestamp.fromDate(now),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
+
+      // Cập nhật thông báo của Host sang trạng thái 'Đang ở'
+      try {
+        var notifSnap = await _firestore
+            .collection(FirestoreCollections.notifications)
+            .where('bookingId', isEqualTo: bookingId)
+            .get();
+        if (notifSnap.docs.isEmpty) {
+          notifSnap = await _firestore
+              .collection(FirestoreCollections.notifications)
+              .where('donDatPhongId', isEqualTo: bookingId)
+              .get();
+        }
+        for (final doc in notifSnap.docs) {
+          final notifData = doc.data();
+          final recipientRole = (notifData['recipientRole'] ?? notifData['role'] ?? '').toString();
+          if (recipientRole != 'renter' && recipientRole != 'tenant') {
+            batch.set(doc.reference, {
+              'notificationType': 'staying',
+              'type': 'staying',
+              'status': 'dangO',
+              'statusId': 'dango',
+              'title': 'Khách đã nhận phòng và đang ở',
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+          }
+        }
+      } catch (_) {}
     }
 
     // 6. Cập nhật host_rooms sang occupied
@@ -299,8 +329,6 @@ class HandoverRepository {
           .doc(roomId);
       batch.update(roomRef, {
         'status': 'occupied',
-        'tenantName': renterName,
-        'tenantPhone': renterPhone,
         'contractId': periodId,
         'contractStart': Timestamp.fromDate(now),
         'electricityRate': electricityRate,

@@ -37,9 +37,9 @@ class _HostNotificationsScreenState
         countsAsync.asData?.value ??
         {
           HostNotificationType.pendingAction: 0,
-          HostNotificationType.staying: 0,
           HostNotificationType.deposit: 0,
           HostNotificationType.paymentCompleted: 0,
+          HostNotificationType.staying: 0,
         };
 
     final notificationsAsync = ref.watch(filteredHostNotificationsProvider);
@@ -187,18 +187,7 @@ class _HostNotificationsScreenState
                         ),
                         const SizedBox(width: 8),
 
-                        // Tab 2: Đang ở
-                        _buildFilterChip(
-                          type: HostNotificationType.staying,
-                          label: 'Đang ở',
-                          count: counts[HostNotificationType.staying] ?? 0,
-                          isSelected:
-                              selectedType == HostNotificationType.staying,
-                          badgeColor: const Color(0xFF12B76A), // Xanh lá
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Tab 3: Đã cọc
+                        // Tab 2: Đã cọc
                         _buildFilterChip(
                           type: HostNotificationType.deposit,
                           label: 'Đã cọc',
@@ -209,7 +198,7 @@ class _HostNotificationsScreenState
                         ),
                         const SizedBox(width: 8),
 
-                        // Tab 4: Đã thanh toán hết
+                        // Tab 3: Đã thanh toán hết
                         _buildFilterChip(
                           type: HostNotificationType.paymentCompleted,
                           label: 'Đã thanh toán hết',
@@ -220,6 +209,17 @@ class _HostNotificationsScreenState
                               selectedType ==
                               HostNotificationType.paymentCompleted,
                           badgeColor: const Color(0xFF12B76A),
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Tab 4: Đang ở (Cuối cùng)
+                        _buildFilterChip(
+                          type: HostNotificationType.staying,
+                          label: 'Đang ở',
+                          count: counts[HostNotificationType.staying] ?? 0,
+                          isSelected:
+                              selectedType == HostNotificationType.staying,
+                          badgeColor: const Color(0xFF12B76A), // Xanh lá
                         ),
                       ],
                     ),

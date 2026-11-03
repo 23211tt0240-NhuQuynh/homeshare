@@ -1,8 +1,8 @@
+import 'package:image_picker/image_picker.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/room_amenities.dart';
 import '../../../core/utils/vnd_input.dart';
@@ -16,6 +16,7 @@ import '../data/host_property.dart';
 import '../providers/host_management_provider.dart';
 import '../widgets/host_room_widgets.dart';
 import '../widgets/host_range_input.dart';
+import '../widgets/host_area_input.dart';
 import '../widgets/host_form_theme.dart';
 
 // Chủ trọ - Bộ chọn ảnh - Luồng đi: Dùng picker có thể thay thế khi
@@ -66,18 +67,17 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
   final _amenities = <String>{};
   final _customAmenity = TextEditingController();
   bool _amenitiesExpanded = true;
-  String _city = VietnamLocations.provinces.first;
+  String _city = 'TP. Hồ Chí Minh';
+  // Chủ trọ - Địa chỉ cũ - Luồng đi: Giữ quận/huyện của model cũ khi mở
+  // form để nhận diện trạng thái; không đưa vào danh sách chọn hoặc dữ liệu lưu.
   String? _district;
-  bool get _wardRequired =>
-      _district != null &&
-      VietnamLocations.getWards(_city, _district!).isNotEmpty;
+
   String? _selectedPropertyId, _draftPropertyId;
   String? _draftOwner;
   HostProperty? _justCreated;
-  HostUpload? _proof;
   bool _roomTab = false, _saving = false, _picking = false;
   RangeValues _rent = const RangeValues(0, 0);
-  RangeValues _area = const RangeValues(25, 25);
+  double _area = 25;
   String _roomType = 'Phòng trọ';
   bool get _editingProperty => widget.propertyToEdit != null;
   final String _operationId = List.generate(
@@ -131,41 +131,33 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
 
   // Chủ trọ - Chọn ảnh - Luồng đi: Dùng picker đa nền tảng, kiểm tra
   // chữ ký PNG/JPEG và dung lượng rồi giữ byte để xem trước/xóa khỏi form.
-  Future<void> _pickImages({bool proof = false}) async {
+  Future<void> _pickImages() async {
     setState(() => _picking = true);
     final target = _roomTab ? _roomImages : _houseImages;
     try {
       final picker = ref.read(hostImagePickerProvider);
-      final List<XFile> files;
-      if (proof) {
-        final file = await picker.pickImage(source: ImageSource.gallery);
-        files = file == null ? [] : [file];
-      } else {
-        files = await picker.pickMultiImage();
-      }
+      final files = await picker.pickMultiImage();
       final max = _roomTab ? 8 : 5;
-      final keptCount = !_roomTab && !proof ? _keptHouseImages.length : 0;
-      if (!proof && keptCount + target.length + files.length > max) {
+      final keptCount = !_roomTab ? _keptHouseImages.length : 0;
+      if (keptCount + target.length + files.length > max) {
         throw StateError('Chỉ chọn tối đa $max ảnh.');
       }
       final selected = <HostUpload>[];
       for (final file in files) {
         final size = await file.length();
-        if (size > (proof ? 15 : 5) * 1024 * 1024) {
-          throw StateError('Tệp vượt quá ${proof ? 15 : 5} MB.');
+        if (size > 5 * 1024 * 1024) {
+          throw StateError('Tệp vượt quá 5 MB.');
         }
         final Uint8List bytes = await file.readAsBytes();
         final contentType = HostImageUtils.detectContentType(bytes);
-        if (contentType == null) throw StateError('Chỉ hỗ trợ ảnh JPG hoặc PNG.');
+        if (contentType == null) {
+          throw StateError('Chỉ hỗ trợ ảnh JPG hoặc PNG.');
+        }
         selected.add(HostUpload(bytes, contentType));
       }
       if (!mounted) return;
       setState(() {
-        if (proof && selected.isNotEmpty) {
-          _proof = selected.first;
-        } else {
-          target.addAll(selected);
-        }
+        target.addAll(selected);
       });
     } catch (error) {
       if (mounted) _message(hostErrorMessage(error));
@@ -189,9 +181,10 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
       return;
     }
     if (!_roomTab &&
-        (_district == null ||
-            (_wardRequired && _fields['ward']!.text.trim().isEmpty))) {
-      _message('Vui lòng chọn quận/huyện và phường/xã.');
+        !VietnamLocations.getWards(
+          _city,
+        ).contains(_fields['ward']!.text.trim())) {
+      _message('Vui lòng chọn phường/xã/đặc khu hiện hành.');
       return;
     }
     final property = properties
@@ -216,7 +209,6 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             'name': _fields['name']!.text.trim(),
             'address': _fields['address']!.text.trim(),
             'city': _city,
-            'district': _district!,
             'ward': _fields['ward']!.text.trim(),
             'plannedRooms': int.parse(_fields['planned']!.text),
             'floors': int.parse(_fields['floors']!.text),
@@ -236,7 +228,9 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         final inputCode = _fields['code']!.text.trim().toUpperCase();
         final finalRoomCode = inputCode.isNotEmpty ? inputCode : _roomId;
         final inputTitle = _fields['title']!.text.trim();
-        final finalTitle = inputTitle.isNotEmpty ? inputTitle : 'Phòng $finalRoomCode';
+        final finalTitle = inputTitle.isNotEmpty
+            ? inputTitle
+            : 'Phòng $finalRoomCode';
         await repository.createRoom(
           RoomModel(
             id: _roomId,
@@ -257,9 +251,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                 ? parent.district
                 : parent.ward,
             city: parent.city,
-            area: _area.start,
-            minArea: _area.start,
-            maxArea: _area.end,
+            area: _area,
             roomType: _roomType,
             amenities: _amenities.toList(),
             images: const [],
@@ -269,21 +261,24 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             hostAvatar: user?.avatarUrl ?? '',
             capacity: int.parse(_fields['capacity']!.text),
             floor: int.parse(_fields['floor']!.text),
-            electricityRate: double.tryParse(
+            electricityRate:
+                double.tryParse(
                   _fields['electricityRate']!.text
                       .trim()
                       .replaceAll('.', '')
                       .replaceAll(',', ''),
                 ) ??
                 0.0,
-            waterRate: double.tryParse(
+            waterRate:
+                double.tryParse(
                   _fields['waterRate']!.text
                       .trim()
                       .replaceAll('.', '')
                       .replaceAll(',', ''),
                 ) ??
                 0.0,
-            serviceFee: double.tryParse(
+            serviceFee:
+                double.tryParse(
                   _fields['serviceFee']!.text
                       .trim()
                       .replaceAll('.', '')
@@ -311,14 +306,14 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         name: _fields['name']!.text.trim(),
         address: _fields['address']!.text.trim(),
         city: _city,
-        district: _district!,
+        district: '',
         ward: _fields['ward']!.text.trim(),
         plannedRooms: int.parse(_fields['planned']!.text),
         floors: int.parse(_fields['floors']!.text),
         minRent: _rent.start,
         maxRent: _rent.end,
       );
-      await repository.createProperty(house, List.of(images), _proof);
+      await repository.createProperty(house, List.of(images), null);
       if (!mounted) return;
       setState(() {
         _justCreated = house;
@@ -326,7 +321,6 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         _roomTab = true;
         _draftPropertyId = null;
         _houseImages.clear();
-        _proof = null;
         for (final field in ['name', 'address', 'ward', 'planned']) {
           _fields[field]!.clear();
         }
@@ -491,7 +485,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     );
   }
 
-  // Chủ trọ - Form cơ sở - Luồng đi: Chọn ảnh, địa chỉ theo danh mục,
+  // Chủ trọ - Form cơ sở - Luồng đi: Chọn ảnh và địa chỉ hai cấp hiện hành,
   // quy mô và khoảng giá; cùng form được dùng cho cả tạo mới và chỉnh sửa.
   Widget _buildHouseForm() {
     // Chủ trọ - Giá cơ sở - Luồng đi: Lấy khung giá từ stream phòng
@@ -501,22 +495,8 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         ? PropertySummary(widget.propertyToEdit!, roomState!.value!)
         : null;
     final cityOptions = VietnamLocations.provinces.toList();
-    if (!cityOptions.contains(_city)) cityOptions.insert(0, _city);
-    final districtOptions = VietnamLocations.getAdministrativeDistricts(
-      _city,
-    ).toList();
-    if (_district != null && !districtOptions.contains(_district)) {
-      districtOptions.insert(0, _district!);
-    }
-    final wardOptions = _district == null
-        ? <String>[]
-        : VietnamLocations.getWards(_city, _district!).toList();
+    final wardOptions = VietnamLocations.getWards(_city).toList();
     final currentWard = _fields['ward']!.text.trim();
-    if (_district != null &&
-        currentWard.isNotEmpty &&
-        !wardOptions.contains(currentWard)) {
-      wardOptions.insert(0, currentWard);
-    }
     return Form(
       key: _houseForm,
       child: Column(
@@ -528,6 +508,13 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             existingImages: _keptHouseImages,
           ),
           _section('Định danh tòa nhà', Icons.apartment, [
+            if (_editingProperty &&
+                (!cityOptions.contains(_city) ||
+                    (currentWard.isNotEmpty &&
+                        !wardOptions.contains(currentWard))))
+              const Text(
+                'Địa chỉ cũ cần được chọn lại theo tỉnh/thành và phường/xã/đặc khu hiện hành.',
+              ),
             _field(
               'name',
               'Tên cơ sở / Tòa nhà *',
@@ -541,11 +528,14 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
               maxLength: 200,
             ),
             DropdownButtonFormField<String>(
-              initialValue: _city,
+              initialValue: cityOptions.contains(_city) ? _city : null,
               isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Tỉnh / Thành phố *',
               ),
+              validator: (value) => cityOptions.contains(value)
+                  ? null
+                  : 'Vui lòng chọn tỉnh/thành hiện hành',
               items: cityOptions
                   .map(
                     (city) => DropdownMenuItem(value: city, child: Text(city)),
@@ -559,39 +549,12 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
-              key: ValueKey('host_district_$_city'),
-              initialValue: _district,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Quận / Huyện *'),
-              hint: const Text('Chọn quận/huyện'),
-              items: districtOptions
-                  .map(
-                    (district) => DropdownMenuItem(
-                      value: district,
-                      child: Text(district, overflow: TextOverflow.ellipsis),
-                    ),
-                  )
-                  .toList(),
-              onChanged: districtOptions.isEmpty
-                  ? null
-                  : (value) => setState(() {
-                      _district = value;
-                      _fields['ward']!.clear();
-                    }),
-              validator: (value) => value == null || value.isEmpty
-                  ? 'Vui lòng chọn quận/huyện'
-                  : null,
-            ),
-            const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
               key: ValueKey('host_ward_${_city}_${_district ?? 'none'}'),
-              initialValue: _district == null || currentWard.isEmpty
-                  ? null
-                  : currentWard,
+              initialValue: wardOptions.contains(currentWard)
+                  ? currentWard
+                  : null,
               isExpanded: true,
-              decoration: InputDecoration(
-                labelText: _wardRequired ? 'Phường / Xã *' : 'Phường / Xã',
-              ),
+              decoration: InputDecoration(labelText: 'Phường / Xã / Đặc khu *'),
               hint: const Text('Chọn phường/xã'),
               items: wardOptions
                   .map(
@@ -607,23 +570,10 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                       _fields['ward']!.text = value ?? '';
                     }),
               validator: (value) =>
-                  _wardRequired && (value == null || value.isEmpty)
+                  (value == null || !wardOptions.contains(value))
                   ? 'Vui lòng chọn phường/xã'
                   : null,
             ),
-            if (wardOptions.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  _district == null
-                      ? 'Chọn quận/huyện trước để xem danh sách phường/xã.'
-                      : 'Khu vực này chưa có dữ liệu phường/xã. Bạn có thể bỏ qua và lưu cơ sở.',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.warning,
-                  ),
-                ),
-              ),
           ]),
           _section('Quy mô', Icons.tune, [
             Row(
@@ -680,32 +630,6 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
               ),
             ],
           ]),
-          if (!_editingProperty)
-            _section('Giấy tờ pháp lý (tùy chọn)', Icons.security, [
-              const Text(
-                'Ảnh sổ hồng hoặc giấy phép kinh doanh. JPG/PNG, tối đa 15 MB.',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-              if (_proof != null) ...[
-                const SizedBox(height: 12),
-                Image.memory(_proof!.bytes, height: 100),
-                TextButton(
-                  onPressed: () => setState(() => _proof = null),
-                  child: const Text('Xóa giấy tờ'),
-                ),
-              ],
-              OutlinedButton.icon(
-                onPressed: () => _pickImages(proof: true),
-                icon: const Icon(Icons.upload_file),
-                label: Text(
-                  _proof == null ? 'Chọn ảnh giấy tờ' : 'Đổi ảnh giấy tờ',
-                ),
-              ),
-              const Text(
-                'Chỉ chủ tài khoản được truy cập. Tải lên không đồng nghĩa đã được xác minh.',
-                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-              ),
-            ]),
         ],
       ),
     );
@@ -786,7 +710,8 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                 ),
                 decoration: InputDecoration(
                   labelText: 'Mã phòng (Tự động sinh từ ID) *',
-                  helperText: 'Mã phòng khóa cứng tự sinh từ ID của host_rooms.',
+                  helperText:
+                      'Mã phòng khóa cứng tự sinh từ ID của host_rooms.',
                   prefixIcon: const Icon(Icons.vpn_key_outlined),
                   suffixIcon: const Icon(Icons.lock_outline),
                   filled: true,
@@ -803,7 +728,8 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             _field(
               'title',
               'Tên phòng (tùy chọn)',
-              hint: 'Ví dụ: Phòng ${_fields['code']!.text.isNotEmpty ? _fields['code']!.text : _roomId}',
+              hint:
+                  'Ví dụ: Phòng ${_fields['code']!.text.isNotEmpty ? _fields['code']!.text : _roomId}',
               optional: true,
               maxLength: 100,
             ),
@@ -826,12 +752,8 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
               onChanged: (value) => setState(() => _roomType = value!),
             ),
             const SizedBox(height: 14),
-            HostRangeInput(
-              label: 'Khoảng diện tích phòng',
-              unit: 'm²',
-              values: _area,
-              minimum: 1,
-              sliderMax: 100,
+            HostAreaInput(
+              value: _area,
               onChanged: (value) => setState(() => _area = value),
             ),
             _field(
@@ -1227,14 +1149,13 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
           return 'Vui lòng nhập thông tin';
         }
         if (number) {
-          final isMoney = name == 'price' ||
+          final isMoney =
+              name == 'price' ||
               name == 'deposit' ||
               name == 'electricityRate' ||
               name == 'waterRate' ||
               name == 'serviceFee';
-          final value = int.tryParse(
-            isMoney ? vndDigits(text) : text,
-          );
+          final value = int.tryParse(isMoney ? vndDigits(text) : text);
           if (value == null || value < (allowZero ? 0 : 1) || value > max) {
             return 'Nhập từ ${allowZero ? 0 : 1} đến $max';
           }

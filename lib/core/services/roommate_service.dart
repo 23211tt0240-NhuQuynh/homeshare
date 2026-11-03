@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/roommate_post_model.dart';
 import '../../features/auth/providers/auth_provider.dart';
+import '../constants/firestore_collections.dart';
 import '../constants/vietnam_locations.dart';
+import '../utils/roommate_capacity_policy.dart';
 import '../utils/vietnamese_utils.dart';
 import 'image_storage_service.dart';
 import 'user_profile_service.dart';
@@ -110,6 +112,17 @@ class RoommateService {
   static final List<RoommatePostModel> _localCreatedPosts = [];
   static bool _authorRepairStarted = false;
 
+  static void markLocalPostClosed(String postId) {
+    final id = postId.trim();
+    if (id.isEmpty) return;
+    final index = _localCreatedPosts.indexWhere((post) => post.id == id);
+    if (index < 0) return;
+    _localCreatedPosts[index] = _localCreatedPosts[index].copyWith(
+      status: 'daDong',
+      updatedAt: DateTime.now(),
+    );
+  }
+
   // Stream bài đăng tìm ở ghép (an toàn bộ lọc, in-memory filter & sort)
   Stream<List<RoommatePostModel>> getRoommatePostsStream({
     String? district,
@@ -131,7 +144,7 @@ class RoommateService {
     final searchQuery = filters?.searchQuery.trim().toLowerCase() ?? '';
     _scheduleAuthorIdRepair();
 
-    return _firestore.collection('roommate_posts').snapshots().handleError((err) {
+    return _firestore.collection(FirestoreCollections.roommatePosts).snapshots().handleError((err) {
       debugPrint('Firestore stream error, fallback to local: $err');
       return const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
     }).asyncMap((snapshot) async {
@@ -149,16 +162,13 @@ class RoommateService {
         list = [];
       }
 
-      // Hợp nhất bài đăng tạo trong phiên (Local) và Cloud Firestore (Local ưu tiên trên đầu)
+      // Cloud thắng khi đã có document (để ẩn tin daDong). Local chỉ giữ bài chưa lên Firestore.
       final merged = <RoommatePostModel>[];
+      final cloudIds = list.map((post) => post.id).toSet();
       for (final p in _localCreatedPosts) {
-        merged.add(p);
+        if (!cloudIds.contains(p.id)) merged.add(p);
       }
-      for (final p in list) {
-        if (!merged.any((item) => item.id == p.id)) {
-          merged.add(p);
-        }
-      }
+      merged.addAll(list);
 
       // Bỏ các bài mẫu cũ. Bài thật, gồm bài mới nhất của Trần Thanh Anh Toàn, vẫn giữ.
       const obsoleteSampleIds = {
@@ -183,6 +193,10 @@ class RoommateService {
           : hydrated.where((post) => post.authorId == viewerId).toList();
 
       final filtered = hydrated.where((post) {
+        if (!RoommateCapacityPolicy.isOpenStatus(post.status)) {
+          return false;
+        }
+
         // 1. Tình trạng phòng (Đã có phòng / Chưa có phòng)
         if (hasRoom != null && post.hasRoom != hasRoom) {
           return false;
@@ -369,7 +383,7 @@ class RoommateService {
 
   Future<List<String>> _hobbyNamesOf(String uid) async {
     try {
-      return UserProfileService().loadInterestNames(uid);
+      return await UserProfileService().loadInterestNames(uid);
     } catch (e) {
       debugPrint('Đọc sở thích $uid: $e');
       return const [];
@@ -378,7 +392,7 @@ class RoommateService {
 
   Future<Map<String, List<String>>> _hobbyNamesByUser(Set<String> uids) async {
     try {
-      return UserProfileService().loadInterestNamesForUsers(uids);
+      return await UserProfileService().loadInterestNamesForUsers(uids);
     } catch (e) {
       debugPrint('Đọc sở thích người đăng: $e');
       return {};
@@ -386,7 +400,7 @@ class RoommateService {
   }
 
   /// Avatar trên bài lấy ảnh hiện tại của người đăng.
-  /// Ảnh bài của project kia nằm ở roommate_post_images, không nằm trên document bài.
+  /// Ảnh bài nằm ở `roommate_post_images`, không nằm trên document `roommate_posts`.
   Future<List<RoommatePostModel>> _withLiveAuthorAndImages(List<RoommatePostModel> posts) async {
     final real = posts.where((post) => !post.id.startsWith('demo_') && !post.id.startsWith('figma_')).toList();
     if (real.isEmpty) return posts;
@@ -399,7 +413,7 @@ class RoommateService {
           avatars[authorId] = stored;
           continue;
         }
-        final doc = await _firestore.collection('users').doc(authorId).get();
+        final doc = await _firestore.collection(FirestoreCollections.users).doc(authorId).get();
         final data = doc.data();
         if (data == null) continue;
         final url = '${data['avatarUrl'] ?? data['anhDaiDien'] ?? ''}'.trim();
@@ -410,31 +424,54 @@ class RoommateService {
     }
 
     final imagesByPost = <String, List<String>>{};
-    final needImages = real.where((post) => post.images.isEmpty).map((post) => post.id).toList();
-    for (var start = 0; start < needImages.length; start += 10) {
-      final end = start + 10 > needImages.length ? needImages.length : start + 10;
-      final chunk = needImages.sublist(start, end);
+    final captionsByPost = <String, List<String>>{};
+    final postIds = real.map((post) => post.id).where((id) => id.isNotEmpty).toList();
+    for (var start = 0; start < postIds.length; start += 10) {
+      final end = start + 10 > postIds.length ? postIds.length : start + 10;
+      final chunk = postIds.sublist(start, end);
       try {
-        final snap = await _firestore.collection('roommate_post_images').where('postId', whereIn: chunk).get();
+        final snap = await _firestore
+            .collection(FirestoreCollections.roommatePostImages)
+            .where(RoommatePostImageFields.postId, whereIn: chunk)
+            .get();
         final grouped = <String, List<QueryDocumentSnapshot<Map<String, dynamic>>>>{};
         for (final doc in snap.docs) {
-          final postId = '${doc.data()['postId'] ?? ''}'.trim();
+          final data = doc.data();
+          final postId =
+              '${data[RoommatePostImageFields.postId] ?? data[RoommatePostImageFields.legacyPostId] ?? ''}'
+                  .trim();
           if (postId.isEmpty) continue;
           grouped.putIfAbsent(postId, () => []).add(doc);
         }
         for (final entry in grouped.entries) {
           final docs = entry.value
             ..sort((a, b) {
-              final left = a.data()['sortOrder'];
-              final right = b.data()['sortOrder'];
+              final left = a.data()[RoommatePostImageFields.sortOrder] ??
+                  a.data()[RoommatePostImageFields.legacySortOrder];
+              final right = b.data()[RoommatePostImageFields.sortOrder] ??
+                  b.data()[RoommatePostImageFields.legacySortOrder];
               final leftOrder = left is num ? left.toInt() : 0;
               final rightOrder = right is num ? right.toInt() : 0;
               return leftOrder.compareTo(rightOrder);
             });
-          imagesByPost[entry.key] = docs
-              .map((doc) => '${doc.data()['imageUrl'] ?? doc.data()['duongDan'] ?? ''}'.trim())
-              .where((url) => url.isNotEmpty)
-              .toList();
+          final urls = <String>[];
+          final captions = <String>[];
+          for (final doc in docs) {
+            final data = doc.data();
+            final url =
+                '${data[RoommatePostImageFields.imageUrl] ?? data[RoommatePostImageFields.url] ?? data[RoommatePostImageFields.legacyUrl] ?? ''}'
+                    .trim();
+            if (url.isEmpty) continue;
+            urls.add(url);
+            captions.add(
+              '${data[RoommatePostImageFields.caption] ?? data[RoommatePostImageFields.legacyCaption] ?? ''}'
+                  .trim(),
+            );
+          }
+          if (urls.isNotEmpty) {
+            imagesByPost[entry.key] = urls;
+            captionsByPost[entry.key] = captions;
+          }
         }
       } catch (e) {
         debugPrint('Đọc ảnh bài ở ghép: $e');
@@ -445,25 +482,32 @@ class RoommateService {
       if (post.id.startsWith('demo_') || post.id.startsWith('figma_')) return post;
       final avatar = avatars[post.authorId];
       final linkedImages = imagesByPost[post.id];
-      final images = post.images.isNotEmpty ? post.images : (linkedImages ?? post.images);
+      final images = (linkedImages != null && linkedImages.isNotEmpty)
+          ? linkedImages
+          : post.images;
+      final linkedCaptions = captionsByPost[post.id];
+      final captions = (linkedCaptions != null && linkedCaptions.length == images.length)
+          ? linkedCaptions
+          : (post.imageCaptions.length == images.length
+              ? post.imageCaptions
+              : List<String>.filled(images.length, ''));
       final sameAvatar = avatar == null || avatar == post.authorAvatar;
-      final sameImages = identical(images, post.images);
-      if (sameAvatar && sameImages) return post;
+      final sameImages = listEquals(images, post.images);
+      final sameCaptions = listEquals(captions, post.imageCaptions);
+      if (sameAvatar && sameImages && sameCaptions) return post;
       return post.copyWith(
         authorAvatar: avatar ?? post.authorAvatar,
         images: images,
-        imageCaptions: post.imageCaptions.isNotEmpty || identical(images, post.images)
-            ? post.imageCaptions
-            : List<String>.filled(images.length, ''),
+        imageCaptions: captions,
       );
     }).toList();
   }
 
-  /// Đọc một bài ở ghép theo id, kèm ảnh trong roommate_post_images nếu bài không lưu mảng ảnh.
+  /// Đọc một bài ở ghép theo id, kèm ảnh trong roommate_post_images.
   Future<RoommatePostModel?> loadPost(String postId) async {
     final id = postId.trim();
     if (id.isEmpty) return null;
-    final doc = await _firestore.collection('roommate_posts').doc(id).get();
+    final doc = await _firestore.collection(FirestoreCollections.roommatePosts).doc(id).get();
     if (!doc.exists) return null;
     final filled = await _withLiveAuthorAndImages([RoommatePostModel.fromFirestore(doc)]);
     return filled.isEmpty ? null : filled.first;
@@ -477,11 +521,41 @@ class RoommateService {
     _localCreatedPosts.insert(0, savedPost);
 
     try {
-      await _firestore.collection('roommate_posts').doc(newId).set(savedPost.toMap());
+      await _firestore
+          .collection(FirestoreCollections.roommatePosts)
+          .doc(newId)
+          .set(savedPost.toMap());
+      await _savePostImages(savedPost);
     } catch (e) {
       debugPrint('Firestore save roommate post offline fallback: $e');
     }
     return savedPost;
+  }
+
+  Future<void> _savePostImages(RoommatePostModel post) async {
+    if (post.images.isEmpty) return;
+    final batch = _firestore.batch();
+    for (var i = 0; i < post.images.length; i++) {
+      final url = post.images[i].trim();
+      if (url.isEmpty) continue;
+      final caption = i < post.imageCaptions.length ? post.imageCaptions[i].trim() : '';
+      final imageId = '${post.id}_img_$i';
+      final ref = _firestore
+          .collection(FirestoreCollections.roommatePostImages)
+          .doc(imageId);
+      batch.set(
+        ref,
+        roommatePostImageDocument(
+          id: imageId,
+          postId: post.id,
+          imageUrl: url,
+          caption: caption,
+          sortOrder: i,
+          createdAt: post.createdAt,
+        ),
+      );
+    }
+    await batch.commit();
   }
 
   /// Sửa authorId giả trên tin ở ghép. Chỉ gán khi tên người đăng trùng đúng một document users.
@@ -506,7 +580,7 @@ class RoommateService {
         }
       }
 
-      final postsSnap = await _firestore.collection('roommate_posts').get();
+      final postsSnap = await _firestore.collection(FirestoreCollections.roommatePosts).get();
       for (final doc in postsSnap.docs) {
         final data = doc.data();
         final authorId = '${data['authorId'] ?? data['nguoiDangId'] ?? ''}'.trim();
@@ -640,6 +714,32 @@ class RoommateService {
   Future<void> deleteSampleRoommatePosts() async {
     // Không xóa bài mẫu để tránh màn hình trống
   }
+}
+
+/// Document ảnh tin ở ghép, ghi vào collection `roommate_post_images`.
+Map<String, dynamic> roommatePostImageDocument({
+  required String id,
+  required String postId,
+  required String imageUrl,
+  String caption = '',
+  required int sortOrder,
+  DateTime? createdAt,
+}) {
+  final created = createdAt ?? DateTime.now();
+  return {
+    RoommatePostImageFields.id: id,
+    RoommatePostImageFields.postId: postId,
+    RoommatePostImageFields.legacyPostId: postId,
+    RoommatePostImageFields.imageUrl: imageUrl,
+    RoommatePostImageFields.url: imageUrl,
+    RoommatePostImageFields.legacyUrl: imageUrl,
+    RoommatePostImageFields.caption: caption,
+    RoommatePostImageFields.legacyCaption: caption,
+    RoommatePostImageFields.sortOrder: sortOrder,
+    RoommatePostImageFields.legacySortOrder: sortOrder,
+    RoommatePostImageFields.isCover: sortOrder == 0,
+    RoommatePostImageFields.createdAt: Timestamp.fromDate(created),
+  };
 }
 
 final roommateServiceProvider = Provider<RoommateService>((ref) => RoommateService());

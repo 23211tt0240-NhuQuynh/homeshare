@@ -31,11 +31,21 @@ class HostProperty {
   // Chủ trọ - Đọc cơ sở Firestore - Luồng đi: Chuyển tài liệu properties / bat_dong_san
   // thành dữ liệu giao diện; trường chưa có dùng giá trị mặc định.
   factory HostProperty.fromMap(String id, Map<String, dynamic> data) {
-    final rawWard = (data['ward'] ?? data[BatDongSanSqlFields.phuongXa] ?? data['phuongXa'] ?? '') as String;
+    final rawWard =
+        (data['ward'] ??
+                data[BatDongSanSqlFields.phuongXa] ??
+                data['phuongXa'] ??
+                '')
+            as String;
     const separator = ' — ';
     final legacyParts = rawWard.split(separator);
     final ward = legacyParts.length > 1 ? legacyParts.first : rawWard;
-    final storedDistrict = (data['district'] ?? data[BatDongSanSqlFields.quanHuyen] ?? data['quanHuyen'] ?? '') as String;
+    final storedDistrict =
+        (data['district'] ??
+                data[BatDongSanSqlFields.quanHuyen] ??
+                data['quanHuyen'] ??
+                '')
+            as String;
     final district = storedDistrict.isNotEmpty
         ? storedDistrict
         : (legacyParts.length > 1
@@ -43,12 +53,32 @@ class HostProperty {
               : '');
     return HostProperty(
       id: id,
-      name: (data['name'] ?? data[BatDongSanSqlFields.tenToaNha] ?? data['ten'] ?? '') as String,
-      address: (data['address'] ?? data[BatDongSanSqlFields.diaChiChiTiet] ?? data['diaChi'] ?? '') as String,
-      city: (data['city'] ?? data[BatDongSanSqlFields.tinhThanh] ?? data['thanhPho'] ?? '') as String,
+      name:
+          (data['name'] ??
+                  data[BatDongSanSqlFields.tenToaNha] ??
+                  data['ten'] ??
+                  '')
+              as String,
+      address:
+          (data['address'] ??
+                  data[BatDongSanSqlFields.diaChiChiTiet] ??
+                  data['diaChi'] ??
+                  '')
+              as String,
+      city:
+          (data['city'] ??
+                  data[BatDongSanSqlFields.tinhThanh] ??
+                  data['thanhPho'] ??
+                  '')
+              as String,
       district: district,
       ward: ward,
-      hostId: (data['hostId'] ?? data[BatDongSanSqlFields.chuTroId] ?? data['chuNhaId'] ?? '') as String,
+      hostId:
+          (data['hostId'] ??
+                  data[BatDongSanSqlFields.chuTroId] ??
+                  data['chuNhaId'] ??
+                  '')
+              as String,
       plannedRooms: (data['plannedRooms'] as num?)?.toInt() ?? 0,
       floors: ((data['floors'] ?? data['soTang']) as num?)?.toInt() ?? 1,
       minRent: (data['minRent'] as num?)?.toDouble() ?? 0,
@@ -64,19 +94,19 @@ class HostProperty {
       createdAt: (data['createdAt'] is Timestamp)
           ? (data['createdAt'] as Timestamp).toDate()
           : (data[BatDongSanSqlFields.ngayTao] is Timestamp)
-              ? (data[BatDongSanSqlFields.ngayTao] as Timestamp).toDate()
-              : null,
+          ? (data[BatDongSanSqlFields.ngayTao] as Timestamp).toDate()
+          : null,
     );
   }
 
-  /// Ghi Firestore chuẩn tiếng Anh duy nhất (100% tiếng Anh)
+  /// Chủ trọ - Ghi cơ sở lên Firestore - Luồng đi: Lưu địa chỉ hai cấp bằng
+  /// city và ward; không ghi district, kể cả khi model đọc từ bản ghi cũ.
   Map<String, dynamic> toFirestore() => {
     'id': id,
     'hostId': hostId,
     'name': name,
     'address': address,
     'city': city,
-    'district': district,
     'ward': ward,
     'description': name,
     'plannedRooms': plannedRooms,
@@ -111,7 +141,8 @@ class HostProperty {
       .doc(chuTroId)
       .collection(FirestoreCollections.properties);
 
-  /// Mapper chuẩn bảng bat_dong_san theo SQL_NHOM4_CHUYENDEDIDONG.sql
+  /// Chủ trọ - Xuất cấu trúc SQL cũ - Luồng đi: Giữ cột quan_huyen để tương
+  /// thích sơ đồ SQL; đường lưu Firestore hiện hành dùng toFirestore().
   Map<String, dynamic> toBatDongSanSql() => {
     BatDongSanSqlFields.id: id,
     BatDongSanSqlFields.chuTroId: hostId,
@@ -128,6 +159,14 @@ class HostProperty {
   factory HostProperty.fromBatDongSanSql(Map<String, dynamic> data, String id) {
     return HostProperty.fromMap(id, data);
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HostProperty && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 // Chủ trọ - Tổng hợp cơ sở - Luồng đi: Ghép properties với host_rooms theo

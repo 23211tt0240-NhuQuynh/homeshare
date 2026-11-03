@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/firestore_collections.dart';
+import '../utils/vietnam_address_parser.dart';
 import '../../data/models/room_model.dart';
 
 class RoomFilterParams {
@@ -116,8 +117,8 @@ class RoomService {
   Future<RoomModel?> _readReferencedRoom(String roomId) async {
     if (roomId.trim().isEmpty) return null;
     final collections = <String>{
-      FirestoreCollections.hostRooms,
       FirestoreCollections.rooms,
+      FirestoreCollections.hostRooms,
       FirestoreCollections.phongTro,
     };
 
@@ -251,7 +252,10 @@ class RoomService {
           .trim();
       final normalizedHost = listing.hostName.trim().toLowerCase();
       final needsRelatedData =
+          listing.images.isEmpty ||
+          listing.amenities.isEmpty ||
           addressText.isEmpty ||
+          VietnamAddressParser.isCityOrProvinceOnly(listing.address) ||
           normalizedHost.isEmpty ||
           normalizedHost == 'chủ nhà' ||
           normalizedHost == 'chủ trọ';
@@ -508,25 +512,570 @@ class RoomService {
 
   // Lấy chi tiết 1 phòng
   Future<RoomModel?> getRoomById(String id) async {
-    final cleanId = id.trim();
-    if (cleanId.isEmpty || cleanId.toLowerCase().startsWith('sample')) {
-      return null;
+    final room = await getRoomRecordById(id);
+    if (room == null || !room.isDisplayable) return null;
+    return room;
+  }
+
+  /// Đọc phòng đang thuê kể cả khi đã occupied, không lọc bài đang hiển thị.
+  Future<RoomModel?> getRoomRecordById(String id) {
+    return resolveRentedRoom(roomId: id);
+  }
+
+  /// Ghép phòng công khai `rooms` + bài `posts` (+ `host_rooms` nếu đọc được).
+  /// Khách thuê thường không đọc được `host_rooms`; `posts` không lưu area/phí.
+  Future<RoomModel?> resolveRentedRoom({
+    String roomId = '',
+    String hostId = '',
+    String roomCode = '',
+    String title = '',
+    double price = 0,
+  }) async {
+    final candidateIds = <String>{
+      if (roomId.trim().isNotEmpty &&
+          !roomId.trim().toLowerCase().startsWith('sample'))
+        roomId.trim(),
+    };
+    final maps = <Map<String, dynamic>>[];
+    final seenDocs = <String>{};
+
+    Future<void> absorbMap(Map<String, dynamic>? data, String sourceId) async {
+      if (data == null || data.isEmpty) return;
+      final key = '$sourceId/${data['id'] ?? ''}';
+      if (!seenDocs.add(key)) return;
+      maps.add({...data, '_source': sourceId});
+      for (final linked in [
+        _readReference(data, const [
+          'roomId',
+          'room_id',
+          'phongId',
+          'phong_tro_id',
+        ]),
+        _readReference(data, const ['id']),
+        _readReference(data, const ['roomCode', 'maPhong']),
+      ]) {
+        if (linked.isNotEmpty &&
+            !linked.toLowerCase().startsWith('sample')) {
+          candidateIds.add(linked);
+        }
+      }
     }
+
+    Future<void> absorbDoc(String collection, String id) async {
+      if (id.isEmpty) return;
+      final cacheKey = '$collection/$id';
+      if (!seenDocs.add('try:$cacheKey')) return;
+      final data = await _readDocument([collection], id);
+      await absorbMap(data, collection);
+    }
+
+    Future<void> absorbQuery(
+      String collection,
+      String field,
+      String value,
+    ) async {
+      if (value.trim().isEmpty) return;
+      try {
+        final snap = await _firestore
+            .collection(collection)
+            .where(field, isEqualTo: value.trim())
+            .limit(10)
+            .get();
+        for (final doc in snap.docs) {
+          await absorbMap({...doc.data(), 'id': doc.id}, collection);
+        }
+      } catch (error) {
+        debugPrint('Không thể truy vấn $collection.$field=$value: $error');
+      }
+    }
+
+    final triedIds = <String>{};
+    while (true) {
+      final pending = candidateIds.where((id) => triedIds.add(id)).toList();
+      if (pending.isEmpty) break;
+      for (final id in pending) {
+        await absorbDoc(FirestoreCollections.rooms, id);
+        await absorbDoc(FirestoreCollections.posts, id);
+        await absorbDoc(FirestoreCollections.hostRooms, id);
+        await absorbDoc(FirestoreCollections.phongTro, id);
+        for (final field in const [
+          'roomId',
+          'room_id',
+          'phongId',
+          'phong_tro_id',
+        ]) {
+          await absorbQuery(FirestoreCollections.posts, field, id);
+          await absorbQuery(FirestoreCollections.rooms, field, id);
+        }
+      }
+    }
+    if (roomCode.trim().isNotEmpty) {
+      await absorbQuery(FirestoreCollections.rooms, 'roomCode', roomCode);
+      await absorbQuery(FirestoreCollections.posts, 'roomCode', roomCode);
+      await absorbQuery(FirestoreCollections.hostRooms, 'roomCode', roomCode);
+    }
+    if (hostId.trim().isNotEmpty) {
+      await absorbQuery(FirestoreCollections.rooms, 'hostId', hostId);
+      await absorbQuery(FirestoreCollections.rooms, 'chuNhaId', hostId);
+      await absorbQuery(FirestoreCollections.posts, 'hostId', hostId);
+      await absorbQuery(FirestoreCollections.posts, 'chuNhaId', hostId);
+    }
+
+    if (maps.isEmpty) return null;
+
+    int score(Map<String, dynamic> data) {
+      var value = 0;
+      final dataPrice = _readNumber(data, const [
+            'price',
+            'giaThue',
+            'rentalPrice',
+            'gia',
+          ]) ??
+          0;
+      final dataCode = _readReference(data, const ['roomCode', 'maPhong']);
+      final dataTitle = _readReference(data, const ['title', 'tieuDe']);
+      if ((_readArea(data) ?? 0) > 0) value += 30;
+      if ((_readElectricity(data) ?? 0) > 0) value += 20;
+      if ((_readWater(data) ?? 0) > 0) value += 10;
+      if ((_readServiceFee(data) ?? 0) > 0) value += 10;
+      if (_readAmenityList(data).isNotEmpty) value += 15;
+      if (price > 0 && dataPrice > 0 && (dataPrice - price).abs() < 1) {
+        value += 40;
+      }
+      if (roomCode.trim().isNotEmpty &&
+          dataCode.toLowerCase() == roomCode.trim().toLowerCase()) {
+        value += 35;
+      }
+      if (title.trim().isNotEmpty &&
+          dataTitle.isNotEmpty &&
+          (dataTitle.toLowerCase().contains(title.trim().toLowerCase()) ||
+              title.trim().toLowerCase().contains(dataTitle.toLowerCase()))) {
+        value += 15;
+      }
+      return value;
+    }
+
+    Map<String, dynamic>? bestOf(Iterable<Map<String, dynamic>> items) {
+      Map<String, dynamic>? best;
+      var bestScore = -1;
+      for (final item in items) {
+        final value = score(item);
+        if (best == null || value >= bestScore) {
+          best = item;
+          bestScore = value;
+        }
+      }
+      return best;
+    }
+
+    final bestPost = bestOf(
+      maps.where(
+        (item) =>
+            item['_source'] == FirestoreCollections.posts ||
+            item['_source'] == FirestoreCollections.baiDangChoThue,
+      ),
+    );
+    final bestRoom = bestOf(
+      maps.where(
+        (item) =>
+            item['_source'] == FirestoreCollections.rooms ||
+            item['_source'] == FirestoreCollections.hostRooms ||
+            item['_source'] == FirestoreCollections.phongTro,
+      ),
+    );
+    final merged = <String, dynamic>{};
+    void absorb(Map<String, dynamic>? data) {
+      if (data == null) return;
+      data.forEach((key, value) {
+        if (key == '_source') return;
+        if (value == null) return;
+        if (value is String && value.trim().isEmpty) return;
+        if (value is List && value.isEmpty) return;
+        if (value is num && value == 0 && merged[key] != null) return;
+        merged[key] = value;
+      });
+    }
+
+    absorb(bestPost);
+    absorb(bestRoom);
+    if (maps.isEmpty && merged.isEmpty) return null;
+
+    final bestId = _firstNonEmpty([
+      _readReference(bestRoom ?? const {}, const ['id', 'roomId', 'phongId']),
+      _readReference(bestPost ?? const {}, const ['roomId', 'phongId']),
+      _readReference(merged, const ['roomId', 'phongId', 'id']),
+      roomId,
+    ]);
+    if (bestId.isEmpty) return null;
+    var room = RoomModel.fromMap(merged, bestId);
+    if (room.isSampleOrHardcode) return null;
+    return _withHostListingDetails(room);
+  }
+
+  Future<RoomModel> _withHostListingDetails(RoomModel room) async {
     try {
-      final doc = await _firestore.collection('rooms').doc(cleanId).get();
-      if (doc.exists) {
-        final room = RoomModel.fromFirestore(doc);
-        if (room.isDisplayable) return room;
+      final postData = await _readHostPostData(room);
+      final linkedRoomId = _firstNonEmpty([
+        _readReference(postData ?? const {}, const [
+          'roomId',
+          'room_id',
+          'phongId',
+          'phong_tro_id',
+        ]),
+        room.id,
+      ]);
+      final hostRoomData = await _readDocument(const [
+        FirestoreCollections.rooms,
+        FirestoreCollections.hostRooms,
+        FirestoreCollections.phongTro,
+      ], linkedRoomId);
+      final publicRoomData = linkedRoomId == room.id
+          ? null
+          : await _readDocument(const [
+              FirestoreCollections.rooms,
+              FirestoreCollections.hostRooms,
+            ], room.id);
+
+      final propertyId = _firstNonEmpty([
+        room.propertyId,
+        _readReference(postData ?? const {}, const [
+          'propertyId',
+          'property_id',
+          'nhaTroId',
+          'maNhaTro',
+        ]),
+        _readReference(hostRoomData ?? const {}, const [
+          'propertyId',
+          'property_id',
+          'nhaTroId',
+        ]),
+      ]);
+      final hostId = _firstNonEmpty([
+        room.hostId,
+        _readReference(postData ?? const {}, const ['hostId', 'chuNhaId']),
+        _readReference(hostRoomData ?? const {}, const ['hostId', 'chuNhaId']),
+      ]);
+      var propertyData = await _readDocument(const [
+        FirestoreCollections.properties,
+        FirestoreCollections.batDongSan,
+      ], propertyId);
+      if (propertyData == null && hostId.isNotEmpty && propertyId.isNotEmpty) {
+        try {
+          final nested = await _firestore
+              .collection(FirestoreCollections.users)
+              .doc(hostId)
+              .collection(FirestoreCollections.properties)
+              .doc(propertyId)
+              .get();
+          if (nested.exists && nested.data() != null) {
+            propertyData = {...nested.data()!, 'id': nested.id};
+          }
+        } catch (error) {
+          debugPrint('Không thể đọc nhà trọ $propertyId của $hostId: $error');
+        }
       }
-      final postDoc = await _firestore.collection('posts').doc(cleanId).get();
-      if (postDoc.exists) {
-        final post = RoomModel.fromFirestore(postDoc);
-        if (post.isDisplayable) return post;
+
+      final sources = <Map<String, dynamic>?>[
+        postData,
+        hostRoomData,
+        publicRoomData,
+        propertyData,
+      ];
+      final area = _firstPositive(sources.map(_readArea));
+      final electricity = _firstPositive(sources.map(_readElectricity));
+      final water = _firstPositive(sources.map(_readWater));
+      final service = _firstPositive(sources.map(_readServiceFee));
+      final capacity = _firstPositive(sources.map(_readCapacity))?.toInt();
+      final amenities = _uniqueNames([
+        ..._readAmenityList(postData),
+        ..._readAmenityList(hostRoomData),
+        ..._readAmenityList(publicRoomData),
+        ...await _loadAmenityNames(linkedRoomId),
+        ...await _loadAmenityNames(room.id),
+        ...room.amenities,
+      ]);
+
+      final bestAddress = VietnamAddressParser.pickBest([
+        _joinStoredAddress(postData),
+        _joinStoredAddress(propertyData),
+        _joinStoredAddress(hostRoomData),
+        VietnamAddressParser.composeParts(
+          street: room.address,
+          district: room.district,
+          city: room.city,
+        ),
+      ]);
+      final district = _firstNonEmpty([
+        _readReference(postData ?? const {}, const ['district', 'quanHuyen']),
+        _readReference(hostRoomData ?? const {}, const ['district', 'quanHuyen']),
+        _readReference(propertyData ?? const {}, const ['district', 'quanHuyen']),
+        room.district,
+      ]);
+      final city = _firstNonEmpty([
+        _readReference(postData ?? const {}, const ['city', 'thanhPho', 'province']),
+        _readReference(hostRoomData ?? const {}, const ['city', 'thanhPho']),
+        _readReference(propertyData ?? const {}, const ['city', 'thanhPho', 'tinh_thanh']),
+        room.city,
+      ]);
+
+      return room.copyWith(
+        address: bestAddress.isNotEmpty ? bestAddress : room.address,
+        district: district.isNotEmpty ? district : room.district,
+        city: city.isNotEmpty ? city : room.city,
+        area: area ?? (room.area > 0 ? room.area : 0),
+        capacity: capacity ?? room.capacity,
+        amenities: amenities.isNotEmpty ? amenities : room.amenities,
+        electricityRate: electricity ?? room.electricityRate,
+        waterRate: water ?? room.waterRate,
+        serviceFee: service ?? room.serviceFee,
+      );
+    } catch (error) {
+      debugPrint('Không thể ghép dữ liệu bài đăng chủ nhà ${room.id}: $error');
+      return room;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _readHostPostData(RoomModel room) async {
+    final direct = await _readDocument(const [
+      FirestoreCollections.posts,
+      FirestoreCollections.baiDangChoThue,
+    ], room.id);
+    if (direct != null) return direct;
+
+    for (final field in const ['roomId', 'room_id', 'phongId', 'phong_tro_id']) {
+      try {
+        final result = await _firestore
+            .collection(FirestoreCollections.posts)
+            .where(field, isEqualTo: room.id)
+            .limit(1)
+            .get();
+        if (result.docs.isNotEmpty) {
+          final doc = result.docs.first;
+          return {...doc.data(), 'id': doc.id};
+        }
+      } catch (error) {
+        debugPrint('Không thể tìm bài đăng chủ nhà theo $field=${room.id}: $error');
       }
-    } catch (e) {
-      debugPrint('Error getting room from firestore $id: $e');
     }
     return null;
+  }
+
+  String _joinStoredAddress(Map<String, dynamic>? data) {
+    if (data == null) return '';
+    return VietnamAddressParser.composeParts(
+      street: _readReference(data, const [
+        'address',
+        'diaChi',
+        'dia_chi_chi_tiet',
+      ]),
+      ward: _readReference(data, const ['ward', 'phuongXa', 'phuong_xa']),
+      district: _readReference(data, const [
+        'district',
+        'quanHuyen',
+        'quan_huyen',
+      ]),
+      city: _readReference(data, const [
+        'city',
+        'province',
+        'thanhPho',
+        'tinh_thanh',
+      ]),
+    );
+  }
+
+  String _firstNonEmpty(Iterable<String> values) {
+    for (final value in values) {
+      if (value.trim().isNotEmpty) return value.trim();
+    }
+    return '';
+  }
+
+  double? _firstPositive(Iterable<double?> values) {
+    for (final value in values) {
+      if (value != null && value > 0) return value;
+    }
+    return null;
+  }
+
+  double? _readNumber(Map<String, dynamic>? data, List<String> keys) {
+    if (data == null) return null;
+    for (final key in keys) {
+      final parsed = _parsePositive(data[key]);
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  double? _parsePositive(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is num) {
+      final value = raw.toDouble();
+      return value > 0 ? value : null;
+    }
+    if (raw is String) {
+      final text = raw
+          .trim()
+          .replaceAll(' ', '')
+          .replaceAll('đ', '')
+          .replaceAll('₫', '')
+          .replaceAll(',', '');
+      if (text.isEmpty) return null;
+      final parsed = double.tryParse(text);
+      if (parsed != null && parsed > 0) return parsed;
+    }
+    return null;
+  }
+
+  double? _readArea(Map<String, dynamic>? data) => _readNumber(data, const [
+        'area',
+        'roomArea',
+        'dienTich',
+        'dienTichM2',
+        'dien_tich',
+        'minArea',
+      ]);
+
+  double? _readElectricity(Map<String, dynamic>? data) =>
+      _readNumber(data, const [
+        'electricityRate',
+        'electricity_rate',
+        'giaDien',
+        'gia_dien',
+        'tienDien',
+      ]);
+
+  double? _readWater(Map<String, dynamic>? data) => _readNumber(data, const [
+        'waterRate',
+        'water_rate',
+        'giaNuoc',
+        'gia_nuoc',
+        'tienNuoc',
+      ]);
+
+  double? _readServiceFee(Map<String, dynamic>? data) =>
+      _readNumber(data, const [
+        'serviceFee',
+        'service_fee',
+        'wifiRate',
+        'wifi_rate',
+        'giaWifi',
+        'gia_wifi',
+        'phiDichVu',
+      ]);
+
+  double? _readCapacity(Map<String, dynamic>? data) =>
+      _readNumber(data, const ['capacity', 'sucChua', 'suc_chua']);
+
+  List<String> _readAmenityList(Map<String, dynamic>? data) {
+    if (data == null) return const [];
+    final raw =
+        data['amenities'] ??
+        data['tienIch'] ??
+        data['danhSachTienIch'] ??
+        data['tien_ich'] ??
+        data['roomAmenities'];
+    if (raw is String) {
+      return raw
+          .split(RegExp(r'[,;|]'))
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+    if (raw is! List) return const [];
+    final names = <String>[];
+    for (final item in raw) {
+      if (item is String && item.trim().isNotEmpty) {
+        names.add(item.trim());
+      } else if (item is Map) {
+        final name = (item['amenityName'] ??
+                item['tenTienIch'] ??
+                item['ten_tien_ich'] ??
+                item['name'] ??
+                item['ten'] ??
+                '')
+            .toString()
+            .trim();
+        if (name.isNotEmpty) names.add(name);
+      }
+    }
+    return names;
+  }
+
+  List<String> _uniqueNames(Iterable<String> names) {
+    final seen = <String>{};
+    final result = <String>[];
+    for (final name in names) {
+      final clean = name.trim();
+      if (clean.isEmpty) continue;
+      if (seen.add(clean.toLowerCase())) result.add(clean);
+    }
+    return result;
+  }
+
+  Future<List<String>> _loadAmenityNames(String roomId) async {
+    if (roomId.trim().isEmpty) return const [];
+    final targetIds = <String>{
+      roomId.trim(),
+      if (roomId.contains('_') && roomId.lastIndexOf('_') > 0)
+        roomId.substring(0, roomId.lastIndexOf('_')),
+    };
+    final names = <String>[];
+    final pendingCatalogIds = <String>{};
+    for (final col in [
+      FirestoreCollections.roomAmenities,
+      FirestoreCollections.tienIchPhongTro,
+      FirestoreCollections.tienIchPhong,
+      'room_amenities',
+      'tien_ich_phong_tro',
+    ]) {
+      for (final field in const ['roomId', 'phongId', 'phong_tro_id']) {
+        for (final targetId in targetIds) {
+          try {
+            final snap = await _firestore
+                .collection(col)
+                .where(field, isEqualTo: targetId)
+                .get();
+            for (final doc in snap.docs) {
+              final data = doc.data();
+              final name = (data['amenityName'] ??
+                      data['name'] ??
+                      data['ten_tien_ich'] ??
+                      data['tenTienIch'] ??
+                      '')
+                  .toString()
+                  .trim();
+              if (name.isNotEmpty) {
+                names.add(name);
+                continue;
+              }
+              final amenityId = (data['amenityId'] ??
+                      data['tienIchId'] ??
+                      data['tien_ich_id'] ??
+                      '')
+                  .toString()
+                  .trim();
+              if (amenityId.isNotEmpty) pendingCatalogIds.add(amenityId);
+            }
+          } catch (error) {
+            debugPrint('Không thể đọc tiện ích $col.$field=$targetId: $error');
+          }
+        }
+      }
+    }
+    for (final amenityId in pendingCatalogIds) {
+      final catalog = await _readDocument(const [
+        FirestoreCollections.amenities,
+        FirestoreCollections.danhMucTienIch,
+      ], amenityId);
+      final name = _readReference(catalog ?? const {}, const [
+        'name',
+        'amenityName',
+        'tenTienIch',
+        'ten_tien_ich',
+      ]);
+      if (name.isNotEmpty) names.add(name);
+    }
+    return _uniqueNames(names);
   }
 
   // Đã gỡ bỏ toàn bộ bài mẫu hardcode

@@ -532,8 +532,116 @@ class HostPostRepository {
       ),
     );
   }
+
+  /// Stream danh sách bài đăng thuộc về hostId từ collection 'posts' (lấy chính xác theo ID user của người tạo)
+  Stream<List<HostPostModel>> watchHostPosts(String hostId) {
+    final db = _db;
+    if (db == null || hostId.isEmpty) {
+      return Stream.value(const []);
+    }
+
+    final postsCol = db.collection(FirestoreCollections.posts);
+    Stream<QuerySnapshot<Map<String, dynamic>>> queryStream;
+    try {
+      queryStream = postsCol
+          .where(
+            Filter.or(
+              Filter('hostId', isEqualTo: hostId),
+              Filter('userId', isEqualTo: hostId),
+              Filter('chuNhaId', isEqualTo: hostId),
+              Filter('chu_tro_id', isEqualTo: hostId),
+            ),
+          )
+          .snapshots();
+    } catch (_) {
+      queryStream = postsCol.where('hostId', isEqualTo: hostId).snapshots();
+    }
+
+    return queryStream.asyncMap((snapshot) async {
+      var docs = snapshot.docs;
+      if (docs.isEmpty) {
+        try {
+          final fallbackSnap = await db
+              .collection(FirestoreCollections.baiDangChoThue)
+              .where('chuNhaId', isEqualTo: hostId)
+              .get();
+          if (fallbackSnap.docs.isNotEmpty) {
+            docs = fallbackSnap.docs;
+          }
+        } catch (_) {}
+      }
+
+      final posts = <HostPostModel>[];
+      for (final doc in docs) {
+        try {
+          final data = doc.data();
+          final docHostId = (data['hostId'] ??
+                  data['chuNhaId'] ??
+                  data['userId'] ??
+                  data['chu_tro_id'] ??
+                  '')
+              .toString()
+              .trim();
+
+          // Lọc chính xác theo ID user của người tạo bài đăng đó
+          if (docHostId == hostId) {
+            final post = HostPostModel.fromFirestore(
+              doc,
+              currentUserId: hostId,
+            );
+            posts.add(post);
+          }
+        } catch (e) {
+          debugPrint('Lỗi parse HostPostModel ${doc.id}: $e');
+        }
+      }
+
+      // Nối thông tin phòng/địa chỉ nếu cần
+      final enrichedPosts = <HostPostModel>[];
+      for (final post in posts) {
+        var enriched = post;
+        if (post.phongId.isNotEmpty) {
+          final room = await getRoom(post.phongId);
+          if (room != null) {
+            enriched = enriched.withRoom(room);
+          }
+        }
+        enrichedPosts.add(enriched);
+      }
+
+      // Sắp xếp bài mới nhất lên trước
+      enrichedPosts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return enrichedPosts;
+    });
+  }
+
+  /// Xóa bài đăng khỏi Firestore
+  Future<bool> deletePost(String postId) async {
+    final db = _db;
+    if (db == null || postId.isEmpty) return false;
+    try {
+      await db.collection(FirestoreCollections.posts).doc(postId).delete();
+      try {
+        await db.collection(FirestoreCollections.baiDangChoThue).doc(postId).delete();
+      } catch (_) {}
+      return true;
+    } catch (e) {
+      debugPrint('Lỗi xóa bài đăng $postId: $e');
+      return false;
+    }
+  }
 }
 
 final hostPostRepositoryProvider = Provider<HostPostRepository>((ref) {
   return HostPostRepository();
+});
+
+final hostMyPostsProvider = StreamProvider.autoDispose.family<List<HostPostModel>, String>((ref, hostId) {
+  final repo = ref.watch(hostPostRepositoryProvider);
+  return repo.watchHostPosts(hostId);
+});
+
+final hostRejectedCountProvider = StreamProvider.autoDispose.family<int, String>((ref, hostId) {
+  final repo = ref.watch(hostPostRepositoryProvider);
+  return repo.watchHostPosts(hostId).map((posts) => posts.where((p) => p.isRejected).length);
 });

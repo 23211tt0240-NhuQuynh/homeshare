@@ -1,15 +1,16 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/firestore_collections.dart';
 import '../../../core/services/chat_service.dart';
-import '../../../data/models/chat_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
 
-/// Provider stream danh sách thông báo của User (Renter)
+/// Provider stream danh sách thông báo của User (Renter), đồng bộ hợp nhất từ `notification_user` và `notifications` cũ
 final userNotificationsStreamProvider =
     StreamProvider.autoDispose<List<QueryDocumentSnapshot<Map<String, dynamic>>>>((ref) {
   final currentUserId = ref.watch(authStateProvider).value?.uid ?? '';
@@ -17,20 +18,82 @@ final userNotificationsStreamProvider =
     return Stream.value([]);
   }
 
-  return FirebaseFirestore.instance
-      .collection('notifications')
-      .where('receiverId', isEqualTo: currentUserId)
-      .snapshots()
-      .map((snapshot) {
-    final docs = snapshot.docs.toList();
+  final controller = StreamController<List<QueryDocumentSnapshot<Map<String, dynamic>>>>();
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> userDocs = [];
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> legacyDocs = [];
+
+  void emitMerged() {
+    if (controller.isClosed) return;
+    final Map<String, QueryDocumentSnapshot<Map<String, dynamic>>> map = {};
+    for (final doc in legacyDocs) {
+      map[doc.id] = doc;
+    }
+    for (final doc in userDocs) {
+      map[doc.id] = doc;
+    }
+
+    // Chỉ lấy thông báo của user (người thuê / ở ghép), loại trừ thông báo của chủ trọ và cảnh báo vi phạm
+    final docs = map.values.where((doc) {
+      final data = doc.data();
+      final role = (data['recipientRole'] ?? '').toString().toLowerCase();
+      final type = (data['notificationType'] ?? data['type'] ?? '').toString();
+      if (role == 'host' || type == 'warning') return false;
+      return true;
+    }).toList();
+
     // Sắp xếp client-side theo thời gian giảm dần (mới nhất lên đầu)
     docs.sort((a, b) {
       final tA = (a.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0);
       final tB = (b.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0);
       return tB.compareTo(tA);
     });
-    return docs;
+    controller.add(docs);
+  }
+
+  final filter = Filter.or(
+    Filter('receiverId', isEqualTo: currentUserId),
+    Filter('recipientId', isEqualTo: currentUserId),
+    Filter('userId', isEqualTo: currentUserId),
+    Filter('nguoiNhanId', isEqualTo: currentUserId),
+  );
+
+  final subUser = FirebaseFirestore.instance
+      .collection(FirestoreCollections.notificationUser)
+      .where(filter)
+      .snapshots()
+      .listen(
+        (snap) {
+          userDocs = snap.docs;
+          emitMerged();
+        },
+        onError: (err) {
+          debugPrint('Error listening to notification_user: $err');
+          emitMerged();
+        },
+      );
+
+  final subLegacy = FirebaseFirestore.instance
+      .collection('notifications')
+      .where(filter)
+      .snapshots()
+      .listen(
+        (snap) {
+          legacyDocs = snap.docs;
+          emitMerged();
+        },
+        onError: (err) {
+          debugPrint('Error listening to notifications: $err');
+          emitMerged();
+        },
+      );
+
+  ref.onDispose(() {
+    subUser.cancel();
+    subLegacy.cancel();
+    controller.close();
   });
+
+  return controller.stream;
 });
 
 /// Provider đếm số lượng thông báo chưa đọc của User
@@ -43,6 +106,24 @@ final userUnreadNotificationCountProvider = Provider.autoDispose<int>((ref) {
   }).length;
 });
 
+class _NotificationVisualConfig {
+  final IconData icon;
+  final Color iconColor;
+  final Color backgroundColor;
+  final String categoryBadge;
+  final Color badgeBg;
+  final Color badgeColor;
+
+  const _NotificationVisualConfig({
+    required this.icon,
+    required this.iconColor,
+    required this.backgroundColor,
+    required this.categoryBadge,
+    required this.badgeBg,
+    required this.badgeColor,
+  });
+}
+
 class UserNotificationsScreen extends ConsumerStatefulWidget {
   const UserNotificationsScreen({super.key});
 
@@ -54,7 +135,8 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
   Future<void> _markAllAsRead(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) async {
     final batch = FirebaseFirestore.instance.batch();
     for (final doc in docs) {
-      if (doc.data()['isRead'] != true) {
+      final isRead = doc.data()['isRead'] == true || doc.data()['daDoc'] == true;
+      if (!isRead) {
         batch.update(doc.reference, {'isRead': true, 'daDoc': true});
       }
     }
@@ -163,23 +245,6 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // 4. Gửi tin nhắn xác nhận realtime vào đoạn chat
-      try {
-        final confMsg = ChatMessageModel(
-          id: '',
-          senderId: currentUserId,
-          senderName: currentUserName,
-          receiverId: senderId,
-          text: '✅ Tôi đã đồng ý lời mời ở ghép cùng bạn tại phòng $roomTitle ($roomCode). Hệ thống đã gửi yêu cầu xác nhận tới Chủ trọ để duyệt vào phòng!',
-          timestamp: DateTime.now(),
-          status: 'sent',
-        );
-        await ref.read(chatServiceProvider).sendMessage(
-          confMsg,
-          receiverName: senderName,
-        );
-      } catch (_) {}
-
       if (context.mounted) {
         Navigator.pop(context); // Đóng loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
@@ -249,22 +314,170 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
     );
   }
 
+  Future<void> _respondToBookingAdjustment({
+    required BuildContext context,
+    required DocumentSnapshot doc,
+    required Map<String, dynamic> data,
+    required bool accept,
+  }) async {
+    final bookingId = (data['bookingId'] ?? '').toString();
+    final hostNotifId = (data['hostNotificationId'] ?? '').toString();
+    final newCheckInDate = data['newCheckInDate'] as Timestamp?;
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final batch = FirebaseFirestore.instance.batch();
+
+      // 1. Cập nhật thông báo người thuê
+      batch.set(doc.reference, {
+        'status': accept ? 'accepted' : 'rejected',
+        'isRead': true,
+        'daDoc': true,
+        'respondedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // 2. Cập nhật booking gốc
+      if (bookingId.isNotEmpty) {
+        final bRef = FirebaseFirestore.instance.collection('bookings').doc(bookingId);
+        final bookingUpdates = <String, dynamic>{
+          'status': 'daCoc',
+          'statusId': 'deposited',
+          'adjustmentStatus': accept ? 'accepted' : 'rejected',
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        if (accept) {
+          if (newCheckInDate != null) {
+            bookingUpdates['checkInDate'] = newCheckInDate;
+          }
+          final newRoomId = data['roomId']?.toString();
+          if (newRoomId != null && newRoomId.isNotEmpty) {
+            bookingUpdates['roomId'] = newRoomId;
+          }
+          final newRoomTitle = data['roomTitle']?.toString();
+          if (newRoomTitle != null && newRoomTitle.isNotEmpty) {
+            bookingUpdates['roomTitle'] = newRoomTitle;
+          }
+        }
+        batch.set(bRef, bookingUpdates, SetOptions(merge: true));
+      }
+
+      // 3. Cập nhật thông báo của chủ trọ
+      if (hostNotifId.isNotEmpty) {
+        final hRef = FirebaseFirestore.instance.collection('notifications').doc(hostNotifId);
+        final hostUpdates = <String, dynamic>{
+          'status': accept ? 'approved' : 'rejected',
+          'statusId': accept ? 'deposited' : 'rejected',
+          'adjustmentStatus': accept ? 'accepted' : 'rejected',
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        if (accept && newCheckInDate != null) {
+          hostUpdates['checkInDate'] = newCheckInDate;
+        }
+        batch.set(hRef, hostUpdates, SetOptions(merge: true));
+      }
+
+      // 4. Gửi thông báo đến chuông của Chủ trọ về phản hồi của khách
+      final hostId = (data['hostId'] ?? data['chuNhaId'] ?? '').toString();
+      if (hostId.isNotEmpty) {
+        final hostNotifRef = FirebaseFirestore.instance.collection('notifications').doc();
+        final dateStr = newCheckInDate != null
+            ? DateFormat('dd/MM/yyyy').format(newCheckInDate.toDate())
+            : '';
+        final renterName = (data['renterName'] ?? data['userName'] ?? 'Khách thuê').toString();
+        if (accept) {
+          batch.set(hostNotifRef, {
+            'id': hostNotifRef.id,
+            'receiverId': hostId,
+            'recipientRole': 'host',
+            'title': 'Khách thuê đã đồng ý đổi lịch dọn vào! 🎉',
+            'message':
+                'Khách thuê $renterName đã đồng ý với ngày nhận phòng mới ${dateStr.isNotEmpty ? "($dateStr)" : ""}. Đơn đặt phòng ${bookingId.isNotEmpty ? bookingId : ""} đã sẵn sàng chờ nhận phòng.',
+            'notificationType': 'deposit',
+            'type': 'deposit',
+            'status': 'approved',
+            'statusId': 'deposited',
+            'bookingId': bookingId,
+            'checkInDate': ?newCheckInDate,
+            'isRead': false,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        } else {
+          batch.set(hostNotifRef, {
+            'id': hostNotifRef.id,
+            'receiverId': hostId,
+            'recipientRole': 'host',
+            'title': 'Khách thuê từ chối thay đổi ngày dọn vào',
+            'message':
+                'Khách thuê $renterName đã từ chối yêu cầu đổi lịch dọn vào hoặc đổi phòng. Lịch dọn vào ban đầu vẫn được giữ nguyên.',
+            'notificationType': 'booking_adjustment_rejected',
+            'type': 'booking_adjustment_rejected',
+            'status': 'rejected',
+            'statusId': 'rejected',
+            'bookingId': bookingId,
+            'isRead': false,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      await batch.commit();
+
+      if (context.mounted) {
+        Navigator.pop(context); // Tắt loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: accept ? const Color(0xFF027A48) : const Color(0xFFD92D20),
+            content: Text(
+              accept
+                  ? 'Bạn đã đồng ý đổi lịch dọn vào thành công!'
+                  : 'Bạn đã từ chối yêu cầu đổi lịch dọn vào.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFD92D20),
+            content: Text('Có lỗi xảy ra: $e'),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final notifsAsync = ref.watch(userNotificationsStreamProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Thông báo',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0F172A)),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+          ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF0F172A)),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 20,
+            color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -338,7 +551,8 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
     final type = data['notificationType'] ?? data['type'] ?? '';
     final isRead = data['isRead'] == true || data['daDoc'] == true;
     final title = data['title'] ?? data['tieuDe'] ?? 'Thông báo';
-    final message = data['message'] ?? data['noiDung'] ?? '';
+    final rawMsg = data['message'] ?? data['body'] ?? data['noiDung'] ?? '';
+    final message = rawMsg.toString();
     final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
     final timeStr = createdAt != null ? DateFormat('HH:mm - dd/MM/yyyy').format(createdAt) : '';
 
@@ -346,68 +560,160 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
       return _buildRoommateInviteCard(context, doc, data, isRead, timeStr);
     }
 
-    // Thẻ thông báo thông thường (đặt phòng, thanh toán, hệ thống...)
+    if (type == 'booking_adjustment' ||
+        type == 'change_move_in_date' ||
+        type == 'booking_date_change' ||
+        data['newCheckInDate'] != null) {
+      return _buildBookingAdjustmentCard(context, doc, data, isRead, timeStr);
+    }
+
+
+    final visual = _resolveVisualConfig(
+      rawType: type,
+      title: title,
+      message: message,
+      status: (data['status'] ?? '').toString(),
+    );
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Thẻ thông báo phân loại chi tiết theo màu sắc và icon trực quan
     return InkWell(
       onTap: () => _markAsRead(doc.reference),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isRead ? Colors.white : const Color(0xFFF0FDF4),
+          color: isDark
+              ? (isRead ? const Color(0xFF1E293B) : const Color(0xFF243048))
+              : (isRead ? Colors.white : const Color(0xFFF8FAFC)),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isRead ? const Color(0xFFE2E8F0) : AppColors.primary.withValues(alpha: 0.3),
+            color: isDark
+                ? (isRead ? const Color(0xFF334155) : visual.iconColor.withValues(alpha: 0.5))
+                : (isRead ? const Color(0xFFE2E8F0) : visual.iconColor.withValues(alpha: 0.35)),
             width: isRead ? 1 : 1.5,
           ),
-          boxShadow: const [
-            BoxShadow(color: Color(0x06000000), blurRadius: 6, offset: Offset(0, 2)),
+          boxShadow: [
+            BoxShadow(
+              color: isRead ? const Color(0x06000000) : visual.iconColor.withValues(alpha: 0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
           ],
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-              child: const Icon(Icons.notifications_rounded, color: AppColors.primary, size: 20),
+            // Container Icon nổi bật, bo góc mềm, có shadow nhẹ theo màu icon
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: visual.backgroundColor,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: visual.iconColor.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: visual.iconColor.withValues(alpha: 0.12),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: Icon(visual.icon, color: visual.iconColor, size: 22),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Hàng chip loại thông báo + chấm / tag chưa đọc
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                        decoration: BoxDecoration(
+                          color: visual.badgeBg,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: visual.badgeColor.withValues(alpha: 0.25),
+                            width: 0.8,
+                          ),
+                        ),
                         child: Text(
-                          title,
+                          visual.categoryBadge,
                           style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
-                            color: const Color(0xFF0F172A),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: visual.badgeColor,
                           ),
                         ),
                       ),
                       if (!isRead)
                         Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Text(
+                                'Mới',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                     ],
                   ),
+                  const SizedBox(height: 6),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
+                      color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     message,
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF334155), height: 1.35),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+                      height: 1.35,
+                    ),
                   ),
                   if (timeStr.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(timeStr, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.access_time_rounded, size: 12, color: Color(0xFF94A3B8)),
+                        const SizedBox(width: 4),
+                        Text(timeStr, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                      ],
+                    ),
                   ],
                 ],
               ),
@@ -415,6 +721,240 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
           ],
         ),
       ),
+    );
+  }
+
+  _NotificationVisualConfig _resolveVisualConfig({
+    required String rawType,
+    required String title,
+    required String message,
+    required String status,
+  }) {
+    final t = rawType.toLowerCase().trim();
+    final s = status.toLowerCase().trim();
+    final titleLower = title.toLowerCase();
+    final msgLower = message.toLowerCase();
+
+    // 1. Nhận phòng / Bàn giao chìa khóa
+    if (t == 'checkin' ||
+        t == 'check_in' ||
+        t == 'nhan_phong' ||
+        titleLower.contains('nhận phòng') ||
+        titleLower.contains('bàn giao') ||
+        msgLower.contains('nhận phòng') ||
+        msgLower.contains('bàn giao phòng')) {
+      return const _NotificationVisualConfig(
+        icon: Icons.vpn_key_rounded,
+        iconColor: Color(0xFF0D9488), // Teal
+        backgroundColor: Color(0xFFCCFBF1),
+        categoryBadge: 'Nhận phòng',
+        badgeBg: Color(0xFFE6FFFA),
+        badgeColor: Color(0xFF0F766E),
+      );
+    }
+
+    // 2. Hủy đơn / Từ chối / Hoàn tiền
+    if (t == 'cancellation_invoice' ||
+        t == 'refund' ||
+        t == 'cancelled' ||
+        t == 'rejected' ||
+        t == 'cancel' ||
+        s == 'cancelled' ||
+        s == 'rejected' ||
+        titleLower.contains('hủy') ||
+        titleLower.contains('từ chối') ||
+        titleLower.contains('hoàn tiền') ||
+        msgLower.contains('đã bị hủy') ||
+        msgLower.contains('đã được hủy')) {
+      return const _NotificationVisualConfig(
+        icon: Icons.cancel_outlined,
+        iconColor: Color(0xFFE11D48), // Rose red
+        backgroundColor: Color(0xFFFFE4E6),
+        categoryBadge: 'Đã hủy',
+        badgeBg: Color(0xFFFFF1F2),
+        badgeColor: Color(0xFFBE123C),
+      );
+    }
+
+    // 3. Ở ghép được duyệt vào phòng
+    if (t == 'roommate_approved' ||
+        titleLower.contains('duyệt vào phòng') ||
+        titleLower.contains('duyệt bạn cùng phòng') ||
+        msgLower.contains('vào ở ghép cùng')) {
+      return const _NotificationVisualConfig(
+        icon: Icons.how_to_reg_rounded,
+        iconColor: Color(0xFF7C3AED), // Purple
+        backgroundColor: Color(0xFFF3E8FF),
+        categoryBadge: 'Ở ghép',
+        badgeBg: Color(0xFFFAF5FF),
+        badgeColor: Color(0xFF6D28D9),
+      );
+    }
+
+    // 4. Ở ghép bị từ chối
+    if (t == 'roommate_rejected' ||
+        titleLower.contains('từ chối yêu cầu vào ở ghép') ||
+        titleLower.contains('yêu cầu ở ghép đã bị từ chối')) {
+      return const _NotificationVisualConfig(
+        icon: Icons.person_off_rounded,
+        iconColor: Color(0xFFDC2626), // Red
+        backgroundColor: Color(0xFFFEE2E2),
+        categoryBadge: 'Ở ghép',
+        badgeBg: Color(0xFFFEF2F2),
+        badgeColor: Color(0xFFB91C1C),
+      );
+    }
+
+    // 5. Thanh toán / Đặt cọc thành công
+    if (t == 'payment' ||
+        t == 'deposit' ||
+        t == 'deposit_paid' ||
+        t == 'payment_completed' ||
+        titleLower.contains('thanh toán') ||
+        titleLower.contains('tiền cọc') ||
+        titleLower.contains('chuyển khoản')) {
+      return const _NotificationVisualConfig(
+        icon: Icons.account_balance_wallet_rounded,
+        iconColor: Color(0xFF2563EB), // Blue
+        backgroundColor: Color(0xFFDBEAFE),
+        categoryBadge: 'Thanh toán',
+        badgeBg: Color(0xFFEFF6FF),
+        badgeColor: Color(0xFF1D4ED8),
+      );
+    }
+
+    // 6. Đơn thuê phòng đã được duyệt
+    if (t == 'booking_approved' ||
+        (t == 'booking' && (titleLower.contains('duyệt') || s == 'approved')) ||
+        titleLower.contains('đã được duyệt')) {
+      return const _NotificationVisualConfig(
+        icon: Icons.task_alt_rounded,
+        iconColor: Color(0xFF16A34A), // Green
+        backgroundColor: Color(0xFFDCFCE7),
+        categoryBadge: 'Đã duyệt',
+        badgeBg: Color(0xFFF0FDF4),
+        badgeColor: Color(0xFF15803D),
+      );
+    }
+
+    // 7. Đổi lịch dọn vào / Thay đổi lịch hẹn
+    if (t == 'booking_adjustment' ||
+        t == 'change_move_in_date' ||
+        t == 'booking_date_change' ||
+        titleLower.contains('đổi lịch') ||
+        msgLower.contains('đổi lịch')) {
+      return const _NotificationVisualConfig(
+        icon: Icons.edit_calendar_rounded,
+        iconColor: Color(0xFFD97706), // Amber
+        backgroundColor: Color(0xFFFEF3C7),
+        categoryBadge: 'Đổi lịch',
+        badgeBg: Color(0xFFFFFBEB),
+        badgeColor: Color(0xFFB45309),
+      );
+    }
+
+    // 8. Tin nhắn mới
+    if (t == 'chat_message' || t == 'chat' || titleLower.contains('tin nhắn')) {
+      return const _NotificationVisualConfig(
+        icon: Icons.chat_bubble_rounded,
+        iconColor: Color(0xFF0284C7), // Sky blue
+        backgroundColor: Color(0xFFE0F2FE),
+        categoryBadge: 'Tin nhắn',
+        badgeBg: Color(0xFFF0F9FF),
+        badgeColor: Color(0xFF0369A1),
+      );
+    }
+
+    // 9. Cảnh báo vi phạm / Trừ điểm uy tín
+    if (t == 'warning' ||
+        t == 'penalty' ||
+        titleLower.contains('cảnh báo') ||
+        titleLower.contains('vi phạm') ||
+        titleLower.contains('trừ điểm')) {
+      return const _NotificationVisualConfig(
+        icon: Icons.warning_amber_rounded,
+        iconColor: Color(0xFFDC2626), // Danger
+        backgroundColor: Color(0xFFFEE2E2),
+        categoryBadge: 'Cảnh báo',
+        badgeBg: Color(0xFFFEF2F2),
+        badgeColor: Color(0xFFB91C1C),
+      );
+    }
+
+    // 10. Điểm uy tín được cộng thêm
+    if (t == 'bonus' ||
+        titleLower.contains('cộng thêm') ||
+        titleLower.contains('điểm uy tín')) {
+      return const _NotificationVisualConfig(
+        icon: Icons.military_tech_rounded,
+        iconColor: Color(0xFFCA8A04), // Gold
+        backgroundColor: Color(0xFFFEF9C3),
+        categoryBadge: '+ Uy tín',
+        badgeBg: Color(0xFFFEFCE8),
+        badgeColor: Color(0xFFA16207),
+      );
+    }
+
+    // 11. Báo cáo sự cố phòng
+    if (t == 'issue' || t == 'maintenance' || titleLower.contains('sự cố')) {
+      return const _NotificationVisualConfig(
+        icon: Icons.handyman_rounded,
+        iconColor: Color(0xFFC2410C), // Deep orange
+        backgroundColor: Color(0xFFFFEDD5),
+        categoryBadge: 'Sự cố',
+        badgeBg: Color(0xFFFFF7ED),
+        badgeColor: Color(0xFF9A3412),
+      );
+    }
+
+    // 12. Quản trị viên / Ban Quản Trị / Hệ thống
+    if (t == 'system_admin' ||
+        t == 'admin' ||
+        t == 'system' ||
+        titleLower.contains('admin') ||
+        titleLower.contains('ban quản trị')) {
+      return const _NotificationVisualConfig(
+        icon: Icons.admin_panel_settings_rounded,
+        iconColor: Color(0xFF4F46E5), // Indigo
+        backgroundColor: Color(0xFFEEF2FF),
+        categoryBadge: 'Hệ thống',
+        badgeBg: Color(0xFFF5F3FF),
+        badgeColor: Color(0xFF4338CA),
+      );
+    }
+
+    // 13. Đang chờ xử lý
+    if (t == 'pendingaction' || t == 'pending' || titleLower.contains('chờ')) {
+      return const _NotificationVisualConfig(
+        icon: Icons.hourglass_top_rounded,
+        iconColor: Color(0xFFD97706), // Amber
+        backgroundColor: Color(0xFFFEF3C7),
+        categoryBadge: 'Chờ xử lý',
+        badgeBg: Color(0xFFFFFBEB),
+        badgeColor: Color(0xFFB45309),
+      );
+    }
+
+    // 14. Đặt phòng chung
+    if (t == 'booking') {
+      return const _NotificationVisualConfig(
+        icon: Icons.home_work_rounded,
+        iconColor: Color(0xFF2563EB),
+        backgroundColor: Color(0xFFDBEAFE),
+        categoryBadge: 'Đặt phòng',
+        badgeBg: Color(0xFFEFF6FF),
+        badgeColor: Color(0xFF1D4ED8),
+      );
+    }
+
+    // 15. Mặc định
+    return const _NotificationVisualConfig(
+      icon: Icons.notifications_active_rounded,
+      iconColor: AppColors.primary,
+      backgroundColor: Color(0xFFE0F2FE),
+      categoryBadge: 'Thông báo',
+      badgeBg: Color(0xFFF0F9FF),
+      badgeColor: AppColors.primary,
     );
   }
 
@@ -433,15 +973,16 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
     final price = data['pricePerPerson'] ?? 1800000;
     final priceFormatted = NumberFormat('#,###', 'vi_VN').format(price);
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: status == 'accepted'
               ? AppColors.primary
-              : (status == 'rejected' ? const Color(0xFFE2E8F0) : const Color(0xFFF97316)),
+              : (status == 'rejected' ? (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)) : const Color(0xFFF97316)),
           width: 1.5,
         ),
         boxShadow: const [
@@ -694,6 +1235,341 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
                 ],
               ],
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBookingAdjustmentCard(
+    BuildContext context,
+    DocumentSnapshot doc,
+    Map<String, dynamic> data,
+    bool isRead,
+    String timeStr,
+  ) {
+    final status = (data['status'] ?? 'pending').toString();
+    final isPending = status == 'pending';
+    final isAccepted = status == 'accepted' || status == 'approved';
+    final isRejected = status == 'rejected';
+
+    final title = (data['title'] ?? 'Chủ trọ yêu cầu đổi lịch dọn vào').toString();
+    final message = (data['message'] ?? '').toString();
+    final roomCode = (data['roomCode'] ?? '').toString();
+    final roomTitle = (data['roomTitle'] ?? '').toString();
+    final reason = (data['adjustmentReason'] ?? '').toString();
+
+    final newDateTs = data['newCheckInDate'] as Timestamp?;
+    final newDateStr = newDateTs != null
+        ? DateFormat('dd/MM/yyyy').format(newDateTs.toDate())
+        : '';
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark
+            ? (isRead ? const Color(0xFF1E293B) : const Color(0xFF243048))
+            : (isRead ? Colors.white : const Color(0xFFF0FDF4)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isPending
+              ? const Color(0xFFFDB022)
+              : (isRead
+                  ? (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))
+                  : AppColors.primary.withValues(alpha: 0.3)),
+          width: isPending ? 1.5 : (isRead ? 1 : 1.5),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF0C7),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.edit_calendar_rounded,
+                  color: Color(0xFFB54708),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight:
+                                  isRead ? FontWeight.w600 : FontWeight.bold,
+                              color: const Color(0xFF0F172A),
+                            ),
+                          ),
+                        ),
+                        if (!isRead)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      timeStr,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Khối chi tiết lịch dọn vào mới
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (roomCode.isNotEmpty || roomTitle.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.meeting_room_outlined,
+                        size: 15,
+                        color: Color(0xFF64748B),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          roomCode.isNotEmpty
+                              ? 'Phòng $roomCode • $roomTitle'
+                              : roomTitle,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1E293B),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                ],
+                if (newDateStr.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_today_rounded,
+                        size: 15,
+                        color: Color(0xFF1E60F2),
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Ngày dọn vào đề xuất: ',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      Text(
+                        newDateStr,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E60F2),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                ],
+                if (reason.isNotEmpty) ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.info_outline_rounded,
+                        size: 15,
+                        color: Color(0xFF64748B),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Lý do: $reason',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF475569),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else if (message.isNotEmpty) ...[
+                  Text(
+                    message,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Nút Đồng ý / Từ chối hoặc Trạng thái đã xử lý
+          if (isPending) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _respondToBookingAdjustment(
+                      context: context,
+                      doc: doc,
+                      data: data,
+                      accept: false,
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFD92D20),
+                      side: const BorderSide(color: Color(0xFFFDA29B)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      'Từ chối',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _respondToBookingAdjustment(
+                      context: context,
+                      doc: doc,
+                      data: data,
+                      accept: true,
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Đồng ý',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (isAccepted) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFECFDF3),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFA6F4C5)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: 14,
+                    color: Color(0xFF027A48),
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Bạn đã đồng ý đổi lịch dọn vào',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF027A48),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else if (isRejected) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3F2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFECDCA)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.cancel_rounded,
+                    size: 14,
+                    color: Color(0xFFD92D20),
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Bạn đã từ chối đổi lịch dọn vào',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFD92D20),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
