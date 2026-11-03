@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../repositories/checkin_checkout_repository.dart';
+import '../../../core/constants/app_colors.dart';
 
 class CheckinCheckoutCard extends StatelessWidget {
   final CheckinCheckoutItem item;
@@ -31,12 +32,12 @@ class CheckinCheckoutCard extends StatelessWidget {
     final isDone = item.isCompleted;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDone ? const Color(0xFFF1F5F9) : const Color(0xFFE2E8F0),
+          color: isDone ? AppColors.surfaceVariant : AppColors.border,
         ),
         boxShadow: const [
           BoxShadow(
@@ -47,7 +48,7 @@ class CheckinCheckoutCard extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -61,8 +62,8 @@ class CheckinCheckoutCard extends StatelessWidget {
                   height: 56,
                   decoration: BoxDecoration(
                     color: isDone
-                        ? const Color(0xFFF1F5F9)
-                        : const Color(0xFFEFF6FF),
+                        ? AppColors.surfaceVariant
+                        : AppColors.primaryContainer,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
@@ -75,11 +76,11 @@ class CheckinCheckoutCard extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                           color: isDone
                               ? const Color(0xFF64748B)
-                              : const Color(0xFF2563EB),
+                              : (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                           letterSpacing: 0.5,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: 2),
                       Text(
                         item.roomCode.replaceAll(RegExp(r'[^0-9A-Za-z]'), ''),
                         style: TextStyle(
@@ -87,14 +88,14 @@ class CheckinCheckoutCard extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                           color: isDone
                               ? const Color(0xFF334155)
-                              : const Color(0xFF1D4ED8),
+                              : (AppColors.isDark ? AppColors.textDark : const Color(0xFF1D4ED8)),
                         ),
                         maxLines: 1,
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 // Tên & Vị trí
                 Expanded(
                   child: Column(
@@ -102,18 +103,18 @@ class CheckinCheckoutCard extends StatelessWidget {
                     children: [
                       Text(
                         item.renterName,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF0F172A),
+                          color: AppColors.textDark,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 3),
+                      SizedBox(height: 3),
                       Text(
                         '${item.propertyName} • Tầng ${item.floor}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           color: Color(0xFF64748B),
                           fontWeight: FontWeight.w500,
@@ -126,14 +127,14 @@ class CheckinCheckoutCard extends StatelessWidget {
                 ),
                 // Badge trạng thái
                 Container(
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
                     color: isDone
-                        ? const Color(0xFFF1F5F9)
-                        : const Color(0xFFFEF3C7),
+                        ? AppColors.surfaceVariant
+                        : AppColors.warningContainer,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(
@@ -143,12 +144,12 @@ class CheckinCheckoutCard extends StatelessWidget {
                         Container(
                           width: 6,
                           height: 6,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFD97706),
+                          decoration: BoxDecoration(
+                            color: (AppColors.isDark ? const Color(0xFFFDE68A) : const Color(0xFFD97706)),
                             shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(width: 5),
+                        SizedBox(width: 5),
                       ],
                       Text(
                         isDone
@@ -167,17 +168,17 @@ class CheckinCheckoutCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             // Hộp chi tiết (Details Box)
             Container(
-              padding: const EdgeInsets.symmetric(
+              padding: EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 12,
               ),
               decoration: BoxDecoration(
                 color: isDone
-                    ? const Color(0xFFF8FAFC)
-                    : const Color(0xFFFFFBEB),
+                    ? AppColors.background
+                    : AppColors.warningContainer,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -194,27 +195,27 @@ class CheckinCheckoutCard extends StatelessWidget {
                               : (isCheckinTab
                                   ? 'Ngày vào dự kiến:'
                                   : 'Dự kiến trả phòng:'),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             color: Color(0xFF64748B),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Text(
                         isDone && item.completedTime != null
                             ? _formatDateTime(item.completedTime!)
                             : _formatDate(item.expectedDate),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF1E293B),
+                          color: AppColors.textDark,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -225,14 +226,14 @@ class CheckinCheckoutCard extends StatelessWidget {
                                   ? 'Tiền cọc nhận:'
                                   : 'Đã hoàn cọc:')
                               : 'Tiền cọc:',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             color: Color(0xFF64748B),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Text(
                         _formatMoney(
                           isDone && item.refundedDeposit != null
@@ -252,7 +253,7 @@ class CheckinCheckoutCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             // Nút hành động
             SizedBox(
               width: double.infinity,
@@ -272,7 +273,7 @@ class CheckinCheckoutCard extends StatelessWidget {
                       ),
                       child: Text(
                         isCheckinTab ? 'Đã Check-in' : 'Đã Check-out',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
@@ -281,8 +282,8 @@ class CheckinCheckoutCard extends StatelessWidget {
                   : isCheckinTab
                       ? ElevatedButton.icon(
                           onPressed: onAction,
-                          icon: const Icon(Icons.login, size: 18),
-                          label: const Text(
+                          icon: Icon(Icons.login, size: 18),
+                          label: Text(
                             'Check-in & Bàn giao',
                             style: TextStyle(
                               fontSize: 14,
@@ -290,7 +291,7 @@ class CheckinCheckoutCard extends StatelessWidget {
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2563EB),
+                            backgroundColor: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -300,8 +301,8 @@ class CheckinCheckoutCard extends StatelessWidget {
                         )
                       : ElevatedButton.icon(
                           onPressed: onAction,
-                          icon: const Icon(Icons.logout, size: 18),
-                          label: const Text(
+                          icon: Icon(Icons.logout, size: 18),
+                          label: Text(
                             'Check-out',
                             style: TextStyle(
                               fontSize: 14,

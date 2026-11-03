@@ -262,14 +262,14 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: AppColors.border,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
               Text(
                 isFront ? 'CHỤP / CHỌN ẢNH MẶT TRƯỚC CCCD' : 'CHỤP / CHỌN ẢNH MẶT SAU CCCD',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
                   color: AppColors.primary,
@@ -280,11 +280,11 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                 isFront
                     ? 'Yêu cầu: Rõ nét họ tên, số CCCD, chân dung, không bị lóa hoặc che khuất'
                     : 'Yêu cầu: Rõ nét chip điện tử, mã MRZ và thông tin Bộ Công An',
-                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
               const SizedBox(height: 16),
               ListTile(
-                leading: const CircleAvatar(
+                leading: CircleAvatar(
                   backgroundColor: AppColors.primaryContainer,
                   child: Icon(Icons.camera_alt, color: AppColors.primary),
                 ),
@@ -296,7 +296,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                 },
               ),
               ListTile(
-                leading: const CircleAvatar(
+                leading: CircleAvatar(
                   backgroundColor: AppColors.primaryContainer,
                   child: Icon(Icons.photo_library, color: AppColors.primary),
                 ),
@@ -311,11 +311,11 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
+                  color: AppColors.successContainer,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0xFFBBF7D0)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Icon(Icons.shield_outlined, size: 16, color: AppColors.primary),
                     SizedBox(width: 8),
@@ -426,7 +426,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
           barrierDismissible: false,
           builder: (ctx) => AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
+            title: Row(
               children: [
                 Icon(Icons.verified, color: AppColors.primary, size: 28),
                 SizedBox(width: 8),
@@ -442,12 +442,12 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                   style: TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 10),
-                const Text('✓ Ảnh mặt trước thẻ CCCD (đã qua thẩm định Google ML Kit)',
+                Text('✓ Ảnh mặt trước thẻ CCCD (đã qua thẩm định Google ML Kit)',
                     style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
-                const Text('✓ Ảnh mặt sau thẻ CCCD (đã qua thẩm định Google ML Kit)',
+                Text('✓ Ảnh mặt sau thẻ CCCD (đã qua thẩm định Google ML Kit)',
                     style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
                 Text('✓ Dữ liệu QR: ${_cccdData!.fullName} - ${_cccdData!.idNumber}',
-                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
               ],
             ),
             actions: [
@@ -541,7 +541,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
@@ -558,14 +558,14 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Quy trình xác thực định danh',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textDark),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _isComplete ? const Color(0xFFD1FAE5) : const Color(0xFFFEF3C7),
+                  color: _isComplete ? const Color(0xFFD1FAE5) : AppColors.warningContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -617,10 +617,10 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
         decoration: BoxDecoration(
-          color: isDone ? const Color(0xFFECFDF5) : Colors.grey.shade50,
+          color: isDone ? AppColors.successContainer : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isDone ? const Color(0xFF6EE7B7) : Colors.grey.shade300,
+            color: isDone ? const Color(0xFF6EE7B7) : AppColors.border,
           ),
         ),
         child: Row(
@@ -629,7 +629,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
             Icon(
               isDone ? Icons.check_circle : Icons.circle_outlined,
               size: 14,
-              color: isDone ? AppColors.primary : Colors.grey.shade500,
+              color: isDone ? AppColors.primary : AppColors.textMuted,
             ),
             const SizedBox(width: 4),
             Flexible(
@@ -664,12 +664,12 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: status == CccdSideValidationStatus.valid
               ? const Color(0xFF86EFAC)
-              : (status == CccdSideValidationStatus.invalid ? const Color(0xFFFCA5A5) : Colors.grey.shade300),
+              : (status == CccdSideValidationStatus.invalid ? const Color(0xFFFCA5A5) : AppColors.border),
           width: (status == CccdSideValidationStatus.valid || status == CccdSideValidationStatus.invalid) ? 1.5 : 1,
         ),
         boxShadow: [
@@ -689,14 +689,14 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textDark),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textDark),
                 ),
               ),
               _buildStatusBadge(status),
             ],
           ),
           const SizedBox(height: 4),
-          Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+          Text(subtitle, style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
           const SizedBox(height: 12),
 
           // Khung hiển thị ảnh hoặc ô bấm chụp
@@ -715,7 +715,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
-            color: const Color(0xFFFEF3C7),
+            color: AppColors.warningContainer,
             borderRadius: BorderRadius.circular(6),
           ),
           child: const Text(
@@ -731,7 +731,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
-            color: const Color(0xFFEFF6FF),
+            color: AppColors.primaryContainer,
             borderRadius: BorderRadius.circular(6),
           ),
           child: const Row(
@@ -757,7 +757,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
             color: const Color(0xFFD1FAE5),
             borderRadius: BorderRadius.circular(6),
           ),
-          child: const Text(
+          child: Text(
             'Đã xác nhận CCCD ✓',
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
           ),
@@ -766,7 +766,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
-            color: const Color(0xFFFEE2E2),
+            color: AppColors.dangerContainer,
             borderRadius: BorderRadius.circular(6),
           ),
           child: const Text(
@@ -787,7 +787,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
         decoration: BoxDecoration(
           color: const Color(0xFFF9FAFB),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+          border: Border.all(color: AppColors.border, style: BorderStyle.solid),
         ),
         child: Center(
           child: Column(
@@ -805,10 +805,10 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
               const SizedBox(height: 10),
               Text(
                 isFront ? 'Chạm để chụp / tải ảnh mặt trước' : 'Chạm để chụp / tải ảnh mặt sau',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Google ML Kit tự động kiểm tra tính hợp lệ',
                 style: TextStyle(fontSize: 11, color: AppColors.textMuted),
               ),
@@ -863,8 +863,8 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
           children: [
             TextButton.icon(
               onPressed: () => _showImagePickerModal(isFront),
-              icon: const Icon(Icons.refresh, size: 16, color: AppColors.primary),
-              label: const Text('Chụp lại / Đổi ảnh',
+              icon: Icon(Icons.refresh, size: 16, color: AppColors.primary),
+              label: Text('Chụp lại / Đổi ảnh',
                   style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
             ),
             TextButton.icon(
@@ -905,19 +905,19 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
 
     switch (status) {
       case CccdSideValidationStatus.validating:
-        bg = const Color(0xFFEFF6FF);
+        bg = AppColors.primaryContainer;
         border = const Color(0xFFBFDBFE);
         textColor = const Color(0xFF1E40AF);
         icon = Icons.hourglass_top_rounded;
         break;
       case CccdSideValidationStatus.valid:
-        bg = const Color(0xFFECFDF5);
+        bg = AppColors.successContainer;
         border = const Color(0xFFA7F3D0);
         textColor = const Color(0xFF065F46);
         icon = Icons.check_circle_rounded;
         break;
       case CccdSideValidationStatus.invalid:
-        bg = const Color(0xFFFEF2F2);
+        bg = AppColors.dangerContainer;
         border = const Color(0xFFFECACA);
         textColor = const Color(0xFF991B1B);
         icon = Icons.warning_amber_rounded;
@@ -962,10 +962,10 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: hasQr ? const Color(0xFF86EFAC) : Colors.grey.shade300,
+          color: hasQr ? const Color(0xFF86EFAC) : AppColors.border,
           width: hasQr ? 1.5 : 1,
         ),
         boxShadow: [
@@ -982,7 +982,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Mục 3: Quét lấy thông tin mã CCCD',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textDark),
@@ -991,7 +991,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: hasQr ? const Color(0xFFD1FAE5) : const Color(0xFFFEE2E2),
+                  color: hasQr ? const Color(0xFFD1FAE5) : AppColors.dangerContainer,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -1006,7 +1006,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Quét mã QR góc trên bên phải thẻ CCCD để lấy thông tin thật 100%',
             style: TextStyle(fontSize: 12, color: AppColors.textMuted),
           ),
@@ -1026,24 +1026,24 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
         decoration: BoxDecoration(
-          color: const Color(0xFFF0FDF4),
+          color: AppColors.successContainer,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFBBF7D0)),
         ),
         child: Column(
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               radius: 28,
               backgroundColor: AppColors.primary,
               child: Icon(Icons.qr_code_scanner, size: 30, color: Colors.white),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Nhấn để Mở Camera Quét Mã QR CCCD',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.primary),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Hệ thống tự động phân tích và giải mã số thẻ, họ tên, ngày sinh',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12, color: AppColors.textMuted),
@@ -1059,7 +1059,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0FDF4),
+        color: AppColors.successContainer,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFF86EFAC)),
       ),
@@ -1068,7 +1068,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
         children: [
           Row(
             children: [
-              const Icon(Icons.verified_user, color: AppColors.primary, size: 20),
+              Icon(Icons.verified_user, color: AppColors.primary, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -1078,7 +1078,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
               ),
               InkWell(
                 onTap: _scanCccdQr,
-                child: const Text('Quét lại',
+                child: Text('Quét lại',
                     style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold)),
               ),
             ],
@@ -1113,7 +1113,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
       children: [
         SizedBox(
           width: 85,
-          child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+          child: Text(label, style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
         ),
         Expanded(
           child: Text(
@@ -1134,7 +1134,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -1154,7 +1154,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF2F2),
+                  color: AppColors.dangerContainer,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0xFFFECACA)),
                 ),
@@ -1176,11 +1176,11 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFECFDF5),
+                  color: AppColors.successContainer,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0xFFA7F3D0)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Icon(Icons.check_circle_outline, size: 16, color: AppColors.primary),
                     SizedBox(width: 6),
@@ -1197,8 +1197,8 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
             // NÚT XÁC THỰC: Bị DISABLED (onPressed: null) nếu chưa đủ 3 mục hợp lệ
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: _isComplete ? AppColors.primary : Colors.grey.shade300,
-                foregroundColor: _isComplete ? Colors.white : Colors.grey.shade500,
+                backgroundColor: _isComplete ? AppColors.primary : AppColors.border,
+                foregroundColor: _isComplete ? Colors.white : AppColors.textMuted,
                 elevation: _isComplete ? 2 : 0,
                 padding: const EdgeInsets.symmetric(vertical: 15),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1225,7 +1225,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
-                            color: _isComplete ? Colors.white : Colors.grey.shade600,
+                            color: _isComplete ? Colors.white : AppColors.textMuted,
                           ),
                         ),
                       ],

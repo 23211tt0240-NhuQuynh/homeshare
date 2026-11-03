@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/admin_colors.dart';
 
 enum AdminActionType {
   disbursement, // Giải ngân tiền cọc
@@ -27,7 +28,6 @@ class AdminAlertCard extends StatelessWidget {
     required this.onProcess,
   });
 
-  // Factory constructor tương thích nhanh với mã đơn giải ngân
   factory AdminAlertCard.disbursement({
     Key? key,
     String orderCode = '#DH8821',
@@ -43,12 +43,11 @@ class AdminAlertCard extends StatelessWidget {
       highlightCode: '$orderCode → $hostCode',
       subtitle: 'Chủ trọ: $hostName • Số tiền: $amount',
       actionLabel: 'Xử lý ngay',
-      actionButtonColor: const Color(0xFF12B76A),
+      actionButtonColor: AdminColors.success,
       onProcess: onProcess,
     );
   }
 
-  // Factory constructor cho duyệt bài đăng mới
   factory AdminAlertCard.postReview({
     Key? key,
     required String postCode,
@@ -63,49 +62,49 @@ class AdminAlertCard extends StatelessWidget {
       highlightCode: postCode,
       subtitle: 'Chủ trọ: $hostName • $roomTitle',
       actionLabel: 'Duyệt ngay',
-      actionButtonColor: const Color(0xFF398FC0),
+      actionButtonColor: AdminColors.accent,
       onProcess: onProcess,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    Color iconBgColor;
-    Widget iconWidget;
+    late Color iconBgColor;
+    late Widget iconWidget;
 
     switch (type) {
       case AdminActionType.disbursement:
-        iconBgColor = const Color(0xFFFEF3F2);
-        iconWidget = const Text(
+        iconBgColor = AdminColors.dangerContainer;
+        iconWidget = Text(
           '!',
           style: TextStyle(
-            color: Color(0xFFD92D20),
+            color: AdminColors.danger,
             fontSize: 18,
             fontWeight: FontWeight.w900,
           ),
         );
         break;
       case AdminActionType.postReview:
-        iconBgColor = const Color(0xFFE9F5FC);
-        iconWidget = const Icon(
+        iconBgColor = AdminColors.accentSoft;
+        iconWidget = Icon(
           Icons.apartment_rounded,
-          color: Color(0xFF398FC0),
+          color: AdminColors.accent,
           size: 19,
         );
         break;
       case AdminActionType.ekyc:
-        iconBgColor = const Color(0xFFFEF0C7);
-        iconWidget = const Icon(
+        iconBgColor = AdminColors.warningContainer;
+        iconWidget = Icon(
           Icons.badge_outlined,
-          color: Color(0xFFB54708),
+          color: AdminColors.warningInk,
           size: 19,
         );
         break;
       case AdminActionType.report:
-        iconBgColor = const Color(0xFFFEE4E2);
-        iconWidget = const Icon(
+        iconBgColor = AdminColors.dangerContainer;
+        iconWidget = Icon(
           Icons.warning_amber_rounded,
-          color: Color(0xFFD92D20),
+          color: AdminColors.danger,
           size: 19,
         );
         break;
@@ -114,9 +113,9 @@ class AdminAlertCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AdminColors.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFDCEAF5), width: 1.2),
+        border: Border.all(color: AdminColors.border, width: 1.2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -127,7 +126,6 @@ class AdminAlertCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Alert / Icon Badge
           Container(
             width: 36,
             height: 36,
@@ -139,8 +137,6 @@ class AdminAlertCard extends StatelessWidget {
             child: iconWidget,
           ),
           const SizedBox(width: 12),
-
-          // Main text info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -149,16 +145,16 @@ class AdminAlertCard extends StatelessWidget {
                 RichText(
                   text: TextSpan(
                     text: '$title ',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF101828),
+                      color: AdminColors.ink,
                     ),
                     children: [
                       TextSpan(
                         text: highlightCode,
-                        style: const TextStyle(
-                          color: Color(0xFF398FC0),
+                        style: TextStyle(
+                          color: AdminColors.accentText,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -170,9 +166,9 @@ class AdminAlertCard extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF667085),
+                    color: AdminColors.muted,
                     fontWeight: FontWeight.w500,
                   ),
                   maxLines: 1,
@@ -182,12 +178,10 @@ class AdminAlertCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-
-          // Action button (Xử lý ngay / Duyệt bài)
           ElevatedButton(
             onPressed: onProcess,
             style: ElevatedButton.styleFrom(
-              backgroundColor: actionButtonColor ?? const Color(0xFF12B76A),
+              backgroundColor: actionButtonColor ?? AdminColors.success,
               foregroundColor: Colors.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import '../../../core/constants/app_colors.dart';
 
 class HandoverMeterCard extends StatelessWidget {
   final String title;
@@ -28,18 +29,18 @@ class HandoverMeterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final iconColor = isElectricity
         ? const Color(0xFFEA580C)
-        : const Color(0xFF2563EB);
+        : (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB));
     final iconBg = isElectricity
         ? const Color(0xFFFFEDD5)
-        : const Color(0xFFDBEAFE);
+        : AppColors.primaryContainer;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      margin: EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -60,20 +61,20 @@ class HandoverMeterCard extends StatelessWidget {
                   color: iconColor,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
+                    color: AppColors.textDark,
                   ),
                 ),
               ),
               Text(
                 'Đơn giá: ${_formatRate(rate)} đ/$unit',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF64748B),
@@ -81,15 +82,15 @@ class HandoverMeterCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           // Input chỉ số lớn
           Container(
             height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            padding: EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFCBD5E1)),
+              border: Border.all(color: AppColors.border),
             ),
             child: Row(
               children: [
@@ -105,12 +106,12 @@ class HandoverMeterCard extends StatelessWidget {
                       ),
                     ],
                     onChanged: onChanged,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
+                      color: AppColors.textDark,
                     ),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
@@ -120,7 +121,7 @@ class HandoverMeterCard extends StatelessWidget {
                 ),
                 Text(
                   unit,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF64748B),

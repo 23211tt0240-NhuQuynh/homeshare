@@ -1,3 +1,4 @@
+import '../../profile/widgets/host_reputation_stars.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -38,8 +39,8 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
   final ScrollController _scrollController = ScrollController();
 
   // Bảng màu xanh dương đồng bộ nhận diện HomeShare.
-  static const Color _primaryBlue = AppColors.primary;
-  static const Color _primaryBlueLight = AppColors.primaryContainer;
+  static Color get _primaryBlue => AppColors.primary;
+  static Color get _primaryBlueLight => AppColors.primaryContainer;
   static const Color _primaryBlueBorder = Color(0xFFB2CCFF);
 
   // 1. Khu vực state
@@ -270,7 +271,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
         title: const Text('Số điện thoại chủ nhà'),
         content: Text(
           'Liên hệ trực tiếp với chủ trọ ${room.hostName}:\n\n📞 ${room.hostPhone}',
-          style: const TextStyle(fontSize: 16, height: 1.4),
+          style: TextStyle(fontSize: 16, height: 1.4),
         ),
         actions: [
           TextButton(
@@ -370,11 +371,11 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         centerTitle: false,
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back,
             size: 22,
             color: AppColors.textDark,
@@ -389,7 +390,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
             }
           },
         ),
-        title: const Text(
+        title: Text(
           'Trang Chủ',
           style: TextStyle(
             color: AppColors.textDark,
@@ -417,17 +418,17 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   height: 48,
                   child: ElevatedButton.icon(
                     onPressed: _executeSearch,
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.search,
                       size: 20,
-                      color: Colors.white,
+                      color: AppColors.onPrimary,
                     ),
-                    label: const Text(
+                    label: Text(
                       'Tìm kiếm phòng',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: AppColors.onPrimary,
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
@@ -441,7 +442,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Row(
+                Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.circle, size: 6, color: _primaryBlue),
@@ -486,9 +487,9 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
   Widget _buildLocationCard() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -512,7 +513,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 ),
               ),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'Khu vực',
                 style: TextStyle(
                   fontSize: 16,
@@ -602,7 +603,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: _primaryBlueBorder),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.add, size: 18, color: _primaryBlue),
@@ -628,7 +629,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
   Widget _buildFieldLabel(String label) {
     return Text(
       label,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 12.5,
         fontWeight: FontWeight.w600,
         color: AppColors.textDark,
@@ -649,7 +650,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
         decoration: BoxDecoration(
           color: const Color(0xFFF9FAFB),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          border: Border.all(color: AppColors.border),
         ),
         child: Row(
           children: [
@@ -658,12 +659,12 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(fontSize: 13, color: AppColors.textDark),
+                style: TextStyle(fontSize: 13, color: AppColors.textDark),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const Icon(
+            Icon(
               Icons.keyboard_arrow_down,
               size: 18,
               color: AppColors.textMuted,
@@ -687,10 +688,10 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
         decoration: BoxDecoration(
-          color: isSelected ? _primaryBlueLight : Colors.white,
+          color: isSelected ? _primaryBlueLight : AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? _primaryBlue : const Color(0xFFE5E7EB),
+            color: isSelected ? _primaryBlue : AppColors.border,
             width: isSelected ? 1.5 : 1.0,
           ),
         ),
@@ -723,7 +724,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   ? Icons.radio_button_checked
                   : Icons.radio_button_unchecked,
               size: 13,
-              color: isSelected ? _primaryBlue : const Color(0xFFD1D5DB),
+              color: isSelected ? _primaryBlue : AppColors.border,
             ),
           ],
         ),
@@ -741,9 +742,9 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -760,7 +761,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Expanded(
+              Expanded(
                 child: Row(
                   children: [
                     Icon(Icons.tune, size: 20, color: _primaryBlue),
@@ -788,7 +789,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 ),
                 child: Text(
                   '$_selectedCriteriaCount tiêu chí',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.bold,
                     color: _primaryBlue,
@@ -802,7 +803,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
           // 1. GIÁ THUÊ / THÁNG
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Giá thuê / tháng',
                   style: TextStyle(
@@ -817,7 +818,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 child: Text(
                   '$priceStartStr – $priceEndStr',
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                     color: _primaryBlue,
@@ -838,12 +839,12 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   decoration: BoxDecoration(
                     color: const Color(0xFFF9FAFB),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    border: Border.all(color: AppColors.border),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Tối thiểu',
                         style: TextStyle(
                           fontSize: 10.5,
@@ -852,7 +853,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                       ),
                       Text(
                         priceStartStr,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textDark,
@@ -872,12 +873,12 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   decoration: BoxDecoration(
                     color: const Color(0xFFF9FAFB),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    border: Border.all(color: AppColors.border),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Tối đa',
                         style: TextStyle(
                           fontSize: 10.5,
@@ -886,7 +887,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                       ),
                       Text(
                         priceEndStr,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textDark,
@@ -904,10 +905,10 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
             max: _maxPriceLimit,
             divisions: 40,
             activeColor: _primaryBlue,
-            inactiveColor: const Color(0xFFE5E7EB),
+            inactiveColor: AppColors.border,
             onChanged: (values) => setState(() => _priceRange = values),
           ),
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
@@ -926,7 +927,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Diện tích',
                 style: TextStyle(
                   fontSize: 13,
@@ -941,7 +942,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                     color: _primaryBlue,
@@ -962,12 +963,12 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   decoration: BoxDecoration(
                     color: const Color(0xFFF9FAFB),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    border: Border.all(color: AppColors.border),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Từ',
                         style: TextStyle(
                           fontSize: 10.5,
@@ -976,7 +977,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                       ),
                       Text(
                         areaStartStr,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textDark,
@@ -996,12 +997,12 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   decoration: BoxDecoration(
                     color: const Color(0xFFF9FAFB),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    border: Border.all(color: AppColors.border),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Đến',
                         style: TextStyle(
                           fontSize: 10.5,
@@ -1010,7 +1011,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                       ),
                       Text(
                         areaEndStr,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textDark,
@@ -1028,10 +1029,10 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
             max: _maxAreaLimit,
             divisions: 19,
             activeColor: _primaryBlue,
-            inactiveColor: const Color(0xFFE5E7EB),
+            inactiveColor: AppColors.border,
             onChanged: (values) => setState(() => _areaRange = values),
           ),
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
@@ -1049,7 +1050,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
           // 3. TIỆN ÍCH & YÊU CẦU
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Tiện ích & Yêu cầu',
                   style: TextStyle(
@@ -1064,7 +1065,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 child: Text(
                   '${_selectedAmenities.length} đang chọn',
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: _primaryBlue,
                     fontWeight: FontWeight.w600,
@@ -1083,11 +1084,11 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   controller: _customAmenityController,
                   decoration: InputDecoration(
                     hintText: 'Thêm tiện ích, yêu cầu riêng...',
-                    hintStyle: const TextStyle(
+                    hintStyle: TextStyle(
                       fontSize: 12,
                       color: AppColors.textMuted,
                     ),
-                    prefixIcon: const Icon(
+                    prefixIcon: Icon(
                       Icons.add_circle_outline,
                       size: 18,
                       color: AppColors.textMuted,
@@ -1100,11 +1101,11 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                     fillColor: const Color(0xFFF9FAFB),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                      borderSide: BorderSide(color: AppColors.border),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                      borderSide: BorderSide(color: AppColors.border),
                     ),
                   ),
                   onSubmitted: (_) => _addCustomAmenity(),
@@ -1158,7 +1159,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.check_circle,
                           size: 18,
                           color: _primaryBlue,
@@ -1167,7 +1168,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                         Expanded(
                           child: Text(
                             amenity,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textDark,
@@ -1181,7 +1182,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: isCustom
-                                ? const Color(0xFFDBEAFE)
+                                ? AppColors.border
                                 : _primaryBlueLight,
                             borderRadius: BorderRadius.circular(4),
                           ),
@@ -1208,7 +1209,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                               });
                             },
                             borderRadius: BorderRadius.circular(12),
-                            child: const Padding(
+                            child: Padding(
                               padding: EdgeInsets.all(2),
                               child: Icon(
                                 Icons.close,
@@ -1246,11 +1247,11 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                         decoration: BoxDecoration(
                           color: const Color(0xFFF9FAFB),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                          border: Border.all(color: AppColors.border),
                         ),
                         child: Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.radio_button_unchecked,
                               size: 18,
                               color: Color(0xFF9CA3AF),
@@ -1259,13 +1260,13 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                             Expanded(
                               child: Text(
                                 amenity,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12.5,
                                   color: Color(0xFF4B5563),
                                 ),
                               ),
                             ),
-                            const Icon(
+                            Icon(
                               Icons.add,
                               size: 16,
                               color: Color(0xFF9CA3AF),
@@ -1295,7 +1296,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: _primaryBlueBorder),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
@@ -1331,12 +1332,12 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
             height: 48,
             child: OutlinedButton.icon(
               onPressed: _resetFilters,
-              icon: const Icon(
+              icon: Icon(
                 Icons.refresh,
                 size: 18,
                 color: AppColors.textDark,
               ),
-              label: const Text(
+              label: Text(
                 'Đặt lại',
                 style: TextStyle(
                   fontSize: 14,
@@ -1345,8 +1346,8 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                backgroundColor: Colors.white,
-                side: const BorderSide(color: Color(0xFFE5E7EB)),
+                backgroundColor: AppColors.surface,
+                side: BorderSide(color: AppColors.border),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1360,13 +1361,13 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
             height: 48,
             child: ElevatedButton.icon(
               onPressed: _executeSearch,
-              icon: const Icon(Icons.search, size: 18, color: Colors.white),
-              label: const Text(
+              icon: Icon(Icons.search, size: 18, color: AppColors.onPrimary),
+              label: Text(
                 'Tìm kiếm',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: AppColors.onPrimary,
                 ),
               ),
               style: ElevatedButton.styleFrom(
@@ -1396,18 +1397,18 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
-          const Icon(Icons.location_on, size: 18, color: _primaryBlue),
+          Icon(Icons.location_on, size: 18, color: _primaryBlue),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               '$locationLabel • $rentalLabel',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textDark,
@@ -1426,7 +1427,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: _primaryBlueBorder),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.tune, size: 14, color: _primaryBlue),
@@ -1492,7 +1493,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                           : 'Kết quả tìm kiếm ($resultCount)',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textDark,
@@ -1508,21 +1509,21 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.surface,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  border: Border.all(color: AppColors.border),
                 ),
                 child: Row(
                   children: [
                     Text(
                       _getSortLabel(_selectedSort),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textDark,
                       ),
                     ),
-                    const Icon(
+                    Icon(
                       Icons.keyboard_arrow_down,
                       size: 16,
                       color: AppColors.textMuted,
@@ -1586,7 +1587,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
             if (showSectionTitle) ...[
               Text(
                 'Phòng cho thuê (${rooms.length})',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textDark,
@@ -1622,7 +1623,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
             if (showSectionTitle) ...[
               Text(
                 'Bài tìm ở ghép (${posts.length})',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textDark,
@@ -1653,9 +1654,9 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
     }
   }
 
-  Widget _buildSearchLoading() => const Center(
+  Widget _buildSearchLoading() => Center(
     child: Padding(
-      padding: EdgeInsets.all(32),
+      padding: const EdgeInsets.all(32),
       child: CircularProgressIndicator(color: _primaryBlue),
     ),
   );
@@ -1664,32 +1665,32 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
     width: double.infinity,
     padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(12),
       border: Border.all(color: const Color(0xFFFCA5A5)),
     ),
-    child: Text(message, style: const TextStyle(color: AppColors.danger)),
+    child: Text(message, style: TextStyle(color: AppColors.danger)),
   );
 
   Widget _buildEmptySearchMessage(String type) => Container(
     width: double.infinity,
     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: const Color(0xFFE5E7EB)),
+      border: Border.all(color: AppColors.border),
     ),
     child: Column(
       children: [
-        Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
+        Icon(Icons.search_off, size: 48, color: AppColors.textMuted),
         const SizedBox(height: 10),
         Text(
           'Chưa tìm thấy $type phù hợp',
           textAlign: TextAlign.center,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
         ),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Hãy thử điều chỉnh khu vực, khoảng giá hoặc tiêu chí lọc.',
           style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
           textAlign: TextAlign.center,
@@ -1705,10 +1706,10 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: Colors.white,
+        color: AppColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: Color(0xFFE5E7EB)),
+          side: BorderSide(color: AppColors.border),
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -1729,7 +1730,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                     post.authorName.trim().isEmpty
                         ? '?'
                         : post.authorName.trim().characters.first,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _primaryBlue,
                       fontWeight: FontWeight.bold,
                     ),
@@ -1744,7 +1745,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                         post.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textDark,
@@ -1755,7 +1756,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                         '${post.authorName} • ${post.district}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           color: AppColors.textMuted,
                         ),
@@ -1763,7 +1764,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                       const SizedBox(height: 4),
                       Text(
                         price,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: _primaryBlue,
@@ -1772,7 +1773,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                     ],
                   ),
                 ),
-                const Icon(
+                Icon(
                   Icons.chevron_right_rounded,
                   color: AppColors.textMuted,
                 ),
@@ -1804,9 +1805,9 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          border: Border.all(color: AppColors.border),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.03),
@@ -1831,8 +1832,8 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                       imageUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => Container(
-                        color: const Color(0xFFF3F4F6),
-                        child: const Icon(
+                        color: AppColors.surfaceVariant,
+                        child: Icon(
                           Icons.home,
                           size: 36,
                           color: Color(0xFF9CA3AF),
@@ -1851,10 +1852,10 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                           color: AppColors.primary,
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Chính chủ',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppColors.onPrimary,
                             fontSize: 9.5,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1873,22 +1874,30 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Tiêu đề phòng
-                  Text(
-                    room.title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          room.title,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      HostReputationStarLabel(hostId: room.hostId),
+                    ],
                   ),
                   const SizedBox(height: 3),
 
                   // Giá thuê dùng màu xanh thương hiệu HomeShare.
                   Text(
                     priceStr,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
                       color: _primaryBlue,
@@ -1899,7 +1908,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   // Thông số: Diện tích • Loại phòng • Quận huyện
                   Text(
                     '${room.area.toInt()} m² • ${room.roomType} • ${room.district}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11.5,
                       color: Color(0xFF6B7280),
                     ),
@@ -1923,12 +1932,12 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF3F4F6),
+                                color: AppColors.surfaceVariant,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 a,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
                                   color: Color(0xFF4B5563),
                                 ),
@@ -1947,8 +1956,8 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                         child: InkWell(
                           customBorder: const CircleBorder(),
                           onTap: () => _showCallHostDialog(room),
-                          child: const Padding(
-                            padding: EdgeInsets.all(7),
+                          child: Padding(
+                            padding: const EdgeInsets.all(7),
                             child: Icon(
                               Icons.phone,
                               size: 16,
@@ -1966,8 +1975,8 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                         child: InkWell(
                           customBorder: const CircleBorder(),
                           onTap: () => _openChatWithHost(room),
-                          child: const Padding(
-                            padding: EdgeInsets.all(7),
+                          child: Padding(
+                            padding: const EdgeInsets.all(7),
                             child: Icon(
                               Icons.chat_bubble,
                               size: 16,
@@ -1987,8 +1996,8 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                               .contains(room.id);
                           return Material(
                             color: isFav
-                                ? const Color(0xFFFEE2E2)
-                                : const Color(0xFFF1F5F9),
+                                ? AppColors.dangerContainer
+                                : AppColors.surfaceVariant,
                             shape: const CircleBorder(),
                             child: InkWell(
                               customBorder: const CircleBorder(),
@@ -2010,7 +2019,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                                       duration: const Duration(seconds: 1),
                                       backgroundColor: added
                                           ? AppColors.primary
-                                          : const Color(0xFF334155),
+                                          : AppColors.textMuted,
                                     ),
                                   );
                                 }
@@ -2024,7 +2033,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                                   size: 16,
                                   color: isFav
                                       ? const Color(0xFFEF4444)
-                                      : const Color(0xFF64748B),
+                                      : AppColors.textMuted,
                                 ),
                               ),
                             ),
@@ -2101,8 +2110,8 @@ class LocationSearchBottomSheetState extends State<LocationSearchBottomSheet> {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
@@ -2112,7 +2121,7 @@ class LocationSearchBottomSheetState extends State<LocationSearchBottomSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
+              color: AppColors.border,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -2123,13 +2132,13 @@ class LocationSearchBottomSheetState extends State<LocationSearchBottomSheet> {
               children: [
                 Text(
                   widget.title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, size: 20),
+                  icon: Icon(Icons.close, size: 20),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -2142,10 +2151,10 @@ class LocationSearchBottomSheetState extends State<LocationSearchBottomSheet> {
               onChanged: _onSearch,
               decoration: InputDecoration(
                 hintText: widget.searchHint,
-                prefixIcon: const Icon(Icons.search, size: 20),
+                prefixIcon: Icon(Icons.search, size: 20),
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 filled: true,
-                fillColor: const Color(0xFFF3F4F6),
+                fillColor: AppColors.surfaceVariant,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,
@@ -2176,7 +2185,7 @@ class LocationSearchBottomSheetState extends State<LocationSearchBottomSheet> {
                     ),
                   ),
                   trailing: isSelected
-                      ? const Icon(
+                      ? Icon(
                           Icons.check,
                           color: AppColors.primary,
                           size: 20,

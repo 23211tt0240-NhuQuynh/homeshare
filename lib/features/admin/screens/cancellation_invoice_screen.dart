@@ -7,6 +7,7 @@ import '../../../../core/utils/vietqr_helper.dart';
 import '../utils/booking_utils.dart';
 import '../widgets/admin_branded_title.dart';
 import 'cancellation_receipt_screen.dart';
+import '../theme/admin_colors.dart';
 
 class CancellationInvoiceScreen extends StatefulWidget {
   final List<String> bookingIds;
@@ -154,22 +155,22 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFAEB),
+        color: AdminColors.warningContainer,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFEDF89)),
+        border: Border.all(color: AdminColors.warning),
       ),
       child: Column(
         children: [
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12.5, color: Color(0xFFB54708)),
+            style: TextStyle(fontSize: 12.5, color: AdminColors.warningInk),
           ),
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: onPressed,
             icon: const Icon(Icons.account_balance_rounded, size: 18),
-            label: const Text('NHẬP TÀI KHOẢN ĐỂ TẠO QR'),
+            label: Text('NHẬP TÀI KHOẢN ĐỂ TẠO QR'),
           ),
         ],
       ),
@@ -188,7 +189,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AdminColors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -205,18 +206,18 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Tài khoản nhận chuyển khoản',
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF101828),
+                    color: AdminColors.ink,
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'Chọn đúng ngân hàng và nhập STK. Không cần nhập tên; app ngân hàng sẽ hiện người nhận khi quét.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF667085)),
+                  style: TextStyle(fontSize: 12, color: AdminColors.muted),
                 ),
                 const SizedBox(height: 14),
                 Wrap(
@@ -238,7 +239,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                 const SizedBox(height: 12),
                 TextField(
                   controller: bankCtrl,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Tên ngân hàng',
                     border: OutlineInputBorder(),
                   ),
@@ -249,7 +250,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                 TextField(
                   controller: accountCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Số tài khoản',
                     border: OutlineInputBorder(),
                   ),
@@ -261,7 +262,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                     onPressed: selectedCode == null
                         ? null
                         : () => Navigator.pop(sheetContext, true),
-                    child: const Text('LƯU THÔNG TIN & TẠO QR'),
+                    child: Text('LƯU THÔNG TIN & TẠO QR'),
                   ),
                 ),
               ],
@@ -310,9 +311,9 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
           }
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Đã lưu tài khoản. QR chuyển khoản đã được tạo.'),
-            backgroundColor: Color(0xFF12B76A),
+            backgroundColor: AdminColors.success,
           ),
         );
       }
@@ -414,8 +415,8 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFFD92D20),
-            content: const Text(
+            backgroundColor: AdminColors.danger,
+            content: Text(
               'Không thể ghi nhận hoàn tiền. Vui lòng thử lại.',
             ),
           ),
@@ -429,10 +430,10 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFF4F9FF),
+      return Scaffold(
+        backgroundColor: AdminColors.paper,
         body: Center(
-          child: CircularProgressIndicator(color: Color(0xFF398FC0)),
+          child: CircularProgressIndicator(color: AdminColors.accent),
         ),
       );
     }
@@ -533,20 +534,20 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F9FF),
+      backgroundColor: AdminColors.paper,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AdminColors.card,
         elevation: 0,
         scrolledUnderElevation: 0,
         title: const AdminBrandedTitle(title: 'Hóa đơn đơn hủy'),
         centerTitle: false,
         bottom: TabBar(
           controller: _tabController,
-          labelColor: const Color(0xFF398FC0),
-          unselectedLabelColor: const Color(0xFF667085),
-          indicatorColor: const Color(0xFF398FC0),
+          labelColor: AdminColors.accent,
+          unselectedLabelColor: AdminColors.muted,
+          indicatorColor: AdminColors.accent,
           indicatorWeight: 3,
-          labelStyle: const TextStyle(
+          labelStyle: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 13.5,
           ),
@@ -640,24 +641,24 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFE9F5FC),
+              color: AdminColors.accentSoft,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFB2DDFF)),
+              border: Border.all(color: AdminColors.border),
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.info_outline_rounded,
-                  color: Color(0xFF398FC0),
+                  color: AdminColors.accent,
                   size: 22,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Hóa đơn bồi thường hủy cọc gửi cho Chủ trọ ($hostName).',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12.5,
-                      color: Color(0xFF175CD3),
+                      color: AdminColors.accentText,
                       height: 1.35,
                     ),
                   ),
@@ -670,9 +671,9 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
           // Khối Chi Tiết Hóa Đơn Chủ Trọ
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AdminColors.card,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFDCEAF5)),
+              border: Border.all(color: AdminColors.border),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.04),
@@ -699,9 +700,9 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                 Center(
                   child: Text(
                     'Đơn: $orderCodes',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF667085),
+                      color: AdminColors.muted,
                     ),
                   ),
                 ),
@@ -729,19 +730,19 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                 _buildRow(
                   'Trả người thuê (85%):',
                   '-${currencyFormatter.format(renterRefund)} đ',
-                  color: const Color(0xFF667085),
+                  color: AdminColors.muted,
                 ),
                 const SizedBox(height: 8),
                 _buildRow(
                   'Cấn trừ phí dịch vụ sàn (5%):',
                   '-${currencyFormatter.format(platformFee)} đ',
-                  color: const Color(0xFFD92D20),
+                  color: AdminColors.danger,
                 ),
                 const SizedBox(height: 8),
                 _buildRow(
                   'Bồi thường giữ chỗ cho Chủ trọ (+10%):',
                   '+${currencyFormatter.format(hostCompensation)} đ',
-                  color: const Color(0xFF027A48),
+                  color: AdminColors.successInk,
                   isBold: true,
                 ),
                 const Divider(height: 24),
@@ -750,27 +751,27 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFECFDF3),
+                    color: AdminColors.successContainer,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFA6F4C5)),
+                    border: Border.all(color: AdminColors.success),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'THỰC CHUYỂN BỒI THƯỜNG:',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF027A48),
+                          color: AdminColors.successInk,
                         ),
                       ),
                       Text(
                         '${currencyFormatter.format(hostCompensation)} đ',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF027A48),
+                          color: AdminColors.successInk,
                         ),
                       ),
                     ],
@@ -785,19 +786,19 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
           if (qrPayload != null) ...[
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: const Color(0xFFFFFFFF),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFDCEAF5)),
+                border: Border.all(color: AdminColors.border),
               ),
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  const Text(
+                  Text(
                     'MÃ VIETQR CHUYỂN BỒI THƯỜNG CHO CHỦ TRỌ',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
-                      color: Color(0xFF344054),
+                      color: AdminColors.mutedStrong,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -810,9 +811,9 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                   const SizedBox(height: 8),
                   Text(
                     'Nội dung: $memo',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF667085),
+                      color: AdminColors.muted,
                     ),
                   ),
                 ],
@@ -855,7 +856,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                     platformFee: platformFee,
                   ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF398FC0),
+              backgroundColor: AdminColors.accent,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
@@ -864,10 +865,12 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
             ),
             icon: const Icon(Icons.send_rounded, size: 18),
             label: Text(
-              _isProcessing
-                  ? 'ĐANG XỬ LÝ...'
-                  : 'XÁC NHẬN & GỬI HÓA ĐƠN CHO CHỦ TRỌ',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+              _bookingDataList.any((b) => b['cancellationHostPaid'] == true)
+                  ? 'ĐÃ GHI NHẬN CHUYỂN'
+                  : (_isProcessing
+                        ? 'ĐANG XỬ LÝ...'
+                        : 'XÁC NHẬN & GỬI HÓA ĐƠN CHO CHỦ TRỌ'),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
             ),
           ),
           const SizedBox(height: 24),
@@ -913,24 +916,24 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFFEF3F2),
+              color: AdminColors.dangerContainer,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFECDCA)),
+              border: Border.all(color: AdminColors.dangerContainer),
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.report_problem_outlined,
-                  color: Color(0xFFD92D20),
+                  color: AdminColors.danger,
                   size: 22,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Hóa đơn hoàn tiền gửi Người thuê ($renterName).',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12.5,
-                      color: Color(0xFFB42318),
+                      color: AdminColors.dangerInk,
                       height: 1.35,
                     ),
                   ),
@@ -943,9 +946,9 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
           // Khối Chi Tiết Hóa Đơn Người Thuê
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AdminColors.card,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFDCEAF5)),
+              border: Border.all(color: AdminColors.border),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.04),
@@ -973,9 +976,9 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                 Center(
                   child: Text(
                     'Đơn: $orderCodes',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF667085),
+                      color: AdminColors.muted,
                     ),
                   ),
                 ),
@@ -1005,14 +1008,14 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                 _buildRow(
                   'Phí hủy phòng (-15%):',
                   '-${currencyFormatter.format(cancellationPenaltyTotal)} đ',
-                  color: const Color(0xFFD92D20),
+                  color: AdminColors.danger,
                   isBold: true,
                 ),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(left: 4, top: 2),
                   child: Text(
                     '• Bao gồm: 5% phí xử lý sàn & 10% bồi thường chủ trọ giữ phòng',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF667085)),
+                    style: TextStyle(fontSize: 11, color: AdminColors.muted),
                   ),
                 ),
                 const Divider(height: 24),
@@ -1021,27 +1024,27 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE9F5FC),
+                    color: AdminColors.accentSoft,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFB2DDFF)),
+                    border: Border.all(color: AdminColors.border),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'SỐ TIỀN THỰC HOÀN (85%):',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF398FC0),
+                          color: AdminColors.accentText,
                         ),
                       ),
                       Text(
                         '${currencyFormatter.format(renterRefund)} đ',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF398FC0),
+                          color: AdminColors.accentText,
                         ),
                       ),
                     ],
@@ -1056,19 +1059,19 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
           if (qrPayload != null) ...[
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: const Color(0xFFFFFFFF),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFDCEAF5)),
+                border: Border.all(color: AdminColors.border),
               ),
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  const Text(
+                  Text(
                     'MÃ VIETQR HOÀN TIỀN CHO KHÁCH THUÊ',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
-                      color: Color(0xFF344054),
+                      color: AdminColors.mutedStrong,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -1081,9 +1084,9 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                   const SizedBox(height: 8),
                   Text(
                     'Nội dung: $memo',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF667085),
+                      color: AdminColors.muted,
                     ),
                   ),
                 ],
@@ -1109,7 +1112,11 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
 
           // Nút xác nhận & gửi hóa đơn cho người thuê
           ElevatedButton.icon(
-            onPressed: _isProcessing
+            onPressed:
+                _isProcessing ||
+                    _bookingDataList.any(
+                      (b) => b['cancellationRenterRefunded'] == true,
+                    )
                 ? null
                 : () => _sendNotificationAndRecord(
                     targetRole: 'renter',
@@ -1128,7 +1135,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                     platformFee: platformFee,
                   ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD92D20),
+              backgroundColor: AdminColors.danger,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
@@ -1137,10 +1144,14 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
             ),
             icon: const Icon(Icons.send_rounded, size: 18),
             label: Text(
-              _isProcessing
-                  ? 'ĐANG XỬ LÝ...'
-                  : 'XÁC NHẬN & GỬI HÓA ĐƠN CHO NGƯỜI THUÊ',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+              _bookingDataList.any(
+                    (b) => b['cancellationRenterRefunded'] == true,
+                  )
+                  ? 'ĐÃ GHI NHẬN HOÀN TIỀN'
+                  : (_isProcessing
+                        ? 'ĐANG XỬ LÝ...'
+                        : 'XÁC NHẬN & GỬI HÓA ĐƠN CHO NGƯỜI THUÊ'),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
             ),
           ),
           const SizedBox(height: 24),
@@ -1156,22 +1167,31 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
     Color? color,
   }) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            color: color ?? const Color(0xFF475467),
-            fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              color: color ?? AdminColors.muted,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+            ),
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 13.5,
-            color: color ?? const Color(0xFF101828),
-            fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13.5,
+              color: color ?? AdminColors.ink,
+              fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+            ),
           ),
         ),
       ],

@@ -584,6 +584,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
 
   @override
   Widget build(BuildContext context) {
+    AppColors.bind(Theme.of(context).brightness);
     final session = ref.watch(hostSessionProvider).value;
     final profile = ref.watch(userProfileProvider).value;
     final amenities = ref.watch(hostAmenitiesProvider);
@@ -614,19 +615,19 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       child: Scaffold(
         backgroundColor: HostTheme.background,
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.surface,
           elevation: 0,
           leading: Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: EdgeInsets.all(8.0),
             child: InkWell(
               borderRadius: BorderRadius.circular(20),
               onTap: _saving ? null : () => Navigator.pop(context),
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF1F5F9),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.arrow_back_ios_new,
                   size: 16,
                   color: HostTheme.textDark,
@@ -634,7 +635,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               ),
             ),
           ),
-          title: const Column(
+          title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -643,7 +644,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A),
+                  color: AppColors.textDark,
                 ),
               ),
               Text(
@@ -656,7 +657,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             TextButton(
               key: const ValueKey('reset_button'),
               onPressed: _saving ? null : _resetForm,
-              child: const Text(
+              child: Text(
                 'Đặt lại',
                 style: TextStyle(
                   fontSize: 14,
@@ -668,7 +669,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           ],
         ),
         bottomNavigationBar: SafeArea(
-          minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          minimum: EdgeInsets.fromLTRB(16, 8, 16, 12),
           child: Align(
             alignment: Alignment.bottomCenter,
             heightFactor: 1.0,
@@ -691,15 +692,15 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                       ? null
                       : () => _save(uid, profile),
                   child: _saving
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: AppColors.surface,
                           ),
                         )
-                      : const Row(
+                      : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
@@ -726,7 +727,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             child: Form(
               key: _formKey,
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 40),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -737,18 +738,18 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                       allRoomsAsync: allRoomsAsync,
                       propertyRooms: propertyRooms,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // PHẦN 2: HÌNH ẢNH & VIDEO PHÒNG
                     _photoSection(),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // PHẦN 3: THÔNG TIN CƠ BẢN
                     const HostSectionTitle(
                       title: 'THÔNG TIN CƠ BẢN',
                       icon: Icons.edit_note_rounded,
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     _textField(
                       _title,
                       'Tiêu đề bài đăng *',
@@ -758,7 +759,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                     ),
                     // Bố cục mới: [ Giá thuê ] [ Tiền cọc ]
                     _priceAndDepositRow(),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     _textField(
                       _areaController,
                       'Diện tích (m²)',
@@ -769,21 +770,21 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                       suffixText: 'm²',
                       readOnly: true,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // PHẦN 4: TIỆN ÍCH & YÊU CẦU
                     amenities.when(
-                      loading: () => const Padding(
+                      loading: () => Padding(
                         padding: EdgeInsets.all(16),
                         child: Center(child: CircularProgressIndicator()),
                       ),
-                      error: (_, _) => const Padding(
+                      error: (_, _) => Padding(
                         padding: EdgeInsets.all(8.0),
                         child: Text('Không tải được danh mục tiện ích.'),
                       ),
                       data: (items) => _amenitySection(items),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // PHẦN 5: VỊ TRÍ & LIÊN HỆ
                     const HostSectionTitle(
@@ -791,7 +792,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                       icon: Icons.location_on_outlined,
                       showChevron: true,
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     _contactField(
                       _address,
                       'Địa chỉ *',
@@ -803,7 +804,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                     Row(
                       children: [
                         Expanded(child: _priceSummary()),
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10),
                         Expanded(
                           child: _contactField(
                             _phone,
@@ -826,7 +827,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                       maxLength: 2000,
                     ),
                     if (uid == null) _authWarning(),
-                    const SizedBox(height: 24),
+                    SizedBox(height: 24),
                   ],
                 ),
               ),
@@ -888,10 +889,10 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             key: const ValueKey('property_select'),
             initialValue: _property,
             isExpanded: true,
-            hint: Text(propertyHint, style: const TextStyle(fontSize: 14)),
+            hint: Text(propertyHint, style: TextStyle(fontSize: 14)),
             decoration: HostTheme.inputDecoration(
               labelText: 'Khu nhà *',
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.home_work_outlined,
                 color: HostTheme.primary,
                 size: 20,
@@ -911,7 +912,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                 ? 'Vui lòng chọn khu nhà'
                 : null,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
           // Dropdown Phòng
           DropdownButtonFormField<RoomModel>(
@@ -920,10 +921,10 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                 ? propertyRooms.firstWhere((r) => r.id == _selectedRoom?.id)
                 : null,
             isExpanded: true,
-            hint: Text(roomHint, style: const TextStyle(fontSize: 14)),
+            hint: Text(roomHint, style: TextStyle(fontSize: 14)),
             decoration: HostTheme.inputDecoration(
               labelText: 'Phòng *',
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.meeting_room_outlined,
                 color: HostTheme.primary,
                 size: 20,
@@ -962,7 +963,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Expanded(child: _priceInput()),
-      const SizedBox(width: 10),
+      SizedBox(width: 10),
       Expanded(child: _depositInput()),
     ],
   );
@@ -973,7 +974,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     readOnly: true,
     keyboardType: TextInputType.number,
     inputFormatters: [VndInputFormatter()],
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 17,
       fontWeight: FontWeight.w700,
       color: HostTheme.primary,
@@ -981,7 +982,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     decoration: HostTheme.inputDecoration(
       labelText: 'Tiền cọc *',
       suffixText: 'đ',
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       enabledBorderColor: HostTheme.inputEnabledBorder,
       enabledBorderWidth: 1.2,
       focusedBorderColor: HostTheme.primary,
@@ -1001,7 +1002,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     readOnly: true,
     keyboardType: TextInputType.number,
     inputFormatters: [VndInputFormatter()],
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 17,
       fontWeight: FontWeight.w700,
       color: HostTheme.primary,
@@ -1009,7 +1010,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     decoration: HostTheme.inputDecoration(
       labelText: 'Giá thuê / tháng *',
       suffixText: 'đ/tháng',
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       enabledBorderColor: HostTheme.inputEnabledBorder,
       enabledBorderWidth: 1.2,
       focusedBorderColor: HostTheme.primary,
@@ -1028,13 +1029,13 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     builder: (context, value, _) {
       final formatted = HostImageUtils.formatCurrency(value.text.trim());
       return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
+        padding: EdgeInsets.only(bottom: 12),
         child: Container(
           key: const ValueKey('price_readonly'),
           height: 52,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+          padding: EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
+            color: AppColors.surfaceVariant,
             borderRadius: HostTheme.radius14,
             border: Border.all(color: HostTheme.inputBorder),
           ),
@@ -1043,7 +1044,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               Expanded(
                 child: Text(
                   formatted,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: HostTheme.textDark,
@@ -1051,7 +1052,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Text(
+              Text(
                 'đ',
                 style: TextStyle(
                   fontSize: 14,
@@ -1075,7 +1076,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     TextInputType? keyboard,
     bool readOnly = false,
   }) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
+    padding: EdgeInsets.only(bottom: 12),
     child: TextFormField(
       key: key,
       controller: controller,
@@ -1103,7 +1104,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       icon: Icons.image_outlined,
       trailing: Text(
         totalImages == 0 ? '0/10 ảnh' : 'Đã chọn $totalImages/10',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           color: HostTheme.textSecondary,
           fontWeight: FontWeight.w600,
@@ -1150,8 +1151,8 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          const Row(
+          SizedBox(height: 10),
+          Row(
             children: [
               Icon(Icons.info_rounded, size: 16, color: HostTheme.primary),
               SizedBox(width: 6),
@@ -1183,7 +1184,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     int? maxLength,
     bool readOnly = false,
   }) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
+    padding: EdgeInsets.only(bottom: 12),
     child: TextFormField(
       key: key,
       controller: controller,
@@ -1250,7 +1251,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       icon: Icons.format_list_bulleted_rounded,
       trailing: Text(
         '${_selectedAmenities.length} đang chọn',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           color: HostTheme.primary,
           fontWeight: FontWeight.w700,
@@ -1260,7 +1261,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: HostTheme.background,
               borderRadius: HostTheme.radius14,
@@ -1268,17 +1269,17 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.add_circle_outline,
                   color: HostTheme.primary,
                   size: 20,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     key: const ValueKey('custom_amenity_input'),
                     controller: _customAmenity,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Thêm tiện ích, yêu cầu riêng...',
                       hintStyle: TextStyle(
                         fontSize: 13,
@@ -1290,7 +1291,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                     onSubmitted: (_) => _addCustomAmenity(catalogItems),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 ElevatedButton(
                   key: const ValueKey('add_custom_amenity_button'),
                   style: ElevatedButton.styleFrom(
@@ -1299,7 +1300,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                       horizontal: 14,
                       vertical: 8,
                     ),
@@ -1307,17 +1308,17 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                     minimumSize: const Size(60, 34),
                   ),
                   onPressed: () => _addCustomAmenity(catalogItems),
-                  child: const Text(
-                    'Thêm',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  child: Text(
+                'Thêm',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           if (visible.isEmpty && !_amenitiesExpanded)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Center(
                 child: Text(
@@ -1342,7 +1343,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                   : null,
             );
           }),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           InkWell(
             key: const ValueKey('amenities_toggle_button'),
             borderRadius: HostTheme.radius12,
@@ -1352,13 +1353,13 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               width: double.infinity,
               height: 38,
               decoration: BoxDecoration(
-                color: const Color(0xFFF0F5FF),
+                color: AppColors.primaryContainer,
                 borderRadius: HostTheme.radius12,
               ),
               alignment: Alignment.center,
               child: Text(
                 _amenitiesExpanded ? 'Thu gọn ^' : 'Xem thêm v',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: HostTheme.primary,
@@ -1371,7 +1372,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     );
   }
 
-  Widget _authWarning() => const Padding(
+  Widget _authWarning() => Padding(
     padding: EdgeInsets.only(bottom: 12),
     child: Text(
       'Cần đăng nhập tài khoản chủ nhà để đăng bài.',

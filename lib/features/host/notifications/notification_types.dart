@@ -56,12 +56,19 @@ extension HostNotificationTypeX on HostNotificationType {
         val == 'dang_o' ||
         val == 'living' ||
         val == 'occupying' ||
-        val == 'active') {
+        val == 'active' ||
+        val == 'danhanphong') {
       return HostNotificationType.staying;
     }
     if (val == 'deposit' ||
         val == 'tiencoc' ||
         val == 'dacoc' ||
+        val == 'da_coc' ||
+        val == 'deposited' ||
+        val == 'approved' ||
+        val == 'daduyet' ||
+        val == 'da_duyet' ||
+        val == 'deposit_paid' ||
         val == 'thongbaotiencoc' ||
         val == 'thong_bao_tien_coc') {
       return HostNotificationType.deposit;
@@ -72,7 +79,10 @@ extension HostNotificationTypeX on HostNotificationType {
         val == 'dathanhtoan' ||
         val == 'dathanhtoanhet' ||
         val == 'da_thanh_toan_het' ||
-        val == 'thanh_toan_hoan_tat') {
+        val == 'thanh_toan_hoan_tat' ||
+        val == 'paid' ||
+        val == 'completed' ||
+        val == 'full') {
       return HostNotificationType.paymentCompleted;
     }
     return HostNotificationType.pendingAction;

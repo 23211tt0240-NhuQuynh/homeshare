@@ -40,7 +40,7 @@ class ProfileStatsCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11.5,
               color: AppColors.textSecondary,
             ),
@@ -67,9 +67,9 @@ class ProfileStatsCard extends StatelessWidget {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.border),
         ),
-        color: Colors.white,
+        color: AppColors.surface,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(14),
@@ -79,7 +79,7 @@ class ProfileStatsCard extends StatelessWidget {
               horizontal: 12.0,
             ),
             child: hasError
-                ? const Center(
+                ? Center(
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 8.0),
                       child: Text(

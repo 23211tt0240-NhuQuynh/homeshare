@@ -52,8 +52,8 @@ class _HostNotificationsScreenState
           children: [
             // 1. Header & Thanh tìm kiếm
             Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              color: AppColors.surface,
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -64,20 +64,20 @@ class _HostNotificationsScreenState
                         onTap: () => Navigator.of(context).maybePop(),
                         borderRadius: BorderRadius.circular(24),
                         child: Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(color: const Color(0xFFEAECF0)),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.arrow_back_rounded,
                             size: 20,
                             color: Color(0xFF101828),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 14),
-                      const Text(
+                      SizedBox(width: 14),
+                      Text(
                         'Thông báo',
                         style: TextStyle(
                           fontSize: 22,
@@ -89,7 +89,7 @@ class _HostNotificationsScreenState
                     ],
                   ),
 
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
 
                   // Thanh tìm kiếm theo mã booking
                   Container(
@@ -98,23 +98,23 @@ class _HostNotificationsScreenState
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: const Color(0xFFE4E7EC)),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    padding: EdgeInsets.symmetric(horizontal: 14),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.search_rounded,
                           color: Color(0xFF98A2B3),
                           size: 20,
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Expanded(
                           child: TextField(
                             controller: _searchController,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               color: Color(0xFF101828),
                             ),
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: 'Tìm kiếm theo mã booking...',
                               hintStyle: TextStyle(
                                 fontSize: 13,
@@ -146,7 +146,7 @@ class _HostNotificationsScreenState
                                   )
                                   .setQuery('');
                             },
-                            child: const Padding(
+                            child: Padding(
                               padding: EdgeInsets.symmetric(horizontal: 4),
                               child: Icon(
                                 Icons.clear_rounded,
@@ -155,7 +155,7 @@ class _HostNotificationsScreenState
                               ),
                             ),
                           ),
-                        const Icon(
+                        Icon(
                           Icons.tune_rounded,
                           color: Color(0xFF667085),
                           size: 20,
@@ -164,7 +164,7 @@ class _HostNotificationsScreenState
                     ),
                   ),
 
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14),
 
                   // Bộ chuyển đổi Tab / Filter Chips
                   SingleChildScrollView(
@@ -185,7 +185,7 @@ class _HostNotificationsScreenState
                             0xFFFDB022,
                           ), // Vàng cam nổi bật
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
 
                         // Tab 2: Đang ở
                         _buildFilterChip(
@@ -196,7 +196,7 @@ class _HostNotificationsScreenState
                               selectedType == HostNotificationType.staying,
                           badgeColor: const Color(0xFF12B76A), // Xanh lá
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
 
                         // Tab 3: Đã cọc
                         _buildFilterChip(
@@ -207,7 +207,7 @@ class _HostNotificationsScreenState
                               selectedType == HostNotificationType.deposit,
                           badgeColor: const Color(0xFF2E90FA), // Xanh phụ trợ
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
 
                         // Tab 4: Đã thanh toán hết
                         _buildFilterChip(
@@ -228,17 +228,17 @@ class _HostNotificationsScreenState
               ),
             ),
 
-            const Divider(height: 1, color: Color(0xFFEAECF0)),
+            Divider(height: 1, color: Color(0xFFEAECF0)),
 
             // 2. Dòng mô tả số lượng yêu cầu
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Text(
                 _getSubheaderText(
                   selectedType,
                   notificationsAsync.asData?.value,
                 ),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF667085),
@@ -249,7 +249,7 @@ class _HostNotificationsScreenState
             // 3. Danh sách thông báo
             Expanded(
               child: notificationsAsync.when(
-                loading: () => const Center(
+                loading: () => Center(
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     color: AppColors.primary,
@@ -257,18 +257,18 @@ class _HostNotificationsScreenState
                 ),
                 error: (err, _) => Center(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
+                    padding: EdgeInsets.all(24),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.error_outline_rounded,
                           size: 40,
                           color: Color(0xFFF04438),
                         ),
-                        const SizedBox(height: 10),
-                        const Text(
+                        SizedBox(height: 10),
+                        Text(
                           'Không thể tải dữ liệu thông báo',
                           style: TextStyle(
                             fontSize: 14,
@@ -276,18 +276,18 @@ class _HostNotificationsScreenState
                             color: Color(0xFF101828),
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        SizedBox(height: 6),
                         Text(
                           err.toString().split('\n').first,
                           textAlign: TextAlign.center,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             color: Color(0xFF667085),
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                         ElevatedButton(
                           onPressed: () => ref.refresh(
                             hostNotificationsProvider(selectedType),
@@ -295,7 +295,7 @@ class _HostNotificationsScreenState
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                           ),
-                          child: const Text('Thử lại'),
+                          child: Text('Thử lại'),
                         ),
                       ],
                     ),
@@ -305,24 +305,24 @@ class _HostNotificationsScreenState
                   if (list.isEmpty) {
                     return Center(
                       child: Padding(
-                        padding: const EdgeInsets.all(32),
+                        padding: EdgeInsets.all(32),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: const BoxDecoration(
+                              padding: EdgeInsets.all(16),
+                              decoration: BoxDecoration(
                                 color: Color(0xFFF2F4F7),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.notifications_off_outlined,
                                 size: 36,
                                 color: Color(0xFF98A2B3),
                               ),
                             ),
-                            const SizedBox(height: 14),
-                            const Text(
+                            SizedBox(height: 14),
+                            Text(
                               'Không có thông báo nào',
                               style: TextStyle(
                                 fontSize: 16,
@@ -330,11 +330,11 @@ class _HostNotificationsScreenState
                                 color: Color(0xFF101828),
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            SizedBox(height: 6),
                             Text(
                               _getEmptySubtitle(selectedType),
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
                                 color: Color(0xFF667085),
                               ),
@@ -354,7 +354,7 @@ class _HostNotificationsScreenState
                       physics: const AlwaysScrollableScrollPhysics(
                         parent: BouncingScrollPhysics(),
                       ),
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 6,
                       ),
@@ -390,7 +390,7 @@ class _HostNotificationsScreenState
       borderRadius: BorderRadius.circular(20),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : const Color(0xFFF2F4F7),
           borderRadius: BorderRadius.circular(20),
@@ -402,7 +402,7 @@ class _HostNotificationsScreenState
               Container(
                 width: 7,
                 height: 7,
-                margin: const EdgeInsets.only(right: 6),
+                margin: EdgeInsets.only(right: 6),
                 decoration: BoxDecoration(
                   color: badgeColor,
                   shape: BoxShape.circle,
@@ -418,9 +418,9 @@ class _HostNotificationsScreenState
               ),
             ),
             if (count > 0) ...[
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? (type == HostNotificationType.pendingAction

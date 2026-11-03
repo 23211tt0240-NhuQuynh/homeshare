@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/constants/app_colors.dart';
 
 enum HostManagementSection {
   tenants,
@@ -75,13 +76,13 @@ class HostManagementMenu extends StatelessWidget {
       onTap: () => onSelect(section),
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFEFF6FF) : Colors.transparent,
+          color: isSelected ? AppColors.primaryContainer : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: isSelected
-              ? const Border(
-                  left: BorderSide(color: Color(0xFF2563EB), width: 3),
+              ? Border(
+                  left: BorderSide(color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)), width: 3),
                 )
               : null,
         ),
@@ -91,7 +92,7 @@ class HostManagementMenu extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF2563EB) : iconBg,
+                color: isSelected ? AppColors.primary : iconBg,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
@@ -100,24 +101,22 @@ class HostManagementMenu extends StatelessWidget {
                 color: isSelected ? Colors.white : iconColor,
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Text(
                 title,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                  color: isSelected
-                      ? const Color(0xFF2563EB)
-                      : const Color(0xFF1E293B),
+                  color: AppColors.textDark,
                 ),
               ),
             ),
             if (isSelected)
-              const Icon(
+              Icon(
                 Icons.check,
                 size: 20,
-                color: Color(0xFF2563EB),
+                color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
               ),
           ],
         ),
@@ -130,7 +129,7 @@ class HostManagementMenu extends StatelessWidget {
     return Container(
       width: 280,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(18),
         boxShadow: const [
           BoxShadow(
@@ -139,9 +138,9 @@ class HostManagementMenu extends StatelessWidget {
             offset: Offset(0, 8),
           ),
         ],
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -150,27 +149,27 @@ class HostManagementMenu extends StatelessWidget {
             section: HostManagementSection.tenants,
             title: 'Quản lý người thuê',
             icon: Icons.person_outline,
-            iconColor: const Color(0xFF2563EB),
-            iconBg: const Color(0xFFEFF6FF),
+            iconColor: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
+            iconBg: AppColors.primaryContainer,
             isSelected: currentSection == HostManagementSection.tenants,
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           _buildItem(
             section: HostManagementSection.checkinCheckout,
             title: 'Quản lý Check in/Check out',
             icon: Icons.calendar_today_outlined,
-            iconColor: const Color(0xFF64748B),
-            iconBg: const Color(0xFFF1F5F9),
+            iconColor: AppColors.textMuted,
+            iconBg: AppColors.surfaceVariant,
             isSelected:
                 currentSection == HostManagementSection.checkinCheckout,
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           _buildItem(
             section: HostManagementSection.violations,
             title: 'Quản lý vi phạm & Phí phạt',
             icon: Icons.warning_amber_rounded,
             iconColor: const Color(0xFFD97706),
-            iconBg: const Color(0xFFFEF3C7),
+            iconBg: AppColors.warningContainer,
             isSelected: currentSection == HostManagementSection.violations,
           ),
         ],

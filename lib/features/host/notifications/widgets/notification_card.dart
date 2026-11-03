@@ -61,7 +61,7 @@ class NotificationCard extends ConsumerWidget {
   }
 
   Color _getAvatarTextColor(String name) {
-    if (name.startsWith('N')) return const Color(0xFF175CD3);
+    if (name.startsWith('N')) return (AppColors.isDark ? AppColors.textDark : const Color(0xFF175CD3));
     if (name.startsWith('L')) return const Color(0xFFC11574);
     return const Color(0xFF344054);
   }
@@ -74,9 +74,9 @@ class NotificationCard extends ConsumerWidget {
     final relativeTimeStr = _formatRelativeTime(notif.createdAt);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: notif.isRead
@@ -102,7 +102,7 @@ class NotificationCard extends ConsumerWidget {
             ref.read(hostNotificationRepositoryProvider).markAsRead(notif.id);
           },
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -122,7 +122,7 @@ class NotificationCard extends ConsumerWidget {
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          padding: EdgeInsets.symmetric(horizontal: 4),
                           child: Text(
                             notif.displayRoomCode,
                             style: TextStyle(
@@ -137,7 +137,7 @@ class NotificationCard extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10),
                     // Tiêu đề phòng & tầng
                     Expanded(
                       child: Column(
@@ -149,7 +149,7 @@ class NotificationCard extends ConsumerWidget {
                                 : (notif.roomFloorInfo.isNotEmpty
                                       ? notif.roomFloorInfo
                                       : 'Phòng ${notif.displayRoomCode}'),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14.5,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF101828),
@@ -157,7 +157,7 @@ class NotificationCard extends ConsumerWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 2),
+                          SizedBox(height: 2),
                           Text(
                             notif.roomFloorInfo.isNotEmpty &&
                                     notif.roomTitle.isNotEmpty
@@ -165,7 +165,7 @@ class NotificationCard extends ConsumerWidget {
                                 : (notif.roomFloorInfo.isNotEmpty
                                       ? 'Phòng trọ'
                                       : 'Phòng trọ tiện nghi'),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               color: Color(0xFF667085),
                             ),
@@ -175,11 +175,11 @@ class NotificationCard extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     // Tag mã booking #BK12345
                     Container(
                       constraints: const BoxConstraints(maxWidth: 110),
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 4,
                       ),
@@ -189,7 +189,7 @@ class NotificationCard extends ConsumerWidget {
                       ),
                       child: Text(
                         notif.displayBookingCode,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: AppColors.primary,
@@ -201,16 +201,16 @@ class NotificationCard extends ConsumerWidget {
                   ],
                 ),
 
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
 
                 // 2. Khối thông tin khách thuê & tiền cọc
                 Container(
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: AppColors.background,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(
@@ -230,13 +230,13 @@ class NotificationCard extends ConsumerWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10),
                       // Tên khách thuê
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Khách thuê',
                               style: TextStyle(
                                 fontSize: 11,
@@ -247,7 +247,7 @@ class NotificationCard extends ConsumerWidget {
                               notif.renterName.isNotEmpty
                                   ? notif.renterName
                                   : 'Khách thuê HomeShare',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFF101828),
@@ -270,14 +270,14 @@ class NotificationCard extends ConsumerWidget {
                                           HostNotificationType.staying
                                       ? 'Tiền cọc / phí phòng'
                                       : 'Tiền cọc giữ phòng'),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               color: Color(0xFF667085),
                             ),
                           ),
                           Text(
                             _formatCurrency(notif.amount),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: AppColors.primary,
@@ -289,21 +289,21 @@ class NotificationCard extends ConsumerWidget {
                   ),
                 ),
 
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
 
                 // 3. Ngày nhận phòng & thời gian gửi
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.calendar_today_outlined,
                       size: 13,
                       color: Color(0xFF667085),
                     ),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         'Dự kiến nhận phòng: $checkInStr  •  $relativeTimeStr',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           color: Color(0xFF667085),
                         ),
@@ -314,7 +314,7 @@ class NotificationCard extends ConsumerWidget {
                   ],
                 ),
 
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
 
                 // 4. Khối trạng thái hoặc Nút hành động tương ứng với từng Tab
                 _buildBottomAction(context, ref, notif),
@@ -334,7 +334,7 @@ class NotificationCard extends ConsumerWidget {
     if (notif.isRoommateApproval) {
       if (notif.statusId == 'approved' || notif.statusId == 'accepted') {
         return Container(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
           decoration: BoxDecoration(
             color: const Color(0xFFECFDF3),
             borderRadius: BorderRadius.circular(10),
@@ -342,18 +342,18 @@ class NotificationCard extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.check_circle_rounded,
                 size: 16,
                 color: Color(0xFF12B76A),
               ),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
               Expanded(
                 child: Text(
                   currentTabType == HostNotificationType.staying
                       ? 'Đang ở • Đã xác nhận duyệt cho vào ở ghép'
                       : 'Đã xác nhận duyệt cho vào ở ghép',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF027A48),
@@ -365,13 +365,13 @@ class NotificationCard extends ConsumerWidget {
         );
       } else if (notif.statusId == 'rejected') {
         return Container(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
           decoration: BoxDecoration(
             color: const Color(0xFFFEF3F2),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: const Color(0xFFFECDCA)),
           ),
-          child: const Row(
+          child: Row(
             children: [
               Icon(Icons.cancel_rounded, size: 16, color: Color(0xFFD92D20)),
               SizedBox(width: 6),
@@ -398,21 +398,21 @@ class NotificationCard extends ConsumerWidget {
                   final confirm = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text('Từ chối ở ghép'),
+                      title: Text('Từ chối ở ghép'),
                       content: Text(
                         'Từ chối cho ${notif.newRoommateName.isNotEmpty ? notif.newRoommateName : "người này"} vào ở ghép phòng ${notif.displayRoomCode}?',
                       ),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.of(ctx).pop(false),
-                          child: const Text('Đóng'),
+                          child: Text('Đóng'),
                         ),
                         ElevatedButton(
                           onPressed: () => Navigator.of(ctx).pop(true),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFD92D20),
                           ),
-                          child: const Text('Xác nhận từ chối'),
+                          child: Text('Xác nhận từ chối'),
                         ),
                       ],
                     ),
@@ -443,19 +443,19 @@ class NotificationCard extends ConsumerWidget {
                 },
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFFD92D20),
-                  side: const BorderSide(color: Color(0xFFFDA29B)),
-                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  side: BorderSide(color: Color(0xFFFDA29B)),
+                  padding: EdgeInsets.symmetric(vertical: 9),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: const Text(
+                child: Text(
                   'Từ chối',
                   style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             // Nút Xác nhận duyệt vào phòng
             Expanded(
               flex: 3,
@@ -464,54 +464,67 @@ class NotificationCard extends ConsumerWidget {
                   final confirm = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text('Xác nhận cho vào ở ghép'),
+                      title: Text('Xác nhận cho vào ở ghép'),
                       content: Text(
                         'Xác nhận duyệt cho ${notif.newRoommateName.isNotEmpty ? notif.newRoommateName : "khách"} vào ở ghép cùng ${notif.primaryTenantName.isNotEmpty ? notif.primaryTenantName : "người thuê chính"} tại phòng ${notif.displayRoomCode}?\n\nSau khi xác nhận, người này sẽ chính thức được thêm vào danh sách người ở của phòng.',
                       ),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.of(ctx).pop(false),
-                          child: const Text('Hủy'),
+                          child: Text('Hủy'),
                         ),
                         ElevatedButton(
                           onPressed: () => Navigator.of(ctx).pop(true),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF12B76A),
                           ),
-                          child: const Text('Xác nhận duyệt'),
+                          child: Text('Xác nhận duyệt'),
                         ),
                       ],
                     ),
                   );
 
                   if (confirm == true) {
-                    await ref
-                        .read(hostNotificationRepositoryProvider)
-                        .approveRoommateRequest(
-                          notificationId: notif.id,
-                          roomId: notif.roomId,
-                          primaryTenantId: notif.primaryTenantId,
-                          primaryTenantName: notif.primaryTenantName,
-                          newRoommateId: notif.newRoommateId,
-                          newRoommateName: notif.newRoommateName,
-                          roomTitle: notif.roomTitle,
-                          roomCode: notif.displayRoomCode,
-                          userNotificationId: notif.userNotificationId,
-                        );
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          backgroundColor: const Color(0xFF12B76A),
-                          content: Text(
-                            'Đã duyệt cho ${notif.newRoommateName} vào ở ghép phòng ${notif.displayRoomCode} thành công! Đã lưu vào tab Đang ở.',
+                    try {
+                      await ref
+                          .read(hostNotificationRepositoryProvider)
+                          .approveRoommateRequest(
+                            notificationId: notif.id,
+                            roomId: notif.roomId,
+                            primaryTenantId: notif.primaryTenantId,
+                            primaryTenantName: notif.primaryTenantName,
+                            newRoommateId: notif.newRoommateId,
+                            newRoommateName: notif.newRoommateName,
+                            roomTitle: notif.roomTitle,
+                            roomCode: notif.displayRoomCode,
+                            userNotificationId: notif.userNotificationId,
+                          );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: const Color(0xFF12B76A),
+                            content: Text(
+                              'Đã duyệt cho ${notif.newRoommateName} vào ở ghép phòng ${notif.displayRoomCode} thành công! Đã lưu vào tab Đang ở.',
+                            ),
                           ),
-                        ),
-                      );
+                        );
+                      }
+                    } catch (error) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Chưa duyệt được người ở ghép: $error',
+                            ),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                      }
                     }
                   }
                 },
-                icon: const Icon(Icons.check_rounded, size: 16),
-                label: const Text(
+                icon: Icon(Icons.check_rounded, size: 16),
+                label: Text(
                   'Duyệt vào phòng',
                   style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
                 ),
@@ -519,7 +532,7 @@ class NotificationCard extends ConsumerWidget {
                   backgroundColor: const Color(0xFF12B76A),
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  padding: EdgeInsets.symmetric(vertical: 9),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -534,13 +547,13 @@ class NotificationCard extends ConsumerWidget {
     if (currentTabType == HostNotificationType.staying) {
       // Tab "Đang ở": Hiển thị trạng thái khách đang sinh sống tại phòng
       return Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         decoration: BoxDecoration(
           color: const Color(0xFFECFDF3),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: const Color(0xFFA6F4C5)),
         ),
-        child: const Row(
+        child: Row(
           children: [
             Icon(Icons.home_rounded, size: 16, color: Color(0xFF12B76A)),
             SizedBox(width: 6),
@@ -561,13 +574,13 @@ class NotificationCard extends ConsumerWidget {
       // Tab "Đang xử lý": Thanh hiển thị trạng thái Chờ xác nhận cọc màu vàng (Figma Ảnh 2)
       // Quyền xác nhận thuộc role Admin, chủ nhà chỉ xem trạng thái
       return Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         decoration: BoxDecoration(
           color: const Color(0x99FEF0C7),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: const Color(0xFFFEDF89)),
         ),
-        child: const Row(
+        child: Row(
           children: [
             Text('⏳', style: TextStyle(fontSize: 13)),
             SizedBox(width: 6),
@@ -600,21 +613,21 @@ class NotificationCard extends ConsumerWidget {
               },
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF344054),
-                backgroundColor: Colors.white,
-                side: const BorderSide(color: Color(0xFFD0D5DD)),
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                backgroundColor: AppColors.surface,
+                side: BorderSide(color: Color(0xFFD0D5DD)),
+                padding: EdgeInsets.symmetric(vertical: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              icon: const Icon(Icons.edit_calendar_outlined, size: 15),
-              label: const Text(
+              icon: Icon(Icons.edit_calendar_outlined, size: 15),
+              label: Text(
                 'Sửa ngày đến',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           // Nút Checkin chuyển sang trang checkin
           Expanded(
             child: ElevatedButton.icon(
@@ -633,13 +646,13 @@ class NotificationCard extends ConsumerWidget {
                 foregroundColor: Colors.white,
                 backgroundColor: AppColors.primary,
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: EdgeInsets.symmetric(vertical: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              icon: const Icon(Icons.login_rounded, size: 16),
-              label: const Text(
+              icon: Icon(Icons.login_rounded, size: 16),
+              label: Text(
                 'Check-in',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/admin_colors.dart';
 
 class AdminKpiCard extends StatelessWidget {
   final String title;
@@ -10,8 +11,8 @@ class AdminKpiCard extends StatelessWidget {
   final IconData? badgeIcon;
   final String? subtext;
   final Color? subtextColor;
-  final Color backgroundColor;
-  final Color borderColor;
+  final Color? backgroundColor;
+  final Color? borderColor;
   final VoidCallback? onTap;
 
   const AdminKpiCard({
@@ -25,22 +26,28 @@ class AdminKpiCard extends StatelessWidget {
     this.badgeIcon,
     this.subtext,
     this.subtextColor,
-    this.backgroundColor = Colors.white,
-    this.borderColor = const Color(0xFFDCEAF5),
+    this.backgroundColor,
+    this.borderColor,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bg = backgroundColor ?? AdminColors.card;
+    final border = borderColor ?? AdminColors.border;
+    final valueInk = valueColor ?? AdminColors.ink;
+    final titleInk = valueColor == AdminColors.accent
+        ? AdminColors.accentText
+        : AdminColors.muted;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: backgroundColor,
+          color: bg,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor, width: 1.2),
+          border: Border.all(color: border, width: 1.2),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.03),
@@ -53,37 +60,30 @@ class AdminKpiCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Title
             Text(
               title.toUpperCase(),
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w700,
-                color: valueColor == const Color(0xFF398FC0)
-                    ? const Color(0xFF398FC0)
-                    : const Color(0xFF64748B),
+                color: titleInk,
                 letterSpacing: 0.4,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 6),
-
-            // Value
             Text(
               value,
               style: TextStyle(
                 fontSize: 16.5,
                 fontWeight: FontWeight.w800,
-                color: valueColor ?? const Color(0xFF101828),
+                color: valueInk,
                 letterSpacing: -0.2,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 6),
-
-            // Badge / Subtext
             if (badgeText != null)
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -91,7 +91,7 @@ class AdminKpiCard extends StatelessWidget {
                   vertical: 2.5,
                 ),
                 decoration: BoxDecoration(
-                  color: badgeColor ?? const Color(0xFFECFDF3),
+                  color: badgeColor ?? AdminColors.successContainer,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
@@ -101,7 +101,7 @@ class AdminKpiCard extends StatelessWidget {
                       Icon(
                         badgeIcon,
                         size: 11,
-                        color: badgeTextColor ?? const Color(0xFF027A48),
+                        color: badgeTextColor ?? AdminColors.successInk,
                       ),
                       const SizedBox(width: 3),
                     ],
@@ -111,7 +111,7 @@ class AdminKpiCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w700,
-                          color: badgeTextColor ?? const Color(0xFF027A48),
+                          color: badgeTextColor ?? AdminColors.successInk,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -126,7 +126,7 @@ class AdminKpiCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
-                  color: subtextColor ?? const Color(0xFF398FC0),
+                  color: subtextColor ?? AdminColors.accentText,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

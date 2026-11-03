@@ -248,7 +248,9 @@ class HostNotificationModel {
                 data[NotificationFields.legacyStatusId] ??
                 data['status'] ??
                 'pending')
-            .toString();
+            .toString()
+            .trim()
+            .toLowerCase();
 
     final actionType =
         data['actionType']?.toString() ??
@@ -271,6 +273,14 @@ class HostNotificationModel {
         title.contains('ở ghép') ||
         message.contains('ở ghép');
 
+    final paymentOption = (data['paymentOption'] ?? data['paymentType'] ?? '')
+        .toString()
+        .toLowerCase();
+    final isFullPayment = paymentOption == 'full' ||
+        paymentOption == 'toanbo' ||
+        paymentOption == 'trahet' ||
+        data['isFullPayment'] == true;
+
     final baseType = HostNotificationTypeX.fromString(rawType?.toString());
     HostNotificationType parsedType;
     if (baseType == HostNotificationType.staying) {
@@ -284,7 +294,45 @@ class HostNotificationModel {
         parsedType = HostNotificationType.pendingAction;
       }
     } else {
-      parsedType = baseType;
+      // Thông báo đặt phòng / đặt cọc thông thường:
+      final isStaying = statusId == 'dango' ||
+          statusId == 'active' ||
+          statusId == 'danhanphong' ||
+          statusId == 'living' ||
+          baseType == HostNotificationType.staying;
+
+      final isApproved = statusId == 'approved' ||
+          statusId == 'accepted' ||
+          statusId == 'deposited' ||
+          statusId == 'dacoc' ||
+          statusId == 'da_coc' ||
+          statusId == 'deposit_paid' ||
+          statusId == 'daduyet' ||
+          statusId == 'da_duyet' ||
+          statusId == 'paid' ||
+          statusId == 'completed' ||
+          statusId == 'dathanhtoan' ||
+          statusId == 'dathanhtoanhet' ||
+          statusId == 'da_thanh_toan_het' ||
+          data['adminVerified'] == true ||
+          data['isPaid'] == true;
+
+      if (isStaying) {
+        parsedType = HostNotificationType.staying;
+      } else if (isApproved) {
+        if (isFullPayment ||
+            statusId == 'paid' ||
+            statusId == 'completed' ||
+            statusId == 'dathanhtoanhet' ||
+            statusId == 'da_thanh_toan_het' ||
+            baseType == HostNotificationType.paymentCompleted) {
+          parsedType = HostNotificationType.paymentCompleted;
+        } else {
+          parsedType = HostNotificationType.deposit;
+        }
+      } else {
+        parsedType = baseType;
+      }
     }
 
     final amtVal =

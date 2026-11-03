@@ -120,6 +120,12 @@ class IdGenerator {
     return 'TB_${DateTime.now().millisecondsSinceEpoch}';
   }
 
+  /// Sinh Document ID báo cáo chủ trọ (reports):
+  /// BC_1729053891000
+  static String hostReport() {
+    return 'BC_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
   /// Sinh Document ID Nhật ký kiểm toán (audit_logs):
   /// LOG_1729053891000
   static String auditLog() {
@@ -130,5 +136,11 @@ class IdGenerator {
   /// P001_TI_WIFI_TOC_DO_CAO
   static String roomAmenity(String roomId, String amenityId) {
     return '${roomId}_$amenityId';
+  }
+
+  /// Sinh Document ID Báo cáo bài đăng chủ trọ (reports):
+  /// BCB_1729837200000
+  static String postReport() {
+    return 'BCB_${DateTime.now().millisecondsSinceEpoch}';
   }
 }

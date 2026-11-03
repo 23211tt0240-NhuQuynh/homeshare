@@ -1,3 +1,4 @@
+import '../../../core/services/resident_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/constants/firestore_collections.dart';
 import '../../../data/models/booking_model.dart';
@@ -68,10 +69,12 @@ class CheckinCheckoutRepository {
         .where('hostId', isEqualTo: hostId)
         .snapshots()
         .asyncMap((roomSnap) async {
-          final hostRooms = roomSnap.docs
-              .map(RoomModel.fromFirestore)
-              .where((r) => r.status != 'deleted')
-              .toList();
+          final hostRooms = await Future.wait(
+            roomSnap.docs
+                .map(RoomModel.fromFirestore)
+                .where((r) => r.status != 'deleted')
+                .map(ResidentService(_firestore).hydrateRoom),
+          );
 
           if (hostRooms.isEmpty) return <CheckinCheckoutItem>[];
           final roomMap = {for (var r in hostRooms) r.id: r};
@@ -188,10 +191,12 @@ class CheckinCheckoutRepository {
         .where('hostId', isEqualTo: hostId)
         .snapshots()
         .asyncMap((roomSnap) async {
-          final hostRooms = roomSnap.docs
-              .map(RoomModel.fromFirestore)
-              .where((r) => r.status != 'deleted')
-              .toList();
+          final hostRooms = await Future.wait(
+            roomSnap.docs
+                .map(RoomModel.fromFirestore)
+                .where((r) => r.status != 'deleted')
+                .map(ResidentService(_firestore).hydrateRoom),
+          );
 
           if (hostRooms.isEmpty) return <CheckinCheckoutItem>[];
           final roomMap = {for (var r in hostRooms) r.id: r};
@@ -325,11 +330,148 @@ class CheckinCheckoutRepository {
         });
   }
 
+  bool _isCheckoutPeriodId(String periodId) =>
+      periodId.isNotEmpty && !periodId.startsWith('room_');
+
+  bool _isActiveStayStatus(dynamic status) {
+    final s = (status ?? '').toString().toLowerCase().trim();
+    return s == 'active' ||
+        s == 'dango' ||
+        s == 'dang_o' ||
+        s == 'danhanphong';
+  }
+
+  Future<Set<String>> _canonicalRoomIds(String roomId) async {
+    final ids = <String>{if (roomId.trim().isNotEmpty) roomId.trim()};
+    if (roomId.trim().isEmpty) return ids;
+    try {
+      ids.add(await ResidentService(_firestore).resolveRoomId(roomId.trim()));
+    } catch (_) {}
+    return ids;
+  }
+
+  Future<List<DocumentReference<Map<String, dynamic>>>> _checkoutBookingRefs({
+    required String bookingId,
+    required String periodId,
+    required String roomId,
+    required String renterId,
+  }) async {
+    final refs = <String, DocumentReference<Map<String, dynamic>>>{};
+    final bookings = _firestore.collection(FirestoreCollections.bookings);
+
+    Future<void> addDoc(String id) async {
+      final clean = id.trim();
+      if (clean.isEmpty || clean.startsWith('room_') || refs.containsKey(clean)) {
+        return;
+      }
+      final doc = await bookings.doc(clean).get();
+      if (doc.exists) refs[clean] = doc.reference;
+    }
+
+    await addDoc(bookingId);
+    if (_isCheckoutPeriodId(periodId)) {
+      try {
+        final period = await _firestore
+            .collection(FirestoreCollections.periods)
+            .doc(periodId)
+            .get();
+        final data = period.data() ?? {};
+        await addDoc((data['bookingId'] ?? data['donId'] ?? '').toString());
+      } catch (_) {}
+    }
+
+    if (refs.isNotEmpty) return refs.values.toList();
+
+    final roomIds = await _canonicalRoomIds(roomId);
+    QuerySnapshot<Map<String, dynamic>> snap;
+    if (renterId.trim().isNotEmpty) {
+      snap = await bookings.where('renterId', isEqualTo: renterId.trim()).get();
+    } else if (roomId.trim().isNotEmpty) {
+      snap = await bookings.where('roomId', isEqualTo: roomId.trim()).get();
+    } else {
+      return const [];
+    }
+
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      if (!_isActiveStayStatus(data['status'] ?? data['trangThai'])) continue;
+      final bookingRoom = (data['roomId'] ?? data['phongId'] ?? '').toString();
+      if (bookingRoom.isEmpty) continue;
+      if (roomIds.contains(bookingRoom)) {
+        refs[doc.id] = doc.reference;
+        continue;
+      }
+      try {
+        if (roomIds.contains(
+          await ResidentService(_firestore).resolveRoomId(bookingRoom),
+        )) {
+          refs[doc.id] = doc.reference;
+        }
+      } catch (_) {}
+    }
+    return refs.values.toList();
+  }
+
+  Future<void> _markResidentsMovedOut(
+    WriteBatch batch, {
+    required String roomId,
+    required String periodId,
+  }) async {
+    final seen = <String>{};
+    void apply(QuerySnapshot<Map<String, dynamic>> snap) {
+      for (final doc in snap.docs) {
+        if (!seen.add(doc.id)) continue;
+        final status = (doc.data()['statusId'] ??
+                doc.data()['status'] ??
+                doc.data()['trangThai_id'] ??
+                '')
+            .toString()
+            .toLowerCase();
+        if (doc.data()['moveOutDate'] != null ||
+            status == 'daroi' ||
+            status == 'moved_out') {
+          continue;
+        }
+        batch.update(doc.reference, {
+          'statusId': 'daRoi',
+          'status': 'moved_out',
+          'moveOutDate': FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    if (_isCheckoutPeriodId(periodId)) {
+      var resSnap = await _firestore
+          .collection(FirestoreCollections.residents)
+          .where('periodId', isEqualTo: periodId)
+          .get();
+      if (resSnap.docs.isEmpty) {
+        resSnap = await _firestore
+            .collection(FirestoreCollections.residents)
+            .where('kyThue_id', isEqualTo: periodId)
+            .get();
+      }
+      apply(resSnap);
+    }
+
+    final roomIds = await _canonicalRoomIds(roomId);
+    for (final id in roomIds) {
+      for (final field in const ['roomId', 'phongId', 'phongTroId']) {
+        final snap = await _firestore
+            .collection(FirestoreCollections.residents)
+            .where(field, isEqualTo: id)
+            .get();
+        apply(snap);
+      }
+    }
+  }
+
   /// Thực hiện Check-out và Hoàn cọc
   Future<void> performCheckout({
     required String roomId,
     required String periodId,
     required String renterId,
+    String bookingId = '',
     required double initialDeposit,
     required double deductionAmount,
     required String note,
@@ -358,44 +500,52 @@ class CheckinCheckoutRepository {
     );
     batch.set(recordRef, record.toMap());
 
-    // 2. Cập nhật period sang daKetThuc
-    if (periodId.isNotEmpty && !periodId.startsWith('room_')) {
+    // 2. Kết thúc kỳ ở
+    if (_isCheckoutPeriodId(periodId)) {
       final periodRef = _firestore
           .collection(FirestoreCollections.periods)
           .doc(periodId);
-      batch.update(periodRef, {
-        'status': 'daKetThuc',
-        'endDate': FieldValue.serverTimestamp(),
-      });
-
-      // Cập nhật cư dân trong period
-      var resSnap = await _firestore
-          .collection(FirestoreCollections.residents)
-          .where('periodId', isEqualTo: periodId)
-          .get();
-      if (resSnap.docs.isEmpty) {
-        resSnap = await _firestore
-            .collection(FirestoreCollections.residents)
-            .where('kyThue_id', isEqualTo: periodId)
-            .get();
-      }
-      for (final d in resSnap.docs) {
-        batch.update(d.reference, {
-          'statusId': 'daRoi',
-          'moveOutDate': FieldValue.serverTimestamp(),
+      final periodSnap = await periodRef.get();
+      if (periodSnap.exists) {
+        batch.update(periodRef, {
+          'status': 'daKetThuc',
+          'endDate': FieldValue.serverTimestamp(),
         });
       }
     }
 
-    // 3. Cập nhật phòng host_rooms sang available / còn phòng
+    // 3. Cư dân phòng này → đã rời
+    await _markResidentsMovedOut(
+      batch,
+      roomId: roomId,
+      periodId: periodId,
+    );
+
+    // 4. Đơn thuê phải rời Đang ở, nếu không màn người thuê vẫn hiện cư trú / đánh giá được
+    final bookingRefs = await _checkoutBookingRefs(
+      bookingId: bookingId,
+      periodId: periodId,
+      roomId: roomId,
+      renterId: renterId,
+    );
+    for (final bookingRef in bookingRefs) {
+      batch.set(bookingRef, {
+        'status': 'checked_out',
+        'subTag': 'Đã trả phòng',
+        'description': 'Đã check-out / trả phòng',
+        'moveOutDate': FieldValue.serverTimestamp(),
+        'checkedOutAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'trangThai': FieldValue.delete(),
+      }, SetOptions(merge: true));
+    }
+
+    // 5. Phòng host_rooms sang available
     final roomRef = _firestore
         .collection(FirestoreCollections.hostRooms)
         .doc(roomId);
     batch.update(roomRef, {
       'status': 'available',
-      'tenantName': '',
-      'tenantPhone': '',
-      'tenantAvatar': '',
       'contractId': '',
       'contractStart': null,
       'contractEnd': null,

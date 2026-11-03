@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/violation_record_model.dart';
+import '../../../core/constants/app_colors.dart';
 
 class PaymentActionSheet {
   static String _formatCurrency(double amount) {
@@ -31,7 +32,7 @@ class PaymentActionSheet {
       builder: (ctx) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -41,55 +42,55 @@ class PaymentActionSheet {
                     width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFCBD5E1),
+                      color: AppColors.border,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                const Center(
+                SizedBox(height: 16),
+                Center(
                   child: CircleAvatar(
                     radius: 28,
-                    backgroundColor: Color(0xFFDCFCE7),
+                    backgroundColor: AppColors.successContainer,
                     child: Text('💵', style: TextStyle(fontSize: 28)),
                   ),
                 ),
-                const SizedBox(height: 12),
-                const Center(
+                SizedBox(height: 12),
+                Center(
                   child: Text(
                     'Xác nhận thu tiền mặt',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF0F172A),
+                      color: AppColors.textDark,
                     ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                const Center(
+                SizedBox(height: 4),
+                Center(
                   child: Text(
                     'Ghi nhận đã thu trực tiếp từ khách thuê',
                     style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: AppColors.background,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    border: Border.all(color: AppColors.border),
                   ),
                   child: Column(
                     children: [
                       _buildRow('Phòng / Cơ sở:',
                           '${record.roomCode} • ${record.propertyName}'),
-                      const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                      Divider(height: 16, color: AppColors.border),
                       _buildRow('Người nộp:', record.tenantName),
-                      const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                      Divider(height: 16, color: AppColors.border),
                       _buildRow('Người thu (Chủ trọ):',
                           collectorName.isNotEmpty ? collectorName : 'Chủ trọ'),
-                      const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                      Divider(height: 16, color: AppColors.border),
                       _buildRow(
                         'Số tiền thực thu:',
                         _formatCurrency(record.totalFine),
@@ -98,7 +99,7 @@ class PaymentActionSheet {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(
@@ -110,7 +111,7 @@ class PaymentActionSheet {
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
+                    child: Text(
                       'Xác nhận đã thu đủ tiền',
                       style: TextStyle(
                         fontSize: 15,
@@ -120,10 +121,10 @@ class PaymentActionSheet {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text(
+                  child: Text(
                     'Hủy bỏ',
                     style: TextStyle(
                       fontSize: 14,
@@ -153,7 +154,7 @@ class PaymentActionSheet {
       builder: (ctx) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -163,55 +164,55 @@ class PaymentActionSheet {
                     width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFCBD5E1),
+                      color: AppColors.border,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                const Center(
+                SizedBox(height: 16),
+                Center(
                   child: CircleAvatar(
                     radius: 28,
-                    backgroundColor: Color(0xFFEFF6FF),
+                    backgroundColor: AppColors.primaryContainer,
                     child: Icon(
                       Icons.receipt_long_rounded,
-                      color: Color(0xFF2563EB),
+                      color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                       size: 28,
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                const Center(
+                SizedBox(height: 12),
+                Center(
                   child: Text(
                     'Cộng vào hóa đơn tháng sau',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF0F172A),
+                      color: AppColors.textDark,
                     ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                const Center(
+                SizedBox(height: 4),
+                Center(
                   child: Text(
                     'Khoản phạt sẽ được thêm vào hóa đơn tiền phòng kỳ tới',
                     style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: AppColors.background,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    border: Border.all(color: AppColors.border),
                   ),
                   child: Column(
                     children: [
                       _buildRow('Phòng:', record.roomCode),
-                      const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                      Divider(height: 16, color: AppColors.border),
                       _buildRow('Khách thuê:', record.tenantName),
-                      const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                      Divider(height: 16, color: AppColors.border),
                       _buildRow(
                         'Số tiền cộng:',
                         _formatCurrency(record.totalFine),
@@ -220,19 +221,19 @@ class PaymentActionSheet {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
+                      backgroundColor: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
+                    child: Text(
                       'Xác nhận cộng vào hóa đơn',
                       style: TextStyle(
                         fontSize: 15,
@@ -242,10 +243,10 @@ class PaymentActionSheet {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text(
+                  child: Text(
                     'Hủy bỏ',
                     style: TextStyle(
                       fontSize: 14,
@@ -268,7 +269,7 @@ class PaymentActionSheet {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+          style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
         ),
         Text(
           value,

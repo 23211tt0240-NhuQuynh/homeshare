@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/host_post_model.dart';
+import '../../renter/screens/room_detail_screen.dart';
 
 /// Thẻ hiển thị bài đăng của chủ trọ đối tác theo thiết kế Figma
 class HostPostCard extends StatelessWidget {
@@ -18,6 +19,17 @@ class HostPostCard extends StatelessWidget {
     this.onInterestPressed,
     this.isOwnPost = false,
   });
+
+  void _openDetail(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RoomDetailScreen(
+          room: post.toRoomModel(),
+          isHostView: isOwnPost,
+        ),
+      ),
+    );
+  }
 
   String _formatCurrency(double price) {
     if (price <= 0) return 'Thoả thuận';
@@ -49,23 +61,26 @@ class HostPostCard extends StatelessWidget {
 
     return Card(
       elevation: 1,
-      margin: const EdgeInsets.only(bottom: 16),
+      color: AppColors.surface,
+      margin: EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFFE2E8F0)),
+        side: BorderSide(color: AppColors.border),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      child: InkWell(
+        onTap: () => _openDetail(context),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           // 1. Header chủ trọ: Avatar, Tên, Xác minh, VIP, Khu vực, Thời gian
           Padding(
-            padding: const EdgeInsets.all(14),
+            padding: EdgeInsets.all(14),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildAvatar(),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,105 +94,105 @@ class HostPostCard extends StatelessWidget {
                             post.authorName.isNotEmpty
                                 ? post.authorName
                                 : 'Chủ trọ HomeShare',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF1E293B),
+                              color: AppColors.textDark,
                             ),
                           ),
                           if (post.isVerified)
-                            const Tooltip(
+                            Tooltip(
                               message: 'Đã xác minh danh tính',
                               child: Icon(
                                 Icons.verified,
-                                color: Color(0xFF1E60F2),
+                                color: AppColors.primary,
                                 size: 16,
                               ),
                             ),
                           if (post.isVip)
                             Container(
-                              padding: const EdgeInsets.symmetric(
+                              padding: EdgeInsets.symmetric(
                                 horizontal: 6,
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFEF3C7),
+                                color: AppColors.warningContainer,
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
                                   color: const Color(0xFFF59E0B),
                                   width: 0.8,
                                 ),
                               ),
-                              child: const Text(
+                              child: Text(
                                 'Đối tác uy tín',
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFFB45309),
+                                  color: (AppColors.isDark ? const Color(0xFFFDE68A) : const Color(0xFFB45309)),
                                 ),
                               ),
                             ),
                           if (isOwnPost)
                             Container(
-                              padding: const EdgeInsets.symmetric(
+                              padding: EdgeInsets.symmetric(
                                 horizontal: 6,
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEFF6FF),
+                                color: AppColors.primaryContainer,
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                  color: const Color(0xFFBFDBFE),
+                                  color: AppColors.primary.withValues(alpha: 0.4),
                                   width: 0.8,
                                 ),
                               ),
-                              child: const Text(
+                              child: Text(
                                 'Bài của bạn',
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1E60F2),
+                                  color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF1E60F2)),
                                 ),
                               ),
                             ),
                         ],
                       ),
-                      const SizedBox(height: 3),
+                      SizedBox(height: 3),
                       Row(
                         children: [
                           if (locationText.isNotEmpty) ...[
                             Icon(
                               Icons.location_on_outlined,
                               size: 13,
-                              color: AppColors.primary,
+                              color: AppColors.textMuted,
                             ),
-                            const SizedBox(width: 2),
+                            SizedBox(width: 2),
                             Flexible(
                               child: Text(
                                 locationText,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: AppColors.primary,
+                                  color: AppColors.textMuted,
                                   fontWeight: FontWeight.w500,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            const Text(
+                            SizedBox(width: 6),
+                            Text(
                               '•',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF94A3B8),
+                                color: AppColors.textMuted,
                               ),
                             ),
-                            const SizedBox(width: 6),
+                            SizedBox(width: 6),
                           ],
                           Text(
                             _formatTimeAgo(post.ngayDang),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF64748B),
+                              color: AppColors.textMuted,
                             ),
                           ),
                         ],
@@ -191,66 +206,66 @@ class HostPostCard extends StatelessWidget {
 
           // 2. Tiêu đề và nội dung bài đăng
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            padding: EdgeInsets.symmetric(horizontal: 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (post.tieuDe.isNotEmpty)
                   Text(
                     post.tieuDe,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                      color: AppColors.textDark,
                     ),
                   ),
                 if (post.moTa.isNotEmpty) ...[
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Text(
                     post.moTa,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       height: 1.5,
-                      color: Color(0xFF334155),
+                      color: AppColors.textMuted,
                     ),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
 
                 // Mục đích hợp tác
                 Container(
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0FDF4),
+                    color: AppColors.successContainer,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: const Color(0xFFBBF7D0),
+                      color: AppColors.success.withValues(alpha: 0.45),
                       width: 0.8,
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.handshake_outlined,
                         size: 15,
-                        color: Color(0xFF16A34A),
+                        color: (AppColors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF16A34A)),
                       ),
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6),
                       Flexible(
                         child: Text(
                           post.mucDichHopTac.isNotEmpty
                               ? post.mucDichHopTac
                               : 'Kết nối chia sẻ khách thuê & Hợp tác quản lý',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF15803D),
+                            color: (AppColors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF15803D)),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -261,25 +276,25 @@ class HostPostCard extends StatelessWidget {
 
                 // Tiện ích
                 if (post.amenities.isNotEmpty) ...[
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
                     children: post.amenities.take(5).map((amenity) {
                       return Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           horizontal: 8,
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
+                          color: AppColors.surfaceVariant,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           amenity,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF475569),
+                            color: AppColors.textDark,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -289,20 +304,20 @@ class HostPostCard extends StatelessWidget {
                         post.amenities.length > 5
                             ? [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
+                                  padding: EdgeInsets.symmetric(
                                     horizontal: 8,
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFE2E8F0),
+                                    color: AppColors.border,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
                                     '+${post.amenities.length - 5}',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF475569),
+                                      color: AppColors.textDark,
                                     ),
                                   ),
                                 ),
@@ -314,67 +329,67 @@ class HostPostCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
           // 3. Ảnh bài đăng hoặc placeholder an toàn
           _buildPostImage(),
 
           // 4. Thông tin phòng, xác thực cơ sở & Giá thuê
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+            padding: EdgeInsets.fromLTRB(14, 12, 14, 4),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
+                        color: AppColors.primaryContainer,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.square_foot_outlined,
                             size: 14,
-                            color: Color(0xFF1E60F2),
+                            color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF1E60F2)),
                           ),
-                          const SizedBox(width: 4),
+                          SizedBox(width: 4),
                           Text(
                             post.roomArea > 0
                                 ? '${post.roomArea.toStringAsFixed(0)} m²'
                                 : '25 m²',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF1E60F2),
+                              color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF1E60F2)),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
+                        color: AppColors.successContainer,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.check_circle_outline,
                             size: 14,
-                            color: Color(0xFF10B981),
+                            color: AppColors.success,
                           ),
                           SizedBox(width: 4),
                           Text(
@@ -382,7 +397,7 @@ class HostPostCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF047857),
+                              color: AppColors.success,
                             ),
                           ),
                         ],
@@ -390,10 +405,10 @@ class HostPostCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Text(
                   _formatCurrency(post.giaThue),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFFE11D48),
@@ -403,11 +418,11 @@ class HostPostCard extends StatelessWidget {
             ),
           ),
 
-          const Divider(height: 20, color: Color(0xFFF1F5F9)),
+          Divider(height: 20, color: AppColors.surfaceVariant),
 
           // 5. Thao tác tương tác & Nút Nhắn tin trao đổi
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+            padding: EdgeInsets.fromLTRB(14, 0, 14, 12),
             child: Row(
               children: [
                 // Nút Quan tâm
@@ -415,7 +430,7 @@ class HostPostCard extends StatelessWidget {
                   onTap: onInterestPressed,
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                       horizontal: 6,
                       vertical: 6,
                     ),
@@ -429,9 +444,9 @@ class HostPostCard extends StatelessWidget {
                           size: 18,
                           color: post.isUserInterested
                               ? const Color(0xFFE11D48)
-                              : const Color(0xFF64748B),
+                              : AppColors.textMuted,
                         ),
-                        const SizedBox(width: 4),
+                        SizedBox(width: 4),
                         Text(
                           '${post.interestedCount}',
                           style: TextStyle(
@@ -439,43 +454,43 @@ class HostPostCard extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                             color: post.isUserInterested
                                 ? const Color(0xFFE11D48)
-                                : const Color(0xFF64748B),
+                                : AppColors.textMuted,
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(width: 4),
+                SizedBox(width: 4),
 
                 // Lượt phản hồi
                 Padding(
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 6,
                     vertical: 6,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.chat_bubble_outline,
                         size: 17,
-                        color: Color(0xFF64748B),
+                        color: AppColors.textMuted,
                       ),
-                      const SizedBox(width: 4),
+                      SizedBox(width: 4),
                       Text(
                         '${post.responseCount}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
+                          color: AppColors.textMuted,
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                const Spacer(),
+                Spacer(),
 
                 // Nút Nhắn tin trao đổi / Bài của bạn
                 Flexible(
@@ -483,10 +498,10 @@ class HostPostCard extends StatelessWidget {
                       ? OutlinedButton.icon(
                           onPressed: onChatPressed,
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF1E60F2),
-                            side: const BorderSide(color: Color(0xFF1E60F2)),
+                            foregroundColor: (AppColors.isDark ? AppColors.textDark : const Color(0xFF1E60F2)),
+                            side: BorderSide(color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF1E60F2))),
                             minimumSize: const Size(0, 36),
-                            padding: const EdgeInsets.symmetric(
+                            padding: EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 8,
                             ),
@@ -494,8 +509,8 @@ class HostPostCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          icon: const Icon(Icons.person_outline, size: 15),
-                          label: const Text(
+                          icon: Icon(Icons.person_outline, size: 15),
+                          label: Text(
                             'Bài của bạn',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -508,10 +523,10 @@ class HostPostCard extends StatelessWidget {
                       : FilledButton.icon(
                           onPressed: onChatPressed,
                           style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E60F2),
+                            backgroundColor: (AppColors.isDark ? AppColors.textDark : const Color(0xFF1E60F2)),
                             foregroundColor: Colors.white,
                             minimumSize: const Size(0, 36),
-                            padding: const EdgeInsets.symmetric(
+                            padding: EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 8,
                             ),
@@ -520,8 +535,8 @@ class HostPostCard extends StatelessWidget {
                             ),
                             elevation: 0,
                           ),
-                          icon: const Icon(Icons.chat_bubble_outline, size: 15),
-                          label: const Text(
+                          icon: Icon(Icons.chat_bubble_outline, size: 15),
+                          label: Text(
                             'Nhắn tin trao đổi',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -537,8 +552,9 @@ class HostPostCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildAvatar() {
     final avatarUrl = post.authorAvatar.trim();
@@ -549,7 +565,7 @@ class HostPostCard extends StatelessWidget {
     if (avatarUrl.startsWith('http')) {
       return CircleAvatar(
         radius: 20,
-        backgroundColor: const Color(0xFFE2E8F0),
+        backgroundColor: AppColors.border,
         child: ClipOval(
           child: Image.network(
             avatarUrl,
@@ -568,11 +584,11 @@ class HostPostCard extends StatelessWidget {
   Widget _fallbackAvatar(String initials) {
     return CircleAvatar(
       radius: 20,
-      backgroundColor: const Color(0xFFDBEAFE),
+      backgroundColor: AppColors.primaryContainer,
       child: Text(
         initials,
-        style: const TextStyle(
-          color: Color(0xFF1E60F2),
+        style: TextStyle(
+          color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF1E60F2)),
           fontWeight: FontWeight.bold,
           fontSize: 14,
         ),
@@ -582,9 +598,16 @@ class HostPostCard extends StatelessWidget {
 
   String _cleanUrl(String raw) {
     var s = raw.trim();
+    if (s.startsWith('"') && s.endsWith('"') && s.length > 2) {
+      s = s.substring(1, s.length - 1).trim();
+    }
+    if (s.startsWith("'") && s.endsWith("'") && s.length > 2) {
+      s = s.substring(1, s.length - 1).trim();
+    }
     if (s.startsWith('{') && s.endsWith('}')) {
-      final match =
-          RegExp(r'(?:duongDan|url|image):\s*([^,}]+)').firstMatch(s);
+      final match = RegExp(
+        r'(?:duongDan|url|image|imageUrl|link):\s*([^,}]+)',
+      ).firstMatch(s);
       if (match != null) {
         s = match.group(1)!.trim().replaceAll('"', '').replaceAll("'", "");
       }
@@ -611,7 +634,7 @@ class HostPostCard extends StatelessWidget {
       return Container(
         height: 180,
         width: double.infinity,
-        color: const Color(0xFFF1F5F9),
+        color: AppColors.surfaceVariant,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -626,7 +649,7 @@ class HostPostCard extends StatelessWidget {
                 top: 10,
                 right: 10,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 8,
                     vertical: 4,
                   ),
@@ -636,7 +659,7 @@ class HostPostCard extends StatelessWidget {
                   ),
                   child: Text(
                     '1/${validImages.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -656,30 +679,30 @@ class HostPostCard extends StatelessWidget {
     return Container(
       height: 140,
       width: double.infinity,
-      color: const Color(0xFFEFF6FF),
+      color: AppColors.primaryContainer,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.apartment_outlined,
             size: 48,
-            color: const Color(0xFF1E60F2).withValues(alpha: 0.6),
+            color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF1E60F2)).withValues(alpha: 0.6),
           ),
-          const SizedBox(height: 8),
-          const Text(
+          SizedBox(height: 8),
+          Text(
             'Ảnh cơ sở liên kết',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1E60F2),
+              color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF1E60F2)),
             ),
           ),
-          const SizedBox(height: 2),
-          const Text(
+          SizedBox(height: 2),
+          Text(
             'Hệ thống kết nối chủ trọ HomeShare',
             style: TextStyle(
               fontSize: 10,
-              color: Color(0xFF64748B),
+              color: AppColors.textMuted,
             ),
           ),
         ],

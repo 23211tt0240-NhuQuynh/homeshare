@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/vietnam_locations.dart';
 import '../../../core/utils/vietnamese_utils.dart';
 import '../../../data/models/host_post_model.dart';
@@ -37,14 +38,13 @@ class HostDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
-  // Theme màu xanh dương chủ đạo theo yêu cầu người dùng
-  static const Color _primaryBlue = Color(0xFF155EEF);
-  static const Color _softBlueBg = Color(0xFFEFF6FF);
-  static const Color _softBlueBorder = Color(0xFFBFDBFE);
-  static const Color _borderGray = Color(0xFFE2E8F0);
-  static const Color _textDark = Color(0xFF0F172A);
-  static const Color _textSecondary = Color(0xFF475569);
-  static const Color _textMuted = Color(0xFF94A3B8);
+  Color get _primaryBlue => AppColors.primary;
+  Color get _softBlueBg => AppColors.primaryContainer;
+  Color get _softBlueBorder => AppColors.border;
+  Color get _borderGray => AppColors.border;
+  Color get _textDark => AppColors.textDark;
+  Color get _textSecondary => AppColors.textMuted;
+  Color get _textMuted => AppColors.textMuted;
 
   // Danh sách các khu vực hardcoded theo bản đồ Việt Nam đầy đủ 63 tỉnh/thành
   static const List<String> _hardcodedLocations = [
@@ -313,41 +313,41 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
     final amenityNames = ref.watch(hostAmenityNamesProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _handleRefresh,
           color: _primaryBlue,
           child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             children: [
               // 1. Header Figma: Logo, Tên, Xác minh/VIP, Avatar, Chuông thông báo
               _buildHeader(profile),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
 
               // 2. Thanh tìm kiếm (debounce) & Nút Nâng cao (theme xanh dương)
               _buildSearchBar(),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
 
               // 3. Thanh hiển thị khu vực: KHI ẤN NÂNG CAO THÌ ẨN KHU VỰC NÀY ĐI
               if (!_isAdvancedFilterExpanded) ...[
                 _buildLocationCard(),
                 if (_isLocationExpanded) ...[
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   _buildStandaloneLocationDropdown(),
                 ],
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
               ],
 
               // 4. Panel Bộ lọc nâng cao (ảnh 2, 3) dùng lại lọc khu vực bên trong
               if (_isAdvancedFilterExpanded) ...[
                 _buildAdvancedFilterPanel(amenityNames),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
               ],
 
               // 5. Thẻ chào & Trạng thái bảng tin
               _buildWelcomeCard(profile),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
 
               // 6. Danh sách Bài đăng đối chiếu Firebase
               _buildFeedContent(postsAsync, filterState),
@@ -373,7 +373,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.all(10),
+          padding: EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: _primaryBlue,
             borderRadius: BorderRadius.circular(14),
@@ -385,9 +385,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               ),
             ],
           ),
-          child: const Icon(Icons.home, color: Colors.white, size: 24),
+          child: Icon(Icons.home, color: Colors.white, size: 24),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -396,7 +396,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 spacing: 6,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  const Text(
+                  Text(
                     'HomeShare',
                     style: TextStyle(
                       fontSize: 22,
@@ -407,30 +407,30 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   ),
                   if (isVip)
                     Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
+                        color: AppColors.warningContainer,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: const Color(0xFFF59E0B)),
                       ),
-                      child: const Text(
+                      child: Text(
                         'Chủ trọ VIP',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFFB45309),
+                          color: (AppColors.isDark ? const Color(0xFFFDE68A) : const Color(0xFFB45309)),
                         ),
                       ),
                     ),
                 ],
               ),
-              const SizedBox(height: 2),
+              SizedBox(height: 2),
               Text(
                 'Mạng lưới Đối tác & Chủ trọ • $hostName',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   color: Color(0xFF65758F),
                   fontWeight: FontWeight.w500,
@@ -452,9 +452,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   ),
                 );
               },
-              icon: const Icon(
+              icon: Icon(
                 Icons.notifications_none_rounded,
-                color: Color(0xFF475569),
+                color: AppColors.textMuted,
                 size: 26,
               ),
             ),
@@ -464,7 +464,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               child: Container(
                 width: 8,
                 height: 8,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: Color(0xFFEF4444),
                   shape: BoxShape.circle,
                 ),
@@ -472,7 +472,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             ),
           ],
         ),
-        const SizedBox(width: 4),
+        SizedBox(width: 4),
         CircleAvatar(
           radius: 18,
           backgroundColor: _softBlueBg,
@@ -481,7 +481,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               ? null
               : Text(
                   initials,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _primaryBlue,
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
@@ -500,7 +500,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
           child: Container(
             height: 48,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: _borderGray),
             ),
@@ -510,18 +510,18 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               textAlignVertical: TextAlignVertical.center,
               decoration: InputDecoration(
                 hintText: 'Tìm kiếm bài đăng, chủ trọ, đối tác...',
-                hintStyle: const TextStyle(
+                hintStyle: TextStyle(
                   fontSize: 12,
                   color: _textMuted,
                 ),
-                prefixIcon: const Icon(
+                prefixIcon: Icon(
                   Icons.search_rounded,
-                  color: Color(0xFF64748B),
+                  color: AppColors.textMuted,
                   size: 20,
                 ),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
+                        icon: Icon(Icons.clear, size: 18),
                         onPressed: () {
                           _searchController.clear();
                           ref
@@ -532,12 +532,12 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                     : null,
                 isDense: true,
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                contentPadding: EdgeInsets.symmetric(horizontal: 10),
               ),
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         FilledButton.icon(
           style: FilledButton.styleFrom(
             backgroundColor: _primaryBlue,
@@ -545,11 +545,11 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            padding: EdgeInsets.symmetric(horizontal: 14),
             elevation: 0,
           ),
           onPressed: _toggleAdvancedFilterPanel,
-          icon: const Icon(
+          icon: Icon(
             Icons.tune_rounded,
             size: 17,
             color: Colors.white,
@@ -557,7 +557,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
           label: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 'Nâng cao',
                 style: TextStyle(
                   fontSize: 13,
@@ -565,7 +565,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(width: 2),
+              SizedBox(width: 2),
               Icon(
                 _isAdvancedFilterExpanded
                     ? Icons.keyboard_arrow_up_rounded
@@ -586,15 +586,15 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
       onTap: _toggleLocationPanel,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: _borderGray),
         ),
         child: Row(
           children: [
-            const Text(
+            Text(
               'Khu vực:',
               style: TextStyle(
                 fontSize: 12,
@@ -602,10 +602,10 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Expanded(
               child: Container(
-                padding: const EdgeInsets.symmetric(
+                padding: EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 5,
                 ),
@@ -616,7 +616,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 ),
                 child: Text(
                   _appliedLocationsLabel,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: _primaryBlue,
                     fontWeight: FontWeight.bold,
@@ -626,7 +626,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Icon(
               _isLocationExpanded
                   ? Icons.keyboard_arrow_up_rounded
@@ -643,9 +643,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
   // Dropdown khu vực độc lập khi click thẻ khu vực bên ngoài (Ảnh 1)
   Widget _buildStandaloneLocationDropdown() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _borderGray),
         boxShadow: [
@@ -685,7 +685,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         Container(
           height: 42,
           decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
+            color: AppColors.background,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: _borderGray),
           ),
@@ -695,18 +695,18 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             textAlignVertical: TextAlignVertical.center,
             decoration: InputDecoration(
               hintText: 'Tìm nhanh tỉnh/thành phố...',
-              hintStyle: const TextStyle(
+              hintStyle: TextStyle(
                 fontSize: 12,
                 color: _textMuted,
               ),
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.search_rounded,
-                color: Color(0xFF94A3B8),
+                color: AppColors.textMuted,
                 size: 18,
               ),
               suffixIcon: _locationSearchController.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear, size: 16),
+                      icon: Icon(Icons.clear, size: 16),
                       onPressed: () {
                         _locationSearchController.clear();
                         setState(() {});
@@ -715,11 +715,11 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   : null,
               isDense: true,
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+              contentPadding: EdgeInsets.symmetric(horizontal: 10),
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
 
         // Danh sách các khu vực có checkbox (Đầy đủ tất cả khu vực VN)
         ConstrainedBox(
@@ -731,7 +731,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               controller: _locationScrollController,
               shrinkWrap: true,
               itemCount: filteredLocations.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 6),
+              separatorBuilder: (context, index) => SizedBox(height: 6),
               itemBuilder: (context, index) {
                 final location = filteredLocations[index];
                 final isAll = location.contains('Toàn quốc');
@@ -741,14 +741,14 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   onTap: () => _toggleLocationItem(location),
                   borderRadius: BorderRadius.circular(10),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                       horizontal: 10,
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
                       color: isSelected && !isAll
                           ? _softBlueBg
-                          : Colors.white,
+                          : AppColors.surface,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: isSelected && !isAll
@@ -764,24 +764,24 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                           width: 20,
                           height: 20,
                           decoration: BoxDecoration(
-                            color: isSelected ? _primaryBlue : Colors.white,
+                            color: isSelected ? _primaryBlue : AppColors.surface,
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
                               color: isSelected
                                   ? _primaryBlue
-                                  : const Color(0xFFCBD5E1),
+                                  : AppColors.border,
                               width: 1.5,
                             ),
                           ),
                           child: isSelected
-                              ? const Icon(
+                              ? Icon(
                                   Icons.check_rounded,
                                   size: 15,
                                   color: Colors.white,
                                 )
                               : null,
                         ),
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             location,
@@ -804,7 +804,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
 
         // Hàng nút dưới cùng
         Row(
@@ -816,7 +816,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 visualDensity: VisualDensity.compact,
               ),
               onPressed: _clearLocations,
-              child: const Text(
+              child: Text(
                 'Bỏ chọn tất cả',
                 style: TextStyle(
                   fontSize: 13,
@@ -832,7 +832,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 10,
                   ),
@@ -841,7 +841,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 onPressed: _applyLocations,
                 child: Text(
                   'Áp dụng ($selectedCount khu vực)',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -872,7 +872,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _borderGray),
         boxShadow: [
@@ -883,7 +883,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -903,8 +903,8 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    const Flexible(
+                    SizedBox(width: 8),
+                    Flexible(
                       child: Text(
                         '1. Khu vực tìm kiếm',
                         style: TextStyle(
@@ -918,9 +918,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: _softBlueBg,
                   borderRadius: BorderRadius.circular(6),
@@ -928,7 +928,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 ),
                 child: Text(
                   'Đã chọn ($selectedLocationsCount)',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: _primaryBlue,
@@ -937,13 +937,13 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
 
           // Tái sử dụng chính widget lọc khu vực (nút áp dụng sẽ áp dụng toàn bộ ở cuối)
           _buildLocationSelectorWidget(
             isInsideAdvancedFilter: true,
           ),
-          const Divider(height: 24),
+          Divider(height: 24),
 
           // ================= MỤC 2. GIÁ THUÊ / THÁNG =================
           Row(
@@ -961,8 +961,8 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    const Flexible(
+                    SizedBox(width: 8),
+                    Flexible(
                       child: Text(
                         'Giá thuê / tháng',
                         style: TextStyle(
@@ -976,10 +976,10 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 '${_formatCurrency(_priceRangeValues.start)} – ${_formatCurrency(_priceRangeValues.end)}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: _primaryBlue,
@@ -987,30 +987,30 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
 
           // 2 ô Tối thiểu & Tối đa
           Row(
             children: [
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: AppColors.background,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: _borderGray),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Tối thiểu',
                         style: TextStyle(fontSize: 11, color: _textSecondary),
                       ),
-                      const SizedBox(height: 3),
+                      SizedBox(height: 3),
                       Text(
                         _formatCurrency(_priceRangeValues.start),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: _textDark,
@@ -1020,26 +1020,26 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: AppColors.background,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: _borderGray),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Tối đa',
                         style: TextStyle(fontSize: 11, color: _textSecondary),
                       ),
-                      const SizedBox(height: 3),
+                      SizedBox(height: 3),
                       Text(
                         _formatCurrency(_priceRangeValues.end),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: _textDark,
@@ -1059,12 +1059,12 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             max: 20000000,
             divisions: 40,
             activeColor: _primaryBlue,
-            inactiveColor: const Color(0xFFE2E8F0),
+            inactiveColor: AppColors.border,
             onChanged: (values) {
               setState(() => _priceRangeValues = values);
             },
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 10),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1088,13 +1088,13 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               ],
             ),
           ),
-          const Divider(height: 24),
+          Divider(height: 24),
 
           // ================= MỤC 3. TIỆN ÍCH & YÊU CẦU (TỪ FIRESTORE) =================
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Expanded(
+              Expanded(
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1118,9 +1118,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: _softBlueBg,
                   borderRadius: BorderRadius.circular(6),
@@ -1128,7 +1128,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 ),
                 child: Text(
                   '$totalSelectedAmenities đang chọn',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: _primaryBlue,
@@ -1137,7 +1137,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
 
           // Ô thêm tiện ích riêng
           Row(
@@ -1146,14 +1146,14 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 child: Container(
                   height: 42,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: AppColors.background,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: _borderGray),
                   ),
                   child: TextField(
                     controller: _customRequirementController,
                     textAlignVertical: TextAlignVertical.center,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Thêm tiện ích, yêu cầu riêng...',
                       hintStyle: TextStyle(
                         fontSize: 12,
@@ -1161,7 +1161,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                       ),
                       prefixIcon: Icon(
                         Icons.add_circle_outline_rounded,
-                        color: Color(0xFF94A3B8),
+                        color: AppColors.textMuted,
                         size: 18,
                       ),
                       isDense: true,
@@ -1172,7 +1172,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               FilledButton(
                 style: FilledButton.styleFrom(
                   backgroundColor: _primaryBlue,
@@ -1180,11 +1180,11 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: EdgeInsets.symmetric(horizontal: 16),
                   elevation: 0,
                 ),
                 onPressed: () => _handleAddCustomRequirement(amenityNames),
-                child: const Text(
+                child: Text(
                   'Thêm',
                   style: TextStyle(
                     fontSize: 12,
@@ -1195,7 +1195,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
 
           // Danh sách các tiện ích & yêu cầu tuỳ chọn (lấy từ bảng tiện ích)
           Column(
@@ -1241,7 +1241,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 ),
             ],
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
 
           // Nút Thu gọn / Xem thêm tiện ích full-width đúng chuẩn UI Figma (Ảnh 2)
           if (amenityNames.length > 4)
@@ -1254,21 +1254,21 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 width: double.infinity,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0F5FF),
+                  color: AppColors.primaryContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   _isAmenitiesExpanded ? 'Thu gọn ^' : 'Xem thêm v',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1E60F2),
+                    color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF1E60F2)),
                   ),
                 ),
               ),
             ),
-          const Divider(height: 20),
+          Divider(height: 20),
 
           // ================= MỤC 4. SẮP XẾP KẾT QUẢ =================
           // "Mới nhất", "Được quan tâm nhất" là Checkbox (CHỌN ĐỒNG THỜI CÙNG LÚC ĐƯỢC)
@@ -1283,8 +1283,8 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(width: 8),
-              const Text(
+              SizedBox(width: 8),
+              Text(
                 'Sắp xếp kết quả',
                 style: TextStyle(
                   fontSize: 14,
@@ -1294,7 +1294,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
 
           // Hàng 1: Dạng Checkbox ("Mới nhất", "Được quan tâm nhất") - Chọn cùng lúc được
           Row(
@@ -1308,7 +1308,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   },
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: _buildSortCheckboxCard(
                   'Được quan tâm nhất',
@@ -1321,7 +1321,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
 
           // Hàng 2: Dạng Radio ("Giá thấp đến cao", "Giá cao đến thấp") - Luôn chọn 1 trong 2
           Row(
@@ -1337,7 +1337,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   },
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: _buildSortRadioCard(
                   'Giá cao đến thấp',
@@ -1351,7 +1351,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
 
           // ================= NÚT ĐẶT LẠI & ÁP DỤNG BỘ LỌC =================
           Row(
@@ -1359,13 +1359,13 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(90, 46),
-                  side: const BorderSide(color: _borderGray),
+                  side: BorderSide(color: _borderGray),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 onPressed: _resetAdvancedFilter,
-                child: const Text(
+                child: Text(
                   'Đặt lại',
                   style: TextStyle(
                     fontSize: 13,
@@ -1374,7 +1374,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(
@@ -1386,12 +1386,12 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                     elevation: 0,
                   ),
                   onPressed: _applyAdvancedFilter,
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.check_rounded,
                     size: 18,
                     color: Colors.white,
                   ),
-                  label: const Text(
+                  label: Text(
                     'Áp dụng bộ lọc',
                     style: TextStyle(
                       fontSize: 14,
@@ -1417,14 +1417,14 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
     VoidCallback? onRemove,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: EdgeInsets.only(bottom: 6),
       child: InkWell(
         onTap: onToggle,
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? _softBlueBg : Colors.white,
+            color: isSelected ? _softBlueBg : AppColors.surface,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isSelected ? _primaryBlue : _borderGray,
@@ -1437,24 +1437,24 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(
-                  color: isSelected ? _primaryBlue : Colors.white,
+                  color: isSelected ? _primaryBlue : AppColors.surface,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
                     color: isSelected
                         ? _primaryBlue
-                        : const Color(0xFFCBD5E1),
+                        : AppColors.border,
                     width: 1.5,
                   ),
                 ),
                 child: isSelected
-                    ? const Icon(
+                    ? Icon(
                         Icons.check_rounded,
                         size: 15,
                         color: Colors.white,
                       )
                     : null,
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: Text(
                   name,
@@ -1467,15 +1467,15 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               ),
               if (isCustom) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 7,
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFDBEAFE),
+                    color: AppColors.primaryContainer,
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Tùy chọn',
                     style: TextStyle(
                       fontSize: 10,
@@ -1484,27 +1484,27 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 InkWell(
                   onTap: onRemove,
-                  child: const Icon(
+                  child: Icon(
                     Icons.close_rounded,
                     size: 16,
-                    color: Color(0xFF64748B),
+                    color: AppColors.textMuted,
                   ),
                 ),
               ] else if (isSelected)
                 Container(
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 8,
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFDBEAFE),
+                    color: AppColors.primaryContainer,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: _softBlueBorder),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Đã chọn',
                     style: TextStyle(
                       fontSize: 10,
@@ -1514,10 +1514,10 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   ),
                 )
               else
-                const Icon(
+                Icon(
                   Icons.add_rounded,
                   size: 18,
-                  color: Color(0xFF94A3B8),
+                  color: AppColors.textMuted,
                 ),
             ],
           ),
@@ -1537,9 +1537,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
       borderRadius: BorderRadius.circular(10),
       child: Container(
         height: 42,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
-          color: isSelected ? _softBlueBg : Colors.white,
+          color: isSelected ? _softBlueBg : AppColors.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isSelected ? _primaryBlue : _borderGray,
@@ -1553,22 +1553,22 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               width: 18,
               height: 18,
               decoration: BoxDecoration(
-                color: isSelected ? _primaryBlue : Colors.white,
+                            color: isSelected ? _primaryBlue : AppColors.surface,
                 borderRadius: BorderRadius.circular(5),
                 border: Border.all(
-                  color: isSelected ? _primaryBlue : const Color(0xFFCBD5E1),
+                  color: isSelected ? _primaryBlue : AppColors.border,
                   width: 1.5,
                 ),
               ),
               child: isSelected
-                  ? const Icon(
+                  ? Icon(
                       Icons.check_rounded,
                       size: 14,
                       color: Colors.white,
                     )
                   : null,
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Expanded(
               child: Text(
                 label,
@@ -1598,9 +1598,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
       borderRadius: BorderRadius.circular(10),
       child: Container(
         height: 42,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
-          color: isSelected ? _softBlueBg : Colors.white,
+          color: isSelected ? _softBlueBg : AppColors.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isSelected ? _primaryBlue : _borderGray,
@@ -1616,7 +1616,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isSelected ? _primaryBlue : const Color(0xFFCBD5E1),
+                  color: isSelected ? _primaryBlue : AppColors.border,
                   width: 1.8,
                 ),
               ),
@@ -1625,7 +1625,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                       child: Container(
                         width: 9,
                         height: 9,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: _primaryBlue,
                           shape: BoxShape.circle,
                         ),
@@ -1633,7 +1633,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                     )
                   : null,
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Expanded(
               child: Text(
                 label,
@@ -1659,11 +1659,11 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _softBlueBorder),
       ),
-      padding: const EdgeInsets.all(12),
-      child: const Row(
+      padding: EdgeInsets.all(12),
+      child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: Color(0xFFDBEAFE),
+            backgroundColor: AppColors.primaryContainer,
             radius: 18,
             child: Icon(Icons.people_alt, color: _primaryBlue, size: 20),
           ),
@@ -1673,7 +1673,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               'Bảng tin kết nối chia sẻ khách thuê & hợp tác quản lý phòng trọ.',
               style: TextStyle(
                 fontSize: 12,
-                color: Color(0xFF1E3A8A),
+                color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF1E3A8A)),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -1713,10 +1713,10 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
               child: Row(
                 children: [
-                  const Text(
+                  Text(
                     'Bảng tin bài đăng',
                     style: TextStyle(
                       fontSize: 14,
@@ -1724,9 +1724,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                       color: _textDark,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 2,
                     ),
@@ -1736,7 +1736,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                     ),
                     child: Text(
                       '${posts.length}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: _primaryBlue,
@@ -1746,7 +1746,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             for (final post in posts)
               HostPostCard(
                 key: ValueKey(post.id),
@@ -1785,7 +1785,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
   }
 
   Widget _buildLoadingState() {
-    return const Center(
+    return Center(
       child: Padding(
         padding: EdgeInsets.all(40),
         child: Column(
@@ -1797,7 +1797,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             SizedBox(height: 16),
             Text(
               'Đang tải bảng tin đối tác...',
-              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              style: TextStyle(fontSize: 13, color: AppColors.textMuted),
             ),
           ],
         ),
@@ -1824,13 +1824,13 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
 
     return Card(
       elevation: 0,
-      color: Colors.white,
+      color: AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFFFEE2E2)),
+        side: BorderSide(color: AppColors.dangerContainer),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.all(28),
         child: Column(
           children: [
             Icon(
@@ -1842,31 +1842,31 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               size: 48,
               color: const Color(0xFFEF4444),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             Text(
               isPermissionError
                   ? 'Lỗi phân quyền Firestore'
                   : (isNetworkError ? 'Lỗi kết nối mạng' : 'Đã có lỗi xảy ra'),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B),
+                color: AppColors.textDark,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               errorMessage,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             FilledButton.icon(
               onPressed: () => ref.invalidate(hostHomePostsProvider),
               style: FilledButton.styleFrom(
                 backgroundColor: _primaryBlue,
               ),
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Thử lại'),
+              icon: Icon(Icons.refresh, size: 18),
+              label: Text('Thử lại'),
             ),
           ],
         ),
@@ -1877,19 +1877,19 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
   Widget _buildEmptyState() {
     return Card(
       elevation: 0,
-      color: Colors.white,
+      color: AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: _borderGray),
+        side: BorderSide(color: _borderGray),
       ),
-      child: const Padding(
+      child: Padding(
         padding: EdgeInsets.all(32),
         child: Column(
           children: [
             Icon(
               Icons.dynamic_feed_outlined,
               size: 56,
-              color: Color(0xFF94A3B8),
+              color: AppColors.textMuted,
             ),
             SizedBox(height: 14),
             Text(
@@ -1897,14 +1897,14 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B),
+                color: AppColors.textDark,
               ),
             ),
             SizedBox(height: 6),
             Text(
               'Các bài đăng mới từ chủ trọ khác sẽ hiển thị tại đây khi được đăng tải.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
           ],
         ),
@@ -1915,36 +1915,36 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
   Widget _buildNoFilterResultState() {
     return Card(
       elevation: 0,
-      color: Colors.white,
+      color: AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: _borderGray),
+        side: BorderSide(color: _borderGray),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.all(28),
         child: Column(
           children: [
-            const Icon(
+            Icon(
               Icons.search_off_rounded,
               size: 52,
               color: Color(0xFFF59E0B),
             ),
-            const SizedBox(height: 14),
-            const Text(
+            SizedBox(height: 14),
+            Text(
               'Không tìm thấy bài đăng phù hợp',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B),
+                color: AppColors.textDark,
               ),
             ),
-            const SizedBox(height: 6),
-            const Text(
+            SizedBox(height: 6),
+            Text(
               'Hãy thử thay đổi từ khoá tìm kiếm hoặc đặt lại các tiêu chí bộ lọc.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             OutlinedButton(
               onPressed: () {
                 _searchController.clear();
@@ -1952,7 +1952,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 ref.read(hostHomeFilterProvider.notifier).clearLocations();
                 ref.read(hostHomeFilterProvider.notifier).setSearchQuery('');
               },
-              child: const Text('Xóa bộ lọc'),
+              child: Text('Xóa bộ lọc'),
             ),
           ],
         ),

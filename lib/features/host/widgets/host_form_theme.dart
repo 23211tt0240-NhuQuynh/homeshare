@@ -2,29 +2,33 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../../core/constants/app_colors.dart';
 import '../providers/host_management_provider.dart';
 
 /// Bộ Theme, Token màu và Styles dùng chung cho các màn hình Host
 class HostTheme {
   const HostTheme._();
 
-  // Bảng màu chuẩn Host
-  static const Color primary = Color(0xFF1E60F2);
-  static const Color primaryDark = Color(0xFF1D4ED8);
-  static const Color primaryLight = Color(0xFFEFF6FF);
-  static const Color background = Color(0xFFF8FAFC);
-  static const Color surface = Colors.white;
-  static const Color cardBorder = Color(0xFFD9E7FF);
-  static const Color inputBorder = Color(0xFFCBD5E1);
-  static const Color inputFocusBorder = Color(0xFF1E60F2);
-  static const Color inputEnabledBorder = Color(0xFF93C5FD);
-  static const Color textDark = Color(0xFF1E293B);
-  static const Color textSecondary = Color(0xFF64748B);
-  static const Color textMuted = Color(0xFF94A3B8);
-  static const Color chipBorder = Color(0xFF93C5FD);
-  static const Color chipSelectedBg = Color(0xFFDBEAFE);
-  static const Color chipSelectedText = Color(0xFF1D4ED8);
-  static const Color disabledBackground = Color(0xFFF1F5F9);
+  static Color get primary => AppColors.primary;
+  static Color get primaryDark => AppColors.primaryDark;
+  static Color get primaryLight => AppColors.primaryContainer;
+  static Color get background => AppColors.background;
+  static Color get surface => AppColors.surface;
+  static Color get cardBorder => AppColors.border;
+  static Color get inputBorder => AppColors.border;
+  static Color get inputFocusBorder => AppColors.primary;
+  static Color get inputEnabledBorder => AppColors.primary.withValues(alpha: 0.45);
+  static Color get textDark => AppColors.textDark;
+  static Color get textSecondary => AppColors.textMuted;
+  static Color get textMuted => AppColors.textMuted;
+  static Color get chipBorder => AppColors.primary.withValues(alpha: 0.45);
+  static Color get chipSelectedBg => AppColors.primaryContainer;
+  static Color get chipSelectedText =>
+      AppColors.isDark ? AppColors.textDark : AppColors.primaryDark;
+  static Color get disabledBackground => AppColors.surfaceVariant;
+  /// Chữ nhấn: Graphite dùng trắng, Phòng Sáng giữ xanh.
+  static Color get accentText =>
+      AppColors.isDark ? AppColors.textDark : AppColors.primary;
 
   // Border radius chuẩn
   static final BorderRadius radius12 = BorderRadius.circular(12);
@@ -33,14 +37,14 @@ class HostTheme {
 
   // BoxDecorations dùng chung
   static BoxDecoration cardDecoration({
-    Color backgroundColor = Colors.white,
-    Color borderColor = cardBorder,
+    Color? backgroundColor,
+    Color? borderColor,
     double borderWidth = 1.2,
     BorderRadius? borderRadius,
   }) => BoxDecoration(
-    color: backgroundColor,
+    color: backgroundColor ?? AppColors.surface,
     borderRadius: borderRadius ?? radius16,
-    border: Border.all(color: borderColor, width: borderWidth),
+    border: Border.all(color: borderColor ?? AppColors.border, width: borderWidth),
   );
 
   // InputDecoration dùng chung cho các TextFormField & DropdownFormField
@@ -53,8 +57,8 @@ class HostTheme {
     Color? fillColor,
     bool isFilled = true,
     EdgeInsetsGeometry? contentPadding,
-    Color borderColor = inputBorder,
-    Color focusedBorderColor = inputFocusBorder,
+    Color? borderColor,
+    Color? focusedBorderColor,
     double focusedBorderWidth = 1.5,
     Color? enabledBorderColor,
     double enabledBorderWidth = 1.0,
@@ -62,36 +66,36 @@ class HostTheme {
     return InputDecoration(
       labelText: labelText,
       hintText: hintText,
-      hintStyle: const TextStyle(fontSize: 13, color: textMuted),
+      hintStyle: TextStyle(fontSize: 13, color: AppColors.textMuted),
       suffixText: suffixText,
       suffixStyle:
           suffixStyle ??
-          const TextStyle(
-            color: textSecondary,
+          TextStyle(
+            color: AppColors.textMuted,
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
       prefixIcon: prefixIcon,
       filled: isFilled,
-      fillColor: fillColor ?? Colors.white,
+      fillColor: fillColor ?? AppColors.surface,
       contentPadding:
           contentPadding ??
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: radius14,
-        borderSide: BorderSide(color: borderColor),
+        borderSide: BorderSide(color: borderColor ?? AppColors.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: radius14,
         borderSide: BorderSide(
-          color: enabledBorderColor ?? borderColor,
+          color: enabledBorderColor ?? borderColor ?? AppColors.border,
           width: enabledBorderWidth,
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: radius14,
         borderSide: BorderSide(
-          color: focusedBorderColor,
+          color: focusedBorderColor ?? AppColors.primary,
           width: focusedBorderWidth,
         ),
       ),
@@ -202,21 +206,21 @@ class HostCardSection extends StatelessWidget {
           Row(
             children: [
               Icon(icon, color: HostTheme.primary, size: 20),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 13,
-                    color: HostTheme.textDark,
+                    color: AppColors.textDark,
                   ),
                 ),
               ),
               ?trailing,
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           child,
         ],
       ),
@@ -242,21 +246,21 @@ class HostSectionTitle extends StatelessWidget {
     return Row(
       children: [
         Icon(icon, color: HostTheme.primary, size: 22),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w800,
               fontSize: 14,
-              color: HostTheme.textDark,
+              color: AppColors.textDark,
             ),
           ),
         ),
         if (showChevron)
-          const Icon(
+          Icon(
             Icons.chevron_right_rounded,
-            color: HostTheme.primary,
+            color: AppColors.primary,
             size: 22,
           ),
       ],
@@ -283,18 +287,18 @@ class HostAddImageButton extends StatelessWidget {
       child: Container(
         width: 92,
         height: 92,
-        margin: const EdgeInsets.only(right: 10),
+        margin: EdgeInsets.only(right: 10),
         decoration: BoxDecoration(
           color: HostTheme.background,
           borderRadius: HostTheme.radius12,
-          border: Border.all(color: const Color(0xFF8DB8FF), width: 1.5),
+          border: Border.all(color: HostTheme.chipBorder, width: 1.5),
         ),
-        child: const Column(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.add_photo_alternate_outlined,
-              color: HostTheme.primary,
+              color: HostTheme.accentText,
               size: 26,
             ),
             SizedBox(height: 4),
@@ -302,7 +306,7 @@ class HostAddImageButton extends StatelessWidget {
               'Thêm ảnh',
               style: TextStyle(
                 fontSize: 11,
-                color: HostTheme.primary,
+                color: HostTheme.accentText,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -337,14 +341,12 @@ class HostImageThumbnail extends StatelessWidget {
         Container(
           width: 92,
           height: 92,
-          margin: const EdgeInsets.only(right: 10),
+          margin: EdgeInsets.only(right: 10),
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             borderRadius: HostTheme.radius12,
             border: Border.all(
-              color: rawUrl != null
-                  ? HostTheme.cardBorder
-                  : const Color(0xFFE2E8F0),
+              color: rawUrl != null ? HostTheme.cardBorder : AppColors.border,
             ),
           ),
           child: upload != null
@@ -357,7 +359,7 @@ class HostImageThumbnail extends StatelessWidget {
             right: 14,
             child: InkWell(
               onTap: onRemove,
-              child: const CircleAvatar(
+              child: CircleAvatar(
                 radius: 11,
                 backgroundColor: Color(0x99000000),
                 child: Icon(Icons.close, size: 13, color: Colors.white),
@@ -369,12 +371,12 @@ class HostImageThumbnail extends StatelessWidget {
             left: 5,
             bottom: 5,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: HostTheme.primary,
                 borderRadius: BorderRadius.circular(5),
               ),
-              child: const Text(
+              child: Text(
                 'Ảnh bìa',
                 style: TextStyle(
                   color: Colors.white,
@@ -444,14 +446,14 @@ class HostImageThumbnail extends StatelessWidget {
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
         return Container(
-          color: HostTheme.background,
-          child: const Center(
+          color: AppColors.background,
+          child: Center(
             child: SizedBox(
               width: 20,
               height: 20,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: HostTheme.primary,
+                color: AppColors.primary,
               ),
             ),
           ),
@@ -463,18 +465,18 @@ class HostImageThumbnail extends StatelessWidget {
 
   Widget _buildPlaceholder() {
     return Container(
-      color: const Color(0xFFF1F5F9),
-      child: const Center(
+      color: AppColors.surfaceVariant,
+      child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.image_outlined, color: HostTheme.textMuted, size: 24),
+            Icon(Icons.image_outlined, color: AppColors.textMuted, size: 24),
             SizedBox(height: 2),
             Text(
               'Ảnh phòng',
               style: TextStyle(
                 fontSize: 9,
-                color: HostTheme.textSecondary,
+                color: AppColors.textMuted,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -509,19 +511,17 @@ class HostAmenityTile extends StatelessWidget {
     final Color checkColor;
 
     if (isSelected) {
-      borderColor = isCustom
-          ? const Color(0xFF60A5FA)
-          : const Color(0xFF93C5FD);
-      bgColor = isCustom ? const Color(0xFFEFF6FF) : const Color(0xFFF0F7FF);
-      checkColor = HostTheme.primary;
+      borderColor = AppColors.primary;
+      bgColor = AppColors.primaryContainer;
+      checkColor = AppColors.primary;
     } else {
-      borderColor = const Color(0xFFE2E8F0);
-      bgColor = HostTheme.background;
-      checkColor = const Color(0xFFCBD5E1);
+      borderColor = AppColors.border;
+      bgColor = AppColors.surfaceVariant;
+      checkColor = AppColors.border;
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: HostTheme.radius14,
@@ -532,25 +532,25 @@ class HostAmenityTile extends StatelessWidget {
         borderRadius: HostTheme.radius14,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
               Container(
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(
-                  color: isSelected ? checkColor : Colors.white,
+                  color: isSelected ? checkColor : AppColors.surface,
                   borderRadius: BorderRadius.circular(5),
                   border: Border.all(
-                    color: isSelected ? checkColor : const Color(0xFFCBD5E1),
+                    color: isSelected ? checkColor : AppColors.border,
                     width: 1.5,
                   ),
                 ),
                 child: isSelected
-                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    ? Icon(Icons.check, size: 14, color: Colors.white)
                     : null,
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: Text(
                   name,
@@ -558,19 +558,17 @@ class HostAmenityTile extends StatelessWidget {
                     fontSize: 13,
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                     color: isSelected
-                        ? (isCustom
-                              ? const Color(0xFF1E3A8A)
-                              : const Color(0xFF1E40AF))
-                        : HostTheme.textDark,
+                        ? HostTheme.chipSelectedText
+                        : AppColors.textDark,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               if (isCustom) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 8,
                     vertical: 3,
                   ),
@@ -578,7 +576,7 @@ class HostAmenityTile extends StatelessWidget {
                     color: HostTheme.chipSelectedBg,
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Tùy chọn',
                     style: TextStyle(
                       fontSize: 11,
@@ -587,13 +585,13 @@ class HostAmenityTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 IconButton(
                   key: ValueKey('delete_custom_amenity_$name'),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.close,
                     size: 16,
-                    color: HostTheme.textSecondary,
+                    color: AppColors.textMuted,
                   ),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -601,7 +599,7 @@ class HostAmenityTile extends StatelessWidget {
                 ),
               ] else if (isSelected) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 8,
                     vertical: 3,
                   ),
@@ -609,7 +607,7 @@ class HostAmenityTile extends StatelessWidget {
                     color: HostTheme.chipSelectedBg,
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Đã chọn',
                     style: TextStyle(
                       fontSize: 11,
@@ -619,7 +617,7 @@ class HostAmenityTile extends StatelessWidget {
                   ),
                 ),
               ] else ...[
-                const Icon(Icons.add, size: 18, color: HostTheme.textMuted),
+                Icon(Icons.add, size: 18, color: AppColors.textMuted),
               ],
             ],
           ),

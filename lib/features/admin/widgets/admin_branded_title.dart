@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/admin_colors.dart';
 
 /// Nhận diện HomeShare đồng nhất trong tiêu đề các trang quản trị.
 class AdminBrandedTitle extends StatelessWidget {
@@ -16,14 +17,14 @@ class AdminBrandedTitle extends StatelessWidget {
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            color: const Color(0xFFE7F4FB),
+            color: AdminColors.accentSoft,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFCDE8F6)),
+            border: Border.all(color: AdminColors.border),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.home_work_rounded,
             size: 22,
-            color: Color(0xFF398FC0),
+            color: AdminColors.accent,
           ),
         ),
         const SizedBox(width: 9),
@@ -32,7 +33,7 @@ class AdminBrandedTitle extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'HomeShare',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -41,7 +42,7 @@ class AdminBrandedTitle extends StatelessWidget {
                   height: 1.1,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.25,
-                  color: Color(0xFF398FC0),
+                  color: AdminColors.accentText,
                 ),
               ),
               const SizedBox(height: 2),
@@ -49,11 +50,11 @@ class AdminBrandedTitle extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   height: 1.1,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF17324D),
+                  color: AdminColors.title,
                 ),
               ),
               if (subtitle != null) ...[
@@ -62,10 +63,10 @@ class AdminBrandedTitle extends StatelessWidget {
                   subtitle!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10.5,
                     height: 1.1,
-                    color: Color(0xFF718096),
+                    color: AdminColors.muted,
                   ),
                 ),
               ],

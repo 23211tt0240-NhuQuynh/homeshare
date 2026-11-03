@@ -35,7 +35,7 @@ class ProfileActionsCard extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text(
+            child: Text(
               'Hủy',
               style: TextStyle(
                 color: AppColors.textSecondary,
@@ -159,7 +159,7 @@ class ProfileActionsCard extends StatelessWidget {
                           constraints: BoxConstraints(maxWidth: maxColWidth),
                           child: Text(
                             subtitle,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary,
                             ),
@@ -188,7 +188,7 @@ class ProfileActionsCard extends StatelessWidget {
   }
 
   Widget _buildDivider() {
-    return const Divider(
+    return Divider(
       height: 1,
       thickness: 1,
       indent: 54,
@@ -201,7 +201,7 @@ class ProfileActionsCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(left: 4, bottom: 8),
           child: Text(
             'QUẢN LÝ TÀI KHOẢN',
@@ -218,9 +218,9 @@ class ProfileActionsCard extends StatelessWidget {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
-            side: const BorderSide(color: AppColors.border),
+            side: BorderSide(color: AppColors.border),
           ),
-          color: Colors.white,
+          color: AppColors.surface,
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [

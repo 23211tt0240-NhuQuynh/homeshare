@@ -397,7 +397,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.qr_code_2, color: AppColors.primary),
             SizedBox(width: 8),
@@ -408,7 +408,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Nếu camera bị bóng đèn phản chiếu, bạn có thể dán chuỗi quét từ Zalo/Google Lens vào đây để trích xuất 100% dữ liệu thật:',
               style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
@@ -486,8 +486,8 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: SafeArea(
@@ -498,13 +498,13 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
                 width: 40,
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
               ),
               Row(
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundColor: isRealScan ? const Color(0xFFD1FAE5) : const Color(0xFFFEF3C7),
+                    backgroundColor: isRealScan ? const Color(0xFFD1FAE5) : AppColors.warningContainer,
                     child: Icon(
                       isRealScan ? Icons.verified_user : Icons.check,
                       color: isRealScan ? AppColors.primary : const Color(0xFFD97706),
@@ -518,13 +518,13 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
                       children: [
                         Text(
                           isRealScan ? 'ĐÃ TRÍCH XUẤT 100% THÔNG TIN THẬT' : 'ĐÃ QUÉT THÀNH CÔNG CCCD',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary),
                         ),
                         Text(
                           isRealScan
                               ? 'Dữ liệu được giải mã trực tiếp từ mã QR thẻ CCCD của bạn'
                               : 'Vui lòng kiểm tra lại thông tin trích xuất từ thẻ chip',
-                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                         ),
                       ],
                     ),
@@ -537,8 +537,8 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFF0FDF4), Color(0xFFDCFCE7)],
+                  gradient: LinearGradient(
+                    colors: [AppColors.successContainer, Color(0xFFDCFCE7)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -558,7 +558,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Row(
+                        Row(
                           children: [
                             Icon(Icons.credit_card, color: AppColors.primary, size: 20),
                             SizedBox(width: 6),
@@ -653,7 +653,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
       children: [
         SizedBox(
           width: 95,
-          child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+          child: Text(label, style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
         ),
         Expanded(
           child: Text(
@@ -704,7 +704,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
       Navigator.pop(context, cccd); // Thoát khỏi màn hình scanner
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Xác thực CCCD (eKYC) thành công! Danh tính đã được phê duyệt ✓'),
           backgroundColor: AppColors.primary,
         ),
@@ -717,7 +717,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF3C7).withValues(alpha: 0.95),
+        color: AppColors.warningContainer.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
         boxShadow: [
@@ -873,7 +873,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
                         child: Container(
                           height: 3,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
+                            gradient: LinearGradient(
                               colors: [Colors.transparent, AppColors.primary, Colors.transparent],
                             ),
                             boxShadow: [
@@ -965,7 +965,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(color: Colors.white24),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.center_focus_strong, color: AppColors.primary, size: 16),

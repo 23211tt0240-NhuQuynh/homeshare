@@ -1,8 +1,8 @@
+import 'package:image_picker/image_picker.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/room_amenities.dart';
 import '../../../core/utils/vnd_input.dart';
@@ -16,6 +16,7 @@ import '../data/host_property.dart';
 import '../providers/host_management_provider.dart';
 import '../widgets/host_room_widgets.dart';
 import '../widgets/host_range_input.dart';
+import '../widgets/host_area_input.dart';
 import '../widgets/host_form_theme.dart';
 
 // Chủ trọ - Bộ chọn ảnh - Luồng đi: Dùng picker có thể thay thế khi
@@ -66,18 +67,17 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
   final _amenities = <String>{};
   final _customAmenity = TextEditingController();
   bool _amenitiesExpanded = true;
-  String _city = VietnamLocations.provinces.first;
+  String _city = 'TP. Hồ Chí Minh';
+  // Chủ trọ - Địa chỉ cũ - Luồng đi: Giữ quận/huyện của model cũ khi mở
+  // form để nhận diện trạng thái; không đưa vào danh sách chọn hoặc dữ liệu lưu.
   String? _district;
-  bool get _wardRequired =>
-      _district != null &&
-      VietnamLocations.getWards(_city, _district!).isNotEmpty;
+
   String? _selectedPropertyId, _draftPropertyId;
   String? _draftOwner;
   HostProperty? _justCreated;
-  HostUpload? _proof;
   bool _roomTab = false, _saving = false, _picking = false;
   RangeValues _rent = const RangeValues(0, 0);
-  RangeValues _area = const RangeValues(25, 25);
+  double _area = 25;
   String _roomType = 'Phòng trọ';
   bool get _editingProperty => widget.propertyToEdit != null;
   final String _operationId = List.generate(
@@ -131,41 +131,33 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
 
   // Chủ trọ - Chọn ảnh - Luồng đi: Dùng picker đa nền tảng, kiểm tra
   // chữ ký PNG/JPEG và dung lượng rồi giữ byte để xem trước/xóa khỏi form.
-  Future<void> _pickImages({bool proof = false}) async {
+  Future<void> _pickImages() async {
     setState(() => _picking = true);
     final target = _roomTab ? _roomImages : _houseImages;
     try {
       final picker = ref.read(hostImagePickerProvider);
-      final List<XFile> files;
-      if (proof) {
-        final file = await picker.pickImage(source: ImageSource.gallery);
-        files = file == null ? [] : [file];
-      } else {
-        files = await picker.pickMultiImage();
-      }
+      final files = await picker.pickMultiImage();
       final max = _roomTab ? 8 : 5;
-      final keptCount = !_roomTab && !proof ? _keptHouseImages.length : 0;
-      if (!proof && keptCount + target.length + files.length > max) {
+      final keptCount = !_roomTab ? _keptHouseImages.length : 0;
+      if (keptCount + target.length + files.length > max) {
         throw StateError('Chỉ chọn tối đa $max ảnh.');
       }
       final selected = <HostUpload>[];
       for (final file in files) {
         final size = await file.length();
-        if (size > (proof ? 15 : 5) * 1024 * 1024) {
-          throw StateError('Tệp vượt quá ${proof ? 15 : 5} MB.');
+        if (size > 5 * 1024 * 1024) {
+          throw StateError('Tệp vượt quá 5 MB.');
         }
         final Uint8List bytes = await file.readAsBytes();
         final contentType = HostImageUtils.detectContentType(bytes);
-        if (contentType == null) throw StateError('Chỉ hỗ trợ ảnh JPG hoặc PNG.');
+        if (contentType == null) {
+          throw StateError('Chỉ hỗ trợ ảnh JPG hoặc PNG.');
+        }
         selected.add(HostUpload(bytes, contentType));
       }
       if (!mounted) return;
       setState(() {
-        if (proof && selected.isNotEmpty) {
-          _proof = selected.first;
-        } else {
-          target.addAll(selected);
-        }
+        target.addAll(selected);
       });
     } catch (error) {
       if (mounted) _message(hostErrorMessage(error));
@@ -189,9 +181,10 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
       return;
     }
     if (!_roomTab &&
-        (_district == null ||
-            (_wardRequired && _fields['ward']!.text.trim().isEmpty))) {
-      _message('Vui lòng chọn quận/huyện và phường/xã.');
+        !VietnamLocations.getWards(
+          _city,
+        ).contains(_fields['ward']!.text.trim())) {
+      _message('Vui lòng chọn phường/xã/đặc khu hiện hành.');
       return;
     }
     final property = properties
@@ -216,7 +209,6 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             'name': _fields['name']!.text.trim(),
             'address': _fields['address']!.text.trim(),
             'city': _city,
-            'district': _district!,
             'ward': _fields['ward']!.text.trim(),
             'plannedRooms': int.parse(_fields['planned']!.text),
             'floors': int.parse(_fields['floors']!.text),
@@ -236,7 +228,9 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         final inputCode = _fields['code']!.text.trim().toUpperCase();
         final finalRoomCode = inputCode.isNotEmpty ? inputCode : _roomId;
         final inputTitle = _fields['title']!.text.trim();
-        final finalTitle = inputTitle.isNotEmpty ? inputTitle : 'Phòng $finalRoomCode';
+        final finalTitle = inputTitle.isNotEmpty
+            ? inputTitle
+            : 'Phòng $finalRoomCode';
         await repository.createRoom(
           RoomModel(
             id: _roomId,
@@ -257,9 +251,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                 ? parent.district
                 : parent.ward,
             city: parent.city,
-            area: _area.start,
-            minArea: _area.start,
-            maxArea: _area.end,
+            area: _area,
             roomType: _roomType,
             amenities: _amenities.toList(),
             images: const [],
@@ -269,21 +261,24 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             hostAvatar: user?.avatarUrl ?? '',
             capacity: int.parse(_fields['capacity']!.text),
             floor: int.parse(_fields['floor']!.text),
-            electricityRate: double.tryParse(
+            electricityRate:
+                double.tryParse(
                   _fields['electricityRate']!.text
                       .trim()
                       .replaceAll('.', '')
                       .replaceAll(',', ''),
                 ) ??
                 0.0,
-            waterRate: double.tryParse(
+            waterRate:
+                double.tryParse(
                   _fields['waterRate']!.text
                       .trim()
                       .replaceAll('.', '')
                       .replaceAll(',', ''),
                 ) ??
                 0.0,
-            serviceFee: double.tryParse(
+            serviceFee:
+                double.tryParse(
                   _fields['serviceFee']!.text
                       .trim()
                       .replaceAll('.', '')
@@ -311,14 +306,14 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         name: _fields['name']!.text.trim(),
         address: _fields['address']!.text.trim(),
         city: _city,
-        district: _district!,
+        district: '',
         ward: _fields['ward']!.text.trim(),
         plannedRooms: int.parse(_fields['planned']!.text),
         floors: int.parse(_fields['floors']!.text),
         minRent: _rent.start,
         maxRent: _rent.end,
       );
-      await repository.createProperty(house, List.of(images), _proof);
+      await repository.createProperty(house, List.of(images), null);
       if (!mounted) return;
       setState(() {
         _justCreated = house;
@@ -326,7 +321,6 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         _roomTab = true;
         _draftPropertyId = null;
         _houseImages.clear();
-        _proof = null;
         for (final field in ['name', 'address', 'ward', 'planned']) {
           _fields[field]!.clear();
         }
@@ -368,6 +362,9 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
+          backgroundColor: AppColors.background,
+          foregroundColor: AppColors.textDark,
+          surfaceTintColor: Colors.transparent,
           title: Text(
             _editingProperty
                 ? 'Chỉnh sửa cơ sở'
@@ -377,18 +374,18 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
           ),
           leading: IconButton(
             onPressed: _saving ? null : () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+            icon: Icon(Icons.arrow_back_ios_new, size: 20),
           ),
         ),
         body: Column(
           children: [
             if (!_editingProperty)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
                 child: Container(
-                  padding: const EdgeInsets.all(4),
+                  padding: EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8EEFA),
+                    color: AppColors.surfaceVariant,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -398,10 +395,14 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                           child: TextButton(
                             style: TextButton.styleFrom(
                               backgroundColor: _roomTab == room
-                                  ? Colors.white
+                                  ? (AppColors.isDark
+                                        ? AppColors.textDark
+                                        : AppColors.surface)
                                   : Colors.transparent,
                               foregroundColor: _roomTab == room
-                                  ? AppColors.primary
+                                  ? (AppColors.isDark
+                                        ? AppColors.background
+                                        : AppColors.textDark)
                                   : AppColors.textSecondary,
                             ),
                             onPressed: locked
@@ -418,7 +419,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
               child: AbsorbPointer(
                 absorbing: locked,
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 24),
                   children: [
                     if (session.isLoading) const LinearProgressIndicator(),
                     if (session.hasError)
@@ -444,14 +445,17 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         bottomNavigationBar: SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             child: Row(
               children: [
                 TextButton(
                   onPressed: _saving ? null : () => Navigator.of(context).pop(),
-                  child: const Text('Hủy'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: HostTheme.accentText,
+                  ),
+                  child: Text('Hủy'),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 16),
                 Expanded(
                   child: FilledButton.icon(
                     onPressed:
@@ -463,15 +467,15 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                         ? null
                         : () => _save(properties),
                     icon: _saving
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.white,
+                              color: AppColors.surface,
                             ),
                           )
-                        : const Icon(Icons.check_circle_outline),
+                        : Icon(Icons.check_circle_outline),
                     label: Text(
                       _saving
                           ? 'Đang lưu...'
@@ -491,7 +495,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     );
   }
 
-  // Chủ trọ - Form cơ sở - Luồng đi: Chọn ảnh, địa chỉ theo danh mục,
+  // Chủ trọ - Form cơ sở - Luồng đi: Chọn ảnh và địa chỉ hai cấp hiện hành,
   // quy mô và khoảng giá; cùng form được dùng cho cả tạo mới và chỉnh sửa.
   Widget _buildHouseForm() {
     // Chủ trọ - Giá cơ sở - Luồng đi: Lấy khung giá từ stream phòng
@@ -501,22 +505,8 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         ? PropertySummary(widget.propertyToEdit!, roomState!.value!)
         : null;
     final cityOptions = VietnamLocations.provinces.toList();
-    if (!cityOptions.contains(_city)) cityOptions.insert(0, _city);
-    final districtOptions = VietnamLocations.getAdministrativeDistricts(
-      _city,
-    ).toList();
-    if (_district != null && !districtOptions.contains(_district)) {
-      districtOptions.insert(0, _district!);
-    }
-    final wardOptions = _district == null
-        ? <String>[]
-        : VietnamLocations.getWards(_city, _district!).toList();
+    final wardOptions = VietnamLocations.getWards(_city).toList();
     final currentWard = _fields['ward']!.text.trim();
-    if (_district != null &&
-        currentWard.isNotEmpty &&
-        !wardOptions.contains(currentWard)) {
-      wardOptions.insert(0, currentWard);
-    }
     return Form(
       key: _houseForm,
       child: Column(
@@ -528,6 +518,13 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             existingImages: _keptHouseImages,
           ),
           _section('Định danh tòa nhà', Icons.apartment, [
+            if (_editingProperty &&
+                (!cityOptions.contains(_city) ||
+                    (currentWard.isNotEmpty &&
+                        !wardOptions.contains(currentWard))))
+              Text(
+                'Địa chỉ cũ cần được chọn lại theo tỉnh/thành và phường/xã/đặc khu hiện hành.',
+              ),
             _field(
               'name',
               'Tên cơ sở / Tòa nhà *',
@@ -541,11 +538,14 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
               maxLength: 200,
             ),
             DropdownButtonFormField<String>(
-              initialValue: _city,
+              initialValue: cityOptions.contains(_city) ? _city : null,
               isExpanded: true,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Tỉnh / Thành phố *',
               ),
+              validator: (value) => cityOptions.contains(value)
+                  ? null
+                  : 'Vui lòng chọn tỉnh/thành hiện hành',
               items: cityOptions
                   .map(
                     (city) => DropdownMenuItem(value: city, child: Text(city)),
@@ -557,42 +557,15 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                 _fields['ward']!.clear();
               }),
             ),
-            const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
-              key: ValueKey('host_district_$_city'),
-              initialValue: _district,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Quận / Huyện *'),
-              hint: const Text('Chọn quận/huyện'),
-              items: districtOptions
-                  .map(
-                    (district) => DropdownMenuItem(
-                      value: district,
-                      child: Text(district, overflow: TextOverflow.ellipsis),
-                    ),
-                  )
-                  .toList(),
-              onChanged: districtOptions.isEmpty
-                  ? null
-                  : (value) => setState(() {
-                      _district = value;
-                      _fields['ward']!.clear();
-                    }),
-              validator: (value) => value == null || value.isEmpty
-                  ? 'Vui lòng chọn quận/huyện'
-                  : null,
-            ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             DropdownButtonFormField<String>(
               key: ValueKey('host_ward_${_city}_${_district ?? 'none'}'),
-              initialValue: _district == null || currentWard.isEmpty
-                  ? null
-                  : currentWard,
+              initialValue: wardOptions.contains(currentWard)
+                  ? currentWard
+                  : null,
               isExpanded: true,
-              decoration: InputDecoration(
-                labelText: _wardRequired ? 'Phường / Xã *' : 'Phường / Xã',
-              ),
-              hint: const Text('Chọn phường/xã'),
+              decoration: InputDecoration(labelText: 'Phường / Xã / Đặc khu *'),
+              hint: Text('Chọn phường/xã'),
               items: wardOptions
                   .map(
                     (ward) => DropdownMenuItem(
@@ -607,23 +580,10 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                       _fields['ward']!.text = value ?? '';
                     }),
               validator: (value) =>
-                  _wardRequired && (value == null || value.isEmpty)
+                  (value == null || !wardOptions.contains(value))
                   ? 'Vui lòng chọn phường/xã'
                   : null,
             ),
-            if (wardOptions.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  _district == null
-                      ? 'Chọn quận/huyện trước để xem danh sách phường/xã.'
-                      : 'Khu vực này chưa có dữ liệu phường/xã. Bạn có thể bỏ qua và lưu cơ sở.',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.warning,
-                  ),
-                ),
-              ),
           ]),
           _section('Quy mô', Icons.tune, [
             Row(
@@ -637,17 +597,17 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                     max: 1000,
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: _field('floors', 'Số tầng *', number: true, max: 100),
                 ),
               ],
             ),
-            const Text(
+            Text(
               'Số phòng được tạo không được vượt quá tổng số phòng của cơ sở.',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             if (_editingProperty && roomState?.value == null)
               Text(
                 roomState?.hasError == true
@@ -655,14 +615,14 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                     : 'Đang tải khung giá từ các phòng...',
               )
             else if (summary?.hasActualRent == true) ...[
-              const Text(
+              Text(
                 'Khung giá thuê / tháng',
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
               Text(
                 '${formatVnd(summary!.minRent)} – ${formatVnd(summary.maxRent)} đ/tháng',
               ),
-              const Text(
+              Text(
                 'Tự cập nhật theo giá các phòng. Đổi giá tại từng phòng.',
               ),
             ] else ...[
@@ -675,37 +635,11 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                 sliderMax: 20000000,
                 onChanged: (value) => setState(() => _rent = value),
               ),
-              const Text(
+              Text(
                 'Có thể để trống. Khi có phòng, khung giá sẽ tự tính theo giá các phòng.',
               ),
             ],
           ]),
-          if (!_editingProperty)
-            _section('Giấy tờ pháp lý (tùy chọn)', Icons.security, [
-              const Text(
-                'Ảnh sổ hồng hoặc giấy phép kinh doanh. JPG/PNG, tối đa 15 MB.',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-              if (_proof != null) ...[
-                const SizedBox(height: 12),
-                Image.memory(_proof!.bytes, height: 100),
-                TextButton(
-                  onPressed: () => setState(() => _proof = null),
-                  child: const Text('Xóa giấy tờ'),
-                ),
-              ],
-              OutlinedButton.icon(
-                onPressed: () => _pickImages(proof: true),
-                icon: const Icon(Icons.upload_file),
-                label: Text(
-                  _proof == null ? 'Chọn ảnh giấy tờ' : 'Đổi ảnh giấy tờ',
-                ),
-              ),
-              const Text(
-                'Chỉ chủ tài khoản được truy cập. Tải lên không đồng nghĩa đã được xác minh.',
-                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-              ),
-            ]),
         ],
       ),
     );
@@ -734,17 +668,23 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         children: [
           _section('Thuộc cơ sở / Tòa nhà', Icons.home_work_outlined, [
             if (properties.isEmpty) ...[
-              const Text('Chưa có cơ sở. Hãy tạo nhà trước khi tạo phòng.'),
+              Text(
+                'Chưa có cơ sở. Hãy tạo nhà trước khi tạo phòng.',
+                style: TextStyle(color: AppColors.textMuted),
+              ),
               TextButton(
                 onPressed: () => setState(() => _roomTab = false),
-                child: const Text('Tạo cơ sở trước'),
+                style: TextButton.styleFrom(
+                  foregroundColor: HostTheme.accentText,
+                ),
+                child: Text('Tạo cơ sở trước'),
               ),
             ] else ...[
               DropdownButtonFormField<String>(
                 key: ValueKey('property_${selected?.id}_${properties.length}'),
                 initialValue: selected?.id,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Chọn cơ sở *'),
+                decoration: InputDecoration(labelText: 'Chọn cơ sở *'),
                 items: properties
                     .map(
                       (p) => DropdownMenuItem(
@@ -760,10 +700,10 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
               ),
               if (selected != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: EdgeInsets.only(top: 8),
                   child: Text(
                     selected.fullAddress,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
                     ),
@@ -774,23 +714,30 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
           _photoCard(_roomImages, 8, 'Hình ảnh thực tế'),
           _section('Thông tin phòng mới', Icons.meeting_room_outlined, [
             Padding(
-              padding: const EdgeInsets.only(bottom: 14),
+              padding: EdgeInsets.only(bottom: 14),
               child: TextFormField(
                 key: const ValueKey('host_field_code'),
                 controller: _fields['code'],
                 readOnly: true,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.1,
-                  color: AppColors.primary,
+                  color: AppColors.textDark,
                 ),
                 decoration: InputDecoration(
                   labelText: 'Mã phòng (Tự động sinh từ ID) *',
-                  helperText: 'Mã phòng khóa cứng tự sinh từ ID của host_rooms.',
-                  prefixIcon: const Icon(Icons.vpn_key_outlined),
-                  suffixIcon: const Icon(Icons.lock_outline),
+                  helperText:
+                      'Mã phòng khóa cứng tự sinh từ ID của host_rooms.',
+                  prefixIcon: Icon(
+                    Icons.vpn_key_outlined,
+                    color: AppColors.textMuted,
+                  ),
+                  suffixIcon: Icon(
+                    Icons.lock_outline,
+                    color: AppColors.textMuted,
+                  ),
                   filled: true,
-                  fillColor: const Color(0xFFF0F4FF),
+                  fillColor: AppColors.surfaceVariant,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -803,14 +750,15 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             _field(
               'title',
               'Tên phòng (tùy chọn)',
-              hint: 'Ví dụ: Phòng ${_fields['code']!.text.isNotEmpty ? _fields['code']!.text : _roomId}',
+              hint:
+                  'Ví dụ: Phòng ${_fields['code']!.text.isNotEmpty ? _fields['code']!.text : _roomId}',
               optional: true,
               maxLength: 100,
             ),
             DropdownButtonFormField<String>(
               initialValue: _roomType,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Loại phòng'),
+              decoration: InputDecoration(labelText: 'Loại phòng'),
               items:
                   [
                         'Phòng trọ',
@@ -825,13 +773,9 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                       .toList(),
               onChanged: (value) => setState(() => _roomType = value!),
             ),
-            const SizedBox(height: 14),
-            HostRangeInput(
-              label: 'Khoảng diện tích phòng',
-              unit: 'm²',
-              values: _area,
-              minimum: 1,
-              sliderMax: 100,
+            SizedBox(height: 14),
+            HostAreaInput(
+              value: _area,
               onChanged: (value) => setState(() => _area = value),
             ),
             _field(
@@ -846,13 +790,13 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
               percentage: _depositPercentage,
               onChanged: (value) => setState(() => _depositPercentage = value!),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             DropdownButtonFormField<int>(
               key: ValueKey('host_floor_${selected?.id}_$floorCount'),
               initialValue: selectedFloor,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Tầng *'),
-              hint: const Text('Chọn cơ sở trước'),
+              decoration: InputDecoration(labelText: 'Tầng *'),
+              hint: Text('Chọn cơ sở trước'),
               items: [
                 for (var floor = 1; floor <= floorCount; floor++)
                   DropdownMenuItem(value: floor, child: Text('Tầng $floor')),
@@ -864,7 +808,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                     }),
               validator: (value) => value == null ? 'Vui lòng chọn tầng' : null,
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             _field('capacity', 'Số người ở tối đa *', number: true),
           ]),
           _section('Điện, Nước & Dịch vụ', Icons.bolt, [
@@ -902,7 +846,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
               controller: _fields['notes'],
               maxLines: 4,
               maxLength: 2000,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Giờ giấc, nội quy, thông tin thêm...',
               ),
             ),
@@ -919,7 +863,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     icon: Icons.tune,
     trailing: Text(
       '${_amenities.length} chọn',
-      style: const TextStyle(fontSize: 11, color: Color(0xFF00865B)),
+      style: TextStyle(fontSize: 11, color: AppColors.success),
     ),
     child: Column(
       children: [
@@ -929,15 +873,18 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
               child: TextField(
                 controller: _customAmenity,
                 maxLength: 60,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Thêm tiện ích...',
                   isDense: true,
                   counterText: '',
                 ),
               ),
             ),
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
             TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: HostTheme.accentText,
+              ),
               onPressed: () {
                 // Chủ trọ - Thêm tiện ích khi tạo phòng - Luồng đi:
                 // Chuẩn hóa tên, chọn lại mục tương đương nếu đã có;
@@ -955,25 +902,25 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                   }
                 }
               },
-              child: const Text('Thêm'),
+              child: Text('Thêm'),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         for (final value in {
           ..._amenities,
           if (_amenitiesExpanded) ..._amenityOptions,
         })
           Container(
-            margin: const EdgeInsets.only(bottom: 8),
+            margin: EdgeInsets.only(bottom: 8),
             decoration: BoxDecoration(
               color: _amenities.contains(value)
-                  ? const Color(0xFFE8FCF4)
-                  : Colors.white,
+                  ? AppColors.successContainer
+                  : AppColors.surface,
               border: Border.all(
                 color: _amenities.contains(value)
-                    ? const Color(0xFF8BD4B8)
-                    : const Color(0xFFE3E6EF),
+                    ? AppColors.success
+                    : AppColors.border,
               ),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -981,9 +928,12 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
               color: Colors.transparent,
               child: CheckboxListTile(
                 dense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                contentPadding: EdgeInsets.symmetric(horizontal: 8),
                 controlAffinity: ListTileControlAffinity.leading,
-                title: Text(value, style: const TextStyle(fontSize: 12)),
+                title: Text(
+                  value,
+                  style: TextStyle(fontSize: 12, color: AppColors.textDark),
+                ),
                 value: _amenities.contains(value),
                 onChanged: (checked) => setState(() {
                   if (checked == true) {
@@ -998,6 +948,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         TextButton(
           onPressed: () =>
               setState(() => _amenitiesExpanded = !_amenitiesExpanded),
+          style: TextButton.styleFrom(foregroundColor: HostTheme.accentText),
           child: Text(_amenitiesExpanded ? 'Thu gọn ↑' : 'Xem thêm ↓'),
         ),
       ],
@@ -1013,9 +964,9 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
   }) => _section(title, Icons.photo_library_outlined, [
     Text(
       '${existingImages.length + images.length}/$max ảnh • JPG/PNG, tối đa 5 MB mỗi ảnh',
-      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
     ),
-    const SizedBox(height: 12),
+    SizedBox(height: 12),
     Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -1034,8 +985,8 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                     existingImages[i],
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      color: const Color(0xFFEFF6FF),
-                      child: const Icon(Icons.broken_image_outlined),
+                      color: AppColors.primaryContainer,
+                      child: Icon(Icons.broken_image_outlined),
                     ),
                   ),
                 ),
@@ -1068,7 +1019,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                     onPressed: () => setState(() {
                       existingImages.removeAt(i);
                     }),
-                    icon: const Icon(Icons.close, size: 16),
+                    icon: Icon(Icons.close, size: 16),
                   ),
                 ),
               ],
@@ -1112,7 +1063,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
                       padding: EdgeInsets.zero,
                     ),
                     onPressed: () => setState(() => images.removeAt(i)),
-                    icon: const Icon(Icons.close, size: 16),
+                    icon: Icon(Icons.close, size: 16),
                   ),
                 ),
               ],
@@ -1124,7 +1075,11 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             height: 100,
             child: OutlinedButton(
               onPressed: () => _pickImages(),
-              child: const Column(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: HostTheme.accentText,
+                side: BorderSide(color: AppColors.border),
+              ),
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.add_a_photo_outlined),
@@ -1146,10 +1101,10 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
   // hai form, kiểm tra bắt buộc và số nguyên dương trước khi gửi Firebase.
   Widget _section(String title, IconData icon, List<Widget> children) =>
       Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
+        margin: EdgeInsets.only(bottom: 16),
+        padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppColors.border),
         ),
@@ -1160,30 +1115,31 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             children: [
               Row(
                 children: [
-                  Icon(icon, color: AppColors.primary, size: 22),
-                  const SizedBox(width: 8),
+                  Icon(icon, color: HostTheme.accentText, size: 22),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
+                        color: AppColors.textDark,
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               ...children,
             ],
           ),
         ),
       );
   Widget _notice(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
+    padding: EdgeInsets.only(bottom: 12),
     child: Text(
       text,
-      style: const TextStyle(fontSize: 12, color: AppColors.warning),
+      style: TextStyle(fontSize: 12, color: AppColors.warning),
     ),
   );
   Widget _field(
@@ -1196,7 +1152,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     int max = 1000000000,
     int maxLength = 100,
   }) => Padding(
-    padding: const EdgeInsets.only(bottom: 14),
+    padding: EdgeInsets.only(bottom: 14),
     child: TextFormField(
       key: ValueKey('host_field_$name'),
       controller: _fields[name],
@@ -1227,14 +1183,13 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
           return 'Vui lòng nhập thông tin';
         }
         if (number) {
-          final isMoney = name == 'price' ||
+          final isMoney =
+              name == 'price' ||
               name == 'deposit' ||
               name == 'electricityRate' ||
               name == 'waterRate' ||
               name == 'serviceFee';
-          final value = int.tryParse(
-            isMoney ? vndDigits(text) : text,
-          );
+          final value = int.tryParse(isMoney ? vndDigits(text) : text);
           if (value == null || value < (allowZero ? 0 : 1) || value > max) {
             return 'Nhập từ ${allowZero ? 0 : 1} đến $max';
           }

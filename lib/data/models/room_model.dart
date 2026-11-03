@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/firestore_collections.dart';
+import '../../core/utils/vietnam_address_parser.dart';
 
 /// Model Phòng trọ & Bài đăng chuẩn hóa theo Database homeShare
 /// Bảng: Nhà trọ, Phòng, ẢnhPhong, Tiện ích, Bài đăng
@@ -103,6 +104,14 @@ class RoomModel {
 
   String get soPhong => maPhong;
   String get maNhaTro => propertyId;
+
+  bool get canBeListed {
+    final s = status.toLowerCase().trim();
+    if (s == 'occupied' || s == 'dathue' || s == 'da_thue' || s == 'deleted' || s == 'daxoa') {
+      return false;
+    }
+    return isAvailable;
+  }
 
   bool get isApproved {
     final s = status.toLowerCase().trim();
@@ -240,9 +249,26 @@ class RoomModel {
       id: id,
       minArea: (data['minArea'] as num?)?.toDouble(),
       maxArea: (data['maxArea'] as num?)?.toDouble(),
-      electricityRate: (data['electricityRate'] as num?)?.toDouble(),
-      waterRate: (data['waterRate'] as num?)?.toDouble(),
-      serviceFee: (data['serviceFee'] as num?)?.toDouble(),
+      electricityRate: _readPositiveDouble(
+        data['electricityRate'] ??
+            data['electricity_rate'] ??
+            data['giaDien'] ??
+            data['gia_dien'],
+      ),
+      waterRate: _readPositiveDouble(
+        data['waterRate'] ??
+            data['water_rate'] ??
+            data['giaNuoc'] ??
+            data['gia_nuoc'],
+      ),
+      serviceFee: _readPositiveDouble(
+        data['serviceFee'] ??
+            data['service_fee'] ??
+            data['wifiRate'] ??
+            data['wifi_rate'] ??
+            data['giaWifi'] ??
+            data['gia_wifi'],
+      ),
       tenantName: data['tenantName'] ?? '',
       tenantPhone: data['tenantPhone'] ?? '',
       tenantAvatar: data['tenantAvatar'] ?? '',
@@ -363,7 +389,7 @@ class RoomModel {
           final parsed = double.tryParse(cleaned);
           if (parsed != null) return parsed;
         }
-        return 20.0;
+        return 0.0;
       }(),
       roomType: data['roomType'] ?? data['loaiPhong'] ?? 'Phòng trọ',
       amenities: () {
@@ -658,16 +684,12 @@ class RoomModel {
     final roomAddress = room?.address.trim() ?? '';
     final propertyAddress = joinAddress(propertyData);
     final locationAddress = joinAddress(locationData);
-    final hasCurrentAddress = address
-        .replaceAll(RegExp(r'[,\s]'), '')
-        .isNotEmpty;
-    final resolvedAddress = hasCurrentAddress
-        ? address.trim()
-        : roomAddress.isNotEmpty
-        ? roomAddress
-        : propertyAddress.isNotEmpty
-        ? propertyAddress
-        : locationAddress;
+    final resolvedAddress = VietnamAddressParser.pickBest([
+      address.trim(),
+      roomAddress,
+      propertyAddress,
+      locationAddress,
+    ]);
     final resolvedHostId = hostId.trim().isNotEmpty
         ? hostId.trim()
         : (room?.hostId.trim() ?? '').isNotEmpty
@@ -685,6 +707,19 @@ class RoomModel {
 
     return copyWith(
       propertyId: resolvedPropertyId,
+      area: (room?.area ?? 0) > 0 && area <= 0 ? room!.area : area,
+      capacity: (room?.capacity ?? 0) > 0 && capacity <= 0
+          ? room!.capacity
+          : capacity,
+      amenities: amenities.isNotEmpty
+          ? amenities
+          : (room?.amenities ?? amenities),
+      images: images.isNotEmpty
+          ? images
+          : (room?.images ?? images),
+      electricityRate: electricityRate ?? room?.electricityRate,
+      waterRate: waterRate ?? room?.waterRate,
+      serviceFee: serviceFee ?? room?.serviceFee,
       address: resolvedAddress,
       district: district.trim().isNotEmpty
           ? district.trim()
@@ -810,4 +845,15 @@ class RoomModel {
       serviceFee: serviceFee ?? this.serviceFee,
     );
   }
+}
+
+double? _readPositiveDouble(dynamic raw) {
+  if (raw == null) return null;
+  if (raw is num) return raw.toDouble();
+  if (raw is String) {
+    final text = raw.trim().replaceAll(' ', '').replaceAll(',', '');
+    if (text.isEmpty) return null;
+    return double.tryParse(text);
+  }
+  return null;
 }

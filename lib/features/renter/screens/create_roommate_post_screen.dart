@@ -8,8 +8,10 @@ import '../../../core/services/image_storage_service.dart';
 import '../../../core/services/roommate_service.dart';
 import '../../../core/services/user_profile_service.dart';
 import '../../../core/services/booking_service.dart';
+import '../../../core/services/room_service.dart';
 import '../../../core/utils/vietnam_address_parser.dart';
 import '../../../data/models/booking_model.dart';
+import '../../../data/models/room_model.dart';
 import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
@@ -34,6 +36,19 @@ class _CreateRoommatePostScreenState
     extends ConsumerState<CreateRoommatePostScreen> {
   final _formKey = GlobalKey<FormState>();
   int _currentStep = 0;
+
+  /// Chữ phụ trên Graphite: #94A3B8 quá tối, dùng slate sáng hơn.
+  Color get _readableMuted =>
+      AppColors.isDark ? const Color(0xFFCBD5E1) : AppColors.textMuted;
+
+  Color get _readableWarning =>
+      AppColors.isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E);
+
+  Color get _readableSuccess =>
+      AppColors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF15803D);
+
+  Color get _readableDanger =>
+      AppColors.isDark ? const Color(0xFFFCA5A5) : const Color(0xFFDC2626);
 
   // 1. Thông tin người đăng
   final _authorNameController = TextEditingController();
@@ -61,6 +76,9 @@ class _CreateRoommatePostScreenState
   final List<String> _selectedImages = [];
   final ImagePicker _imagePicker = ImagePicker();
   bool _isSubmitting = false;
+  BookingRequestModel? _linkedBooking;
+  RoomModel? _linkedRoom;
+  bool _didFillFromRoom = false;
 
   final List<String> _commonHabits = [
     'Yên tĩnh sau 23h',
@@ -176,6 +194,71 @@ class _CreateRoommatePostScreenState
     );
   }
 
+  Future<void> _applyActiveRoom(
+    BookingRequestModel booking, {
+    bool showSnackBar = false,
+  }) async {
+    RoomModel? room;
+    if (booking.roomId.trim().isNotEmpty || booking.hostId.trim().isNotEmpty) {
+      room = await ref.read(roomServiceProvider).resolveRentedRoom(
+            roomId: booking.roomId.trim(),
+            hostId: booking.hostId.trim(),
+            roomCode: booking.roomCode.trim(),
+            title: booking.roomTitle.trim(),
+            price: booking.roomPrice,
+          );
+    }
+    if (!mounted) return;
+
+    final addressRaw = VietnamAddressParser.pickBest([
+      room?.address.trim() ?? '',
+      VietnamAddressParser.composeParts(
+        street: room?.address ?? '',
+        district: room?.district ?? '',
+        city: room?.city ?? '',
+      ),
+      booking.roomAddress.trim(),
+    ]);
+
+    setState(() {
+      _linkedBooking = booking;
+      _linkedRoom = room;
+      _didFillFromRoom = true;
+      _hasRoom = true;
+      if (booking.roomTitle.isNotEmpty && _titleController.text.trim().isEmpty) {
+        _titleController.text = 'Tìm bạn ở ghép - ${booking.roomTitle}';
+      } else if (booking.roomTitle.isNotEmpty && showSnackBar) {
+        _titleController.text = 'Tìm bạn ở ghép - ${booking.roomTitle}';
+      }
+      if (addressRaw.isNotEmpty) {
+        final address = VietnamAddressParser.resolve(
+          addressRaw,
+          fallbackProvince: _selectedProvince,
+          fallbackDistrict: _selectedDistrict,
+          fallbackWard: _selectedWard,
+        );
+        _selectedProvince = address.province;
+        _selectedDistrict = address.district;
+        _selectedWard = address.ward;
+        _addressController.text = address.specificAddress.isNotEmpty
+            ? address.specificAddress
+            : addressRaw;
+      }
+      final rent = (room?.price ?? 0) > 0 ? room!.price : booking.roomPrice;
+      if (rent > 0 && (_priceController.text.trim().isEmpty || showSnackBar)) {
+        _priceController.text = (rent / 2).round().toString();
+      }
+    });
+
+    if (showSnackBar && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã điền thông tin từ phòng đang thuê của bạn!'),
+        ),
+      );
+    }
+  }
+
   Future<void> _pickImage(ImageSource source) async {
     try {
       if (source == ImageSource.gallery) {
@@ -248,7 +331,7 @@ class _CreateRoommatePostScreenState
     // Không yêu cầu số ký tự tối thiểu, chỉ cần có nhập và không phải khoảng trắng
     if (!formOk || name.isEmpty || ageStr.isEmpty || phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Vui lòng điền thông tin người đăng ở Bước 1!'),
           backgroundColor: AppColors.danger,
           duration: Duration(seconds: 2),
@@ -274,7 +357,7 @@ class _CreateRoommatePostScreenState
         address.isEmpty ||
         desc.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Vui lòng điền thông tin bài đăng ở Bước 2!'),
           backgroundColor: AppColors.danger,
           duration: Duration(seconds: 2),
@@ -298,7 +381,7 @@ class _CreateRoommatePostScreenState
 
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Vui lòng đăng nhập trước khi đăng bài tìm ở ghép!'),
           backgroundColor: AppColors.danger,
         ),
@@ -327,7 +410,7 @@ class _CreateRoommatePostScreenState
         isHost || bookings.any((b) => b.isActive || b.isApproved);
     if (_hasRoom && !hasRealRoom) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
             'Bạn hiện chưa có phòng đang thuê trên hệ thống nên không thể đăng tin "Đã có phòng".',
           ),
@@ -368,8 +451,53 @@ class _CreateRoommatePostScreenState
           .read(imageStorageServiceProvider)
           .uploadRoommateImages(localPaths: _selectedImages, postId: postId);
 
-      final fullAddress =
-          '$specificAddress, $_selectedWard, $_selectedDistrict, $_selectedProvince';
+      BookingRequestModel? linkedBooking = _hasRoom ? _linkedBooking : null;
+      if (_hasRoom && linkedBooking == null) {
+        for (final booking in bookings) {
+          if (booking.isActive) {
+            linkedBooking = booking;
+            break;
+          }
+          if (linkedBooking == null && booking.isApproved) {
+            linkedBooking = booking;
+          }
+        }
+      }
+      RoomModel? linkedRoom = _hasRoom ? _linkedRoom : null;
+      if (_hasRoom &&
+          linkedRoom == null &&
+          ((linkedBooking?.roomId.trim().isNotEmpty ?? false) ||
+              (linkedBooking?.hostId.trim().isNotEmpty ?? false))) {
+        linkedRoom = await ref.read(roomServiceProvider).resolveRentedRoom(
+              roomId: linkedBooking!.roomId.trim(),
+              hostId: linkedBooking.hostId.trim(),
+              roomCode: linkedBooking.roomCode.trim(),
+              title: linkedBooking.roomTitle.trim(),
+              price: linkedBooking.roomPrice,
+            );
+      }
+
+      final fullAddress = VietnamAddressParser.pickBest([
+        VietnamAddressParser.composeParts(
+          street: specificAddress,
+          ward: _selectedWard,
+          district: _selectedDistrict,
+          city: _selectedProvince,
+        ),
+        linkedRoom?.address.trim() ?? '',
+        VietnamAddressParser.composeParts(
+          street: linkedRoom?.address ?? '',
+          district: linkedRoom?.district ?? '',
+          city: linkedRoom?.city ?? '',
+        ),
+        linkedBooking?.roomAddress.trim() ?? '',
+      ]);
+      final deposit = (linkedRoom?.deposit ?? 0) > 0
+          ? linkedRoom!.deposit
+          : (linkedBooking?.deposit ?? 0);
+      final extraFees = linkedRoom == null
+          ? const <RoommateExtraFee>[]
+          : RoommateExtraFee.fromRoom(linkedRoom);
 
       final post = RoommatePostModel(
         id: postId,
@@ -377,7 +505,7 @@ class _CreateRoommatePostScreenState
         authorName: authorName,
         authorAge: authorAge,
         authorGender: _authorGender,
-        authorOccupation: '',
+        authorOccupation: profile?.occupation.trim() ?? '',
         authorAvatar: profile?.avatarUrl ?? user.photoURL ?? '',
         title: title,
         description: _descController.text.trim(),
@@ -387,11 +515,11 @@ class _CreateRoommatePostScreenState
         budgetMin: price > 500000 ? price - 500000 : price,
         budgetMax: price + 500000,
         address: fullAddress,
-        district: _selectedDistrict,
+        district: linkedRoom?.district.trim().isNotEmpty == true
+            ? linkedRoom!.district.trim()
+            : _selectedDistrict,
         targetGender: _targetGender,
-        habits: _selectedHabits.isNotEmpty
-            ? _selectedHabits
-            : ['Sạch sẽ', 'Hòa đồng'],
+        habits: _selectedHabits,
         images: uploadedUrls,
         imageCaptions: uploadedUrls.map((_) => 'Ảnh phòng').toList(),
         isVerified: profile?.isCccdVerified ?? false,
@@ -400,6 +528,14 @@ class _CreateRoommatePostScreenState
         contactPhone: _phoneController.text.trim().isNotEmpty
             ? _phoneController.text.trim()
             : (profile?.phoneNumber ?? ''),
+        roomId: linkedRoom?.id ?? linkedBooking?.roomId ?? '',
+        bookingId: linkedBooking?.id ?? '',
+        deposit: deposit,
+        moveInDate: linkedBooking?.moveInDate,
+        extraFees: extraFees,
+        area: linkedRoom?.area ?? 0,
+        capacity: linkedRoom?.capacity ?? 0,
+        amenities: linkedRoom?.amenities ?? const [],
         createdAt: DateTime.now(),
       );
 
@@ -428,16 +564,22 @@ class _CreateRoommatePostScreenState
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.check_circle, color: Color(0xFF10B981), size: 28),
-            SizedBox(width: 8),
-            Expanded(child: Text('Đăng tin thành công!', maxLines: 2)),
+            Icon(Icons.check_circle, color: AppColors.success, size: 28),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Đăng tin thành công!',
+                maxLines: 2,
+                style: TextStyle(color: AppColors.textDark),
+              ),
+            ),
           ],
         ),
-        content: const Text(
+        content: Text(
           'Bài đăng tìm bạn ở ghép của bạn đã được xuất bản và hiển thị ngay trên Cộng đồng HomeShare.',
-          style: TextStyle(fontSize: 14, height: 1.4),
+          style: TextStyle(fontSize: 14, height: 1.4, color: AppColors.textDark),
         ),
         actions: [
           ElevatedButton(
@@ -472,6 +614,7 @@ class _CreateRoommatePostScreenState
 
   @override
   Widget build(BuildContext context) {
+    AppColors.bind(Theme.of(context).brightness);
     final user = ref.watch(currentUserProvider);
     final profile = ref.watch(userProfileProvider).value;
     final isHost = profile?.isHost == true || profile?.role == 'host';
@@ -501,32 +644,37 @@ class _CreateRoommatePostScreenState
     } else if (!_hasRoomInitChecked && hasRealRoom) {
       _hasRoomInitChecked = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_hasRoom) {
+        if (!mounted) return;
+        if (!_hasRoom) {
           setState(() => _hasRoom = true);
+        }
+        if (!_didFillFromRoom && activeBookings.isNotEmpty) {
+          _applyActiveRoom(activeBookings.first);
         }
       });
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Đăng tin tìm ở ghép',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 17,
-            color: Color(0xFF0F172A),
+            color: AppColors.textDark,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textDark,
         elevation: 0,
         centerTitle: false,
         actions: [
           if (_currentStep == 0)
             TextButton.icon(
               onPressed: _syncFromProfile,
-              icon: const Icon(Icons.sync, size: 16, color: AppColors.primary),
-              label: const Text(
+              icon: Icon(Icons.sync, size: 16, color: AppColors.primary),
+              label: Text(
                 'Đồng bộ',
                 style: TextStyle(
                   color: AppColors.primary,
@@ -567,7 +715,7 @@ class _CreateRoommatePostScreenState
     final steps = ['Hồ sơ', 'Phòng & Giá', 'Lối sống & Ảnh'];
 
     return Container(
-      color: Colors.white,
+      color: AppColors.surface,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       child: Row(
         children: List.generate(steps.length, (idx) {
@@ -575,7 +723,7 @@ class _CreateRoommatePostScreenState
           final isCurrent = idx == _currentStep;
           final color = isPassed || isCurrent
               ? AppColors.primary
-              : const Color(0xFFCBD5E1);
+              : AppColors.border;
 
           return Expanded(
             child: Row(
@@ -586,10 +734,10 @@ class _CreateRoommatePostScreenState
                   backgroundColor: color,
                   child: Text(
                     '${idx + 1}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: AppColors.onPrimary,
                     ),
                   ),
                 ),
@@ -606,8 +754,8 @@ class _CreateRoommatePostScreenState
                             ? FontWeight.bold
                             : FontWeight.w500,
                         color: isCurrent
-                            ? const Color(0xFF0F172A)
-                            : const Color(0xFF64748B),
+                            ? AppColors.textDark
+                            : _readableMuted,
                       ),
                     ),
                   ),
@@ -619,7 +767,7 @@ class _CreateRoommatePostScreenState
                       margin: const EdgeInsets.symmetric(horizontal: 6),
                       color: isPassed
                           ? AppColors.primary
-                          : const Color(0xFFE2E8F0),
+                          : AppColors.border,
                     ),
                   ),
               ],
@@ -695,16 +843,19 @@ class _CreateRoommatePostScreenState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Giới tính *',
                         style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
                         ),
                       ),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
                         isExpanded: true,
+                        dropdownColor: AppColors.surface,
+                        style: TextStyle(color: AppColors.textDark, fontSize: 12.5),
                         initialValue: _authorGender,
                         items: ['Nam', 'Nữ', 'Khác']
                             .map(
@@ -712,7 +863,10 @@ class _CreateRoommatePostScreenState
                                 value: g,
                                 child: Text(
                                   g,
-                                  style: const TextStyle(fontSize: 12.5),
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: AppColors.textDark,
+                                  ),
                                 ),
                               ),
                             )
@@ -786,13 +940,15 @@ class _CreateRoommatePostScreenState
                             content: Text(
                               'Bạn hiện chưa có phòng đang thuê trên hệ thống nên không thể chọn "Đã có phòng". Vui lòng chọn "Chưa có phòng" để tìm bạn cùng thuê.',
                             ),
-                            backgroundColor: Color(0xFF1E293B),
                             duration: Duration(seconds: 3),
                           ),
                         );
                         return;
                       }
                       setState(() => _hasRoom = true);
+                      if (activeBookings.isNotEmpty) {
+                        _applyActiveRoom(activeBookings.first);
+                      }
                     },
                   ),
                 ),
@@ -816,24 +972,24 @@ class _CreateRoommatePostScreenState
                   vertical: 9,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBEB),
+                  color: AppColors.warningContainer,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFFDE68A)),
+                  border: Border.all(color: _readableWarning.withValues(alpha: 0.5)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Icon(
                       Icons.info_outline,
                       size: 16,
-                      color: Color(0xFFD97706),
+                      color: _readableWarning,
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Tài khoản của bạn chưa có hợp đồng thuê phòng nào đang hoạt động. Bạn chỉ có thể đăng tin "Chưa có phòng" để tìm bạn cùng đi thuê.',
                         style: TextStyle(
                           fontSize: 11.5,
-                          color: Color(0xFF92400E),
+                          color: _readableWarning,
                           height: 1.35,
                         ),
                       ),
@@ -846,25 +1002,25 @@ class _CreateRoommatePostScreenState
                 margin: const EdgeInsets.only(top: 10),
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
+                  color: AppColors.successContainer,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                  border: Border.all(color: _readableSuccess.withValues(alpha: 0.5)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.check_circle_outline,
                       size: 16,
-                      color: Color(0xFF16A34A),
+                      color: _readableSuccess,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Phòng đang thuê: ${activeBookings.first.roomTitle}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF15803D),
+                          color: _readableSuccess,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -872,40 +1028,13 @@ class _CreateRoommatePostScreenState
                     ),
                     InkWell(
                       onTap: () {
-                        final b = activeBookings.first;
-                        setState(() {
-                          if (b.roomTitle.isNotEmpty) {
-                            _titleController.text =
-                                'Tìm bạn ở ghép - ${b.roomTitle}';
-                          }
-                          if (b.roomAddress.isNotEmpty) {
-                            final address = VietnamAddressParser.resolve(
-                              b.roomAddress,
-                              fallbackProvince: _selectedProvince,
-                              fallbackDistrict: _selectedDistrict,
-                              fallbackWard: _selectedWard,
-                            );
-                            _selectedProvince = address.province;
-                            _selectedDistrict = address.district;
-                            _selectedWard = address.ward;
-                            _addressController.text = address.specificAddress;
-                          }
-                          if (b.roomPrice > 0) {
-                            _priceController.text = (b.roomPrice / 2)
-                                .round()
-                                .toString();
-                          }
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Đã điền nhanh thông tin từ phòng đang thuê của bạn!',
-                            ),
-                          ),
+                        _applyActiveRoom(
+                          activeBookings.first,
+                          showSnackBar: true,
                         );
                       },
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: 6,
                           vertical: 2,
                         ),
@@ -914,7 +1043,7 @@ class _CreateRoommatePostScreenState
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF16A34A),
+                            color: _readableSuccess,
                             decoration: TextDecoration.underline,
                           ),
                         ),
@@ -959,13 +1088,19 @@ class _CreateRoommatePostScreenState
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Tỉnh / Thành phố *',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   isExpanded: true,
+                  dropdownColor: AppColors.surface,
+                  style: TextStyle(color: AppColors.textDark, fontSize: 13),
                   key: ValueKey('province_$_selectedProvince'),
                   initialValue: provinces.contains(_selectedProvince)
                       ? _selectedProvince
@@ -976,7 +1111,10 @@ class _CreateRoommatePostScreenState
                           value: p,
                           child: Text(
                             p,
-                            style: const TextStyle(fontSize: 13),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textDark,
+                            ),
                           ),
                         ),
                       )
@@ -987,7 +1125,7 @@ class _CreateRoommatePostScreenState
                           alignment: Alignment.centerLeft,
                           child: Text(
                             p,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               color: AppColors.textPrimary,
                             ),
@@ -1026,16 +1164,19 @@ class _CreateRoommatePostScreenState
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Quận / Huyện *',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
                   ),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   isExpanded: true,
+                  dropdownColor: AppColors.surface,
+                  style: TextStyle(color: AppColors.textDark, fontSize: 13),
                   key: ValueKey(
                     'district_${_selectedProvince}_$_selectedDistrict',
                   ),
@@ -1048,7 +1189,10 @@ class _CreateRoommatePostScreenState
                           value: d,
                           child: Text(
                             d,
-                            style: const TextStyle(fontSize: 13),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textDark,
+                            ),
                           ),
                         ),
                       )
@@ -1059,7 +1203,7 @@ class _CreateRoommatePostScreenState
                           alignment: Alignment.centerLeft,
                           child: Text(
                             d,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               color: AppColors.textPrimary,
                             ),
@@ -1089,16 +1233,19 @@ class _CreateRoommatePostScreenState
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Phường / Xã',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
                   ),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   isExpanded: true,
+                  dropdownColor: AppColors.surface,
+                  style: TextStyle(color: AppColors.textDark, fontSize: 13),
                   key: ValueKey(
                     'ward_${_selectedDistrict}_$_selectedWard',
                   ),
@@ -1111,7 +1258,10 @@ class _CreateRoommatePostScreenState
                           value: w,
                           child: Text(
                             w,
-                            style: const TextStyle(fontSize: 13),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textDark,
+                            ),
                           ),
                         ),
                       )
@@ -1122,7 +1272,7 @@ class _CreateRoommatePostScreenState
                           alignment: Alignment.centerLeft,
                           child: Text(
                             w,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               color: AppColors.textPrimary,
                             ),
@@ -1142,16 +1292,19 @@ class _CreateRoommatePostScreenState
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Loại hình nhà ở *',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
                   ),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   isExpanded: true,
+                  dropdownColor: AppColors.surface,
+                  style: TextStyle(color: AppColors.textDark, fontSize: 13),
                   initialValue: _selectedPropertyType,
                   items: _propertyTypes
                       .map(
@@ -1159,7 +1312,10 @@ class _CreateRoommatePostScreenState
                           value: t,
                           child: Text(
                             t,
-                            style: const TextStyle(fontSize: 13),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textDark,
+                            ),
                           ),
                         ),
                       )
@@ -1170,7 +1326,7 @@ class _CreateRoommatePostScreenState
                           alignment: Alignment.centerLeft,
                           child: Text(
                             t,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               color: AppColors.textPrimary,
                             ),
@@ -1192,16 +1348,19 @@ class _CreateRoommatePostScreenState
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Giới tính tìm kiếm *',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
                   ),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   isExpanded: true,
+                  dropdownColor: AppColors.surface,
+                  style: TextStyle(color: AppColors.textDark, fontSize: 13),
                   initialValue: _targetGender,
                   items: ['Nữ', 'Nam', 'Tất cả']
                       .map(
@@ -1209,7 +1368,10 @@ class _CreateRoommatePostScreenState
                           value: g,
                           child: Text(
                             g,
-                            style: const TextStyle(fontSize: 13),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textDark,
+                            ),
                           ),
                         ),
                       )
@@ -1220,7 +1382,7 @@ class _CreateRoommatePostScreenState
                           alignment: Alignment.centerLeft,
                           child: Text(
                             g,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               color: AppColors.textPrimary,
                             ),
@@ -1306,28 +1468,34 @@ class _CreateRoommatePostScreenState
                         }
                       : null,
                   deleteIcon: isCustom
-                      ? const Icon(
+                      ? Icon(
                           Icons.close_rounded,
                           size: 14,
-                          color: Color(0xFF64748B),
+                          color: AppColors.textMuted,
                         )
                       : null,
-                  selectedColor: AppColors.primarySurface,
-                  checkmarkColor: AppColors.primary,
-                  backgroundColor: const Color(0xFFF1F5F9),
+                  selectedColor: AppColors.isDark
+                      ? AppColors.success
+                      : AppColors.primarySurface,
+                  checkmarkColor: AppColors.isDark
+                      ? AppColors.textDark
+                      : AppColors.primary,
+                  backgroundColor: AppColors.surfaceVariant,
                   labelStyle: TextStyle(
                     fontSize: 12,
                     color: isSelected
-                        ? AppColors.primaryDark
-                        : const Color(0xFF334155),
+                        ? (AppColors.isDark
+                            ? AppColors.textDark
+                            : AppColors.primaryDark)
+                        : AppColors.textDark,
                     fontWeight: isSelected
                         ? FontWeight.bold
-                        : FontWeight.normal,
+                        : FontWeight.w600,
                   ),
                   side: BorderSide(
                     color: isSelected
                         ? AppColors.primary.withValues(alpha: 0.3)
-                        : const Color(0xFFE2E8F0),
+                        : AppColors.border,
                   ),
                 );
               }).toList(),
@@ -1336,19 +1504,19 @@ class _CreateRoommatePostScreenState
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: AppColors.background,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: AppColors.border),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Nhập tiêu chí sinh hoạt cho người muốn thêm:',
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF334155),
+                      color: AppColors.textDark,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1357,6 +1525,10 @@ class _CreateRoommatePostScreenState
                       Expanded(
                         child: TextField(
                           controller: _customHabitController,
+                          style: TextStyle(
+                            color: AppColors.textDark,
+                            fontSize: 13,
+                          ),
                           decoration:
                               _inputDecoration(
                                 hint: 'VD: Thích nuôi mèo, Không nấu ăn đêm...',
@@ -1430,13 +1602,13 @@ class _CreateRoommatePostScreenState
                           child: InkWell(
                             onTap: () =>
                                 setState(() => _selectedImages.removeAt(idx)),
-                            child: const CircleAvatar(
+                            child: CircleAvatar(
                               radius: 11,
                               backgroundColor: Colors.black54,
                               child: Icon(
                                 Icons.close,
                                 size: 14,
-                                color: Colors.white,
+                                color: AppColors.onPrimary,
                               ),
                             ),
                           ),
@@ -1489,7 +1661,7 @@ class _CreateRoommatePostScreenState
   // Action buttons
   Widget _buildBottomActionBar() {
     return Container(
-      color: Colors.white,
+      color: AppColors.surface,
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
@@ -1532,12 +1704,12 @@ class _CreateRoommatePostScreenState
                 ),
               ),
               child: _isSubmitting
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: AppColors.onPrimary,
                       ),
                     )
                   : Text(
@@ -1562,9 +1734,9 @@ class _CreateRoommatePostScreenState
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1577,10 +1749,10 @@ class _CreateRoommatePostScreenState
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
+                    color: AppColors.textDark,
                   ),
                 ),
               ),
@@ -1589,9 +1761,9 @@ class _CreateRoommatePostScreenState
           const SizedBox(height: 2),
           Text(
             subtitle,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            style: TextStyle(fontSize: 12, color: _readableMuted),
           ),
-          const Divider(height: 20, color: Color(0xFFF1F5F9)),
+          Divider(height: 20, color: AppColors.surfaceVariant),
           ...children,
         ],
       ),
@@ -1607,17 +1779,25 @@ class _CreateRoommatePostScreenState
     required VoidCallback onTap,
   }) {
     final effectiveColor = !isEnabled
-        ? const Color(0xFFF1F5F9)
-        : (isSelected ? AppColors.primarySurface : Colors.white);
+        ? AppColors.surfaceVariant
+        : (isSelected
+            ? (AppColors.isDark
+                ? const Color(0xFF166534)
+                : AppColors.primarySurface)
+            : AppColors.surface);
     final borderColor = !isEnabled
-        ? const Color(0xFFE2E8F0)
-        : (isSelected ? AppColors.primary : const Color(0xFFCBD5E1));
+        ? AppColors.border
+        : (isSelected ? AppColors.primary : AppColors.border);
     final textColor = !isEnabled
-        ? const Color(0xFF94A3B8)
-        : (isSelected ? AppColors.primary : const Color(0xFF0F172A));
+        ? _readableMuted
+        : (isSelected
+            ? (AppColors.isDark ? const Color(0xFF86EFAC) : AppColors.primary)
+            : AppColors.textDark);
     final subTextColor = !isEnabled
-        ? const Color(0xFFA0AEC0)
-        : (isSelected ? AppColors.primary : const Color(0xFF64748B));
+        ? _readableMuted
+        : (isSelected
+            ? (AppColors.isDark ? const Color(0xFFBBF7D0) : AppColors.primary)
+            : _readableMuted);
 
     return InkWell(
       onTap: onTap,
@@ -1635,10 +1815,10 @@ class _CreateRoommatePostScreenState
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (!isEnabled) ...[
-                  const Icon(
+                  Icon(
                     Icons.lock_outline,
                     size: 14,
-                    color: Color(0xFF94A3B8),
+                    color: AppColors.textMuted,
                   ),
                   const SizedBox(width: 4),
                 ],
@@ -1663,15 +1843,15 @@ class _CreateRoommatePostScreenState
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEE2E2),
+                  color: AppColors.dangerContainer,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   badgeText,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 9.5,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFFDC2626),
+                    color: _readableDanger,
                   ),
                 ),
               ),
@@ -1695,10 +1875,10 @@ class _CreateRoommatePostScreenState
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF334155),
+            color: AppColors.textDark,
           ),
         ),
         const SizedBox(height: 6),
@@ -1708,6 +1888,7 @@ class _CreateRoommatePostScreenState
           maxLines: maxLines,
           validator: validator,
           autovalidateMode: AutovalidateMode.onUserInteraction,
+          style: TextStyle(color: AppColors.textDark, fontSize: 13),
           decoration: _inputDecoration(hint: hint),
         ),
       ],
@@ -1717,32 +1898,32 @@ class _CreateRoommatePostScreenState
   InputDecoration _inputDecoration({String? hint}) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
+      hintStyle: TextStyle(fontSize: 12.5, color: _readableMuted),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       isDense: true,
       filled: true,
-      fillColor: const Color(0xFFF8FAFC),
+      fillColor: AppColors.background,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+        borderSide: BorderSide(color: AppColors.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        borderSide: BorderSide(color: AppColors.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        borderSide: BorderSide(color: AppColors.primary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.danger, width: 1.2),
+        borderSide: BorderSide(color: AppColors.danger, width: 1.2),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.danger, width: 1.5),
+        borderSide: BorderSide(color: AppColors.danger, width: 1.5),
       ),
-      errorStyle: const TextStyle(
+      errorStyle: TextStyle(
         fontSize: 11,
         color: AppColors.danger,
         height: 1.2,

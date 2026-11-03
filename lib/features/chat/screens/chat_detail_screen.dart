@@ -16,8 +16,11 @@ import '../../../core/services/chat_service.dart';
 import '../../../core/services/roommate_service.dart';
 import '../../renter/screens/room_detail_screen.dart';
 import '../../renter/screens/roommate_room_detail_screen.dart';
+import '../../renter/screens/report_host_screen.dart';
+import '../../profile/screens/role_aware_profile_screen.dart';
 import '../services/roommate_invitation_eligibility_service.dart';
 import '../services/roommate_invitation_policy.dart';
+import '../../renter/widgets/room_full_dialog.dart';
 import 'call_screen.dart';
 
 /// Màn hình Chi tiết Tin nhắn & Trao đổi (Feature #10 theo chuẩn SRS CDLTDD & Tc_CHAT_01 -> 50)
@@ -64,7 +67,6 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   bool _isRecordingAudio = false;
   String? _senderRole;
   String? _receiverRole;
-  RoomModel? _activeRentedRoom;
   late final RoommateInvitationEligibilityService _invitationEligibilityService;
   final Set<String> _deletedForMeIds = {};
   final Set<String> _revokedIds = {};
@@ -78,8 +80,6 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       hasActiveRoom: true,
     );
   }
-
-  bool get _canSendRoommateInvitation => _isUserToUser && _activeRentedRoom != null;
 
   bool get _receiverIsHost => _receiverRole == 'host';
 
@@ -108,7 +108,6 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       setState(() {
         _senderRole = eligibility.senderRole;
         _receiverRole = eligibility.receiverRole;
-        _activeRentedRoom = eligibility.activeRoom;
       });
     }
     return eligibility;
@@ -181,7 +180,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
     if (_isBlocked) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Không thể gửi tin nhắn do đối phương đã bị chặn.'),
           backgroundColor: AppColors.danger,
         ),
@@ -192,7 +191,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     // Kiểm tra bộ lọc từ ngữ vi phạm tiêu chuẩn cộng đồng (Tc_CHAT_49)
     if (ChatService.checkProfanity(text)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Tin nhắn vi phạm tiêu chuẩn cộng đồng về an toàn thông tin.'),
           backgroundColor: AppColors.danger,
         ),
@@ -339,7 +338,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               backgroundColor: AppColors.primaryContainer,
               child: Icon(Icons.phone, color: AppColors.primary),
             ),
@@ -358,7 +357,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: AppColors.surfaceVariant,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.border),
               ),
@@ -367,10 +366,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 children: [
                   Text(
                     widget.receiverPhone,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.copy, size: 20, color: AppColors.textMuted),
+                    icon: Icon(Icons.copy, size: 20, color: AppColors.textMuted),
                     tooltip: 'Sao chép số',
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: widget.receiverPhone));
@@ -384,7 +383,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Hệ thống hỗ trợ gọi trực tiếp qua mạng di động của thiết bị.',
               style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
@@ -430,14 +429,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               width: 40,
               height: 4,
               margin: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
             ),
             ListTile(
-              leading: const Icon(Icons.person_outline, color: AppColors.primary),
+              leading: Icon(Icons.person_outline, color: AppColors.primary),
               title: const Text('Xem hồ sơ đối tác'),
               onTap: () {
                 Navigator.pop(ctx);
-                _showPartnerProfileDialog();
+                _openPartnerProfile();
               },
             ),
             ListTile(
@@ -468,7 +467,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline, color: AppColors.textMuted),
+              leading: Icon(Icons.delete_outline, color: AppColors.textMuted),
               title: const Text('Xóa lịch sử cuộc trò chuyện'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -483,110 +482,31 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
-  void _showPartnerProfileDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: AppColors.primaryContainer,
-              child: Text(
-                widget.receiverName.isNotEmpty ? widget.receiverName[0] : 'U',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(widget.receiverName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      if (widget.isLandlord) ...[
-                        const SizedBox(width: 4),
-                        const Icon(Icons.verified, color: AppColors.primary, size: 16),
-                      ],
-                    ],
-                  ),
-                  Text(
-                    widget.isLandlord ? 'Chủ nhà trọ đã xác thực' : 'Người thuê / Tìm ở ghép',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Divider(),
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.phone_outlined, size: 20),
-              title: Text(widget.receiverPhone, style: const TextStyle(fontSize: 14)),
-              subtitle: const Text('Số điện thoại liên hệ', style: TextStyle(fontSize: 11)),
-            ),
-            const ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.shield_outlined, size: 20, color: AppColors.primary),
-              title: Text('Điểm uy tín: 100/100', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              subtitle: Text('Đã xác thực CCCD & Căn cước công dân', style: TextStyle(fontSize: 11)),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
-        ],
+  void _openPartnerProfile() {
+    final partnerId = widget.receiverId.trim();
+    if (partnerId.isEmpty || partnerId == widget.currentUserId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không tìm thấy hồ sơ đối tác.')),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RoleAwareProfileScreen(userId: partnerId),
       ),
     );
   }
 
   void _showReportDialog() {
-    final reasons = ['Lừa đảo tiền đặt cọc', 'Thông tin phòng không đúng sự thật', 'Quấy rối / Từ ngữ thô tục', 'Lý do khác'];
-    String selected = reasons[0];
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDState) => AlertDialog(
-          title: const Text('Báo cáo vi phạm', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: reasons
-                .map(
-                  (r) => ListTile(
-                    dense: true,
-                    leading: Icon(
-                      selected == r ? Icons.radio_button_checked : Icons.radio_button_off,
-                      color: selected == r ? AppColors.primary : AppColors.textMuted,
-                      size: 20,
-                    ),
-                    title: Text(r, style: const TextStyle(fontSize: 13)),
-                    onTap: () => setDState(() => selected = r),
-                  ),
-                )
-                .toList(),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger, foregroundColor: Colors.white),
-              onPressed: () {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Đã gửi báo cáo vi phạm tới Ban Quản Trị HomeShare')),
-                );
-              },
-              child: const Text('Gửi Báo Cáo'),
-            ),
-          ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReportHostScreen(
+          hostId: widget.receiverId,
+          hostName: widget.receiverName,
+          hostPhone: widget.receiverPhone,
+          room: widget.pinnedRoom,
         ),
       ),
     );
@@ -594,12 +514,18 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   // Menu đính kèm phương tiện (+) (Tc_CHAT_29)
   void _showAttachmentMenu() {
+    _focusNode.unfocus();
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final bottomPad = MediaQuery.viewPaddingOf(ctx).bottom;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(12, 12, 12, 16 + bottomPad),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -607,45 +533,54 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 width: 40,
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-              const Text('Đính kèm phương tiện & hành động', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 12,
-                runSpacing: 10,
-                alignment: WrapAlignment.center,
+              const Text(
+                'Đính kèm phương tiện & hành động',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildAttachOption(
-                    icon: Icons.photo_library_outlined,
-                    label: 'Gửi ảnh Album',
-                    color: Colors.blue,
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _pickAndSendImage(ImageSource.gallery);
-                    },
+                  Expanded(
+                    child: _buildAttachOption(
+                      icon: Icons.photo_library_outlined,
+                      label: 'Gửi ảnh Album',
+                      color: Colors.blue,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _pickAndSendImage(ImageSource.gallery);
+                      },
+                    ),
                   ),
-                  _buildAttachOption(
-                    icon: Icons.camera_alt_outlined,
-                    label: 'Chụp ảnh',
-                    color: Colors.purple,
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _pickAndSendImage(ImageSource.camera);
-                    },
+                  Expanded(
+                    child: _buildAttachOption(
+                      icon: Icons.camera_alt_outlined,
+                      label: 'Chụp ảnh',
+                      color: Colors.purple,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _pickAndSendImage(ImageSource.camera);
+                      },
+                    ),
                   ),
-                  _buildAttachOption(
-                    icon: Icons.location_on_outlined,
-                    label: 'Vị trí hiện tại',
-                    color: Colors.red,
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _sendLocationMessage();
-                    },
+                  Expanded(
+                    child: _buildAttachOption(
+                      icon: Icons.location_on_outlined,
+                      label: 'Vị trí hiện tại',
+                      color: Colors.red,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _sendLocationMessage();
+                      },
+                    ),
                   ),
-                  // Chỉ hiện khi renter-renter và người gửi có phòng thật đang hoạt động.
-                  if (_canSendRoommateInvitation)
-                    _buildAttachOption(
+                  Expanded(
+                    child: _buildAttachOption(
                       icon: Icons.group_add_outlined,
                       label: 'Mời ở ghép',
                       color: Colors.orange,
@@ -654,13 +589,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                         _showRoommateInviteDialog();
                       },
                     ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -670,21 +606,31 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Column(
-          children: [
-            CircleAvatar(
-              radius: 26,
-              backgroundColor: color.withValues(alpha: 0.12),
-              child: Icon(icon, color: color, size: 26),
-            ),
-            const SizedBox(height: 6),
-            Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-          ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: color.withValues(alpha: 0.12),
+                child: Icon(icon, color: color, size: 26),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, height: 1.2),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -782,25 +728,35 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     final eligibility = await _refreshRoommateInvitationEligibility();
     if (!mounted) return;
 
-    if (eligibility.blockReason == RoommateInvitationBlockReason.roleNotAllowed) {
+    final isUserToUser = RoommateInvitationPolicy.canInvite(
+      senderRole: eligibility.senderRole,
+      receiverRole: eligibility.receiverRole,
+      hasActiveRoom: true,
+    );
+
+    if (!isUserToUser ||
+        eligibility.blockReason == RoommateInvitationBlockReason.roleNotAllowed) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tính năng mời ở ghép chỉ áp dụng khi hai người dùng (người thuê) trao đổi với nhau.'),
+        SnackBar(
+          content: Text('Tính năng mời ở ghép chỉ áp dụng giữa người dùng với nhau (người thuê gửi cho người thuê).'),
           backgroundColor: AppColors.danger,
         ),
       );
       return;
     }
 
-    final targetRoom = eligibility.activeRoom;
-    if (targetRoom == null) {
+    final activeRooms = eligibility.activeRooms.isNotEmpty
+        ? eligibility.activeRooms
+        : (eligibility.activeRoom != null ? [eligibility.activeRoom!] : <RoomModel>[]);
+
+    if (activeRooms.isEmpty) {
       final lookupFailed = eligibility.blockReason == RoommateInvitationBlockReason.lookupFailed;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             lookupFailed
                 ? 'Không thể xác minh phòng của bạn lúc này. Vui lòng kiểm tra kết nối và thử lại.'
-                : 'Bạn phải có phòng đang thuê trên hệ thống mới có thể gửi lời mời ở ghép.',
+                : 'Bạn phải đang ở trong trọ mới có thể gửi lời mời ở ghép.',
           ),
           backgroundColor: AppColors.danger,
         ),
@@ -808,6 +764,283 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return;
     }
 
+    if (eligibility.blockReason == RoommateInvitationBlockReason.roomFull) {
+      final firstRoom = activeRooms.isNotEmpty ? activeRooms.first : null;
+      final cap = firstRoom != null
+          ? eligibility.capacityChecks[firstRoom.id]
+          : null;
+      await RoomFullDialog.show(
+        context,
+        capacity: cap?.capacity ?? 2,
+        currentOccupants: cap?.currentOccupants ?? 2,
+        roomTitle: firstRoom?.title,
+      );
+      return;
+    }
+
+    if (activeRooms.length == 1) {
+      final targetRoom = activeRooms.first;
+      final cap = eligibility.capacityChecks[targetRoom.id] ??
+          await _invitationEligibilityService.checkRoomCapacity(
+            targetRoom.id,
+            senderId: widget.currentUserId,
+            fallbackRoom: targetRoom,
+          );
+      if (cap.isFull) {
+        if (!mounted) return;
+        await RoomFullDialog.show(
+          context,
+          capacity: cap.capacity,
+          currentOccupants: cap.currentOccupants,
+          roomTitle: targetRoom.title,
+        );
+        return;
+      }
+      if (!mounted) return;
+      _showRoommateInviteConfirmDialog(targetRoom);
+      return;
+    }
+
+    // Nếu người dùng có nhiều phòng đang thuê: hiện tất cả nhà đang ở để chọn!
+    if (!mounted) return;
+    _showSelectRoomToInviteSheet(activeRooms, eligibility.capacityChecks);
+  }
+
+  void _showSelectRoomToInviteSheet(
+    List<RoomModel> rooms,
+    Map<String, RoomCapacityCheckResult> capacityChecks,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(Icons.holiday_village_rounded, color: AppColors.primary, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Chọn nhà / phòng mời ở ghép',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Bạn đang thuê ${rooms.length} phòng. Chọn phòng để gửi lời mời tới ${widget.receiverName}:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  itemCount: rooms.length,
+                  separatorBuilder: (ctx, idx) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final room = rooms[index];
+                    final title = room.title.trim().isNotEmpty
+                        ? room.title.trim()
+                        : (room.roomCode.isNotEmpty ? room.roomCode : 'Phòng ${index + 1}');
+                    final sharePrice = room.price > 0 ? (room.price / 2).round() : 0;
+                    final cap = capacityChecks[room.id];
+                    final isFull = cap?.isFull == true;
+
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () async {
+                        if (isFull && cap != null) {
+                          await RoomFullDialog.show(
+                            context,
+                            capacity: cap.capacity,
+                            currentOccupants: cap.currentOccupants,
+                            roomTitle: room.title,
+                          );
+                          return;
+                        }
+                        Navigator.pop(ctx);
+                        _showRoommateInviteConfirmDialog(room);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isFull
+                                ? const Color(0xFFF59E0B).withValues(alpha: 0.5)
+                                : (AppColors.border),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: (isFull ? const Color(0xFFF59E0B) : AppColors.primary)
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                isFull ? Icons.group_off_rounded : Icons.meeting_room_outlined,
+                                color: isFull ? const Color(0xFFD97706) : AppColors.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                          ),
+                                        ),
+                                      ),
+                                      if (cap != null) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: isFull
+                                                ? AppColors.warningContainer
+                                                : (isDark
+                                                    ? AppColors.successContainer
+                                                    : const Color(0xFFECFDF3)),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: isFull
+                                                  ? const Color(0xFFFDE68A)
+                                                  : (isDark
+                                                      ? const Color(0xFF86EFAC)
+                                                      : const Color(0xFFA6F4C5)),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            isFull
+                                                ? 'Đã đủ (${cap.currentOccupants}/${cap.capacity})'
+                                                : 'Còn chỗ (${cap.currentOccupants}/${cap.capacity})',
+                                            style: TextStyle(
+                                              color: isFull
+                                                  ? (isDark
+                                                      ? const Color(0xFFFDE68A)
+                                                      : const Color(0xFFB45309))
+                                                  : (isDark
+                                                      ? const Color(0xFF86EFAC)
+                                                      : const Color(0xFF027A48)),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 10.5,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  if (room.address.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      room.address,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    sharePrice > 0
+                                        ? 'Dự kiến: ${NumberFormat("#,###", "vi_VN").format(sharePrice)} đ/tháng/người'
+                                        : 'Giá phòng: ${NumberFormat("#,###", "vi_VN").format(room.price)} đ/tháng',
+                                    style: TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 14,
+                              color: isFull ? const Color(0xFFD97706) : AppColors.primary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showRoommateInviteConfirmDialog(RoomModel targetRoom) {
     final roomTitle = targetRoom.title.trim().isNotEmpty
         ? targetRoom.title.trim()
         : (targetRoom.roomCode.trim().isNotEmpty ? targetRoom.roomCode.trim() : targetRoom.id);
@@ -817,7 +1050,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.handshake_outlined, color: AppColors.primary),
             SizedBox(width: 8),
@@ -839,10 +1072,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               sharePrice > 0
                   ? 'Chi phí dự kiến: ${NumberFormat("#,###", "vi_VN").format(sharePrice)} đ/tháng/người'
                   : 'Chi phí dự kiến: Chưa cập nhật',
-              style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 12),
+              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 12),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Sau khi đối phương chấp nhận, thông báo sẽ tự động được gửi tới Chủ trọ.',
               style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontStyle: FontStyle.italic),
             ),
@@ -854,7 +1087,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
             onPressed: () async {
               Navigator.pop(ctx);
-              await _sendVerifiedRoommateInvitation();
+              await _sendVerifiedRoommateInvitation(targetRoom);
             },
             child: const Text('Gửi Lời Mời'),
           ),
@@ -863,29 +1096,29 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
-  Future<void> _sendVerifiedRoommateInvitation() async {
-    // Kiểm tra lại ngay trước lúc ghi tin nhắn để không dùng quyền/phòng đã cũ.
-    final eligibility = await _refreshRoommateInvitationEligibility();
-    if (!mounted) return;
-
-    final room = eligibility.activeRoom;
-    if (!eligibility.canInvite || room == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            eligibility.blockReason == RoommateInvitationBlockReason.roleNotAllowed
-                ? 'Lời mời ở ghép chỉ được gửi giữa hai người dùng (người thuê).'
-                : 'Không tìm thấy phòng đang thuê hợp lệ. Lời mời chưa được gửi.',
-          ),
-          backgroundColor: AppColors.danger,
-        ),
-      );
-      return;
-    }
-
+  Future<void> _sendVerifiedRoommateInvitation(RoomModel room) async {
     final roomTitle = room.title.trim().isNotEmpty
         ? room.title.trim()
         : (room.roomCode.trim().isNotEmpty ? room.roomCode.trim() : room.id);
+
+    // Kiểm tra sức chứa phòng trước khi gửi
+    final cap = await _invitationEligibilityService.checkRoomCapacity(
+      room.id,
+      senderId: widget.currentUserId,
+      fallbackRoom: room,
+    );
+    if (cap.isFull) {
+      if (mounted) {
+        await RoomFullDialog.show(
+          context,
+          capacity: cap.capacity,
+          currentOccupants: cap.currentOccupants,
+          roomTitle: roomTitle,
+        );
+      }
+      return; // Tuyệt đối không gửi tin nhắn và không ghi nhận vào chuông thông báo
+    }
+
     final sharePrice = room.price > 0 ? (room.price / 2).round() : 0;
     final sent = await _sendRichMessage(
       text: 'Lời mời cùng ở ghép phòng tại HomeShare',
@@ -923,22 +1156,29 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   Future<void> _acceptRoommateInvite(ChatMessageModel msg) async {
     try {
-      final roomId = msg.extraData['roomId']?.toString().trim() ?? '';
-      if (roomId.isEmpty) {
-        throw StateError('Lời mời không liên kết với phòng hợp lệ.');
+      final extra = msg.extraData;
+      final roomId = extra['roomId']?.toString().trim() ?? '';
+
+      final cap = await _invitationEligibilityService.checkRoomCapacity(roomId);
+      if (cap.isFull) {
+        if (mounted) {
+          await RoomFullDialog.show(
+            context,
+            capacity: cap.capacity,
+            currentOccupants: cap.currentOccupants,
+            roomTitle: extra['roomTitle']?.toString() ?? '',
+          );
+        }
+        return;
       }
 
-      RoomModel? verifiedRoom;
-      for (final collection in const ['rooms', 'host_rooms']) {
-        final roomDoc = await FirebaseFirestore.instance.collection(collection).doc(roomId).get();
-        if (roomDoc.exists && roomDoc.data() != null) {
-          final candidate = RoomModel.fromMap(roomDoc.data()!, roomDoc.id);
-          if (candidate.hostId.trim().isNotEmpty) {
-            verifiedRoom = candidate;
-            break;
-          }
-        }
-      }
+      final verifiedRoom = await _invitationEligibilityService.resolveInvitationRoom(
+        roomId: roomId,
+        hostId: extra['hostId']?.toString() ?? '',
+        roomTitle: extra['roomTitle']?.toString() ?? '',
+        roomCode: extra['roomCode']?.toString() ?? '',
+        hostName: extra['hostName']?.toString() ?? '',
+      );
       if (verifiedRoom == null || verifiedRoom.hostId.trim().isEmpty) {
         throw StateError('Không xác minh được phòng hoặc chủ trọ của lời mời.');
       }
@@ -972,12 +1212,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         newRoommateId: widget.currentUserId,
       );
 
-      // Gửi tin nhắn xác nhận realtime vào đoạn chat
-      await _sendMessage('✅ Tôi đã chấp nhận lời mời ở ghép cùng bạn tại phòng $roomTitle. Hệ thống đã gửi thông báo đến chủ nhà!');
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Đã chấp nhận lời mời ở ghép và gửi thông báo đến chủ nhà thành công!'),
             backgroundColor: AppColors.primary,
           ),
@@ -1005,8 +1242,6 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         messageId: msg.id,
         extraData: updatedExtraData,
       );
-
-      await _sendMessage('Tôi xin phép từ chối lời mời ở ghép này nhé. Cảm ơn bạn!');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1098,13 +1333,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           children: [
             if (!isRevoked)
               ListTile(
-                leading: const Icon(Icons.reply_rounded, color: AppColors.primary),
+                leading: Icon(Icons.reply_rounded, color: AppColors.primary),
                 title: const Text('Trả lời tin nhắn', style: TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: Text(
                   msg.messageType == 'image' ? '📷 [Hình ảnh]' : (msg.text.isNotEmpty ? msg.text : 'Tin nhắn'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  style: TextStyle(fontSize: 11, color: AppColors.textMuted),
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -1113,7 +1348,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               ),
             if (!isRevoked)
               ListTile(
-                leading: const Icon(Icons.copy_outlined, color: AppColors.primary),
+                leading: Icon(Icons.copy_outlined, color: AppColors.primary),
                 title: const Text('Sao chép nội dung tin nhắn'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -1137,8 +1372,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             // Xóa tin nhắn ở cả 2 phía (Xóa vĩnh viễn khỏi cuộc trò chuyện của cả 2)
             if (isMe)
               ListTile(
-                leading: const Icon(Icons.delete_forever_outlined, color: AppColors.danger),
-                title: const Text(
+                leading: Icon(Icons.delete_forever_outlined, color: AppColors.danger),
+                title: Text(
                   'Xóa tin nhắn ở cả 2 bên',
                   style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.danger),
                 ),
@@ -1149,7 +1384,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 },
               ),
             ListTile(
-              leading: const Icon(Icons.delete_outline, color: Color(0xFF64748B)),
+              leading: Icon(Icons.delete_outline, color: AppColors.textMuted),
               title: const Text('Xóa ở phía tôi (Chỉ mình tôi)'),
               subtitle: const Text('Chỉ ẩn tin nhắn này trên thiết bị của bạn', style: TextStyle(fontSize: 11)),
               onTap: () {
@@ -1176,14 +1411,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             Text('Thu hồi tin nhắn?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: const Text(
+        content: Text(
           'Tin nhắn này sẽ bị thu hồi và hiển thị "Tin nhắn đã được thu hồi" ở cả phía bạn và đối phương.',
-          style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
+          style: TextStyle(fontSize: 13, color: AppColors.textMuted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy', style: TextStyle(color: Color(0xFF64748B))),
+            child: Text('Hủy', style: TextStyle(color: AppColors.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -1208,21 +1443,21 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.delete_forever_outlined, color: AppColors.danger),
             SizedBox(width: 8),
             Text('Xóa tin nhắn ở cả 2 bên?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: const Text(
+        content: Text(
           'Tin nhắn này sẽ bị xóa hoàn toàn khỏi cuộc trò chuyện của cả phía bạn và phía đối phương.',
-          style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
+          style: TextStyle(fontSize: 13, color: AppColors.textMuted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy', style: TextStyle(color: Color(0xFF64748B))),
+            child: Text('Hủy', style: TextStyle(color: AppColors.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -1287,6 +1522,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    AppColors.bind(Theme.of(context).brightness);
     final maxBubbleWidth = MediaQuery.sizeOf(context).width * 0.78;
     final messagesAsync = ref.watch(messagesStreamProvider(ChatParams(
       userA: widget.currentUserId,
@@ -1296,6 +1532,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textDark,
         titleSpacing: 0,
         leading: Semantics(
           label: 'Quay lại danh sách tin nhắn',
@@ -1307,7 +1545,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           ),
         ),
         title: InkWell(
-          onTap: _showPartnerProfileDialog,
+          onTap: _openPartnerProfile,
           child: Row(
             children: [
               Stack(
@@ -1317,7 +1555,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                     backgroundColor: AppColors.primaryContainer,
                     child: Text(
                       widget.receiverName.isNotEmpty ? widget.receiverName[0] : 'U',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 16),
+                      style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 16),
                     ),
                   ),
                   Positioned(
@@ -1329,7 +1567,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                       decoration: BoxDecoration(
                         color: Colors.green,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                        border: Border.all(color: AppColors.surface, width: 2),
                       ),
                     ),
                   ),
@@ -1345,18 +1583,22 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                         Flexible(
                           child: Text(
                             widget.receiverName,
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textDark,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (widget.isLandlord) ...[
                           const SizedBox(width: 4),
-                          const Icon(Icons.verified, color: AppColors.primary, size: 15),
+                          Icon(Icons.verified, color: AppColors.primary, size: 15),
                         ],
                       ],
                     ),
-                    const Row(
+                    Row(
                       children: [
                         CircleAvatar(radius: 3, backgroundColor: Colors.green),
                         SizedBox(width: 4),
@@ -1375,7 +1617,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             label: 'Gọi điện thoại cho ${widget.receiverName}',
             button: true,
             child: IconButton(
-              icon: const Icon(Icons.phone_outlined, color: AppColors.primary),
+              icon: Icon(Icons.phone_outlined, color: AppColors.primary),
               tooltip: 'Gọi thoại',
               onPressed: _makeAudioCall,
             ),
@@ -1385,7 +1627,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             label: 'Gọi video với ${widget.receiverName}',
             button: true,
             child: IconButton(
-              icon: const Icon(Icons.videocam_outlined, color: AppColors.primary),
+              icon: Icon(Icons.videocam_outlined, color: AppColors.primary),
               tooltip: 'Gọi video',
               onPressed: _makeVideoCall,
             ),
@@ -1410,15 +1652,27 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                color: const Color(0xFFFEF3C7),
+                color: AppColors.warningContainer,
                 child: Row(
                   children: [
-                    const Icon(Icons.shield_outlined, size: 16, color: Color(0xFFB45309)),
+                    Icon(
+                      Icons.shield_outlined,
+                      size: 16,
+                      color: AppColors.isDark
+                          ? const Color(0xFFFDE68A)
+                          : const Color(0xFFB45309),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Bảo vệ an toàn: Tuyệt đối không cọc tiền trước khi đến xem phòng trực tiếp.',
-                        style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.isDark
+                              ? const Color(0xFFFDE68A)
+                              : const Color(0xFFB45309),
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
@@ -1443,14 +1697,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey.shade300),
+                            Icon(Icons.chat_bubble_outline, size: 64, color: AppColors.border),
                             const SizedBox(height: 12),
                             Text(
                               'Bắt đầu cuộc trò chuyện với ${widget.receiverName}',
-                              style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                              style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
+                            Text(
                               'Nhấn vào các câu hỏi nhanh bên dưới để gửi ngay',
                               style: TextStyle(color: AppColors.textMuted, fontSize: 11),
                             ),
@@ -1503,7 +1757,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               right: 16,
               bottom: 120,
               child: FloatingActionButton.small(
-                backgroundColor: Colors.white,
+                backgroundColor: AppColors.surface,
                 foregroundColor: AppColors.primary,
                 tooltip: 'Cuộn xuống tin mới nhất',
                 onPressed: _scrollToBottom,
@@ -1559,7 +1813,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
         boxShadow: [
@@ -1597,13 +1851,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                     const SizedBox(height: 2),
                     Text(
                       '${NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(price)}/người',
-                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                      style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12),
                     ),
                   ],
                   if (address.isNotEmpty)
                     Text(
                       address,
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                      style: TextStyle(color: AppColors.textMuted, fontSize: 11),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1616,7 +1870,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             children: [
               InkWell(
                 onTap: () => setState(() => _showPinnedPost = false),
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.all(4),
                   child: Icon(Icons.close, size: 16, color: AppColors.textMuted),
                 ),
@@ -1646,7 +1900,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return Image.network(
         image,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => const ColoredBox(
+        errorBuilder: (context, error, stackTrace) => ColoredBox(
           color: AppColors.primaryContainer,
           child: Icon(Icons.article_outlined, color: AppColors.primary),
         ),
@@ -1659,7 +1913,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         return Image.memory(bytes, fit: BoxFit.cover);
       } catch (_) {}
     }
-    return const ColoredBox(
+    return ColoredBox(
       color: AppColors.primaryContainer,
       child: Icon(Icons.article_outlined, color: AppColors.primary),
     );
@@ -1670,7 +1924,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
         boxShadow: [
@@ -1694,9 +1948,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   ? Image.network(
                       room.images.first,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.home, color: AppColors.primary),
+                      errorBuilder: (context, error, stackTrace) => Icon(Icons.home, color: AppColors.primary),
                     )
-                  : const Icon(Icons.home, color: AppColors.primary),
+                  : Icon(Icons.home, color: AppColors.primary),
             ),
           ),
           const SizedBox(width: 10),
@@ -1721,11 +1975,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   const SizedBox(height: 2),
                   Text(
                     '${NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(room.price)}/tháng',
-                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                   Text(
                     room.address,
-                    style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 11),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1739,7 +1993,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             children: [
               InkWell(
                 onTap: () => setState(() => _showPinnedRoom = false),
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.all(4.0),
                   child: Icon(Icons.close, size: 16, color: AppColors.textMuted),
                 ),
@@ -1776,7 +2030,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             'Chào bạn, bạn đã tìm được phòng chưa?',
             'Ngân sách phòng trọ bạn dự kiến bao nhiêu?',
             'Thói quen sinh hoạt của bạn như thế nào?',
-            if (_canSendRoommateInvitation) '+ Mời vào ở ghép',
+            '+ Mời vào ở ghép',
           ]
         : (widget.isLandlord || _receiverIsHost)
             ? [
@@ -1802,7 +2056,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           final isInviteChip = chip == '+ Mời vào ở ghép';
 
           return ActionChip(
-            backgroundColor: isInviteChip ? AppColors.primaryContainer : Colors.white,
+            backgroundColor: isInviteChip ? AppColors.primaryContainer : AppColors.surface,
             side: BorderSide(color: isInviteChip ? AppColors.primary : AppColors.border),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
             label: Text(
@@ -1832,7 +2086,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -1850,14 +2104,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             // Nút Thêm đính kèm (+) (Tc_CHAT_29)
             IconButton(
               tooltip: 'Đính kèm',
-              icon: const Icon(Icons.add_circle_outline, color: AppColors.primary, size: 26),
+              icon: Icon(Icons.add_circle_outline, color: AppColors.primary, size: 26),
               onPressed: _showAttachmentMenu,
             ),
 
             // Nút Chọn ảnh từ Album nhanh (Tc_CHAT_30)
             IconButton(
               tooltip: 'Chọn ảnh từ Album',
-              icon: const Icon(Icons.photo_library_outlined, color: AppColors.primary, size: 24),
+              icon: Icon(Icons.photo_library_outlined, color: AppColors.primary, size: 24),
               onPressed: _pickAndSendImageFromAlbum,
             ),
 
@@ -1872,6 +2126,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   maxLines: 4,
                   minLines: 1,
                   textCapitalization: TextCapitalization.sentences,
+                  style: TextStyle(color: AppColors.textDark, fontSize: 14),
                   decoration: InputDecoration(
                     hintText: _isRecordingAudio ? 'Đang ghi âm (0:05)...' : 'Nhập tin nhắn...',
                     hintStyle: TextStyle(
@@ -1880,7 +2135,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                       fontWeight: _isRecordingAudio ? FontWeight.bold : FontWeight.normal,
                     ),
                     filled: true,
-                    fillColor: const Color(0xFFF3F4F6),
+                    fillColor: AppColors.surfaceVariant,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
                       borderSide: BorderSide.none,
@@ -1908,7 +2163,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             Container(
               width: 44,
               height: 44,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.primary,
                 shape: BoxShape.circle,
               ),
@@ -1938,15 +2193,15 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       margin: const EdgeInsets.fromLTRB(4, 6, 4, 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: AppColors.surfaceVariant,
         borderRadius: BorderRadius.circular(10),
-        border: const Border(
+        border: Border(
           left: BorderSide(color: AppColors.primary, width: 3.5),
         ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.reply_rounded, color: AppColors.primary, size: 18),
+          Icon(Icons.reply_rounded, color: AppColors.primary, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -1955,7 +2210,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               children: [
                 Text(
                   'Đang trả lời $senderName',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
@@ -1966,13 +2221,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   previewText,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                  style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, size: 18, color: Color(0xFF94A3B8)),
+            icon: Icon(Icons.close, size: 18, color: AppColors.textMuted),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             tooltip: 'Hủy trả lời',
@@ -1991,7 +2246,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: isMe ? Colors.white.withValues(alpha: 0.18) : const Color(0xFFF1F5F9),
+        color: isMe ? Colors.white.withValues(alpha: 0.18) : AppColors.surfaceVariant,
         borderRadius: BorderRadius.circular(8),
         border: Border(
           left: BorderSide(
@@ -2034,7 +2289,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 11.5,
-              color: isMe ? Colors.white.withValues(alpha: 0.85) : const Color(0xFF475569),
+              color: isMe ? Colors.white.withValues(alpha: 0.85) : AppColors.textMuted,
             ),
           ),
         ],
@@ -2055,7 +2310,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       background: Container(
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 16),
-        child: const Icon(Icons.reply_rounded, color: AppColors.primary, size: 24),
+        child: Icon(Icons.reply_rounded, color: AppColors.primary, size: 24),
       ),
       child: GestureDetector(
       onLongPress: () => _showMessageContextMenu(msg, isMe),
@@ -2078,7 +2333,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 children: [
                   Text(
                     DateFormat('HH:mm').format(msg.timestamp),
-                    style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 10, color: AppColors.textMuted),
                   ),
                   if (isMe) ...[
                     const SizedBox(width: 4),
@@ -2095,7 +2350,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                         color: AppColors.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text(
+                      child: Text(
                         'Chưa đọc',
                         style: TextStyle(
                           fontSize: 9,
@@ -2123,21 +2378,21 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
+          color: AppColors.surfaceVariant,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(color: AppColors.border),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.block_outlined, size: 14, color: Color(0xFF94A3B8)),
-            SizedBox(width: 6),
+            Icon(Icons.block_outlined, size: 14, color: AppColors.textMuted),
+            const SizedBox(width: 6),
             Text(
               'Tin nhắn đã được thu hồi',
               style: TextStyle(
                 fontSize: 12.5,
                 fontStyle: FontStyle.italic,
-                color: Color(0xFF94A3B8),
+                color: AppColors.textMuted,
               ),
             ),
           ],
@@ -2150,7 +2405,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.primary, width: 1.5),
           boxShadow: [
@@ -2160,7 +2415,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
                 Icon(Icons.event_available, color: AppColors.primary, size: 20),
                 SizedBox(width: 6),
@@ -2168,16 +2423,23 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               ],
             ),
             const Divider(height: 16),
-            Text(msg.text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(
+              msg.text,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textDark,
+              ),
+            ),
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(Icons.location_on_outlined, size: 14, color: AppColors.textMuted),
+                Icon(Icons.location_on_outlined, size: 14, color: AppColors.textMuted),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     msg.extraData['address'] ?? 'Số 8, Linh Trung, TP. Thủ Đức',
-                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 11, color: AppColors.textMuted),
                     maxLines: 1,
                   ),
                 ),
@@ -2215,13 +2477,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: inviteStatus == 'accepted'
                 ? AppColors.primary
                 : inviteStatus == 'rejected'
-                    ? Colors.grey.shade400
+                    ? AppColors.textMuted
                     : Colors.orange.shade300,
             width: 1.5,
           ),
@@ -2265,10 +2527,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             const Divider(height: 16),
             Text(
               roomTitle,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
             ),
             const SizedBox(height: 4),
-            Text('Chi phí: $priceStr', style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
+            Text('Chi phí: $priceStr', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
             const SizedBox(height: 10),
             if (inviteStatus == 'accepted')
               Container(
@@ -2278,7 +2544,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   color: AppColors.primaryContainer,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 16),
@@ -2298,17 +2564,17 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: AppColors.surfaceVariant,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.cancel_rounded, color: Colors.grey.shade600, size: 16),
+                    Icon(Icons.cancel_rounded, color: AppColors.textMuted, size: 16),
                     const SizedBox(width: 6),
                     Text(
                       'Lời mời đã bị từ chối',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMuted),
                     ),
                   ],
                 ),
@@ -2318,17 +2584,17 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: AppColors.surfaceVariant,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.remove_circle_outline, color: Colors.grey.shade600, size: 16),
+                    Icon(Icons.remove_circle_outline, color: AppColors.textMuted, size: 16),
                     const SizedBox(width: 6),
                     Text(
                       'Lời mời đã được thu hồi',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMuted),
                     ),
                   ],
                 ),
@@ -2340,7 +2606,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.danger,
-                        side: const BorderSide(color: AppColors.danger),
+                        side: BorderSide(color: AppColors.danger),
                         minimumSize: const Size.fromHeight(32),
                       ),
                       onPressed: () => _rejectRoommateInvite(msg),
@@ -2380,7 +2646,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.border),
           boxShadow: [
@@ -2393,10 +2659,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             Container(
               height: 100,
               decoration: BoxDecoration(
-                color: Colors.teal.shade50,
+                color: AppColors.primaryContainer,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Center(
+              child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -2407,7 +2673,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            Text(msg.text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            Text(
+              msg.text,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textDark,
+              ),
+            ),
             const SizedBox(height: 8),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
@@ -2434,7 +2707,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isMe ? AppColors.primary : Colors.white,
+          color: isMe ? AppColors.primary : AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2)),
@@ -2594,7 +2867,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           },
           child: Container(
             constraints: const BoxConstraints(maxHeight: 220, maxWidth: 240),
-            color: Colors.grey.shade100,
+            color: AppColors.surfaceVariant,
             child: buildImageWidget(fit: BoxFit.cover),
           ),
         ),
@@ -2604,7 +2877,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         return Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: isMe ? AppColors.primary : Colors.white,
+            color: isMe ? AppColors.primary : AppColors.surface,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
@@ -2636,7 +2909,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: isMe ? AppColors.primary : Colors.white,
+            color: isMe ? AppColors.primary : AppColors.surface,
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(16),
           topRight: const Radius.circular(16),
@@ -2669,7 +2942,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 color: AppColors.primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text(
+              child: Text(
                 'TIN NHẮN CHƯA ĐỌC',
                 style: TextStyle(
                   color: AppColors.primary,
@@ -2696,20 +2969,20 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isMe ? Colors.white24 : Colors.blue.shade50,
+                  color: isMe ? Colors.white24 : AppColors.primaryContainer,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.phone, size: 13, color: isMe ? Colors.white : Colors.blue),
+                    Icon(Icons.phone, size: 13, color: isMe ? Colors.white : AppColors.primary),
                     const SizedBox(width: 4),
                     Text(
                       'Bấm để gọi nhanh',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: isMe ? Colors.white : Colors.blue,
+                        color: isMe ? Colors.white : AppColors.primary,
                       ),
                     ),
                   ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/violation_model.dart';
+import '../../../core/constants/app_colors.dart';
 
 class ViolationTypeSelector extends StatelessWidget {
   final List<ViolationModel> violations;
@@ -29,7 +30,7 @@ class ViolationTypeSelector extends StatelessWidget {
   }
 
   Color _getUnselectedIconColor(String id) {
-    if (id.contains('rac')) return const Color(0xFF2563EB);
+    if (id.contains('rac')) return (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB));
     if (id.contains('on_ao')) return const Color(0xFFEA580C);
     if (id.contains('hut_thuoc')) return const Color(0xFFEF4444);
     if (id.contains('nguoi_la')) return const Color(0xFF0284C7);
@@ -56,39 +57,39 @@ class ViolationTypeSelector extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.edit_note_rounded,
-                color: Color(0xFF2563EB),
+                color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                 size: 22,
               ),
-              const SizedBox(width: 8),
-              const Expanded(
+              SizedBox(width: 8),
+              Expanded(
                 child: Text(
                   'HÀNH VI VI PHẠM',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.5,
-                    color: Color(0xFF1E293B),
+                    color: AppColors.textDark,
                   ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: selectedCount > 0
-                      ? const Color(0xFFEFF6FF)
-                      : const Color(0xFFF1F5F9),
+                      ? AppColors.primaryContainer
+                      : AppColors.surfaceVariant,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -97,19 +98,19 @@ class ViolationTypeSelector extends StatelessWidget {
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: selectedCount > 0
-                        ? const Color(0xFF2563EB)
+                        ? (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB))
                         : const Color(0xFF64748B),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: violations.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
+            separatorBuilder: (_, _) => SizedBox(height: 8),
             itemBuilder: (context, index) {
               final item = violations[index];
               final isSelected =
@@ -120,19 +121,19 @@ class ViolationTypeSelector extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? const Color(0xFF2563EB)
-                        : const Color(0xFFF8FAFC),
+                        ? (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB))
+                        : AppColors.background,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected
-                          ? const Color(0xFF1D4ED8)
-                          : const Color(0xFFE2E8F0),
+                          ? (AppColors.isDark ? AppColors.textDark : const Color(0xFF1D4ED8))
+                          : AppColors.border,
                     ),
                   ),
                   child: Row(
@@ -144,7 +145,7 @@ class ViolationTypeSelector extends StatelessWidget {
                             ? Colors.white
                             : _getUnselectedIconColor(item.id),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           item.title,

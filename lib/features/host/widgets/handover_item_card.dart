@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../data/models/handover_item_model.dart';
+import '../../../core/constants/app_colors.dart';
 
 class HandoverItemCard extends StatelessWidget {
   final HandoverItemModel item;
@@ -43,14 +44,14 @@ class HandoverItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: item.isChecked
-              ? const Color(0xFFE2E8F0)
+              ? AppColors.border
               : const Color(0xFFFED7AA),
         ),
       ),
@@ -61,16 +62,16 @@ class HandoverItemCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
+              color: AppColors.primaryContainer,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               _getIcon(item.itemName),
               size: 20,
-              color: const Color(0xFF2563EB),
+              color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           // Tên + Mô tả
           Expanded(
             child: Column(
@@ -78,17 +79,17 @@ class HandoverItemCard extends StatelessWidget {
               children: [
                 Text(
                   item.itemName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
+                    color: AppColors.textDark,
                   ),
                 ),
                 if (item.description.isNotEmpty) ...[
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2),
                   Text(
                     item.description,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: Color(0xFF64748B),
                     ),
@@ -97,7 +98,7 @@ class HandoverItemCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           // Switch toggle
           Transform.scale(
             scale: 0.85,
@@ -106,7 +107,7 @@ class HandoverItemCard extends StatelessWidget {
               activeThumbColor: const Color(0xFF16A34A),
               activeTrackColor: const Color(0xFFBBF7D0),
               inactiveThumbColor: const Color(0xFF94A3B8),
-              inactiveTrackColor: const Color(0xFFE2E8F0),
+              inactiveTrackColor: AppColors.border,
               onChanged: onToggle,
             ),
           ),

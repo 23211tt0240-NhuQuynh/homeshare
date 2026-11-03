@@ -98,20 +98,20 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                   ? Text(hostErrorMessage(error))
                   : rooms.isLoading || houses.isLoading
                   ? const CircularProgressIndicator()
-                  : const Text('Phòng không còn trong danh sách.'),
+                  : Text('Phòng không còn trong danh sách.'),
             )
           : ListView(
               scrollCacheExtent: const ScrollCacheExtent.pixels(5000),
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               children: [
                 Text(
                   '▦ ${property.name} • Tầng ${room.floor}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 HostRoomSection(
                   title: hostRoomName(room),
                   icon: Icons.meeting_room_outlined,
@@ -132,19 +132,19 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              const Text(
+                              Text(
                                 'Giá thuê',
                                 style: TextStyle(fontSize: 11),
                               ),
                               Text(
                                 '${hostMoney(room.price)} đ',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.w800,
                                   fontSize: 23,
                                 ),
                               ),
-                              const Text(
+                              Text(
                                 '/tháng',
                                 style: TextStyle(fontSize: 11),
                               ),
@@ -152,7 +152,7 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: SizedBox(
@@ -160,7 +160,7 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                           child:
                               displayImages.isEmpty &&
                                   widget.previewImages.isEmpty
-                              ? const Center(
+                              ? Center(
                                   child: Icon(
                                     Icons.image_outlined,
                                     size: 64,
@@ -175,7 +175,7 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                                         webHtmlElementStrategy:
                                             WebHtmlElementStrategy.fallback,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, _, _) => const Center(
+                                        errorBuilder: (_, _, _) => Center(
                                           child: Icon(
                                             Icons.broken_image_outlined,
                                             size: 48,
@@ -194,10 +194,10 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                       if (displayImages.length + widget.previewImages.length >
                           0)
                         Padding(
-                          padding: const EdgeInsets.only(top: 8),
+                          padding: EdgeInsets.only(top: 8),
                           child: Text(
                             '${displayImages.length + widget.previewImages.length} ảnh • Vuốt để xem',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               color: AppColors.textSecondary,
                             ),
@@ -215,11 +215,11 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                       Text(
                         '${room.areaLabel} • Tầng ${room.floor} • ${room.capacity} người',
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF0F4FF),
+                          color: AppColors.surfaceVariant,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -230,7 +230,7 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
@@ -239,18 +239,21 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                             Chip(
                               label: Text(
                                 amenity,
-                                style: const TextStyle(fontSize: 11),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textDark,
+                                ),
                               ),
-                              backgroundColor: const Color(0xFFF0F4FF),
+                              backgroundColor: AppColors.surfaceVariant,
                               side: BorderSide.none,
                             ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       Text('Tiền cọc: ${hostMoney(room.deposit)} đ'),
                       if (room.description.isNotEmpty)
                         Padding(
-                          padding: const EdgeInsets.only(top: 10),
+                          padding: EdgeInsets.only(top: 10),
                           child: Text(room.description),
                         ),
                     ],
@@ -288,11 +291,11 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                               );
                             }
                           },
-                          icon: const Icon(Icons.edit_outlined),
-                          label: const Text('Chỉnh sửa phòng'),
+                          icon: Icon(Icons.edit_outlined),
+                          label: Text('Chỉnh sửa phòng'),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       IconButton.filled(
                         tooltip: 'Xóa phòng',
                         style: IconButton.styleFrom(
@@ -305,7 +308,7 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                             Navigator.pop(context, true);
                           }
                         },
-                        icon: const Icon(Icons.delete_outline),
+                        icon: Icon(Icons.delete_outline),
                       ),
                     ],
                   ),
@@ -319,14 +322,14 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
   Widget _rate(String label, double? value, String unit) => Expanded(
     child: Column(
       children: [
-        Text(label, style: const TextStyle(fontSize: 11)),
-        const SizedBox(height: 4),
+        Text(label, style: TextStyle(fontSize: 11)),
+        SizedBox(height: 4),
         Text(
           value == null ? 'Chưa thiết lập' : hostMoney(value),
           textAlign: TextAlign.center,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
         ),
-        if (value != null) Text(unit, style: const TextStyle(fontSize: 10)),
+        if (value != null) Text(unit, style: TextStyle(fontSize: 10)),
       ],
     ),
   );

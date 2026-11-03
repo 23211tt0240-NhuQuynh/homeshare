@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/admin_colors.dart';
 
 /// Biểu đồ doanh thu theo năm.
 /// [monthlyData]: 12 phần tử, đơn vị = triệu đồng. null = chưa có dữ liệu.
@@ -81,7 +82,7 @@ class RevenueBarChart extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF398FC0),
+                      color: AdminColors.accent,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
@@ -95,8 +96,8 @@ class RevenueBarChart extends StatelessWidget {
                     ),
                     child: Text(
                       peakText,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AdminColors.onAccent,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.2,
@@ -137,10 +138,10 @@ class RevenueBarChart extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: isPeak ? FontWeight.bold : FontWeight.w500,
                     color: isPeak
-                        ? const Color(0xFF398FC0)
+                        ? AdminColors.accentText
                         : (isFuture
-                              ? const Color(0xFF94A3B8)
-                              : const Color(0xFF64748B)),
+                              ? AdminColors.muted
+                              : AdminColors.mutedStrong),
                   ),
                 ),
               );
@@ -153,30 +154,30 @@ class RevenueBarChart extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFFF4F9FF),
+            color: AdminColors.paper,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            border: Border.all(color: AdminColors.border),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('⚡', style: TextStyle(fontSize: 14)),
+              Text('⚡', style: TextStyle(fontSize: 14)),
               const SizedBox(width: 6),
               RichText(
                 text: TextSpan(
                   text: 'TB mỗi tháng: ',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF475467),
+                    color: AdminColors.muted,
                   ),
                   children: [
                     TextSpan(
                       text: avgText,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF101828),
+                        color: AdminColors.ink,
                       ),
                     ),
                   ],
@@ -222,7 +223,7 @@ class _BarChartPainter extends CustomPainter {
     }
     if (maxVal <= 0) maxVal = 1;
 
-    const solidBarColors = [
+    final solidBarColors = [
       Color(0xFFD0E1FD),
       Color(0xFFC2D9FC),
       Color(0xFFB5D2FB),
@@ -230,11 +231,11 @@ class _BarChartPainter extends CustomPainter {
       Color(0xFF90BCFA),
       Color(0xFF75ABFA),
       Color(0xFF5394F8),
-      Color(0xFF398FC0),
-      Color(0xFF398FC0),
-      Color(0xFF398FC0),
-      Color(0xFF398FC0),
-      Color(0xFF398FC0),
+      AdminColors.accent,
+      AdminColors.accent,
+      AdminColors.accent,
+      AdminColors.accent,
+      AdminColors.accent,
     ];
 
     for (int i = 0; i < data.length; i++) {
@@ -251,7 +252,7 @@ class _BarChartPainter extends CustomPainter {
           const Radius.circular(radius),
         );
         final color = i == peakIndex
-            ? const Color(0xFF398FC0)
+            ? AdminColors.accent
             : solidBarColors[i.clamp(0, solidBarColors.length - 1)];
         canvas.drawRRect(
           rrect,
@@ -270,7 +271,7 @@ class _BarChartPainter extends CustomPainter {
         canvas.drawRRect(
           rrect,
           Paint()
-            ..color = const Color(0xFFCBD5E1)
+            ..color = AdminColors.border
             ..strokeWidth = 1.2
             ..style = PaintingStyle.stroke,
         );

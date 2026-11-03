@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/login_screen.dart';
 import '../widgets/admin_branded_title.dart';
+import '../theme/admin_colors.dart';
 
 class AdminHistoryScreen extends ConsumerStatefulWidget {
   const AdminHistoryScreen({super.key});
@@ -45,31 +46,31 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFEF3F2),
+                color: AdminColors.dangerContainer,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.logout_rounded,
-                color: Color(0xFFD92D20),
+                color: AdminColors.danger,
                 size: 22,
               ),
             ),
             const SizedBox(width: 12),
-            const Text(
+            Text(
               'Đăng xuất',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF101828),
+                color: AdminColors.ink,
               ),
             ),
           ],
         ),
-        content: const Text(
+        content: Text(
           'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản Quản trị viên không?',
           style: TextStyle(
             fontSize: 14.5,
-            color: Color(0xFF475467),
+            color: AdminColors.muted,
             height: 1.4,
           ),
         ),
@@ -82,20 +83,20 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
-              side: const BorderSide(color: Color(0xFFD0D5DD)),
+              side: BorderSide(color: AdminColors.border),
             ),
-            child: const Text(
+            child: Text(
               'Hủy',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF344054),
+                color: AdminColors.mutedStrong,
               ),
             ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD92D20),
+              backgroundColor: AdminColors.danger,
               foregroundColor: Colors.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
@@ -103,7 +104,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            child: const Text(
+            child: Text(
               'Đăng xuất',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
@@ -126,8 +127,8 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              backgroundColor: const Color(0xFFD92D20),
-              content: const Text('Không thể đăng xuất. Vui lòng thử lại.'),
+              backgroundColor: AdminColors.danger,
+              content: Text('Không thể đăng xuất. Vui lòng thử lại.'),
             ),
           );
         }
@@ -275,14 +276,14 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFF12B76A),
+            backgroundColor: AdminColors.success,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
             content: Text(
               'Đã cập nhật hoa hồng sàn thành ${newRate.toStringAsFixed(1)}% lên Firebase!',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14.5,
                 fontWeight: FontWeight.bold,
               ),
@@ -294,14 +295,14 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFFD92D20),
+            backgroundColor: AdminColors.danger,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
             content: Text(
               'Không thể cập nhật cấu hình. Vui lòng thử lại.',
-              style: const TextStyle(fontSize: 14),
+              style: TextStyle(fontSize: 14),
             ),
           ),
         );
@@ -321,8 +322,8 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: Container(
           padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: AdminColors.card,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
@@ -335,7 +336,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                   height: 5,
                   margin: const EdgeInsets.only(bottom: 22),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: AdminColors.border,
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -345,34 +346,34 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE9F5FC),
+                      color: AdminColors.accentSoft,
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.settings_suggest_rounded,
-                      color: Color(0xFF398FC0),
+                      color: AdminColors.accent,
                       size: 28,
                     ),
                   ),
                   const SizedBox(width: 14),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Cấu hình Tỷ lệ Hoa Hồng Sàn',
                       style: TextStyle(
                         fontSize: 19,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF101828),
+                        color: AdminColors.ink,
                       ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 14),
-              const Text(
+              Text(
                 'Mức phí áp dụng tự động khi quyết toán các đơn cọc phòng trên toàn hệ thống HomeShare.',
                 style: TextStyle(
                   fontSize: 14.5,
-                  color: Color(0xFF667085),
+                  color: AdminColors.muted,
                   height: 1.4,
                 ),
               ),
@@ -382,53 +383,53 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF101828),
+                  color: AdminColors.ink,
                 ),
                 decoration: InputDecoration(
                   labelText: 'Tỷ lệ hoa hồng sàn (%)',
-                  labelStyle: const TextStyle(
+                  labelStyle: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF344054),
+                    color: AdminColors.mutedStrong,
                   ),
                   hintText: 'Nhập %, ví dụ: 5.0',
-                  hintStyle: const TextStyle(
+                  hintStyle: TextStyle(
                     fontSize: 15,
-                    color: Color(0xFF98A2B3),
+                    color: AdminColors.muted,
                   ),
                   suffixText: '%',
-                  suffixStyle: const TextStyle(
+                  suffixStyle: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF398FC0),
+                    color: AdminColors.accentText,
                   ),
                   filled: true,
-                  fillColor: const Color(0xFFF4F9FF),
+                  fillColor: AdminColors.paper,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 18,
                     vertical: 18,
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFDCEAF5),
+                    borderSide: BorderSide(
+                      color: AdminColors.border,
                       width: 1.2,
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFDCEAF5),
+                    borderSide: BorderSide(
+                      color: AdminColors.border,
                       width: 1.2,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF398FC0),
+                    borderSide: BorderSide(
+                      color: AdminColors.accent,
                       width: 1.8,
                     ),
                   ),
@@ -446,14 +447,14 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF398FC0),
+                    backgroundColor: AdminColors.accent,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                     elevation: 0,
                   ),
-                  child: const Text(
+                  child: Text(
                     'LƯU CẤU HÌNH MỚI',
                     style: TextStyle(
                       fontSize: 16,
@@ -487,8 +488,8 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: AdminColors.card,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
@@ -501,7 +502,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                 height: 4.5,
                 margin: const EdgeInsets.only(bottom: 20),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: AdminColors.border,
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -515,10 +516,10 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: category == 'finance'
-                        ? const Color(0xFFECFDF3)
+                        ? AdminColors.successContainer
                         : (category == 'refund'
-                              ? const Color(0xFFFEF3F2)
-                              : const Color(0xFF0C111D)),
+                              ? AdminColors.dangerContainer
+                              : AdminColors.systemBadgeBg),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -529,20 +530,20 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: category == 'finance'
-                          ? const Color(0xFF12B76A)
+                          ? AdminColors.success
                           : (category == 'refund'
-                                ? const Color(0xFFD92D20)
-                                : Colors.white),
+                                ? AdminColors.danger
+                                : AdminColors.systemBadgeFg),
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Text(
                   dateGroup,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF667085),
+                    color: AdminColors.muted,
                   ),
                 ),
               ],
@@ -550,18 +551,18 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
             const SizedBox(height: 14),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF101828),
+                color: AdminColors.ink,
               ),
             ),
             const SizedBox(height: 10),
             Text(
               subtitle,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
-                color: Color(0xFF475467),
+                color: AdminColors.muted,
                 height: 1.4,
               ),
             ),
@@ -570,16 +571,16 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF4F9FF),
+                  color: AdminColors.paper,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFDCEAF5)),
+                  border: Border.all(color: AdminColors.border),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Số tiền giao dịch:',
-                      style: TextStyle(fontSize: 14, color: Color(0xFF667085)),
+                      style: TextStyle(fontSize: 14, color: AdminColors.muted),
                     ),
                     Text(
                       '${currencyFormatter.format(amount)} đ',
@@ -587,8 +588,8 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
                         color: category == 'finance'
-                            ? const Color(0xFF12B76A)
-                            : const Color(0xFFD92D20),
+                            ? AdminColors.success
+                            : AdminColors.danger,
                       ),
                     ),
                   ],
@@ -598,36 +599,36 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
             const SizedBox(height: 16),
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.person_outline_rounded,
                   size: 20,
-                  color: Color(0xFF398FC0),
+                  color: AdminColors.accent,
                 ),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'Người thực hiện: ',
-                  style: TextStyle(fontSize: 14, color: Color(0xFF667085)),
+                  style: TextStyle(fontSize: 14, color: AdminColors.muted),
                 ),
                 Text(
                   performer,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF398FC0),
+                    color: AdminColors.accentText,
                   ),
                 ),
                 const Spacer(),
-                const Icon(
+                Icon(
                   Icons.access_time_rounded,
                   size: 18,
-                  color: Color(0xFF667085),
+                  color: AdminColors.muted,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   timeStr,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF667085),
+                    color: AdminColors.muted,
                   ),
                 ),
               ],
@@ -642,14 +643,14 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  side: const BorderSide(color: Color(0xFFD0D5DD)),
+                  side: BorderSide(color: AdminColors.border),
                 ),
-                child: const Text(
+                child: Text(
                   'ĐÓNG',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF344054),
+                    color: AdminColors.mutedStrong,
                   ),
                 ),
               ),
@@ -665,7 +666,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AdminColors.card,
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
@@ -684,17 +685,17 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                   vertical: 7,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3F2),
+                  color: AdminColors.dangerContainer,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFECDCA)),
+                  border: Border.all(color: AdminColors.dangerContainer),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
+                  children: [
                     Icon(
                       Icons.logout_rounded,
                       size: 17,
-                      color: Color(0xFFD92D20),
+                      color: AdminColors.danger,
                     ),
                     SizedBox(width: 6),
                     Text(
@@ -702,7 +703,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFFD92D20),
+                        color: AdminColors.danger,
                       ),
                     ),
                   ],
@@ -717,34 +718,34 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
         children: [
           // Ô Tìm kiếm
           Container(
-            color: Colors.white,
+            color: AdminColors.card,
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),
             child: SizedBox(
               height: 48,
               child: TextField(
                 controller: _searchCtrl,
                 onChanged: (val) => setState(() {}),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14.5,
-                  color: Color(0xFF101828),
+                  color: AdminColors.ink,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Tìm theo tên Admin, Mã HĐ, Loại tác vụ...',
-                  hintStyle: const TextStyle(
+                  hintStyle: TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF98A2B3),
+                    color: AdminColors.muted,
                   ),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.search,
                     size: 22,
-                    color: Color(0xFF667085),
+                    color: AdminColors.muted,
                   ),
                   suffixIcon: _searchCtrl.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.clear_rounded,
                             size: 18,
-                            color: Color(0xFF98A2B3),
+                            color: AdminColors.muted,
                           ),
                           onPressed: () {
                             _searchCtrl.clear();
@@ -753,29 +754,29 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                         )
                       : null,
                   filled: true,
-                  fillColor: const Color(0xFFF4F9FF),
+                  fillColor: AdminColors.paper,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 12,
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFDCEAF5),
+                    borderSide: BorderSide(
+                      color: AdminColors.border,
                       width: 1.2,
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFDCEAF5),
+                    borderSide: BorderSide(
+                      color: AdminColors.border,
                       width: 1.2,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF398FC0),
+                    borderSide: BorderSide(
+                      color: AdminColors.accent,
                       width: 1.6,
                     ),
                   ),
@@ -790,12 +791,12 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               children: [
                 // Mục CẤU HÌNH
-                const Text(
+                Text(
                   'CẤU HÌNH',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF398FC0),
+                    color: AdminColors.accentText,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -836,9 +837,9 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                     return Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AdminColors.card,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: const Color(0xFFDCEAF5)),
+                        border: Border.all(color: AdminColors.border),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.03),
@@ -853,13 +854,13 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFE9F5FC),
+                              color: AdminColors.accentSoft,
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.local_offer_rounded,
                               size: 24,
-                              color: Color(0xFFF79009),
+                              color: AdminColors.warning,
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -867,14 +868,14 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Cập Nhật Phí Hoa Hồng Sàn',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 14.5,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF101828),
+                                    color: AdminColors.ink,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -882,9 +883,9 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   text: TextSpan(
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 13,
-                                      color: Color(0xFF475467),
+                                      color: AdminColors.muted,
                                     ),
                                     children: [
                                       const TextSpan(
@@ -893,18 +894,18 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                                       TextSpan(
                                         text:
                                             '${previousRate.toStringAsFixed(1)}% ',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontWeight: FontWeight.bold,
-                                          color: Color(0xFF344054),
+                                          color: AdminColors.mutedStrong,
                                         ),
                                       ),
                                       const TextSpan(text: '➔ '),
                                       TextSpan(
                                         text:
                                             '${currentRate.toStringAsFixed(1)}%',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontWeight: FontWeight.bold,
-                                          color: Color(0xFF398FC0),
+                                          color: AdminColors.accentText,
                                         ),
                                       ),
                                     ],
@@ -914,24 +915,24 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                                 Text.rich(
                                   TextSpan(
                                     text: 'Thực hiện bởi: ',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11.5,
-                                      color: Color(0xFF667085),
+                                      color: AdminColors.muted,
                                     ),
                                     children: [
                                       TextSpan(
                                         text: performer,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.bold,
-                                          color: Color(0xFF398FC0),
+                                          color: AdminColors.accentText,
                                         ),
                                       ),
                                       TextSpan(
                                         text: ' • $timeStr',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 11.5,
-                                          color: Color(0xFF667085),
+                                          color: AdminColors.muted,
                                         ),
                                       ),
                                     ],
@@ -947,8 +948,8 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                             onPressed: () =>
                                 _showCommissionConfigBottomSheet(currentRate),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFE9F5FC),
-                              foregroundColor: const Color(0xFF398FC0),
+                              backgroundColor: AdminColors.accentSoft,
+                              foregroundColor: AdminColors.accent,
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
@@ -958,7 +959,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            child: const Text(
+                            child: Text(
                               'THAY ĐỔI',
                               style: TextStyle(
                                 fontSize: 12,
@@ -998,24 +999,24 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                           vertical: 11,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEAF4FA),
+                          color: AdminColors.accentSoft,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFDCEAF5)),
+                          border: Border.all(color: AdminColors.border),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.calendar_month_outlined,
                               size: 20,
-                              color: Color(0xFF344054),
+                              color: AdminColors.mutedStrong,
                             ),
                             const SizedBox(width: 8),
                             RichText(
                               text: TextSpan(
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14.5,
-                                  color: Color(0xFF344054),
+                                  color: AdminColors.mutedStrong,
                                 ),
                                 children: [
                                   const TextSpan(text: 'Đối soát: '),
@@ -1023,9 +1024,9 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                                     text: DateFormat(
                                       'dd/MM/yyyy',
                                     ).format(effectiveSelectedDate),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF101828),
+                                      color: AdminColors.ink,
                                     ),
                                   ),
                                 ],
@@ -1039,16 +1040,16 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                       const SizedBox(width: 8),
                       TextButton.icon(
                         onPressed: () => setState(() => _filterByDate = false),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.close_rounded,
                           size: 16,
-                          color: Color(0xFF667085),
+                          color: AdminColors.muted,
                         ),
-                        label: const Text(
+                        label: Text(
                           'Hiện tất cả',
                           style: TextStyle(
                             fontSize: 13.5,
-                            color: Color(0xFF667085),
+                            color: AdminColors.muted,
                           ),
                         ),
                       ),
@@ -1070,9 +1071,9 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                   }(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
+                      return Center(
                         child: CircularProgressIndicator(
-                          color: Color(0xFF398FC0),
+                          color: AdminColors.accent,
                         ),
                       );
                     }
@@ -1183,13 +1184,13 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                               Icon(
                                 Icons.history_toggle_off_rounded,
                                 size: 56,
-                                color: Colors.grey.shade400,
+                                color: AdminColors.border,
                               ),
                               const SizedBox(height: 12),
-                              const Text(
+                              Text(
                                 'Chưa có lịch sử hoạt động nào trên Firestore',
                                 style: TextStyle(
-                                  color: Color(0xFF667085),
+                                  color: AdminColors.muted,
                                   fontSize: 15,
                                 ),
                               ),
@@ -1198,12 +1199,12 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                                 TextButton(
                                   onPressed: () =>
                                       setState(() => _filterByDate = false),
-                                  child: const Text(
+                                  child: Text(
                                     'Xem tất cả các ngày',
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF398FC0),
+                                      color: AdminColors.accentText,
                                     ),
                                   ),
                                 ),
@@ -1227,10 +1228,10 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                               ),
                               child: Text(
                                 entry.key,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14.5,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xFF344054),
+                                  color: AdminColors.mutedStrong,
                                   letterSpacing: 0.3,
                                 ),
                               ),
@@ -1278,27 +1279,27 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: const Color(0xFFECFDF3),
+          color: AdminColors.successContainer,
           borderRadius: BorderRadius.circular(14),
         ),
-        child: const Icon(
+        child: Icon(
           Icons.check_box_rounded,
-          color: Color(0xFF12B76A),
+          color: AdminColors.success,
           size: 26,
         ),
       );
       badgeWidget = Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
         decoration: BoxDecoration(
-          color: const Color(0xFFECFDF3),
+          color: AdminColors.successContainer,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Text(
+        child: Text(
           'TÀI CHÍNH',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF12B76A),
+            color: AdminColors.success,
           ),
         ),
       );
@@ -1307,27 +1308,27 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: const Color(0xFFFEF3F2),
+          color: AdminColors.dangerContainer,
           borderRadius: BorderRadius.circular(14),
         ),
-        child: const Icon(
+        child: Icon(
           Icons.sync_alt_rounded,
-          color: Color(0xFFD92D20),
+          color: AdminColors.danger,
           size: 24,
         ),
       );
       badgeWidget = Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
         decoration: BoxDecoration(
-          color: const Color(0xFFFEF3F2),
+          color: AdminColors.dangerContainer,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Text(
+        child: Text(
           'HOÀN CỌC',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.bold,
-            color: Color(0xFFD92D20),
+            color: AdminColors.danger,
           ),
         ),
       );
@@ -1336,27 +1337,27 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: const Color(0xFFFEF0C7),
+          color: AdminColors.warningContainer,
           borderRadius: BorderRadius.circular(14),
         ),
-        child: const Icon(
+        child: Icon(
           Icons.account_balance_rounded,
-          color: Color(0xFFB54708),
+          color: AdminColors.warningInk,
           size: 24,
         ),
       );
       badgeWidget = Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
         decoration: BoxDecoration(
-          color: const Color(0xFF0C111D),
+          color: AdminColors.systemBadgeBg,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Text(
+        child: Text(
           'HỆ THỐNG',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: AdminColors.systemBadgeFg,
           ),
         ),
       );
@@ -1365,9 +1366,9 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AdminColors.card,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFDCEAF5)),
+        border: Border.all(color: AdminColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -1392,10 +1393,10 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                       child: Text(
                         title,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF101828),
+                          color: AdminColors.ink,
                         ),
                       ),
                     ),
@@ -1409,21 +1410,21 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
                 Text.rich(
                   TextSpan(
                     text: 'Thực hiện bởi: ',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF667085)),
+                    style: TextStyle(fontSize: 12, color: AdminColors.mutedStrong),
                     children: [
                       TextSpan(
                         text: performer,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF398FC0),
+                          color: AdminColors.accentText,
                         ),
                       ),
                       TextSpan(
                         text: ' • $timeStr',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF667085),
+                          color: AdminColors.mutedStrong,
                         ),
                       ),
                     ],
@@ -1449,12 +1450,12 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
       if (subtitle.contains(formatted)) {
         final parts = subtitle.split(formatted);
         final color = category == 'finance'
-            ? const Color(0xFF12B76A)
-            : const Color(0xFFD92D20);
+            ? AdminColors.success
+            : AdminColors.danger;
 
         return RichText(
           text: TextSpan(
-            style: const TextStyle(fontSize: 14.5, color: Color(0xFF475467)),
+            style: TextStyle(fontSize: 14.5, color: AdminColors.muted),
             children: [
               TextSpan(text: parts[0]),
               TextSpan(
@@ -1475,7 +1476,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen> {
 
     return Text(
       subtitle,
-      style: const TextStyle(fontSize: 14.5, color: Color(0xFF475467)),
+      style: TextStyle(fontSize: 14.5, color: AdminColors.muted),
     );
   }
 }

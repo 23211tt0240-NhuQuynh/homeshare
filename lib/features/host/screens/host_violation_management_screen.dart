@@ -8,6 +8,7 @@ import '../widgets/violation_record_card.dart';
 import '../widgets/violation_summary_card.dart';
 import 'host_create_violation_screen.dart';
 import 'host_management_menu.dart';
+import '../../../core/constants/app_colors.dart';
 
 class HostViolationManagementScreen extends ConsumerStatefulWidget {
   final ValueChanged<HostManagementSection>? onSectionChanged;
@@ -104,7 +105,7 @@ class _HostViolationManagementScreenState
           SnackBar(
             content: Text(
                 'Đã cộng khoản phạt phòng ${record.roomCode} vào hóa đơn tháng sau!'),
-            backgroundColor: const Color(0xFF2563EB),
+            backgroundColor: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
           ),
         );
       } catch (e) {
@@ -129,7 +130,7 @@ class _HostViolationManagementScreenState
         SnackBar(
           content: Text(
               'Đã gửi thông báo nhắc nộp phạt đến cư dân ${record.tenantName}!'),
-          backgroundColor: const Color(0xFF2563EB),
+          backgroundColor: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
         ),
       );
     } catch (e) {
@@ -153,14 +154,14 @@ class _HostViolationManagementScreenState
       borderRadius: BorderRadius.circular(20),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF2563EB) : Colors.white,
+          color: isSelected ? (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF1D4ED8)
-                : const Color(0xFFE2E8F0),
+                ? (AppColors.isDark ? AppColors.textDark : const Color(0xFF1D4ED8))
+                : AppColors.border,
           ),
           boxShadow: isSelected
               ? const [
@@ -186,7 +187,7 @@ class _HostViolationManagementScreenState
 
   Widget _buildEmptyState() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+      padding: EdgeInsets.symmetric(vertical: 48, horizontal: 24),
       alignment: Alignment.center,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -194,27 +195,27 @@ class _HostViolationManagementScreenState
           Container(
             width: 72,
             height: 72,
-            decoration: const BoxDecoration(
-              color: Color(0xFFEFF6FF),
+            decoration: BoxDecoration(
+              color: AppColors.primaryContainer,
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.check_circle_outline,
               size: 40,
-              color: Color(0xFF2563EB),
+              color: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
             ),
           ),
-          const SizedBox(height: 16),
-          const Text(
+          SizedBox(height: 16),
+          Text(
             'Không có vi phạm nào trong tháng',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF1E293B),
+              color: AppColors.textDark,
             ),
           ),
-          const SizedBox(height: 6),
-          const Text(
+          SizedBox(height: 6),
+          Text(
             'Khu trọ hoạt động trật tự và không có khoản phạt nào được ghi nhận.',
             textAlign: TextAlign.center,
             style: TextStyle(
@@ -223,11 +224,11 @@ class _HostViolationManagementScreenState
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           ElevatedButton.icon(
             onPressed: _openCreateViolation,
-            icon: const Icon(Icons.add, size: 18, color: Colors.white),
-            label: const Text(
+            icon: Icon(Icons.add, size: 18, color: Colors.white),
+            label: Text(
               'Lập biên bản mới',
               style: TextStyle(
                 fontSize: 13,
@@ -236,12 +237,12 @@ class _HostViolationManagementScreenState
               ),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
+              backgroundColor: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              padding: EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             ),
           ),
         ],
@@ -257,31 +258,31 @@ class _HostViolationManagementScreenState
     final recordsAsync = ref.watch(filteredViolationRecordsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         centerTitle: false,
         leading: IconButton(
-          icon: const Icon(Icons.menu_rounded, color: Color(0xFF1E293B)),
+          icon: Icon(Icons.menu_rounded, color: AppColors.textDark),
           onPressed: _openSwitcherMenu,
         ),
-        title: const Text(
+        title: Text(
           'Quản lý vi phạm',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF0F172A),
+            color: AppColors.textDark,
           ),
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 12),
+            padding: EdgeInsets.only(right: 12),
             child: Center(
               child: ElevatedButton.icon(
                 onPressed: _openCreateViolation,
-                icon: const Icon(Icons.add, size: 16, color: Colors.white),
-                label: const Text(
+                icon: Icon(Icons.add, size: 16, color: Colors.white),
+                label: Text(
                   'Lập biên bản',
                   style: TextStyle(
                     fontSize: 12.5,
@@ -290,9 +291,9 @@ class _HostViolationManagementScreenState
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
+                  backgroundColor: (AppColors.isDark ? AppColors.textDark : const Color(0xFF2563EB)),
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -302,9 +303,9 @@ class _HostViolationManagementScreenState
             ),
           ),
         ],
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Divider(height: 1, color: AppColors.border),
         ),
       ),
       body: RefreshIndicator(
@@ -316,7 +317,7 @@ class _HostViolationManagementScreenState
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -335,7 +336,7 @@ class _HostViolationManagementScreenState
                             .state = f;
                       },
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // 2. Bộ lọc tab trạng thái
                     SingleChildScrollView(
@@ -343,17 +344,17 @@ class _HostViolationManagementScreenState
                       child: Row(
                         children: [
                           _buildFilterChip('Tất cả', 'ALL', statusFilter),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           _buildFilterChip(
                               'Chờ nộp (${stats.pendingCount})',
                               'PENDING',
                               statusFilter),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           _buildFilterChip(
                               'Đã nộp (${stats.paidCount})',
                               'PAID',
                               statusFilter),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           _buildFilterChip(
                               'Đã trừ tiền thuê',
                               'ADDED_TO_INVOICE',
@@ -361,7 +362,7 @@ class _HostViolationManagementScreenState
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                   ],
                 ),
               ),
@@ -375,13 +376,13 @@ class _HostViolationManagementScreenState
                 }
 
                 return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 24),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final record = records[index];
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
+                          padding: EdgeInsets.only(bottom: 12),
                           child: ViolationRecordCard(
                             record: record,
                             onCollectCash: () => _handleCollectCash(record),
@@ -405,23 +406,23 @@ class _HostViolationManagementScreenState
               ),
               error: (err, _) => SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 48),
+                  padding: EdgeInsets.symmetric(vertical: 48),
                   child: Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.error_outline,
+                        Icon(Icons.error_outline,
                             size: 40, color: Color(0xFFDC2626)),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                         Text(
                           'Lỗi tải danh sách vi phạm: $err',
-                          style: const TextStyle(color: Color(0xFFDC2626)),
+                          style: TextStyle(color: Color(0xFFDC2626)),
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                         ElevatedButton(
                           onPressed: () => ref
                               .invalidate(hostViolationRecordsStreamProvider),
-                          child: const Text('Thử lại'),
+                          child: Text('Thử lại'),
                         ),
                       ],
                     ),

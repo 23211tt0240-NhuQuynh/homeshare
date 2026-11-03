@@ -1,3 +1,4 @@
+import '../../profile/widgets/host_reputation_stars.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -40,33 +41,33 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
     final posts = favState.favoritePosts;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF0F172A)),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: AppColors.textDark),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Phòng trọ yêu thích',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 18,
-            color: Color(0xFF0F172A),
+            color: AppColors.textDark,
           ),
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Container(
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppColors.border)),
             ),
             child: TabBar(
               controller: _tabController,
               labelColor: AppColors.primary,
-              unselectedLabelColor: const Color(0xFF64748B),
+              unselectedLabelColor: AppColors.textMuted,
               indicatorColor: AppColors.primary,
               indicatorWeight: 3,
               labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
@@ -142,9 +143,9 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -182,8 +183,8 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                         errorBuilder: (ctx, err, stack) => Container(
                           width: 100,
                           height: 100,
-                          color: const Color(0xFFF1F5F9),
-                          child: const Icon(Icons.apartment, size: 36, color: Color(0xFF94A3B8)),
+                          color: AppColors.surfaceVariant,
+                          child: Icon(Icons.apartment, size: 36, color: AppColors.textMuted),
                         ),
                       ),
                       Positioned(
@@ -197,8 +198,8 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                           ),
                           child: Text(
                             room.roomType,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: AppColors.onPrimary,
                               fontSize: 9.5,
                               fontWeight: FontWeight.bold,
                             ),
@@ -224,10 +225,10 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                               room.title,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF0F172A),
+                                color: AppColors.textDark,
                                 height: 1.3,
                               ),
                             ),
@@ -271,14 +272,14 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                       // Địa chỉ
                       Row(
                         children: [
-                          const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF64748B)),
+                          Icon(Icons.location_on_outlined, size: 14, color: AppColors.textMuted),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               room.address.isNotEmpty ? room.address : '${room.district}, ${room.city}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                             ),
                           ),
                         ],
@@ -291,25 +292,20 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                         children: [
                           Text(
                             priceStr,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14.5,
                               fontWeight: FontWeight.bold,
                               color: AppColors.primary,
                             ),
                           ),
-                          Row(
-                            children: [
-                              const Icon(Icons.star_rounded, size: 15, color: Color(0xFFF59E0B)),
-                              const SizedBox(width: 2),
-                              Text(
-                                '${room.rating}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF334155),
-                                ),
-                              ),
-                            ],
+                          HostReputationStarLabel(
+                            hostId: room.hostId,
+                            iconSize: 15,
+                            textStyle: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textMuted,
+                            ),
                           ),
                         ],
                       ),
@@ -355,9 +351,9 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -393,7 +389,7 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                           ? null
                           : Text(
                               post.authorName.isNotEmpty ? post.authorName[0].toUpperCase() : 'U',
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+                              style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
                             ),
                     ),
                     const SizedBox(width: 10),
@@ -406,24 +402,24 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                               Flexible(
                                 child: Text(
                                   post.authorName,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,
-                                    color: Color(0xFF0F172A),
+                                    color: AppColors.textDark,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               if (post.isVerified) ...[
                                 const SizedBox(width: 4),
-                                const Icon(Icons.verified, size: 14, color: AppColors.primary),
+                                Icon(Icons.verified, size: 14, color: AppColors.primary),
                               ],
                             ],
                           ),
                           const SizedBox(height: 2),
                           Text(
                             '${post.authorAge} tuổi • ${post.authorGender} • ${post.authorOccupation}',
-                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                            style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
@@ -482,7 +478,7 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                   children: [
                     Text(
                       priceStr,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: AppColors.primary,
@@ -491,7 +487,7 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: post.hasRoom ? const Color(0xFFECFDF5) : const Color(0xFFEFF6FF),
+                        color: post.hasRoom ? AppColors.successContainer : AppColors.primaryContainer,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -509,14 +505,14 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
 
                 Row(
                   children: [
-                    const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF64748B)),
+                    Icon(Icons.location_on_outlined, size: 14, color: AppColors.textMuted),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         post.address.isNotEmpty ? post.address : post.district,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                       ),
                     ),
                   ],
@@ -532,12 +528,12 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
+                          color: AppColors.surfaceVariant,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           '#$h',
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
+                          style: TextStyle(fontSize: 11, color: AppColors.textMuted),
                         ),
                       );
                     }).toList(),
@@ -568,7 +564,7 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
               width: 88,
               height: 88,
               decoration: BoxDecoration(
-                color: const Color(0xFFFEE2E2),
+                color: AppColors.dangerContainer,
                 shape: BoxShape.circle,
                 border: Border.all(color: const Color(0xFFFECACA), width: 2),
               ),
@@ -577,19 +573,19 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
             const SizedBox(height: 20),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
+                color: AppColors.textDark,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               subtitle,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13.5,
-                color: Color(0xFF64748B),
+                color: AppColors.textMuted,
                 height: 1.4,
               ),
               textAlign: TextAlign.center,

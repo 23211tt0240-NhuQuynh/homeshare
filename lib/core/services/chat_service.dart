@@ -5,6 +5,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/chat_model.dart';
+import '../../features/chat/services/roommate_invitation_eligibility_service.dart';
 
 class ChatParams {
   final String userA;
@@ -29,7 +30,9 @@ Map<String, dynamic> _deepCastMap(dynamic map) {
     if (value is Map) {
       result[key.toString()] = _deepCastMap(value);
     } else if (value is List) {
-      result[key.toString()] = value.map((e) => e is Map ? _deepCastMap(e) : e).toList();
+      result[key.toString()] = value
+          .map((e) => e is Map ? _deepCastMap(e) : e)
+          .toList();
     } else {
       result[key.toString()] = value;
     }
@@ -38,17 +41,19 @@ Map<String, dynamic> _deepCastMap(dynamic map) {
 }
 
 class ChatService {
-  static const String rtdbUrl = 'https://homeshare-fe18e-default-rtdb.firebaseio.com';
+  static const String rtdbUrl =
+      'https://homeshare-fe18e-default-rtdb.firebaseio.com';
 
   final FirebaseDatabase _rtdb;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   ChatService({FirebaseDatabase? rtdb})
-      : _rtdb = rtdb ??
-            FirebaseDatabase.instanceFor(
-              app: Firebase.app(),
-              databaseURL: rtdbUrl,
-            );
+    : _rtdb =
+          rtdb ??
+          FirebaseDatabase.instanceFor(
+            app: Firebase.app(),
+            databaseURL: rtdbUrl,
+          );
 
   // Danh sách từ khóa bị cấm lọc tự động theo Tc_CHAT_49
   static const List<String> _prohibitedKeywords = [
@@ -80,7 +85,9 @@ class ChatService {
   static String getChatId(String a, String b) {
     final cleanA = a.trim();
     final cleanB = b.trim();
-    return cleanA.compareTo(cleanB) < 0 ? '${cleanA}_$cleanB' : '${cleanB}_$cleanA';
+    return cleanA.compareTo(cleanB) < 0
+        ? '${cleanA}_$cleanB'
+        : '${cleanB}_$cleanA';
   }
 
   /// Thiết lập hiện diện (Presence: Online / Offline / LastSeen) qua Realtime Database
@@ -168,7 +175,9 @@ class ChatService {
 
     // 2. Kiểm tra bộ lọc từ khóa cấm / lừa đảo (Tc_CHAT_49)
     if (checkProfanity(message.text)) {
-      throw Exception('Tin nhắn vi phạm tiêu chuẩn cộng đồng về an toàn thông tin.');
+      throw Exception(
+        'Tin nhắn vi phạm tiêu chuẩn cộng đồng về an toàn thông tin.',
+      );
     }
 
     // Không lưu lời mời nếu thiếu liên kết phòng hoặc định danh hai bên.
@@ -180,17 +189,24 @@ class ChatService {
           senderId != message.senderId ||
           receiverId != message.receiverId ||
           senderId == receiverId) {
-        throw StateError('Lời mời ở ghép không có dữ liệu phòng/người dùng hợp lệ.');
+        throw StateError(
+          'Lời mời ở ghép không có dữ liệu phòng/người dùng hợp lệ.',
+        );
       }
     }
 
     final chatId = getChatId(message.senderId, message.receiverId);
     final messagesRef = _rtdb.ref('messages/$chatId');
-    final newMsgRef = message.id.isNotEmpty ? messagesRef.child(message.id) : messagesRef.push();
-    final msgId = newMsgRef.key ?? DateTime.now().millisecondsSinceEpoch.toString();
+    final newMsgRef = message.id.isNotEmpty
+        ? messagesRef.child(message.id)
+        : messagesRef.push();
+    final msgId =
+        newMsgRef.key ?? DateTime.now().millisecondsSinceEpoch.toString();
 
     // 3. Chuẩn bị payload tin nhắn Realtime Database
-    final msgData = message.copyWith(id: msgId, conversationId: chatId).toRealtimeMap();
+    final msgData = message
+        .copyWith(id: msgId, conversationId: chatId)
+        .toRealtimeMap();
     msgData['timestamp'] = ServerValue.timestamp;
 
     // 4. Atomic multi-path updates cập nhật đồng thời message + conversation + reset typing
@@ -199,29 +215,39 @@ class ChatService {
 
     updates['conversations/$chatId/chatId'] = chatId;
     updates['conversations/$chatId/cuocTroChuyenId'] = chatId;
-    updates['conversations/$chatId/users'] = [message.senderId, message.receiverId];
+    updates['conversations/$chatId/users'] = [
+      message.senderId,
+      message.receiverId,
+    ];
     updates['conversations/$chatId/lastMessage'] = message.text;
     updates['conversations/$chatId/lastSenderName'] = message.senderName;
     updates['conversations/$chatId/lastSenderId'] = message.senderId;
     updates['conversations/$chatId/lastTimestamp'] = ServerValue.timestamp;
     updates['conversations/$chatId/isRead'] = false;
     updates['conversations/$chatId/unreadCount'] = ServerValue.increment(1);
-    updates['conversations/$chatId/unreadFor_${message.receiverId}'] = ServerValue.increment(1);
+    updates['conversations/$chatId/unreadFor_${message.receiverId}'] =
+        ServerValue.increment(1);
     updates['conversations/$chatId/unreadFor_${message.senderId}'] = 0;
     updates['conversations/$chatId/readBy/${message.senderId}'] = true;
     updates['conversations/$chatId/readBy/${message.receiverId}'] = false;
-    updates['conversations/$chatId/userNames/${message.senderId}'] = message.senderName;
-    updates['conversations/$chatId/partnerNames/${message.receiverId}'] = message.senderName;
+    updates['conversations/$chatId/userNames/${message.senderId}'] =
+        message.senderName;
+    updates['conversations/$chatId/partnerNames/${message.receiverId}'] =
+        message.senderName;
 
     if (receiverName != null && receiverName.trim().isNotEmpty) {
-      updates['conversations/$chatId/userNames/${message.receiverId}'] = receiverName.trim();
-      updates['conversations/$chatId/partnerNames/${message.senderId}'] = receiverName.trim();
+      updates['conversations/$chatId/userNames/${message.receiverId}'] =
+          receiverName.trim();
+      updates['conversations/$chatId/partnerNames/${message.senderId}'] =
+          receiverName.trim();
     }
     if (receiverAvatar != null && receiverAvatar.isNotEmpty) {
-      updates['conversations/$chatId/userAvatars/${message.receiverId}'] = receiverAvatar;
+      updates['conversations/$chatId/userAvatars/${message.receiverId}'] =
+          receiverAvatar;
     }
     if (receiverPhone != null && receiverPhone.isNotEmpty) {
-      updates['conversations/$chatId/userPhones/${message.receiverId}'] = receiverPhone;
+      updates['conversations/$chatId/userPhones/${message.receiverId}'] =
+          receiverPhone;
     }
 
     if (roomMetadata != null) {
@@ -234,6 +260,31 @@ class ChatService {
     updates['typing/$chatId/${message.senderId}'] = false;
 
     await _rtdb.ref().update(updates);
+
+    // Ghi nhận thông báo vào Firestore để Cloud Function tự động gửi FCM đến người nhận
+    try {
+      final notifId = _firestore.collection('notifications').doc().id;
+      await _firestore.collection('notifications').doc(notifId).set({
+        'id': notifId,
+        'notificationId': notifId,
+        'recipientId': message.receiverId,
+        'receiverId': message.receiverId,
+        'senderId': message.senderId,
+        'type': 'chat_message',
+        'notificationType': 'chat_message',
+        'targetId': chatId,
+        'title': message.senderName.isNotEmpty
+            ? message.senderName
+            : 'Tin nhắn mới',
+        'message': message.text.isNotEmpty
+            ? message.text
+            : '[Hình ảnh/Tệp tin]',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('[ChatService] Lỗi tạo thông báo Firestore cho tin nhắn: $e');
+    }
   }
 
   /// Đánh dấu đã đọc toàn bộ tin nhắn trong hội thoại
@@ -269,7 +320,8 @@ class ChatService {
         final Map<String, dynamic> msgUpdates = {};
         final data = snapshot.value as Map;
         data.forEach((key, val) {
-          if (val is Map && (val['isRead'] == false || val['status'] != 'read')) {
+          if (val is Map &&
+              (val['isRead'] == false || val['status'] != 'read')) {
             msgUpdates['messages/$chatId/$key/isRead'] = true;
             msgUpdates['messages/$chatId/$key/status'] = 'read';
           }
@@ -316,7 +368,8 @@ class ChatService {
       if (convSnap.exists && convSnap.value is Map) {
         final convData = convSnap.value as Map;
         if (convData['lastSenderId'] == senderId) {
-          updates['conversations/$chatId/lastMessage'] = 'Tin nhắn đã được thu hồi';
+          updates['conversations/$chatId/lastMessage'] =
+              'Tin nhắn đã được thu hồi';
         }
       }
     } catch (e) {
@@ -351,8 +404,10 @@ class ChatService {
         final lastMsgKey = map.keys.first;
         final lastData = map[lastMsgKey] as Map;
         updates['conversations/$chatId/lastMessage'] = lastData['text'] ?? '';
-        updates['conversations/$chatId/lastSenderId'] = lastData['senderId'] ?? '';
-        updates['conversations/$chatId/lastTimestamp'] = lastData['timestamp'] ?? ServerValue.timestamp;
+        updates['conversations/$chatId/lastSenderId'] =
+            lastData['senderId'] ?? '';
+        updates['conversations/$chatId/lastTimestamp'] =
+            lastData['timestamp'] ?? ServerValue.timestamp;
       } else {
         updates['conversations/$chatId/lastMessage'] = '';
         updates['conversations/$chatId/lastSenderId'] = '';
@@ -428,8 +483,10 @@ class ChatService {
       'actionType': 'roommate_approval',
       'title': 'Yêu cầu duyệt người ở ghép mới',
       'tieuDe': 'Yêu cầu duyệt người ở ghép mới',
-      'message': '$newRoommateName đã đồng ý ở ghép cùng $primaryTenantName tại phòng $roomTitle ($resolvedCode). Vui lòng xác nhận duyệt để khách chính thức vào phòng.',
-      'noiDung': '$newRoommateName đã đồng ý ở ghép cùng $primaryTenantName tại phòng $roomTitle ($resolvedCode). Vui lòng xác nhận duyệt để khách chính thức vào phòng.',
+      'message':
+          '$newRoommateName đã đồng ý ở ghép cùng $primaryTenantName tại phòng $roomTitle ($resolvedCode). Vui lòng xác nhận duyệt để khách chính thức vào phòng.',
+      'noiDung':
+          '$newRoommateName đã đồng ý ở ghép cùng $primaryTenantName tại phòng $roomTitle ($resolvedCode). Vui lòng xác nhận duyệt để khách chính thức vào phòng.',
       'roomId': roomId,
       'phongId': roomId,
       'roomTitle': roomTitle,
@@ -474,7 +531,32 @@ class ChatService {
       throw ArgumentError('Thông báo lời mời ở ghép thiếu dữ liệu bắt buộc.');
     }
 
-    final resolvedCode = roomCode.trim().isNotEmpty ? roomCode.trim() : cleanRoomId;
+    final resolvedCode = roomCode.trim().isNotEmpty
+        ? roomCode.trim()
+        : cleanRoomId;
+
+    // Kiểm tra sức chứa phòng: Nếu phòng đã đủ người thì không ghi vào chuông thông báo (notifications)
+    try {
+      final eligibilityService =
+          RoommateInvitationEligibilityService(firestore: _firestore);
+      final capResult = await eligibilityService.checkRoomCapacity(
+        cleanRoomId,
+        senderId: cleanSenderId,
+      );
+      if (capResult.isFull) {
+        debugPrint(
+          '[ChatService] Phòng $cleanRoomId đã đạt sức chứa tối đa '
+          '(${capResult.currentOccupants}/${capResult.capacity} người). '
+          'Bỏ qua ghi nhận vào chuông thông báo theo quy định.',
+        );
+        return;
+      }
+    } catch (e) {
+      debugPrint(
+        '[ChatService] Lỗi kiểm tra sức chứa phòng trước khi tạo thông báo: $e',
+      );
+    }
+
     final notifRef = _firestore.collection('notifications').doc();
     final customMessage = note.trim().isNotEmpty
         ? note.trim()
@@ -527,7 +609,13 @@ class ChatService {
             final users = List<String>.from(convMap['users'] ?? []);
             if (users.contains(cleanUid)) {
               try {
-                list.add(ConversationModel.fromMap(convMap, chatId.toString(), cleanUid));
+                list.add(
+                  ConversationModel.fromMap(
+                    convMap,
+                    chatId.toString(),
+                    cleanUid,
+                  ),
+                );
               } catch (e) {
                 debugPrint('Error parsing RTDB conversation $chatId: $e');
               }
@@ -544,31 +632,31 @@ class ChatService {
 
 final chatServiceProvider = Provider<ChatService>((ref) => ChatService());
 
-final messagesStreamProvider =
-    StreamProvider.autoDispose.family<List<ChatMessageModel>, ChatParams>((ref, params) {
-  final service = ref.watch(chatServiceProvider);
-  return service.getMessagesStream(params.userA, params.userB);
-});
+final messagesStreamProvider = StreamProvider.autoDispose
+    .family<List<ChatMessageModel>, ChatParams>((ref, params) {
+      final service = ref.watch(chatServiceProvider);
+      return service.getMessagesStream(params.userA, params.userB);
+    });
 
-final userConversationsStreamProvider =
-    StreamProvider.autoDispose.family<List<ConversationModel>, String>((ref, userId) {
-  final service = ref.watch(chatServiceProvider);
-  return service.getConversationsStream(userId);
-});
+final userConversationsStreamProvider = StreamProvider.autoDispose
+    .family<List<ConversationModel>, String>((ref, userId) {
+      final service = ref.watch(chatServiceProvider);
+      return service.getConversationsStream(userId);
+    });
 
 /// Stream trạng thái Online của đối tác chat
-final partnerPresenceStreamProvider =
-    StreamProvider.autoDispose.family<bool, String>((ref, partnerId) {
-  final service = ref.watch(chatServiceProvider);
-  return service.getPartnerPresenceStream(partnerId);
-});
+final partnerPresenceStreamProvider = StreamProvider.autoDispose
+    .family<bool, String>((ref, partnerId) {
+      final service = ref.watch(chatServiceProvider);
+      return service.getPartnerPresenceStream(partnerId);
+    });
 
 /// Stream kiểm tra đối tác có đang gõ phím hay không
-final partnerTypingStreamProvider =
-    StreamProvider.autoDispose.family<bool, ChatParams>((ref, params) {
-  final service = ref.watch(chatServiceProvider);
-  return service.isPartnerTypingStream(
-    currentUserId: params.userA,
-    partnerId: params.userB,
-  );
-});
+final partnerTypingStreamProvider = StreamProvider.autoDispose
+    .family<bool, ChatParams>((ref, params) {
+      final service = ref.watch(chatServiceProvider);
+      return service.isPartnerTypingStream(
+        currentUserId: params.userA,
+        partnerId: params.userB,
+      );
+    });

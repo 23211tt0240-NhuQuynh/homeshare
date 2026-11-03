@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/phong_sang_theme.dart';
 
-/// Card trắng bọc cụm ô nhập trên màn đăng nhập và đăng ký.
+/// Card bọc cụm ô nhập trên màn đăng nhập và đăng ký. Màu theo theme hiện tại.
 class AuthFormCard extends StatelessWidget {
   final Widget child;
 
@@ -11,16 +13,16 @@ class AuthFormCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
       decoration: BoxDecoration(
-        color: PhongSangColors.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: PhongSangColors.line),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: PhongSangColors.ink.withValues(alpha: 0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            color: AppColors.textDark.withValues(alpha: 0.06),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -55,47 +57,63 @@ class AuthTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final border = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: PhongSangColors.line),
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: AppColors.border),
     );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: PhongSangText.label(color: PhongSangColors.ink, fontSize: 15)),
+        Text(
+          label,
+          style: PhongSangText.label(color: AppColors.textDark, fontSize: 15),
+        ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,
-          style: PhongSangText.search.copyWith(fontSize: 17, fontWeight: FontWeight.w500),
+          style: PhongSangText.search.copyWith(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textDark,
+          ),
           validator: validator,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: PhongSangText.search.copyWith(fontSize: 16, color: PhongSangColors.muted),
-            prefixIcon: Icon(icon, size: 22, color: PhongSangColors.muted),
-            prefixIconConstraints: const BoxConstraints(minWidth: 52, minHeight: 56),
-            suffixIcon: suffixIcon == null
-                ? null
-                : SizedBox(
-                    height: 56,
-                    child: Align(alignment: Alignment.center, widthFactor: 1, child: suffixIcon),
-                  ),
-            suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 56, maxHeight: 56),
+            hintStyle: PhongSangText.search.copyWith(
+              fontSize: 15,
+              color: AppColors.textMuted,
+            ),
+            prefixIcon: Icon(icon, size: 22, color: AppColors.textMuted),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 50,
+              minHeight: 58,
+            ),
+            suffixIcon: suffixIcon,
             filled: true,
-            fillColor: PhongSangColors.priceSoft,
+            fillColor: AppColors.surfaceVariant,
             isDense: false,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 18),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 17,
+            ),
             border: border,
             enabledBorder: border,
             focusedBorder: border.copyWith(
-              borderSide: const BorderSide(color: PhongSangColors.accent, width: 1.6),
+              borderSide: BorderSide(
+                color: AppColors.primary,
+                width: 1.6,
+              ),
             ),
             errorBorder: border.copyWith(
-              borderSide: const BorderSide(color: Color(0xFFD92D20)),
+              borderSide: BorderSide(color: AppColors.danger),
             ),
             focusedErrorBorder: border.copyWith(
-              borderSide: const BorderSide(color: Color(0xFFD92D20), width: 1.6),
+              borderSide: BorderSide(
+                color: AppColors.danger,
+                width: 1.6,
+              ),
             ),
           ),
         ),

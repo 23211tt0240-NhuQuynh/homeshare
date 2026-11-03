@@ -4,6 +4,7 @@ import 'package:printing/printing.dart';
 import '../../../../core/utils/admin_receipt_pdf.dart';
 import '../widgets/admin_page_backdrop.dart';
 import '../widgets/admin_branded_title.dart';
+import '../theme/admin_colors.dart';
 
 class CancellationReceiptScreen extends StatelessWidget {
   final String receiptCode;
@@ -39,20 +40,20 @@ class CancellationReceiptScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final fmt = NumberFormat('#,###', 'vi_VN');
     final isHost = recipientRole == 'host';
-    final color = isHost ? const Color(0xFF027A48) : const Color(0xFF398FC0);
-    final pale = isHost ? const Color(0xFFECFDF3) : const Color(0xFFE9F5FC);
+    final color = isHost ? AdminColors.successInk : AdminColors.accent;
+    final pale = isHost ? AdminColors.successContainer : AdminColors.accentSoft;
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F9FF),
+      backgroundColor: AdminColors.paper,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AdminColors.card,
         elevation: 0,
         centerTitle: false,
         title: const AdminBrandedTitle(title: 'Biên lai đơn hủy'),
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios_new_rounded,
             size: 20,
-            color: Color(0xFF101828),
+            color: AdminColors.ink,
           ),
           onPressed: () => Navigator.pop(context),
         ),
@@ -65,9 +66,9 @@ class CancellationReceiptScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AdminColors.card,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFDCEAF5)),
+                  border: Border.all(color: AdminColors.border),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: .035),
@@ -85,9 +86,9 @@ class CancellationReceiptScreen extends StatelessWidget {
                         color: color,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.check_rounded,
-                        color: Colors.white,
+                        color: AdminColors.card,
                         size: 30,
                       ),
                     ),
@@ -106,19 +107,19 @@ class CancellationReceiptScreen extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       '${fmt.format(amount)} đ',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 27,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF101828),
+                        color: AdminColors.ink,
                       ),
                     ),
                     Text(
                       isHost
                           ? 'Tiền bồi thường chuyển cho chủ trọ'
                           : 'Tiền hoàn lại cho người thuê',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
-                        color: Color(0xFF667085),
+                        color: AdminColors.muted,
                       ),
                     ),
                     const SizedBox(height: 9),
@@ -156,14 +157,14 @@ class CancellationReceiptScreen extends StatelessWidget {
                     ),
                     _row('Trạng thái', 'Admin đã ghi nhận', valueColor: color),
                     const SizedBox(height: 16),
-                    const Align(
+                    Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
                         'BẢNG KÊ PHÂN BỔ TIỀN CỌC',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF101828),
+                          color: AdminColors.ink,
                         ),
                       ),
                     ),
@@ -171,22 +172,22 @@ class CancellationReceiptScreen extends StatelessWidget {
                     _amountRow(
                       'Tổng tiền cọc',
                       totalDeposit,
-                      const Color(0xFF344054),
+                      AdminColors.mutedStrong,
                     ),
                     _amountRow(
                       'Hoàn người thuê (85%)',
                       renterRefund,
-                      const Color(0xFF398FC0),
+                      AdminColors.accent,
                     ),
                     _amountRow(
                       'Phí sàn (5%)',
                       platformFee,
-                      const Color(0xFFD92D20),
+                      AdminColors.danger,
                     ),
                     _amountRow(
                       'Bồi thường chủ trọ (10%)',
                       hostCompensation,
-                      const Color(0xFF027A48),
+                      AdminColors.successInk,
                     ),
                     const SizedBox(height: 10),
                     Container(
@@ -225,9 +226,9 @@ class CancellationReceiptScreen extends StatelessWidget {
                     Text(
                       'Biên lai nội bộ ghi nhận theo xác nhận của Admin.\nMã tra cứu: $receiptCode',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10,
-                        color: Color(0xFF98A2B3),
+                        color: AdminColors.muted,
                       ),
                     ),
                   ],
@@ -308,12 +309,12 @@ class CancellationReceiptScreen extends StatelessWidget {
                         }
                       },
                       icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                      label: const Text(
+                      label: Text(
                         'IN PHIẾU PDF',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF344054),
+                        foregroundColor: AdminColors.mutedStrong,
                         minimumSize: const Size.fromHeight(48),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -326,14 +327,14 @@ class CancellationReceiptScreen extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: () => Navigator.pop(context),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF398FC0),
+                        backgroundColor: AdminColors.accent,
                         foregroundColor: Colors.white,
                         minimumSize: const Size.fromHeight(48),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: const Text(
+                      child: Text(
                         'HOÀN TẤT',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
@@ -351,7 +352,7 @@ class CancellationReceiptScreen extends StatelessWidget {
   static Widget _row(
     String label,
     String value, {
-    Color valueColor = const Color(0xFF101828),
+    Color? valueColor,
   }) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: Row(
@@ -361,7 +362,7 @@ class CancellationReceiptScreen extends StatelessWidget {
           width: 135,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 11.5, color: Color(0xFF667085)),
+            style: TextStyle(fontSize: 11.5, color: AdminColors.muted),
           ),
         ),
         Expanded(
@@ -371,7 +372,7 @@ class CancellationReceiptScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.bold,
-              color: valueColor,
+              color: valueColor ?? AdminColors.ink,
             ),
           ),
         ),
@@ -388,7 +389,7 @@ class CancellationReceiptScreen extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(fontSize: 11.5, color: Color(0xFF667085)),
+              style: TextStyle(fontSize: 11.5, color: AdminColors.muted),
             ),
           ),
           Text(

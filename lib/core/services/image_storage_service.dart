@@ -124,9 +124,8 @@ class ImageStorageService {
     final List<String> uploadedUrls = [];
     final timestamp = DateTime.now().millisecondsSinceEpoch;
 
-    // Base64 phình ~4/3 và model ghi ảnh ở cả `images` lẫn `anhTinOGhep`.
-    // Giữ tổng ảnh thô khoảng 220KB để document Firestore không vượt 1MB.
-    final perImageBudget = ((220 * 1024) / localPaths.length).floor().clamp(40 * 1024, 120 * 1024).toInt();
+    // Ảnh nằm từng document trong roommate_post_images, không nhúng vào roommate_posts.
+    final perImageBudget = 180 * 1024;
 
     for (int i = 0; i < localPaths.length; i++) {
       final path = localPaths[i];

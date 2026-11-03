@@ -1,25 +1,33 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../data/models/room_model.dart';
 import '../widgets/admin_page_backdrop.dart';
 import '../widgets/admin_branded_title.dart';
 import '../services/post_review_service.dart';
+import '../theme/admin_colors.dart';
 
 class AdminPostReviewDetailScreen extends StatefulWidget {
   final RoomModel room;
   final String? docId;
   final String postPurpose;
+  final int? viewCount;
+  final int? favoriteCount;
   final VoidCallback? onApproved;
   final VoidCallback? onRejected;
+  final bool canApprove;
 
   const AdminPostReviewDetailScreen({
     super.key,
     required this.room,
     this.docId,
     this.postPurpose = '',
+    this.viewCount,
+    this.favoriteCount,
     this.onApproved,
     this.onRejected,
+    this.canApprove = true,
   });
 
   @override
@@ -36,8 +44,8 @@ class _AdminPostReviewDetailScreenState
   }
 
   Widget _buildRoomImage(String url) {
-    const fallback = Center(
-      child: Icon(Icons.apartment_rounded, size: 64, color: Color(0xFF98A2B3)),
+    final fallback = Center(
+      child: Icon(Icons.apartment_rounded, size: 64, color: AdminColors.muted),
     );
     if (url.startsWith('data:image/') && url.contains('base64,')) {
       try {
@@ -63,7 +71,7 @@ class _AdminPostReviewDetailScreenState
           ? WebHtmlElementStrategy.prefer
           : WebHtmlElementStrategy.fallback,
       errorBuilder: (context, error, stackTrace) {
-        debugPrint('Không tải được ảnh chi tiết bài đăng.');
+        debugPrint('Không tải được ảnh chi tiết bài đăng ($url): $error');
         return fallback;
       },
     );
@@ -94,16 +102,16 @@ class _AdminPostReviewDetailScreenState
     final images = room.images;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AdminColors.card,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AdminColors.card,
         elevation: 0,
         scrolledUnderElevation: 0.5,
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios_new_rounded,
             size: 20,
-            color: Color(0xFF101828),
+            color: AdminColors.ink,
           ),
           onPressed: () => Navigator.pop(context),
         ),
@@ -123,12 +131,12 @@ class _AdminPostReviewDetailScreenState
                     height: 250,
                     child: images.isEmpty
                         ? Container(
-                            color: const Color(0xFFDCEAF5),
-                            child: const Center(
+                            color: AdminColors.border,
+                            child: Center(
                               child: Icon(
                                 Icons.apartment_rounded,
                                 size: 64,
-                                color: Color(0xFF98A2B3),
+                                color: AdminColors.muted,
                               ),
                             ),
                           )
@@ -138,7 +146,7 @@ class _AdminPostReviewDetailScreenState
                                 setState(() => _currentImageIndex = i),
                             itemBuilder: (context, index) {
                               return Container(
-                                color: const Color(0xFFDCEAF5),
+                                color: AdminColors.border,
                                 child: _buildRoomImage(images[index]),
                               );
                             },
@@ -158,10 +166,32 @@ class _AdminPostReviewDetailScreenState
                       ),
                       child: Text(
                         '#${room.id.substring(0, room.id.length.clamp(0, 6)).toUpperCase()}',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AdminColors.card,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        '${images.isEmpty ? 0 : _currentImageIndex + 1}/${images.length}',
+                        style: TextStyle(
+                          color: AdminColors.card,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
@@ -189,45 +219,85 @@ class _AdminPostReviewDetailScreenState
                 ],
               ),
 
+              // Lượt xem, yêu thích và ngày đăng nếu dữ liệu có sẵn.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AdminColors.accentSoft,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AdminColors.watermark),
+                  ),
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 12,
+                    runSpacing: 6,
+                    children: [
+                      if (widget.viewCount != null)
+                        _buildPostStat(
+                          Icons.visibility_outlined,
+                          '${widget.viewCount} lượt xem',
+                        ),
+                      if (widget.favoriteCount != null)
+                        _buildPostStat(
+                          Icons.favorite_border_rounded,
+                          '${widget.favoriteCount} yêu thích',
+                        ),
+                      _buildPostStat(
+                        Icons.calendar_today_outlined,
+                        DateFormat('dd/MM/yyyy').format(room.createdAt),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
               // 2. Chi tiết phòng
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 6,
                       children: [
                         Text(
                           _formatMoney(room.price),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF398FC0),
+                            color: AdminColors.accentText,
                           ),
                         ),
-                        const Text(
+                        Text(
                           '/tháng',
                           style: TextStyle(
                             fontSize: 13,
-                            color: Color(0xFF667085),
+                            color: AdminColors.muted,
                           ),
                         ),
-                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
+                            horizontal: 7,
+                            vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFECFDF3),
-                            borderRadius: BorderRadius.circular(4),
+                            color: AdminColors.successContainer,
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             'Cọc ${_formatMoney(room.deposit)}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF027A48),
+                              color: AdminColors.successInk,
                             ),
                           ),
                         ),
@@ -236,27 +306,27 @@ class _AdminPostReviewDetailScreenState
                     const SizedBox(height: 8),
                     Text(
                       room.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF101828),
+                        color: AdminColors.ink,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.location_on_outlined,
                           size: 16,
-                          color: Color(0xFF667085),
+                          color: AdminColors.muted,
                         ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             room.address,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12.5,
-                              color: Color(0xFF475467),
+                              color: AdminColors.muted,
                             ),
                           ),
                         ),
@@ -282,24 +352,24 @@ class _AdminPostReviewDetailScreenState
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEAF6FC),
+                          color: AdminColors.accentSoft,
                           borderRadius: BorderRadius.circular(9),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.handshake_outlined,
                               size: 16,
-                              color: Color(0xFF398FC0),
+                              color: AdminColors.accent,
                             ),
                             const SizedBox(width: 7),
                             Expanded(
                               child: Text(
                                 widget.postPurpose,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: Color(0xFF1E3A5F),
+                                  color: AdminColors.ink,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -308,8 +378,17 @@ class _AdminPostReviewDetailScreenState
                         ),
                       ),
                     ],
-                    if (room.amenities.isNotEmpty) ...[
-                      const SizedBox(height: 10),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Tiện ích phòng trọ',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AdminColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (room.amenities.isNotEmpty)
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
@@ -320,21 +399,31 @@ class _AdminPostReviewDetailScreenState
                               vertical: 5,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(7),
+                              color: AdminColors.accentSoft,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: AdminColors.border,
+                              ),
                             ),
                             child: Text(
                               amenity,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF475569),
+                                color: AdminColors.mutedStrong,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                           );
                         }).toList(),
                       ),
-                    ],
+                    if (room.amenities.isEmpty)
+                      Text(
+                        'Chủ trọ chưa cập nhật tiện ích cho phòng này.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AdminColors.muted,
+                        ),
+                      ),
                     const SizedBox(height: 16),
                     const Divider(height: 1),
                     const SizedBox(height: 14),
@@ -343,24 +432,29 @@ class _AdminPostReviewDetailScreenState
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF4F9FF),
+                        color: AdminColors.paper,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFDCEAF5)),
+                        border: Border.all(color: AdminColors.border),
                       ),
                       child: Row(
                         children: [
                           CircleAvatar(
                             radius: 22,
-                            backgroundColor: const Color(0xFFCDEBFA),
-                            child: Text(
-                              room.hostName.isNotEmpty
-                                  ? room.hostName[0].toUpperCase()
-                                  : 'C',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF398FC0),
-                              ),
-                            ),
+                            backgroundColor: AdminColors.accentSoft,
+                            backgroundImage: room.hostAvatar.trim().isNotEmpty
+                                ? NetworkImage(room.hostAvatar)
+                                : null,
+                            child: room.hostAvatar.trim().isEmpty
+                                ? Text(
+                                    room.hostName.isNotEmpty
+                                        ? room.hostName[0].toUpperCase()
+                                        : 'C',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AdminColors.accentText,
+                                    ),
+                                  )
+                                : null,
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -369,18 +463,17 @@ class _AdminPostReviewDetailScreenState
                               children: [
                                 Text(
                                   room.hostName,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF101828),
+                                    color: AdminColors.ink,
                                   ),
                                 ),
-                                const SizedBox(height: 2),
                                 Text(
-                                  'SĐT: ${room.hostPhone}',
-                                  style: const TextStyle(
+                                  'Chủ trọ đăng bài',
+                                  style: TextStyle(
                                     fontSize: 11.5,
-                                    color: Color(0xFF667085),
+                                    color: AdminColors.muted,
                                   ),
                                 ),
                               ],
@@ -392,20 +485,32 @@ class _AdminPostReviewDetailScreenState
                     const SizedBox(height: 16),
 
                     // Mô tả chi tiết
-                    const Text(
+                    Text(
                       'Mô tả phòng trọ',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF101828),
+                        color: AdminColors.ink,
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      room.description,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        color: Color(0xFF475467),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AdminColors.paper,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AdminColors.border),
+                      ),
+                      child: Text(
+                        room.description.trim().isNotEmpty
+                            ? room.description.trim()
+                            : 'Chủ trọ chưa thêm mô tả cho phòng này.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: AdminColors.muted,
+                          height: 1.45,
+                        ),
                       ),
                     ),
                   ],
@@ -418,8 +523,8 @@ class _AdminPostReviewDetailScreenState
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: const Border(top: BorderSide(color: Color(0xFFDCEAF5))),
+          color: AdminColors.card,
+          border: Border(top: BorderSide(color: AdminColors.border)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -433,19 +538,28 @@ class _AdminPostReviewDetailScreenState
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: _showRejectBottomSheet,
+                  onPressed: widget.canApprove ? _showRejectBottomSheet : null,
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(color: Color(0xFFFDA29B)),
+                    side: BorderSide(
+                      color: widget.canApprove
+                          ? const Color(0xFFFDA29B)
+                          : AdminColors.border,
+                    ),
+                    foregroundColor: widget.canApprove
+                        ? AdminColors.danger
+                        : AdminColors.muted,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Từ chối / Hạ bài',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFFD92D20),
+                      color: widget.canApprove
+                          ? AdminColors.danger
+                          : AdminColors.muted,
                     ),
                   ),
                 ),
@@ -453,22 +567,32 @@ class _AdminPostReviewDetailScreenState
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
-                    if (widget.onApproved != null) {
-                      widget.onApproved!();
-                    }
-                    Navigator.pop(context);
-                  },
+                  onPressed: widget.canApprove
+                      ? () {
+                          if (widget.onApproved != null) {
+                            widget.onApproved!();
+                          }
+                          Navigator.pop(context);
+                        }
+                      : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF12B76A),
-                    foregroundColor: Colors.white,
+                    backgroundColor: widget.canApprove
+                        ? AdminColors.success
+                        : AdminColors.disabledFill,
+                    foregroundColor: widget.canApprove
+                        ? Colors.white
+                        : AdminColors.mutedStrong,
+                    disabledBackgroundColor: AdminColors.disabledFill,
+                    disabledForegroundColor: AdminColors.mutedStrong,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Phê duyệt bài',
+                  child: Text(
+                    widget.canApprove
+                        ? 'Phê duyệt bài'
+                        : 'Chờ chủ trọ chỉnh sửa',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -484,24 +608,42 @@ class _AdminPostReviewDetailScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF4FA),
+        color: AdminColors.accentSoft,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: const Color(0xFF475467)),
+          Icon(icon, size: 13, color: AdminColors.muted),
           const SizedBox(width: 4),
           Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF344054),
+              color: AdminColors.mutedStrong,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPostStat(IconData icon, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: AdminColors.accent),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: AdminColors.muted,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -527,6 +669,16 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
     'Giá thuê bất thường / Khác với giá mô tả',
     'Sai địa chỉ / Tọa độ vị trí phòng trọ',
     'Nội dung chứa từ khóa cấm / Quảng cáo rác',
+    'Thông tin phòng thiếu hoặc sai sự thật',
+    'Nội dung xúc phạm, phân biệt đối xử hoặc đe dọa',
+    'Thông tin liên hệ sai / Không liên lạc được',
+    'Đăng trùng lặp hoặc spam nhiều lần',
+    'Hình ảnh không đúng phòng / Không có quyền sử dụng',
+    'Giá, tiền cọc hoặc phụ phí không minh bạch',
+    'Địa chỉ hoặc loại hình phòng không phù hợp',
+    'Nội dung dẫn dụ giao dịch ngoài nền tảng',
+    'Bài đăng có dấu hiệu lừa đảo / yêu cầu thanh toán đáng ngờ',
+    'Phòng đã cho thuê / Không còn khả dụng',
   ];
   final TextEditingController _noteCtrl = TextEditingController();
   final Set<String> _selectedViolations = {};
@@ -543,10 +695,10 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
     padding: const EdgeInsets.only(bottom: 8),
     child: Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w800,
-        color: Color(0xFF475467),
+        color: AdminColors.muted,
       ),
     ),
   );
@@ -566,9 +718,9 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
         margin: const EdgeInsets.only(bottom: 5),
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFEAF6FC) : Colors.white,
+          color: selected ? AdminColors.accentSoft : AdminColors.card,
           border: Border.all(
-            color: selected ? const Color(0xFF89CFF0) : const Color(0xFFDCEAF5),
+            color: selected ? AdminColors.accentLight : AdminColors.border,
           ),
           borderRadius: BorderRadius.circular(9),
         ),
@@ -580,8 +732,8 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
                   : Icons.check_box_outline_blank,
               size: 19,
               color: selected
-                  ? const Color(0xFF398FC0)
-                  : const Color(0xFFB6C7D5),
+                  ? AdminColors.accent
+                  : AdminColors.muted,
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -591,8 +743,8 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
                   fontSize: 11,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   color: selected
-                      ? const Color(0xFF287AA8)
-                      : const Color(0xFF475467),
+                      ? AdminColors.accentText
+                      : AdminColors.mutedStrong,
                 ),
               ),
             ),
@@ -616,11 +768,11 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
           constraints: const BoxConstraints(minHeight: 56),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFFEAF6FC) : Colors.white,
+            color: selected ? AdminColors.accentSoft : AdminColors.card,
             border: Border.all(
               color: selected
-                  ? const Color(0xFF398FC0)
-                  : const Color(0xFFDCEAF5),
+                  ? AdminColors.accent
+                  : AdminColors.border,
               width: selected ? 1.5 : 1,
             ),
             borderRadius: BorderRadius.circular(9),
@@ -633,8 +785,8 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
                     : Icons.radio_button_unchecked,
                 size: 16,
                 color: selected
-                    ? const Color(0xFF398FC0)
-                    : const Color(0xFFB6C7D5),
+                    ? AdminColors.accent
+                    : AdminColors.muted,
               ),
               const SizedBox(width: 6),
               Expanded(
@@ -646,18 +798,19 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
+                        color: AdminColors.ink,
                       ),
                     ),
                     Text(
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 8,
-                        color: Color(0xFF667085),
+                        color: AdminColors.muted,
                       ),
                     ),
                   ],
@@ -678,8 +831,8 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
       ),
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: AdminColors.card,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: SingleChildScrollView(
@@ -692,7 +845,7 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: AdminColors.border,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -705,12 +858,12 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEAF6FC),
+                          color: AdminColors.accentSoft,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.warning_amber_rounded,
-                          color: Color(0xFF398FC0),
+                          color: AdminColors.accent,
                           size: 20,
                         ),
                       ),
@@ -718,19 +871,19 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'TỪ CHỐI & BÁO LỖI BÀI ĐĂNG',
                             style: TextStyle(
                               fontSize: 14.5,
                               fontWeight: FontWeight.w900,
-                              color: Color(0xFF101828),
+                              color: AdminColors.ink,
                             ),
                           ),
                           Text(
                             'Mã bài: #${widget.docId.substring(0, widget.docId.length.clamp(0, 6)).toUpperCase()} • Chủ trọ: ${widget.room.hostName}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF667085),
+                              color: AdminColors.muted,
                             ),
                           ),
                         ],
@@ -738,10 +891,10 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
                     ],
                   ),
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close_rounded,
                       size: 20,
-                      color: Color(0xFF667085),
+                      color: AdminColors.muted,
                     ),
                     onPressed: () => Navigator.pop(context),
                   ),
@@ -759,17 +912,17 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
                 controller: _noteCtrl,
                 maxLines: 4,
                 maxLength: 500,
-                style: const TextStyle(fontSize: 11),
+                style: TextStyle(fontSize: 11),
                 decoration: InputDecoration(
                   hintText:
                       'Nêu rõ nội dung cần chỉnh sửa để chủ trọ biết cách khắc phục.',
-                  counterStyle: const TextStyle(fontSize: 9),
+                  counterStyle: TextStyle(fontSize: 9),
                   contentPadding: const EdgeInsets.all(10),
                   filled: true,
-                  fillColor: const Color(0xFFF4F9FF),
+                  fillColor: AdminColors.paper,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFFD0D5DD)),
+                    borderSide: BorderSide(color: AdminColors.border),
                   ),
                 ),
               ),
@@ -817,17 +970,13 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
                           if (mounted) {
                             setState(() => _submitting = false);
                             messenger.showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Không thể cập nhật bài đăng. Vui lòng thử lại.',
-                                ),
-                              ),
+                              SnackBar(content: Text('Lỗi cập nhật: $e')),
                             );
                           }
                         }
                       },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF398FC0),
+                  backgroundColor: AdminColors.accent,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -845,14 +994,14 @@ class _RejectBottomSheetState extends State<_RejectBottomSheet> {
               TextButton(
                 onPressed: _submitting ? null : () => Navigator.pop(context),
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF64748B),
-                  backgroundColor: const Color(0xFFF1F6FA),
+                  foregroundColor: AdminColors.muted,
+                  backgroundColor: AdminColors.paper,
                   padding: const EdgeInsets.symmetric(vertical: 11),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: const Text(
+                child: Text(
                   'Hủy bỏ',
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
