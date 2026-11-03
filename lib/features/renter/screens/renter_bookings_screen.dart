@@ -512,6 +512,30 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                   color: AppColors.textDark,
                                 ),
                               ),
+                              if (b.note == 'Ở ghép') ...[
+                                const SizedBox(height: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF8FF),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: const Color(0xFFB2DDFF),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Ở ghép',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF175CD3),
+                                    ),
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 4),
                               Text(
                                 b.roomAddress,

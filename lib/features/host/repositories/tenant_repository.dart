@@ -257,19 +257,24 @@ class TenantRepository {
 
       // Lấy danh sách tên properties
       final propertyNameMap = <String, String>{};
-      for (final pid in propertyIds) {
-        try {
-          final propDoc = await _firestore
-              .collection(FirestoreCollections.hostProperties)
-              .doc(pid)
-              .get();
-          if (propDoc.exists) {
-            final data = propDoc.data();
-            propertyNameMap[pid] =
-                data?['name'] ?? data?['tenNha'] ?? data?['title'] ?? 'Nhà trọ';
-          }
-        } catch (_) {}
-      }
+      await Future.wait(
+        propertyIds.map((pid) async {
+          try {
+            final propDoc = await _firestore
+                .collection(FirestoreCollections.hostProperties)
+                .doc(pid)
+                .get();
+            if (propDoc.exists) {
+              final data = propDoc.data();
+              propertyNameMap[pid] =
+                  data?['name'] ??
+                  data?['tenNha'] ??
+                  data?['title'] ??
+                  'Nhà trọ';
+            }
+          } catch (_) {}
+        }),
+      );
 
       // 2. Tìm các bookings đang thuê của chủ nhà này
       final bookingsSnapshot = await _firestore
@@ -285,28 +290,35 @@ class TenantRepository {
       // Older bookings saved the listing ID as roomId. Alias it to the
       // operational room so property filters and room grouping use real IDs.
       final postData = <String, Map<String, dynamic>>{};
-      for (final booking in activeBookings) {
-        final existing = roomMap[booking.roomId];
-        if (existing != null && existing.propertyId.isNotEmpty) continue;
-        final post = await _firestore
-            .collection(FirestoreCollections.posts)
-            .doc(booking.roomId)
-            .get();
-        if (post.exists) postData[booking.roomId] = post.data()!;
-        final resolved = resolveTenantRoom(booking.roomId, roomMap, postData);
-        if (resolved != null) roomMap[booking.roomId] = resolved;
-      }
+      await Future.wait(
+        activeBookings.map((b) => b.roomId).toSet().map((reference) async {
+          final existing = roomMap[reference];
+          if (existing != null && existing.propertyId.isNotEmpty) return;
+          final post = await _firestore
+              .collection(FirestoreCollections.posts)
+              .doc(reference)
+              .get();
+          if (post.exists) postData[reference] = post.data()!;
+          final resolved = resolveTenantRoom(reference, roomMap, postData);
+          if (resolved != null) roomMap[reference] = resolved;
+        }),
+      );
 
       // residents is the only source of occupant identities. Bookings only
       // supply contract/deposit context; a booking alone is not a resident.
       final grouped = <String, List<ResidentModel>>{};
       final service = ResidentService(_firestore);
-      for (final reference in roomMap.keys) {
-        final room = roomMap[reference]!;
-        if (room.propertyId.isEmpty) continue;
-        final members = await service.forRoom(reference);
-        grouped.putIfAbsent(room.id, () => []).addAll(members);
-      }
+      // Chủ trọ - Quản lý người thuê - Gom mã bài đăng về phòng thật,
+      // mỗi phòng chỉ đọc một lần và các phòng được tải song song.
+      final canonicalRooms = {
+        for (final room in roomMap.values)
+          if (room.propertyId.isNotEmpty) room.id: room,
+      };
+      await Future.wait(
+        canonicalRooms.keys.map((roomId) async {
+          grouped[roomId] = await service.forRoom(roomId);
+        }),
+      );
       final items = <TenantItem>[];
       for (final entry in grouped.entries) {
         final room = roomMap.values.firstWhere((room) => room.id == entry.key);
@@ -495,22 +507,12 @@ class TenantRepository {
         'Người thuê chính chưa có hồ sơ nhận phòng tại phòng này. Vui lòng kiểm tra hoặc đồng bộ hồ sơ nhận phòng.',
       );
     }
-    final periodId = primary.first.periodId;
-    final period = await _firestore
-        .collection(FirestoreCollections.periods)
-        .doc(periodId)
-        .get();
-    if (!period.exists ||
-        !const ['dango', 'active'].contains(
-          (period.data()?['status'] ?? period.data()?['trangThai'] ?? '')
-              .toString()
-              .toLowerCase(),
-        )) {
-      throw StateError(
-        'Kỳ ở của người thuê chính đã kết thúc hoặc không tồn tại',
-      );
-    }
     final writes = batch ?? _firestore.batch();
+    final periodId = await service.ensureActivePeriodForResident(
+      batch: writes,
+      resident: primary.first,
+      roomId: roomId,
+    );
 
     // 3. Thêm cư dân mới (người ở ghép) vào collection residents
     final existingRoommates = await _firestore
@@ -554,10 +556,26 @@ class TenantRepository {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    if (batch == null) await writes.commit();
+    if (batch == null) {
+      await writes.commit();
+      await closeFullRoommatePosts(
+        roomId: roomId,
+        primaryTenantId: primaryTenantId,
+        newRoommateId: newRoommateId,
+      );
+    }
+  }
 
+  Future<void> closeFullRoommatePosts({
+    required String roomId,
+    required String primaryTenantId,
+    required String newRoommateId,
+  }) async {
     try {
-      await RoommateCapacityService(firestore: _firestore).closeHasRoomPostsIfFull(
+      roomId = await ResidentService(_firestore).resolveRoomId(roomId);
+      await RoommateCapacityService(
+        firestore: _firestore,
+      ).closeHasRoomPostsIfFull(
         authorId: primaryTenantId,
         roomId: roomId,
         knownOccupantIds: [primaryTenantId, newRoommateId],

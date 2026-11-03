@@ -9,6 +9,7 @@ import '../../../data/models/room_model.dart';
 /// Mục cần xử lý Check-in hoặc Check-out
 class CheckinCheckoutItem {
   final String id;
+  final String residentId;
   final String bookingId;
   final String periodId;
   final String roomId;
@@ -32,6 +33,7 @@ class CheckinCheckoutItem {
 
   const CheckinCheckoutItem({
     required this.id,
+    this.residentId = '',
     required this.bookingId,
     this.periodId = '',
     required this.roomId,
@@ -204,83 +206,40 @@ class CheckinCheckoutRepository {
 
           final items = <CheckinCheckoutItem>[];
 
-          // 1. Các kỳ ở đang ở (dangO) -> Danh sách cần xử lý Check-out
-          final periodsSnap = await _firestore
-              .collection(FirestoreCollections.periods)
-              .where('status', isEqualTo: 'dangO')
-              .get();
-
-          for (final doc in periodsSnap.docs) {
-            final period = PeriodModel.fromFirestore(doc);
-            final room = roomMap[period.roomId];
-            if (room == null) continue;
-
-            final propName =
-                propertyNames[room.propertyId] ??
-                (room.address.isNotEmpty ? room.address : 'Nhà trọ');
-
-            // Tính ngày dự kiến trả phòng (1 năm sau ngày bắt đầu hoặc contractEnd)
-            final expectedOut =
-                room.contractEnd ??
-                period.endDate ??
-                period.startDate.add(const Duration(days: 365));
-
-            items.add(
-              CheckinCheckoutItem(
-                id: period.id,
-                bookingId: period.bookingId,
-                periodId: period.id,
-                roomId: room.id,
-                roomCode: room.roomCode.isNotEmpty ? room.roomCode : room.title,
-                renterId: period.renterId,
-                renterName: room.tenantName.isNotEmpty
-                    ? room.tenantName
-                    : 'Khách thuê',
-                renterPhone: room.tenantPhone,
-                propertyName: propName,
-                floor: room.floor > 0 ? room.floor : 1,
-                deposit: room.deposit,
-                expectedDate: expectedOut,
-                status: 'Đang ở',
-                isCompleted: false,
-              ),
-            );
-          }
-
-          // 2. Các phòng có trạng thái occupied nhưng chưa có period
+          // Mỗi cư dân đang ở là một mục checkout độc lập.
           for (final room in hostRooms) {
-            final alreadyInList = items.any((i) => i.roomId == room.id);
-            if (!alreadyInList &&
-                room.tenantName.isNotEmpty &&
-                (room.status == 'occupied' ||
-                    room.status == 'daThue' ||
-                    room.status == 'dangO')) {
-              final propName =
-                  propertyNames[room.propertyId] ??
-                  (room.address.isNotEmpty ? room.address : 'Nhà trọ');
-
-              final expectedOut =
-                  room.contractEnd ??
-                  (room.contractStart?.add(const Duration(days: 365)) ??
-                      DateTime.now().add(const Duration(days: 30)));
-
+            final members = await ResidentService(_firestore).forRoom(room.id);
+            for (final member in members) {
+              final periodDoc = member.periodId.isEmpty
+                  ? null
+                  : await _firestore
+                        .collection(FirestoreCollections.periods)
+                        .doc(member.periodId)
+                        .get();
+              final period = periodDoc != null && periodDoc.exists
+                  ? PeriodModel.fromFirestore(periodDoc)
+                  : null;
               items.add(
                 CheckinCheckoutItem(
-                  id: 'room_${room.id}',
-                  bookingId: room.contractId,
+                  id: member.id,
+                  residentId: member.id,
+                  bookingId: period?.bookingId ?? '',
+                  periodId: member.periodId,
                   roomId: room.id,
                   roomCode: room.roomCode.isNotEmpty
                       ? room.roomCode
                       : room.title,
-                  renterId: '',
-                  renterName: room.tenantName,
-                  renterPhone: room.tenantPhone,
-                  propertyName: propName,
+                  renterId: member.userId,
+                  renterName: member.fullName,
+                  renterPhone: member.phone,
+                  propertyName: propertyNames[room.propertyId] ?? 'Nhà trọ',
                   floor: room.floor > 0 ? room.floor : 1,
-                  deposit: room.deposit,
-                  expectedDate: expectedOut,
+                  deposit: member.formId == 'chinh' ? room.deposit : 0,
+                  expectedDate:
+                      room.contractEnd ??
+                      period?.endDate ??
+                      member.moveInDate.add(const Duration(days: 365)),
                   status: 'Đang ở',
-                  isCompleted: false,
                 ),
               );
             }
@@ -294,6 +253,14 @@ class CheckinCheckoutRepository {
           for (final doc in checkoutRecordsSnap.docs) {
             final record = CheckoutRecordModel.fromFirestore(doc);
             final room = roomMap[record.roomId];
+            final residentDoc = record.residentId.isEmpty
+                ? null
+                : await _firestore
+                      .collection(FirestoreCollections.residents)
+                      .doc(record.residentId)
+                      .get();
+            final residentName =
+                residentDoc?.data()?['fullName']?.toString() ?? '';
             // Hiển thị nếu thuộc phòng của chủ nhà này
             if (room != null) {
               final propName =
@@ -310,8 +277,8 @@ class CheckinCheckoutRepository {
                       ? room.roomCode
                       : room.title,
                   renterId: record.renterId,
-                  renterName: room.tenantName.isNotEmpty
-                      ? room.tenantName
+                  renterName: residentName.isNotEmpty
+                      ? residentName
                       : 'Khách thuê',
                   propertyName: propName,
                   floor: room.floor > 0 ? room.floor : 1,
@@ -335,10 +302,29 @@ class CheckinCheckoutRepository {
     required String roomId,
     required String periodId,
     required String renterId,
+    String residentId = '',
     required double initialDeposit,
     required double deductionAmount,
     required String note,
   }) async {
+    final members = await ResidentService(_firestore).forRoom(roomId);
+    final selected = members
+        .where(
+          (r) => residentId.isNotEmpty
+              ? r.id == residentId && r.userId == renterId
+              : renterId.isNotEmpty && r.userId == renterId,
+        )
+        .toList();
+    if (selected.length != 1) {
+      throw StateError(
+        'Không tìm thấy người đang ở cần checkout. Vui lòng tải lại danh sách.',
+      );
+    }
+    final member = selected.single;
+    if (member.periodId != periodId) {
+      throw StateError('Kỳ thuê đã thay đổi. Vui lòng tải lại danh sách.');
+    }
+    final remaining = members.where((r) => r.id != member.id).toList();
     final batch = _firestore.batch();
     final refundAmount = (initialDeposit - deductionAmount).clamp(
       0.0,
@@ -353,7 +339,8 @@ class CheckinCheckoutRepository {
       id: recordRef.id,
       periodId: periodId,
       roomId: roomId,
-      renterId: renterId,
+      renterId: member.userId,
+      residentId: member.id,
       checkoutTime: DateTime.now(),
       depositAmount: initialDeposit,
       deductionAmount: deductionAmount,
@@ -363,47 +350,39 @@ class CheckinCheckoutRepository {
     );
     batch.set(recordRef, record.toMap());
 
-    // 2. Cập nhật period sang daKetThuc
-    if (periodId.isNotEmpty && !periodId.startsWith('room_')) {
+    batch.update(
+      _firestore.collection(FirestoreCollections.residents).doc(member.id),
+      {
+        'statusId': 'daRoi',
+        'status': 'moved_out',
+        'moveOutDate': FieldValue.serverTimestamp(),
+      },
+    );
+
+    // Kỳ thuê dùng chung chỉ kết thúc khi người cuối cùng trong kỳ rời đi.
+    if (periodId.isNotEmpty && !remaining.any((r) => r.periodId == periodId)) {
       final periodRef = _firestore
           .collection(FirestoreCollections.periods)
           .doc(periodId);
-      batch.update(periodRef, {
-        'status': 'daKetThuc',
-        'endDate': FieldValue.serverTimestamp(),
-      });
-
-      // Cập nhật cư dân trong period
-      var resSnap = await _firestore
-          .collection(FirestoreCollections.residents)
-          .where('periodId', isEqualTo: periodId)
-          .get();
-      if (resSnap.docs.isEmpty) {
-        resSnap = await _firestore
-            .collection(FirestoreCollections.residents)
-            .where('kyThue_id', isEqualTo: periodId)
-            .get();
-      }
-      for (final d in resSnap.docs) {
-        batch.update(d.reference, {
-          'statusId': 'daRoi',
-          'status': 'moved_out',
-          'moveOutDate': FieldValue.serverTimestamp(),
+      if ((await periodRef.get()).exists) {
+        batch.update(periodRef, {
+          'status': 'daKetThuc',
+          'endDate': FieldValue.serverTimestamp(),
         });
       }
     }
-
-    // 3. Cập nhật phòng host_rooms sang available / còn phòng
-    final roomRef = _firestore
-        .collection(FirestoreCollections.hostRooms)
-        .doc(roomId);
-    batch.update(roomRef, {
-      'status': 'available',
-      'contractId': '',
-      'contractStart': null,
-      'contractEnd': null,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    batch.update(
+      _firestore.collection(FirestoreCollections.hostRooms).doc(roomId),
+      {
+        'status': remaining.isEmpty ? 'available' : 'occupied',
+        if (remaining.isEmpty) ...{
+          'contractId': '',
+          'contractStart': null,
+          'contractEnd': null,
+        },
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+    );
 
     await batch.commit();
   }

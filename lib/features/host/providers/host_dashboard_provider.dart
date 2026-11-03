@@ -43,49 +43,55 @@ class HostDashboardFilter {
 
 final hostDashboardPostsProvider = StreamProvider.autoDispose
     .family<List<RoommatePostModel>, HostDashboardFilter>((ref, filter) {
-  if (Firebase.apps.isEmpty) return Stream.value(const []);
+      if (Firebase.apps.isEmpty) return Stream.value(const []);
 
-  final currentHostId = ref.watch(currentUserProvider)?.uid ?? '';
-  return FirebaseFirestore.instance.collection('posts').snapshots().map((
-    snapshot,
-  ) {
-    final posts = <RoommatePostModel>[];
-    for (final document in snapshot.docs) {
-      try {
-        final post = RoommatePostModel.fromFirestore(document);
-        if (post.status != 'deleted' &&
-            post.status != 'closed' &&
-            post.authorId != currentHostId) {
-          posts.add(post);
+      final currentHostId = ref.watch(currentUserProvider)?.uid ?? '';
+      return FirebaseFirestore.instance.collection('posts').snapshots().map((
+        snapshot,
+      ) {
+        final posts = <RoommatePostModel>[];
+        for (final document in snapshot.docs) {
+          try {
+            final post = RoommatePostModel.fromFirestore(document);
+            if (document.data()['isAvailable'] != false &&
+                post.status != 'hidden' &&
+                post.status != 'reserved' &&
+                post.status != 'deleted' &&
+                post.status != 'closed' &&
+                post.authorId != currentHostId) {
+              posts.add(post);
+            }
+          } catch (_) {}
         }
-      } catch (_) {}
-    }
-    return posts;
-  });
-});
+        return posts;
+      });
+    });
 
 final hostDashboardFilterOptionsProvider =
     StreamProvider.autoDispose<HostDashboardFilterOptions>((ref) {
-  if (Firebase.apps.isEmpty) {
-    return Stream.value(const HostDashboardFilterOptions());
-  }
+      if (Firebase.apps.isEmpty) {
+        return Stream.value(const HostDashboardFilterOptions());
+      }
 
-  return FirebaseFirestore.instance.collection('posts').snapshots().map((
-    snapshot,
-  ) {
-    final locations = <String>{};
-    final requirements = <String>{};
-    for (final document in snapshot.docs) {
-      final data = document.data();
-      final city = (data['city'] ?? data['thanhPho'] ?? '').toString().trim();
-      final district =
-          (data['district'] ?? data['quanHuyen'] ?? '').toString().trim();
-      if (city.isNotEmpty) locations.add(city);
-      if (district.isNotEmpty) locations.add(district);
-    }
-    return HostDashboardFilterOptions(
-      locations: locations.toList()..sort(),
-      requirements: requirements.toList()..sort(),
-    );
-  });
-});
+      return FirebaseFirestore.instance.collection('posts').snapshots().map((
+        snapshot,
+      ) {
+        final locations = <String>{};
+        final requirements = <String>{};
+        for (final document in snapshot.docs) {
+          final data = document.data();
+          final city = (data['city'] ?? data['thanhPho'] ?? '')
+              .toString()
+              .trim();
+          final district = (data['district'] ?? data['quanHuyen'] ?? '')
+              .toString()
+              .trim();
+          if (city.isNotEmpty) locations.add(city);
+          if (district.isNotEmpty) locations.add(district);
+        }
+        return HostDashboardFilterOptions(
+          locations: locations.toList()..sort(),
+          requirements: requirements.toList()..sort(),
+        );
+      });
+    });

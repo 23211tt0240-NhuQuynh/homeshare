@@ -197,7 +197,40 @@ final pastRentalHomesProvider = FutureProvider.autoDispose.family<List<PastRenta
       }
     }
 
-    // 3. Sắp xếp theo ngày kết thúc mới nhất lên đầu
+    // 3. Người ở ghép đã rời phòng, không có đơn bookings riêng
+    try {
+      final endedStays = await BookingService(firestore: firestore)
+          .loadResidentStays(userId, activeOnly: false);
+      for (final stay in endedStays) {
+        if (stay.roomId.isEmpty || processedRoomIds.contains(stay.roomId)) {
+          continue;
+        }
+        processedRoomIds.add(stay.roomId);
+        items.add(
+          PastRentalHomeItem(
+            id: stay.id,
+            roomId: stay.roomId,
+            roomTitle: stay.roomTitle.isNotEmpty ? stay.roomTitle : 'Phòng đã thuê',
+            roomAddress: stay.roomAddress.isNotEmpty ? stay.roomAddress : 'Địa chỉ phòng trọ',
+            hostId: stay.hostId,
+            hostName: stay.hostName.isNotEmpty ? stay.hostName : 'Chủ nhà',
+            roomPrice: stay.roomPrice,
+            depositAmount: stay.deposit,
+            refundAmount: stay.deposit,
+            moveInDate: stay.moveInDate,
+            moveOutDate: stay.moveOutDate ?? stay.createdAt,
+            status: stay.note == 'Ở ghép' ? 'Đã kết thúc ở ghép' : 'Đã hoàn tất kỳ ở',
+            note: stay.note,
+            hasCheckoutRecord: false,
+            booking: stay,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error fetching past resident stays: $e');
+    }
+
+    // 4. Sắp xếp theo ngày kết thúc mới nhất lên đầu
     items.sort((a, b) {
       final dateA = a.moveOutDate ?? a.moveInDate;
       final dateB = b.moveOutDate ?? b.moveInDate;
@@ -1026,6 +1059,25 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                 color: textDark,
               ),
             ),
+            if (b.note == 'Ở ghép') ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF8FF),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFB2DDFF)),
+                ),
+                child: const Text(
+                  'Ở ghép',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF175CD3),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 4),
 
             // Địa chỉ

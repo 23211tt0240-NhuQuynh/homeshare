@@ -254,7 +254,7 @@ class _HostFinanceInvoicesState extends ConsumerState<HostFinanceInvoices> {
                           Text(
                             widget.isDeposit
                                 ? 'Tổng cọc khách đóng'
-                                : 'Tổng khách thanh toán',
+                                : 'Tổng đơn trả hết',
                             style: const TextStyle(
                               fontSize: 10,
                               color: Color(0xFFCFD0DF),

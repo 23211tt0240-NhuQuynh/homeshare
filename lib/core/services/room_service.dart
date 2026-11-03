@@ -245,7 +245,7 @@ class RoomService {
         'phong_tro_id',
       ]);
       final referencedRoom = await _readReferencedRoom(roomId);
-      if (referencedRoom?.isDeleted == true) return null;
+      if (referencedRoom != null && !referencedRoom.canBeListed) return null;
 
       final addressText = listing.address
           .replaceAll(RegExp(r'[,\s]'), '')
@@ -554,8 +554,7 @@ class RoomService {
         _readReference(data, const ['id']),
         _readReference(data, const ['roomCode', 'maPhong']),
       ]) {
-        if (linked.isNotEmpty &&
-            !linked.toLowerCase().startsWith('sample')) {
+        if (linked.isNotEmpty && !linked.toLowerCase().startsWith('sample')) {
           candidateIds.add(linked);
         }
       }
@@ -625,12 +624,8 @@ class RoomService {
 
     int score(Map<String, dynamic> data) {
       var value = 0;
-      final dataPrice = _readNumber(data, const [
-            'price',
-            'giaThue',
-            'rentalPrice',
-            'gia',
-          ]) ??
+      final dataPrice =
+          _readNumber(data, const ['price', 'giaThue', 'rentalPrice', 'gia']) ??
           0;
       final dataCode = _readReference(data, const ['roomCode', 'maPhong']);
       final dataTitle = _readReference(data, const ['title', 'tieuDe']);
@@ -807,14 +802,28 @@ class RoomService {
       ]);
       final district = _firstNonEmpty([
         _readReference(postData ?? const {}, const ['district', 'quanHuyen']),
-        _readReference(hostRoomData ?? const {}, const ['district', 'quanHuyen']),
-        _readReference(propertyData ?? const {}, const ['district', 'quanHuyen']),
+        _readReference(hostRoomData ?? const {}, const [
+          'district',
+          'quanHuyen',
+        ]),
+        _readReference(propertyData ?? const {}, const [
+          'district',
+          'quanHuyen',
+        ]),
         room.district,
       ]);
       final city = _firstNonEmpty([
-        _readReference(postData ?? const {}, const ['city', 'thanhPho', 'province']),
+        _readReference(postData ?? const {}, const [
+          'city',
+          'thanhPho',
+          'province',
+        ]),
         _readReference(hostRoomData ?? const {}, const ['city', 'thanhPho']),
-        _readReference(propertyData ?? const {}, const ['city', 'thanhPho', 'tinh_thanh']),
+        _readReference(propertyData ?? const {}, const [
+          'city',
+          'thanhPho',
+          'tinh_thanh',
+        ]),
         room.city,
       ]);
 
@@ -842,7 +851,12 @@ class RoomService {
     ], room.id);
     if (direct != null) return direct;
 
-    for (final field in const ['roomId', 'room_id', 'phongId', 'phong_tro_id']) {
+    for (final field in const [
+      'roomId',
+      'room_id',
+      'phongId',
+      'phong_tro_id',
+    ]) {
       try {
         final result = await _firestore
             .collection(FirestoreCollections.posts)
@@ -854,7 +868,9 @@ class RoomService {
           return {...doc.data(), 'id': doc.id};
         }
       } catch (error) {
-        debugPrint('Không thể tìm bài đăng chủ nhà theo $field=${room.id}: $error');
+        debugPrint(
+          'Không thể tìm bài đăng chủ nhà theo $field=${room.id}: $error',
+        );
       }
     }
     return null;
@@ -927,13 +943,13 @@ class RoomService {
   }
 
   double? _readArea(Map<String, dynamic>? data) => _readNumber(data, const [
-        'area',
-        'roomArea',
-        'dienTich',
-        'dienTichM2',
-        'dien_tich',
-        'minArea',
-      ]);
+    'area',
+    'roomArea',
+    'dienTich',
+    'dienTichM2',
+    'dien_tich',
+    'minArea',
+  ]);
 
   double? _readElectricity(Map<String, dynamic>? data) =>
       _readNumber(data, const [
@@ -945,12 +961,12 @@ class RoomService {
       ]);
 
   double? _readWater(Map<String, dynamic>? data) => _readNumber(data, const [
-        'waterRate',
-        'water_rate',
-        'giaNuoc',
-        'gia_nuoc',
-        'tienNuoc',
-      ]);
+    'waterRate',
+    'water_rate',
+    'giaNuoc',
+    'gia_nuoc',
+    'tienNuoc',
+  ]);
 
   double? _readServiceFee(Map<String, dynamic>? data) =>
       _readNumber(data, const [
@@ -987,14 +1003,15 @@ class RoomService {
       if (item is String && item.trim().isNotEmpty) {
         names.add(item.trim());
       } else if (item is Map) {
-        final name = (item['amenityName'] ??
-                item['tenTienIch'] ??
-                item['ten_tien_ich'] ??
-                item['name'] ??
-                item['ten'] ??
-                '')
-            .toString()
-            .trim();
+        final name =
+            (item['amenityName'] ??
+                    item['tenTienIch'] ??
+                    item['ten_tien_ich'] ??
+                    item['name'] ??
+                    item['ten'] ??
+                    '')
+                .toString()
+                .trim();
         if (name.isNotEmpty) names.add(name);
       }
     }
@@ -1037,23 +1054,25 @@ class RoomService {
                 .get();
             for (final doc in snap.docs) {
               final data = doc.data();
-              final name = (data['amenityName'] ??
-                      data['name'] ??
-                      data['ten_tien_ich'] ??
-                      data['tenTienIch'] ??
-                      '')
-                  .toString()
-                  .trim();
+              final name =
+                  (data['amenityName'] ??
+                          data['name'] ??
+                          data['ten_tien_ich'] ??
+                          data['tenTienIch'] ??
+                          '')
+                      .toString()
+                      .trim();
               if (name.isNotEmpty) {
                 names.add(name);
                 continue;
               }
-              final amenityId = (data['amenityId'] ??
-                      data['tienIchId'] ??
-                      data['tien_ich_id'] ??
-                      '')
-                  .toString()
-                  .trim();
+              final amenityId =
+                  (data['amenityId'] ??
+                          data['tienIchId'] ??
+                          data['tien_ich_id'] ??
+                          '')
+                      .toString()
+                      .trim();
               if (amenityId.isNotEmpty) pendingCatalogIds.add(amenityId);
             }
           } catch (error) {

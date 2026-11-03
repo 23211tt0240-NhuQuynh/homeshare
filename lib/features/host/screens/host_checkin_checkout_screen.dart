@@ -281,23 +281,42 @@ class _HostCheckinCheckoutScreenState
       final checkoutItems = ref.read(hostCheckoutItemsProvider).value ?? [];
       CheckinCheckoutItem? matchedItem;
 
-      for (final item in checkoutItems) {
-        if (parsedBookingId.isNotEmpty &&
-            (item.bookingId == parsedBookingId ||
-                item.periodId == parsedBookingId)) {
-          matchedItem = item;
-          break;
-        }
-        if (parsedRoomId.isNotEmpty && item.roomId == parsedRoomId) {
-          matchedItem = item;
-          break;
-        }
-        if (parsedRoomCode.isNotEmpty &&
-            (item.roomCode == parsedRoomCode ||
-                item.roomCode.toLowerCase() == parsedRoomCode.toLowerCase())) {
-          matchedItem = item;
-          break;
-        }
+      final candidates = checkoutItems
+          .where(
+            (item) =>
+                !item.isCompleted &&
+                ((parsedBookingId.isNotEmpty &&
+                        (item.bookingId == parsedBookingId ||
+                            item.periodId == parsedBookingId)) ||
+                    (parsedRoomId.isNotEmpty && item.roomId == parsedRoomId) ||
+                    (parsedRoomCode.isNotEmpty &&
+                        item.roomCode.toLowerCase() ==
+                            parsedRoomCode.toLowerCase())),
+          )
+          .toList();
+      if (candidates.length == 1) {
+        matchedItem = candidates.single;
+      } else if (candidates.length > 1) {
+        matchedItem = await showModalBottomSheet<CheckinCheckoutItem>(
+          context: context,
+          builder: (ctx) => SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                const ListTile(title: Text('Chọn người muốn check-out')),
+                for (final candidate in candidates)
+                  ListTile(
+                    title: Text(candidate.renterName),
+                    subtitle: Text(
+                      'P.${candidate.roomCode} • ${candidate.renterPhone}',
+                    ),
+                    onTap: () => Navigator.of(ctx).pop(candidate),
+                  ),
+              ],
+            ),
+          ),
+        );
+        if (!mounted || matchedItem == null) return;
       }
 
       if (matchedItem != null) {
@@ -356,12 +375,14 @@ class _HostCheckinCheckoutScreenState
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Chốt trả phòng P.${item.roomCode}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF0F172A),
+                      Expanded(
+                        child: Text(
+                          'Check-out ${item.renterName} • P.${item.roomCode}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0F172A),
+                          ),
                         ),
                       ),
                       IconButton(
@@ -487,6 +508,7 @@ class _HostCheckinCheckoutScreenState
                               roomId: item.roomId,
                               periodId: item.periodId,
                               renterId: item.renterId,
+                              residentId: item.residentId,
                               initialDeposit: item.deposit,
                               deductionAmount: currentDeduction,
                               note: noteCtrl.text.trim(),
@@ -494,7 +516,9 @@ class _HostCheckinCheckoutScreenState
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Đã hoàn tất check-out phòng!'),
+                              content: Text(
+                                'Đã hoàn tất check-out người thuê!',
+                              ),
                               backgroundColor: Color(0xFF16A34A),
                             ),
                           );
@@ -909,9 +933,9 @@ class _HostCheckinCheckoutScreenState
         if (pending.isEmpty && completed.isEmpty) {
           return _buildEmptyState(
             icon: Icons.exit_to_app_rounded,
-            title: 'Chưa có phòng nào cần Check-out',
+            title: 'Chưa có người thuê nào cần Check-out',
             subtitle:
-                'Các phòng sắp hết hạn thuê hoặc trả phòng sẽ xuất hiện tại đây.',
+                'Người thuê đang ở sẽ xuất hiện tại đây để checkout từng người.',
           );
         }
 
@@ -937,7 +961,7 @@ class _HostCheckinCheckoutScreenState
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '${pending.length} phòng liên quan',
+                    '${pending.length} người thuê',
                     style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFF64748B),
@@ -957,7 +981,7 @@ class _HostCheckinCheckoutScreenState
             if (completed.isNotEmpty) ...[
               const SizedBox(height: 16),
               const Text(
-                'PHÒNG ĐÃ HOÀN TẤT',
+                'NGƯỜI THUÊ ĐÃ CHECK-OUT',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
