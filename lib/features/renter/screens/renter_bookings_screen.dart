@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/room_model.dart';
 import '../../../core/services/booking_service.dart';
+import '../../../core/services/room_service.dart';
 import '../../../core/services/host_review_service.dart';
 import '../../../core/utils/host_review_policy.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -14,6 +14,8 @@ import '../../profile/widgets/host_review_sheet.dart';
 import 'booking_payment_screen.dart';
 import '../widgets/checkin_qr_bottom_sheet.dart';
 import '../widgets/send_roommate_invite_sheet.dart';
+import '../widgets/report_room_issue_bottom_sheet.dart';
+import 'user_notifications_screen.dart';
 
 class RenterBookingsScreen extends ConsumerStatefulWidget {
   final String? initialStatusFilter;
@@ -75,6 +77,9 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
   }
 
   String _getStatusText(BookingRequestModel b) {
+    if (b.status == 'choXacNhanThayDoi') {
+      return 'Đã cọc • Chờ bạn xác nhận đổi ngày đến';
+    }
     if (b.isCancelled) {
       return 'Đã hủy';
     }
@@ -113,11 +118,11 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
     final now = DateTime.now();
     for (final b in bookings) {
       if (b.status == 'pending_payment' && !b.isCancelled) {
-        final expiresAt = b.createdAt.add(const Duration(hours: 6));
+        final expiresAt = b.createdAt.add(const Duration(minutes: 15));
         if (now.isAfter(expiresAt)) {
           ref.read(bookingServiceProvider).cancelBooking(
             b.id,
-            reason: 'Tự động hủy do quá thời gian thanh toán 6 tiếng',
+            reason: 'Tự động hủy do quá thời gian quét mã QR 15 phút',
           );
         }
       }
@@ -125,16 +130,16 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
   }
 
   Future<void> _openPaymentScreen(BookingRequestModel b) async {
-    final expiresAt = b.createdAt.add(const Duration(hours: 6));
+    final expiresAt = b.createdAt.add(const Duration(minutes: 15));
     if (DateTime.now().isAfter(expiresAt)) {
       await ref.read(bookingServiceProvider).cancelBooking(
         b.id,
-        reason: 'Tự động hủy do quá thời gian thanh toán 6 tiếng',
+        reason: 'Tự động hủy do quá thời gian quét mã QR 15 phút',
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Đơn đặt phòng này đã quá hạn thanh toán 6 tiếng và đã tự động hủy.'),
+            content: Text('Đơn đặt phòng này đã quá hạn quét mã QR 15 phút và đã tự động hủy.'),
             backgroundColor: Color(0xFFD92D20),
           ),
         );
@@ -144,15 +149,13 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
 
     RoomModel? room;
     try {
-      final doc = await FirebaseFirestore.instance.collection('rooms').doc(b.roomId).get();
-      if (doc.exists) {
-        room = RoomModel.fromFirestore(doc);
-      } else {
-        final hostDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(b.roomId).get();
-        if (hostDoc.exists) {
-          room = RoomModel.fromFirestore(hostDoc);
-        }
-      }
+      room = await ref.read(roomServiceProvider).resolveRentedRoom(
+        roomId: b.roomId,
+        hostId: b.hostId,
+        roomCode: b.roomCode,
+        title: b.roomTitle,
+        price: b.roomPrice,
+      );
     } catch (_) {}
 
     room ??= RoomModel(
@@ -316,6 +319,14 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
     }
   }
 
+
+  Future<void> _openReportRoomIssueSheet(BookingRequestModel b) async {
+    final ok = await showReportRoomIssueBottomSheet(context, booking: b);
+    if (ok == true && mounted) {
+      setState(() {});
+    }
+  }
+
   void _showCheckinQrDialog(BookingRequestModel b) {
     CheckinQrBottomSheet.show(context, b);
   }
@@ -353,7 +364,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Quản lý Đơn Thuê & Trạng Thái')),
+      appBar: AppBar(title: const Text('Lịch xem phòng & Đơn thuê')),
       body: Column(
         children: [
           // Filter Chips
@@ -364,7 +375,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children:
-                    ['Tất cả', 'Đang xử lý', 'Đã duyệt', 'Đang ở', 'Đã hủy'].map(
+                    ['Tất cả', 'Đang xử lý', 'Đã duyệt', 'Đang ở', 'Đã trả phòng', 'Đã hủy'].map(
                       (s) {
                         final isSel = _selectedStatusFilter == s;
                         return Padding(
@@ -407,6 +418,8 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                   filtered = bookings.where((b) => b.isApproved).toList();
                 } else if (_selectedStatusFilter == 'Đang ở') {
                   filtered = bookings.where((b) => b.isActive).toList();
+                } else if (_selectedStatusFilter == 'Đã trả phòng') {
+                  filtered = bookings.where((b) => b.isEnded).toList();
                 } else if (_selectedStatusFilter == 'Đã hủy') {
                   filtered = bookings.where((b) => b.isCancelled).toList();
                 }
@@ -445,7 +458,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                     final statusText = _getStatusText(b);
                     final priceStr =
                         '${currencyFormatter.format(b.roomPrice)} đ/tháng';
-                    final expiresAt = b.createdAt.add(const Duration(hours: 6));
+                    final expiresAt = b.createdAt.add(const Duration(minutes: 15));
                     final remaining = expiresAt.difference(DateTime.now());
                     final isPaymentPending =
                         b.status == 'pending_payment' && !b.isCancelled;
@@ -573,21 +586,28 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 10),
-                                  const Icon(
-                                    Icons.calendar_today_outlined,
-                                    size: 14,
-                                    color: AppColors.textMuted,
-                                  ),
-                                  const SizedBox(width: 4),
                                   Flexible(
-                                    child: Text(
-                                      'Dọn vào: ${DateFormat('dd/MM/yyyy').format(b.moveInDate)}',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.textMuted,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.calendar_today_outlined,
+                                          size: 14,
+                                          color: AppColors.textMuted,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Flexible(
+                                          child: Text(
+                                            'Dọn vào: ${DateFormat('dd/MM/yyyy').format(b.moveInDate)}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: AppColors.textMuted,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -616,6 +636,73 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                 ),
                               ],
 
+                              if (b.status == 'choXacNhanThayDoi') ...[
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 9,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEF0C7),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: const Color(0xFFFEDF89),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.info_outline_rounded,
+                                        size: 18,
+                                        color: Color(0xFFB54708),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Expanded(
+                                        child: Text(
+                                          'Chủ trọ đề xuất thay đổi lịch dọn vào. Vui lòng mở Thông báo để xác nhận thay đổi thông tin.',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF7A2E0E),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => const UserNotificationsScreen(),
+                                            ),
+                                          );
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.primary,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 6,
+                                          ),
+                                          minimumSize: const Size(0, 32),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          elevation: 0,
+                                        ),
+                                        child: const Text(
+                                          'Xem ngay',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                               if (b.isCancelled &&
                                   b.cancelReason != null &&
                                   b.cancelReason!.isNotEmpty) ...[
@@ -675,8 +762,8 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                           children: [
                                             Text(
                                               remaining.isNegative
-                                                  ? 'Đã hết hạn thanh toán (6 tiếng)'
-                                                  : 'Thời gian thanh toán còn lại: ${_formatRemainingTime(remaining)}',
+                                                  ? 'Đã hết hạn quét mã QR giữ chỗ (15 phút)'
+                                                  : 'Thời gian quét QR còn lại: ${_formatRemainingTime(remaining)}',
                                               style: TextStyle(
                                                 fontSize: 12.5,
                                                 fontWeight: FontWeight.bold,
@@ -760,7 +847,7 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 8,
                                             ),
-                                            minimumSize: const Size(60, 36),
+                                            minimumSize: const Size(50, 36),
                                           ),
                                           child: const Text(
                                             'Hủy',
@@ -783,12 +870,12 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                             foregroundColor: Colors.white,
                                             elevation: 0,
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
+                                              horizontal: 10,
                                               vertical: 8,
                                             ),
-                                            minimumSize: const Size(130, 36),
+                                            minimumSize: const Size(120, 36),
                                             textStyle: const TextStyle(
-                                              fontSize: 12.5,
+                                              fontSize: 12,
                                               fontWeight: FontWeight.bold,
                                             ),
                                             shape: RoundedRectangleBorder(
@@ -809,9 +896,9 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                               0xFFD92D20,
                                             ),
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
+                                              horizontal: 8,
                                             ),
-                                            minimumSize: const Size(50, 36),
+                                            minimumSize: const Size(44, 36),
                                           ),
                                           child: const Text(
                                             'Hủy',
@@ -834,10 +921,10 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                             foregroundColor: Colors.white,
                                             elevation: 0,
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
+                                              horizontal: 10,
                                               vertical: 8,
                                             ),
-                                            minimumSize: const Size(100, 36),
+                                            minimumSize: const Size(90, 36),
                                             textStyle: const TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
@@ -848,42 +935,29 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                             ),
                                           ),
                                         ),
-                                      ] else if (b.isPending)
+                                      ] else if (b.isPending) ...[
                                         // 2b. Khi ĐANG XỬ LÝ - ĐÃ BẤM XÁC NHẬN CHỜ DUYỆT (pending_confirmation):
-                                        ElevatedButton.icon(
+                                        TextButton(
                                           onPressed: () =>
                                               _cancelBookingDialog(b),
-                                          icon: const Icon(
-                                            Icons.close_rounded,
-                                            size: 16,
-                                          ),
-                                          label: const Text('Hủy yêu cầu'),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(
-                                              0xFFFEE4E2,
-                                            ),
+                                          style: TextButton.styleFrom(
                                             foregroundColor: const Color(
                                               0xFFD92D20,
                                             ),
-                                            elevation: 0,
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 8,
+                                              horizontal: 8,
                                             ),
-                                            minimumSize: const Size(100, 36),
-                                            textStyle: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
+                                            minimumSize: const Size(50, 36),
+                                          ),
+                                          child: const Text(
+                                            'Hủy yêu cầu',
+                                            style: TextStyle(fontSize: 12),
                                           ),
                                         ),
+                                      ],
 
-                                      // 3. Khi ĐANG Ở: Tag xanh lá
-                                      if (b.isActive)
+                                      // 3. Khi ĐANG Ở: Tag xanh lá + Nút Báo sự cố phòng
+                                      if (b.isActive) ...[
                                         Container(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 10,
@@ -917,8 +991,59 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                             ],
                                           ),
                                         ),
+                                        const SizedBox(width: 6),
+                                        ElevatedButton.icon(
+                                          onPressed: () =>
+                                              _openReportRoomIssueSheet(b),
+                                          icon: const Icon(
+                                            Icons.build_rounded,
+                                            size: 14,
+                                          ),
+                                          label: const Text('Báo sự cố phòng'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFFD97706),
+                                            foregroundColor: Colors.white,
+                                            elevation: 0,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 8,
+                                            ),
+                                            minimumSize: const Size(110, 36),
+                                            textStyle: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
 
-                                      // 4. Khi ĐÃ HỦY: Tag xám/đỏ
+                                      // 4. Khi ĐÃ TRẢ PHÒNG
+                                      if (b.isEnded)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF2F4F7),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: const Text(
+                                            'Đã trả phòng',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFF475467),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+
+                                      // 5. Khi ĐÃ HỦY: Tag xám/đỏ
                                       if (b.isCancelled)
                                         Container(
                                           padding: const EdgeInsets.symmetric(

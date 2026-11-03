@@ -12,6 +12,7 @@ import 'host_create_post_screen.dart';
 import 'host_tenant_management_screen.dart';
 import 'host_checkin_checkout_screen.dart';
 import 'host_violation_management_screen.dart';
+import 'host_post_management_screen.dart';
 import 'host_management_menu.dart';
 import 'host_finance_screen.dart';
 
@@ -104,6 +105,13 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
   }
 
   Widget _buildActiveManagementSection() {
+    if (_hostManagementSection == HostManagementSection.posts) {
+      return HostPostManagementScreen(
+        onSectionChanged: (sec) {
+          setState(() => _hostManagementSection = sec);
+        },
+      );
+    }
     if (_hostManagementSection == HostManagementSection.checkinCheckout) {
       return HostCheckinCheckoutScreen(
         onSectionChanged: (sec) {

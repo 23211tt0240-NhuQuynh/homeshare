@@ -1,3 +1,4 @@
+import 'host_propose_checkin_date_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../repositories/checkin_checkout_repository.dart';
@@ -6,12 +7,14 @@ class CheckinCheckoutCard extends StatelessWidget {
   final CheckinCheckoutItem item;
   final bool isCheckinTab;
   final VoidCallback onAction;
+  final VoidCallback? onProposeDateChange;
 
   const CheckinCheckoutCard({
     super.key,
     required this.item,
     required this.isCheckinTab,
     required this.onAction,
+    this.onProposeDateChange,
   });
 
   String _formatMoney(double amount) {
@@ -279,24 +282,61 @@ class CheckinCheckoutCard extends StatelessWidget {
                       ),
                     )
                   : isCheckinTab
-                      ? ElevatedButton.icon(
-                          onPressed: onAction,
-                          icon: const Icon(Icons.login, size: 18),
-                          label: const Text(
-                            'Check-in & Bàn giao',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
+                      ? Row(
+                          children: [
+                            Expanded(
+                              flex: 5,
+                              child: OutlinedButton.icon(
+                                onPressed: onProposeDateChange ??
+                                    () => HostProposeCheckInDateBottomSheet.show(
+                                          context,
+                                          item: item,
+                                        ),
+                                icon: const Icon(Icons.edit_calendar_outlined, size: 16),
+                                label: const Text(
+                                  'Đổi ngày',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF155EEF),
+                                  side: const BorderSide(color: Color(0xFF84ADFF)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                ),
+                              ),
                             ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2563EB),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 6,
+                              child: ElevatedButton.icon(
+                                onPressed: onAction,
+                                icon: const Icon(Icons.login, size: 16),
+                                label: const Text(
+                                  'Check-in & Bàn giao',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF2563EB),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         )
                       : ElevatedButton.icon(
                           onPressed: onAction,

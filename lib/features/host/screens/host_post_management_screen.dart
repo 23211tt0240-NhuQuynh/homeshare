@@ -11,16 +11,20 @@ import '../../auth/providers/user_provider.dart';
 import '../data/host_post_repository.dart';
 import 'host_create_post_screen.dart';
 import 'host_post_detail_screen.dart';
+import 'host_management_menu.dart';
+import 'host_violation_management_screen.dart';
 
 /// Màn hình Quản lý bài đăng dành riêng cho Role Chủ trọ.
-/// Cho phép lọc các bài: Tất cả, Chờ duyệt, Đang hiển thị và Bị từ chối.
+/// Cho phép lọc các bài: Bị từ chối, Chờ duyệt, Đang hiển thị và Tất cả.
 /// Hỗ trợ xem lý do từ chối từ Firestore, Chỉnh sửa và Gửi lại bài đăng để Admin duyệt lại.
 class HostPostManagementScreen extends ConsumerStatefulWidget {
   final int initialTabIndex;
+  final ValueChanged<HostManagementSection>? onSectionChanged;
 
   const HostPostManagementScreen({
     super.key,
     this.initialTabIndex = 0,
+    this.onSectionChanged,
   });
 
   @override

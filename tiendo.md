@@ -3113,3 +3113,61 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
      - `flutter analyze`: **0 errors, 0 warnings (No issues found!)**.
      - `flutter test`: **34/34 tests Passed (100%)**.
      - Đóng gói APK Release cập nhật vào `D:\App\HomeShare.apk` và `D:\App\app-release.apk`.
+
+---
+
+### Phase 2.87: Chuẩn Hóa Số Liệu Thống Kê Trang Cá Nhân (Saved/Appointments Count) & Điều Hướng Thông Minh Thông Báo Người Dùng
+* **Ngày hoàn thành:** 31/10/2026
+* **Yêu cầu & Thực hiện:**
+  1. **Khắc phục số lượng thống kê sai lệch tại Trang cá nhân (`HomeScreen`):**
+     - **Phòng đã lưu (`savedCount`):**
+       + Trước đây đếm theo `favState.favoriteRoomIds.length`, bị lệch khi local cache/SharedPreferences còn lưu ID phòng rác hoặc phòng đã bị xóa khỏi hệ thống.
+       + Cập nhật sang `favState.favoriteRooms.length` để đồng bộ 100% với danh sách phòng thực tế hiển thị trong `FavoriteRoomsScreen` (hiển thị `00` khi không có phòng lưu).
+       + Bổ sung cơ chế dọn dẹp (pruning) ID phòng và bài đăng hỏng/không tồn tại trong `FavoritesService._hydrateMissingRooms` và `_hydrateMissingPosts`.
+     - **Lịch hẹn / Đơn chờ xử lý (`appointmentCount`):**
+       + Trước đây đếm theo `!b.isCancelled && !b.isActive`, khiến các đơn cũ đã trả phòng / check-out (`isCheckedOut`) bị đếm nhầm vào lịch hẹn (hiển thị `01`).
+       + Chuẩn hóa thành `bookings.where((b) => b.isPending).length`, khớp 100% với tab `Đang xử lý` của màn hình `RenterBookingsScreen`.
+  2. **Điều hướng thông minh khi nhấn vào thông báo (`UserNotificationsScreen`):**
+     - Xây dựng hàm `_handleNotificationTap`:
+       + Tự động đánh dấu đã đọc (`isRead: true`, `daDoc: true`).
+       + `roommate_approved` / `checkin` / `active`: Điều hướng đến `MyHomesScreen(initialTab: 0)` (Phòng đang thuê).
+       + `checkout`: Điều hướng đến `MyHomesScreen(initialTab: 1)` (Lịch sử đã ở).
+       + `roommate_invitation`: Tải thông tin phòng và mở `RoomDetailScreen` (nếu có `roomId`) hoặc mở `ChatDetailScreen` với người gửi.
+       + `booking_adjustment` / đổi lịch hẹn: Mở `RenterBookingsScreen(initialStatusFilter: 'Đang xử lý')`.
+       + `cancellation_invoice` / `refund` / `cancelled`: Mở `RenterBookingsScreen(initialStatusFilter: 'Đã hủy')`.
+       + `booking_approved` / thanh toán cọc thành công: Mở `RenterBookingsScreen(initialStatusFilter: 'Đã duyệt')`.
+       + `roommate_post` / `post_approved`: Mở `RoommatePostDetailScreen` hoặc `RoommateCommunityScreen`.
+       + `chat_message`: Mở `ChatDetailScreen`.
+     - Bọc toàn bộ các thẻ thông báo (`_buildNotificationCard`, `_buildRoommateInviteCard`, `_buildBookingAdjustmentCard`) bằng `InkWell` gọi `_handleNotificationTap`.
+  3. **Kiểm tra chất lượng:**
+     - `flutter analyze lib/`: **No issues found! (0 errors, 0 warnings)**.
+     - `flutter test`: **131/131 tests Passed (100%)**.
+
+
+---
+
+### Phase 2.88: Tính Năng Thay Đổi Ngày Dọn Vào Ở trong Lịch Xem Phòng & Đơn Thuê của Người Thuê (Renter)
+* **Ngày hoàn thành:** 02/11/2026
+* **Yêu cầu & Thực hiện:**
+  1. **Nâng cấp Service Đổi Lịch Dọn Vào (`BookingService.updateMoveInDate`):**
+     - Bổ sung method `updateMoveInDate({required String bookingId, required DateTime newMoveInDate, String? reason, BookingRequestModel? booking})` trong `lib/core/services/booking_service.dart`.
+     - Cập nhật chuẩn hóa dữ liệu ngày vào trên document Firestore `bookings`: `moveInDate`, `ngayVao`, `thoiDiem`, `checkInDate`, `oldMoveInDate`, `adjustmentReason`, `changeDateReason`, `adjustmentStatus: 'updated_by_renter'`, `updatedAt`.
+     - Tự động gửi thông báo trực tiếp đến Chủ trọ (`notifications` collection, `notificationType: 'booking_adjustment'`) kèm ngày dọn vào mới, ngày cũ và lý do dời lịch.
+     - Tự động gửi thông báo xác nhận đến Người thuê (`notification_user` collection chuẩn Phase 2.85).
+     - Ghi nhận lịch sử vào `audit_logs` phục vụ tra cứu minh bạch.
+  2. **Thiết kế Modal BottomSheet Thay Đổi Ngày Dọn Vào (`ChangeMoveInDateBottomSheet`):**
+     - Tạo mới `lib/features/renter/widgets/change_move_in_date_bottom_sheet.dart` với phong cách UI cao cấp:
+       + Khung tóm tắt thông tin phòng & ngày dọn vào hiện tại.
+       + Khung chọn ngày dọn vào mới trực quan, tích hợp `showDatePicker` với ràng buộc an toàn (từ ngày hôm nay đến tối đa 180 ngày tới).
+       + Bộ chip chọn nhanh tiện lợi: `+3 ngày`, `+1 tuần`, `+2 tuần`, `+1 tháng`.
+       + Hỗ trợ các chip gợi ý lý do phổ biến: "Bận việc đột xuất", "Dời lịch công tác", "Chờ bạn cùng phòng", "Chưa dọn xong nhà cũ" và ô nhập tự do.
+       + Hộp thông tin lưu ý an toàn và trạng thái loading khi đang gửi yêu cầu.
+  3. **Tích hợp Vào Màn Hình Quản Lý Đơn Thuê & Lịch Hẹn (`RenterBookingsScreen`):**
+     - Chuẩn hóa tiêu đề màn hình thành `Lịch xem phòng & Đơn thuê` (đồng bộ 100% với mục menu tại `HomeScreen` và từ điển bản địa hóa).
+     - Bổ sung logic kiểm tra quyền đổi ngày `_canChangeMoveInDate(b)`: cho phép thực hiện trên các đơn đang xử lý (`isPending`) hoặc đã duyệt (`isApproved`), tự động khóa khi khách đã vào ở (`isActive`), đã trả phòng (`isEnded`) hoặc đã hủy (`isCancelled`).
+     - Tương tác chạm trực tiếp: Chuyển badge hiển thị ngày dọn vào ở giữa card thành nút chạm tương tác `InkWell` với icon `edit_outlined` nổi bật.
+     - Nút bấm hành động riêng: Bổ sung nút `Đổi ngày` / `Đổi ngày dọn vào` trực quan tại thanh hành động của từng card đơn thuê.
+  4. **Kiểm tra chất lượng & Unit Test:**
+     - Tạo mới bộ test `test/change_move_in_date_test.dart` kiểm tra toàn diện chính sách phân quyền và logic model.
+     - `flutter analyze lib/`: **No issues found! (0 errors, 0 warnings)**.
+     - `flutter test`: **137/137 tests Passed (100%)**.

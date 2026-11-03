@@ -27,6 +27,9 @@ class HostNotificationRepository {
   CollectionReference<Map<String, dynamic>>? get _notificationsCol =>
       _firestore?.collection(FirestoreCollections.notifications);
 
+  CollectionReference<Map<String, dynamic>>? get _userNotificationsCol =>
+      _firestore?.collection(FirestoreCollections.notificationUser);
+
   CollectionReference<Map<String, dynamic>>? get _bookingsCol =>
       _firestore?.collection(FirestoreCollections.bookings);
 
@@ -45,10 +48,7 @@ class HostNotificationRepository {
     final unique = <String, HostNotificationModel>{};
     final roommateItems = <HostNotificationModel>[];
     for (final item in items) {
-      if (item.isRoommateApproval || item.newRoommateId.isNotEmpty) {
-        roommateItems.add(item);
-        continue;
-      }
+      if (item.isRoommateApproval || item.newRoommateId.isNotEmpty || item.isRoomIssue) continue;
       final key = item.bookingId.trim().isNotEmpty
           ? 'booking:${item.bookingId.trim()}'
           : item.roomId.trim().isNotEmpty
@@ -129,7 +129,20 @@ class HostNotificationRepository {
           .toString()
           .trim();
 
-      if (bId.isNotEmpty && bookingDataMap.containsKey(bId)) {
+      final actionType = (data['actionType'] ?? data['type'] ?? data['notificationType'] ?? '').toString();
+      final isRoomIssue = actionType == 'room_issue' ||
+          data['issueId'] != null && data['issueId'].toString().isNotEmpty ||
+          (data['title']?.toString().toLowerCase().contains('sự cố') ?? false);
+
+      if (isRoomIssue) {
+        // Sự cố phòng luôn được phân loại vào tab "Đang xử lý" (pendingAction) để chủ trọ tiếp nhận và giải quyết
+        final issueStatus = (data['statusId'] ?? data['status'] ?? 'pending').toString().toLowerCase();
+        if (issueStatus == 'resolved' || issueStatus == 'completed' || issueStatus == 'dakhacphuc') {
+          data[NotificationFields.notificationType] = HostNotificationType.staying.code;
+        } else {
+          data[NotificationFields.notificationType] = HostNotificationType.pendingAction.code;
+        }
+      } else if (bId.isNotEmpty && bookingDataMap.containsKey(bId)) {
         final bData = bookingDataMap[bId]!;
         final bStatus = (bData['status'] ?? bData['trangThai'] ?? '').toString().toLowerCase();
         final isCheckIn = bData['isCheckIn'] == true || bData['daNhanPhong'] == true;
@@ -469,6 +482,7 @@ class HostNotificationRepository {
     required DateTime newCheckInDate,
     required String adjustmentReason,
     String? hostId,
+    String? renterId,
   }) async {
     final fs = _firestore;
     final bCol = _bookingsCol;
@@ -477,13 +491,15 @@ class HostNotificationRepository {
     final batch = fs.batch();
 
     // 1. Cập nhật booking gốc
-    String renterId = '';
+    String effectiveRenterId = (renterId ?? '').trim();
+    String effectiveHostId = (hostId ?? '').trim();
     String currentRoomCode = '';
     dynamic oldCheckInDate;
     String oldRoomTitle = '';
     String oldRoomId = '';
     double depositAmount = 0.0;
     String hostName = '';
+    String renterName = '';
 
     if (bookingId.isNotEmpty) {
       final bookingRef = bCol.doc(bookingId);
@@ -491,16 +507,29 @@ class HostNotificationRepository {
         final bDoc = await bookingRef.get();
         if (bDoc.exists && bDoc.data() != null) {
           final bData = bDoc.data()!;
-          renterId = (bData['userId'] ??
-                  bData['renterId'] ??
-                  bData['nguoiThueId'] ??
-                  bData['nguoiDungId'] ??
-                  '')
-              .toString();
+          final rId = bData['userId'] ??
+              bData['renterId'] ??
+              bData['nguoiDungId'] ??
+              bData['nguoiDung_Id'] ??
+              bData['nguoiThueId'] ??
+              bData['khachXemId'];
+          if (rId != null && rId.toString().isNotEmpty) {
+            effectiveRenterId = rId.toString();
+          }
+
+          final hId = bData['hostId'] ?? bData['chuNhaId'];
+          if (effectiveHostId.isEmpty && hId != null && hId.toString().isNotEmpty) {
+            effectiveHostId = hId.toString();
+          }
+
           currentRoomCode =
               (bData['roomCode'] ?? bData['maPhong'] ?? '').toString();
           oldCheckInDate = bData['checkInDate'] ??
               bData['ngayNhanPhong'] ??
+              bData['ngayVao'] ??
+              bData['ngayDonVao'] ??
+              bData['expectedCheckInDate'] ??
+              bData['moveInDate'] ??
               bData['checkIn'];
           oldRoomTitle =
               (bData['roomTitle'] ?? bData['tieuDePhong'] ?? '').toString();
@@ -514,6 +543,8 @@ class HostNotificationRepository {
           }
           hostName =
               (bData['hostName'] ?? bData['tenChuNha'] ?? '').toString();
+          renterName =
+              (bData['renterName'] ?? bData['tenNguoiO'] ?? bData['tenKhach'] ?? '').toString();
         }
       } catch (_) {}
 
@@ -521,9 +552,11 @@ class HostNotificationRepository {
         'newRoomId': newRoomId,
         'newRoomTitle': newRoomTitle,
         'newCheckInDate': Timestamp.fromDate(newCheckInDate),
+        'proposedCheckInDate': Timestamp.fromDate(newCheckInDate),
         'adjustmentReason': adjustmentReason,
         'adjustmentStatus': 'pending',
         'status': 'choXacNhanThayDoi',
+        'statusId': 'choXacNhanThayDoi',
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     }
@@ -541,13 +574,18 @@ class HostNotificationRepository {
       }, SetOptions(merge: true));
     }
 
-    // 3. Gửi thông báo đến chuông người thuê (Renter) để người thuê có thể Đồng ý hoặc Từ chối
-    if (renterId.isNotEmpty) {
+    // 3. Gửi thông báo đến chuông người thuê (Renter) để người thuê có thể Đồng ý hoặc Từ chối (Lưu vào notification_user)
+    if (effectiveRenterId.isNotEmpty) {
       final dateStr = DateFormat('dd/MM/yyyy').format(newCheckInDate);
-      final renterNotifRef = nCol.doc();
+      final uCol = _userNotificationsCol ??
+          fs.collection(FirestoreCollections.notificationUser);
+      final renterNotifRef = uCol.doc();
       batch.set(renterNotifRef, {
         'id': renterNotifRef.id,
-        'receiverId': renterId,
+        'receiverId': effectiveRenterId,
+        'recipientId': effectiveRenterId,
+        'userId': effectiveRenterId,
+        'nguoiNhanId': effectiveRenterId,
         'recipientRole': 'renter',
         'title': 'Chủ trọ yêu cầu đổi lịch dọn vào',
         'message':
@@ -567,11 +605,14 @@ class HostNotificationRepository {
         'oldCheckInDate': ?oldCheckInDate,
         'newCheckInDate': Timestamp.fromDate(newCheckInDate),
         'amount': depositAmount,
+        'renterName': renterName,
         'hostName': hostName,
-        'hostId': hostId ?? '',
+        'hostId': effectiveHostId,
+        'chuNhaId': effectiveHostId,
         'adjustmentReason': adjustmentReason,
         'status': 'pending',
         'isRead': false,
+        'daDoc': false,
         'createdAt': FieldValue.serverTimestamp(),
       });
     }
@@ -698,21 +739,27 @@ class HostNotificationRepository {
       }, SetOptions(merge: true));
     }
 
-    // 3. Cập nhật thông báo lời mời của người được mời thành accepted
+    // 3. Cập nhật thông báo lời mời của người được mời thành accepted (notification_user)
     if (userNotificationId.isNotEmpty) {
-      batch.set(_notificationsCol!.doc(userNotificationId), {
+      final uCol = _userNotificationsCol ??
+          _firestore!.collection(FirestoreCollections.notificationUser);
+      batch.set(uCol.doc(userNotificationId), {
         'status': 'accepted',
         'isRead': true,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     }
 
-    // 4. Gửi thông báo đến chuông của người ở ghép mới
+    // 4. Gửi thông báo đến chuông của người ở ghép mới (notification_user)
     if (newRoommateId.isNotEmpty) {
-      final notifNew = _notificationsCol!.doc();
+      final uCol = _userNotificationsCol ??
+          _firestore!.collection(FirestoreCollections.notificationUser);
+      final notifNew = uCol.doc();
       batch.set(notifNew, {
         'id': notifNew.id,
         'receiverId': newRoommateId,
+        'recipientId': newRoommateId,
+        'userId': newRoommateId,
         'recipientRole': 'renter',
         'title': 'Chủ trọ đã duyệt vào phòng! 🎉',
         'message':
@@ -726,12 +773,16 @@ class HostNotificationRepository {
       });
     }
 
-    // 5. Gửi thông báo đến chuông của người thuê chính
+    // 5. Gửi thông báo đến chuông của người thuê chính (notification_user)
     if (primaryTenantId.isNotEmpty) {
-      final notifPrimary = _notificationsCol!.doc();
+      final uCol = _userNotificationsCol ??
+          _firestore!.collection(FirestoreCollections.notificationUser);
+      final notifPrimary = uCol.doc();
       batch.set(notifPrimary, {
         'id': notifPrimary.id,
         'receiverId': primaryTenantId,
+        'recipientId': primaryTenantId,
+        'userId': primaryTenantId,
         'recipientRole': 'renter',
         'title': 'Chủ trọ đã duyệt bạn cùng phòng! 🎉',
         'message':
@@ -779,21 +830,27 @@ class HostNotificationRepository {
       }, SetOptions(merge: true));
     }
 
-    // 2. Cập nhật thông báo lời mời của người được mời thành host_rejected
+    // 2. Cập nhật thông báo lời mời của người được mời thành host_rejected (notification_user)
     if (userNotificationId.isNotEmpty) {
-      batch.set(_notificationsCol!.doc(userNotificationId), {
+      final uCol = _userNotificationsCol ??
+          _firestore!.collection(FirestoreCollections.notificationUser);
+      batch.set(uCol.doc(userNotificationId), {
         'status': 'host_rejected',
         'isRead': true,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     }
 
-    // 3. Gửi thông báo đến chuông người ở ghép
+    // 3. Gửi thông báo đến chuông người ở ghép (notification_user)
     if (newRoommateId.isNotEmpty) {
-      final notifNew = _notificationsCol!.doc();
+      final uCol = _userNotificationsCol ??
+          _firestore!.collection(FirestoreCollections.notificationUser);
+      final notifNew = uCol.doc();
       batch.set(notifNew, {
         'id': notifNew.id,
         'receiverId': newRoommateId,
+        'recipientId': newRoommateId,
+        'userId': newRoommateId,
         'recipientRole': 'renter',
         'title': 'Chủ trọ đã từ chối yêu cầu vào ở ghép',
         'message':
@@ -806,12 +863,16 @@ class HostNotificationRepository {
       });
     }
 
-    // 4. Gửi thông báo đến chuông người thuê chính
+    // 4. Gửi thông báo đến chuông người thuê chính (notification_user)
     if (primaryTenantId.isNotEmpty) {
-      final notifPrimary = _notificationsCol!.doc();
+      final uCol = _userNotificationsCol ??
+          _firestore!.collection(FirestoreCollections.notificationUser);
+      final notifPrimary = uCol.doc();
       batch.set(notifPrimary, {
         'id': notifPrimary.id,
         'receiverId': primaryTenantId,
+        'recipientId': primaryTenantId,
+        'userId': primaryTenantId,
         'recipientRole': 'renter',
         'title': 'Yêu cầu ở ghép đã bị từ chối',
         'message':
@@ -898,8 +959,18 @@ class HostNotificationRepository {
       );
     }
 
-    // 2. Cập nhật thông báo của Người thuê
+    // 2. Cập nhật thông báo của Người thuê (trong notification_user và notifications cũ)
     if (notificationId.isNotEmpty) {
+      final uCol = _userNotificationsCol ??
+          _firestore!.collection(FirestoreCollections.notificationUser);
+      batch.set(uCol.doc(notificationId), {
+        'status': 'accepted',
+        NotificationFields.statusId: 'approved',
+        NotificationFields.isRead: true,
+        'daDoc': true,
+        'respondedAt': FieldValue.serverTimestamp(),
+        NotificationFields.updatedAt: FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
       batch.set(_notificationsCol!.doc(notificationId), {
         'status': 'accepted',
         NotificationFields.statusId: 'approved',
@@ -1004,8 +1075,18 @@ class HostNotificationRepository {
       }, SetOptions(merge: true));
     }
 
-    // 2. Cập nhật thông báo của Người thuê
+    // 2. Cập nhật thông báo của Người thuê (trong notification_user và notifications cũ)
     if (notificationId.isNotEmpty) {
+      final uCol = _userNotificationsCol ??
+          _firestore!.collection(FirestoreCollections.notificationUser);
+      batch.set(uCol.doc(notificationId), {
+        'status': 'rejected',
+        NotificationFields.statusId: 'rejected',
+        NotificationFields.isRead: true,
+        'daDoc': true,
+        'respondedAt': FieldValue.serverTimestamp(),
+        NotificationFields.updatedAt: FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
       batch.set(_notificationsCol!.doc(notificationId), {
         'status': 'rejected',
         NotificationFields.statusId: 'rejected',

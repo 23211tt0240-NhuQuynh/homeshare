@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -170,8 +171,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
     );
   }
 
-  void _onQuickBookingPressed() {
-    final user = ref.read(currentUserProvider);
+  void _onQuickBookingPressed() {    final user = ref.read(currentUserProvider);
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Vui lòng đăng nhập để đặt phòng')),
@@ -206,12 +206,76 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => RoomBookingDetailScreen(room: _room),
-      ),
-    );
+    // Kiểm tra trạng thái phòng trên host_rooms trước khi chuyển màn hình
+    if (_room.id.isNotEmpty) {
+      try {
+        final hostRoomSnap = await FirebaseFirestore.instance.collection('host_rooms').doc(_room.id).get();
+        if (hostRoomSnap.exists) {
+          final rData = hostRoomSnap.data() ?? {};
+          final rStatus = (rData['status'] ?? '').toString().toLowerCase();
+          if (rStatus == 'pending_confirmation') {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Phòng này vừa có khách chuyển khoản cọc và đang chờ xác nhận. Vui lòng chọn phòng khác!'),
+                  backgroundColor: Color(0xFFB54708),
+                ),
+              );
+            }
+            return;
+          }
+
+          final isHolding = rData['isHolding'] == true;
+          final holdingExpiresAt = (rData['holdingExpiresAt'] as Timestamp?)?.toDate();
+          final holdingRenterId = (rData['holdingRenterId'] ?? '').toString();
+          if (isHolding && holdingExpiresAt != null && holdingExpiresAt.isAfter(DateTime.now())) {
+            if (holdingRenterId.isNotEmpty && holdingRenterId != user.uid) {
+              final diffMinutes = holdingExpiresAt.difference(DateTime.now()).inMinutes + 1;
+              if (mounted) {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    title: const Row(
+                      children: [
+                        Icon(Icons.hourglass_top_rounded, color: Color(0xFFB54708)),
+                        SizedBox(width: 8),
+                        Text('Phòng đang được giữ chỗ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      ],
+                    ),
+                    content: Text(
+                      'Phòng này hiện đang có khách quét mã QR chuyển khoản giữ chỗ (còn khoảng $diffMinutes phút).\n\nNếu khách không hoàn tất thanh toán trong thời gian trên, hệ thống sẽ tự động mở lại phòng để bạn đặt!',
+                      style: const TextStyle(fontSize: 13.5, height: 1.4),
+                    ),
+                    actions: [
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Đã hiểu'),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return;
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RoomBookingDetailScreen(room: _room),
+        ),
+      );
+    }
   }
 
   void _onReportHostPressed() {
@@ -441,6 +505,8 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                     onSelected: (value) {
                       if (value == 'report_post') {
                         _onReportPostPressed();
+                      } else if (value == 'report_host') {
+                        _onReportHostPressed();
                       }
                     },
                     itemBuilder: (context) => [
@@ -451,6 +517,16 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                             Icon(Icons.flag_outlined, size: 18, color: Color(0xFFDC2626)),
                             SizedBox(width: 8),
                             Text('Báo cáo bài viết này', style: TextStyle(fontSize: 13)),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'report_host',
+                        child: Row(
+                          children: [
+                            Icon(Icons.person_off_outlined, size: 18, color: Color(0xFFDC2626)),
+                            SizedBox(width: 8),
+                            Text('Báo cáo chủ trọ này', style: TextStyle(fontSize: 13)),
                           ],
                         ),
                       ),
@@ -855,52 +931,29 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
         child: SafeArea(
           child: Row(
             children: [
-              // 1. Nút Báo cáo chủ trọ
-              Semantics(
-                label: 'Báo cáo vi phạm chủ trọ',
-                button: true,
-                excludeSemantics: true,
-                child: OutlinedButton.icon(
-                  onPressed: _onReportHostPressed,
-                  icon: const Icon(Icons.flag_outlined, color: Color(0xFFDC2626), size: 16),
-                  label: const Text(
-                    'Báo cáo chủ trọ',
-                    style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(88, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                    side: const BorderSide(color: Color(0xFFFCA5A5)),
-                    backgroundColor: const Color(0xFFFEF2F2),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // 2. Nút Nhắn tin
+              // 1. Nút Nhắn tin
               Semantics(
                 label: 'Nhắn tin với chủ nhà',
                 button: true,
                 excludeSemantics: true,
                 child: OutlinedButton.icon(
                   onPressed: _onChatPressed,
-                  icon: const Icon(Icons.chat_outlined, color: AppColors.primary, size: 17),
+                  icon: const Icon(Icons.chat_outlined, color: AppColors.primary, size: 18),
                   label: const Text(
                     'Nhắn tin',
-                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12.5),
+                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                   style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(92, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                    side: const BorderSide(color: AppColors.primary, width: 1.4),
+                    minimumSize: const Size(120, 50),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    side: const BorderSide(color: AppColors.primary, width: 1.5),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
 
-              // 3. Nút Đặt phòng nhanh (Ẩn nếu là Chủ trọ xem bài của chính mình)
+              // 2. Nút Đặt phòng nhanh (Ẩn nếu là Chủ trọ xem bài của chính mình)
               if (!widget.isHostView)
                 Expanded(
                   child: Semantics(

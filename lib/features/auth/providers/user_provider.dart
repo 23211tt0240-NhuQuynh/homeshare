@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/role_resolver.dart';
@@ -346,54 +347,144 @@ Future<void> saveCccdVerificationToBackend({
   String cccdBackImageUrl = '',
 }) async {
   final firestore = FirebaseFirestore.instance;
+  final effectiveUid = (uid.isNotEmpty && uid != 'guest_uid')
+      ? uid
+      : (FirebaseAuth.instance.currentUser?.uid ?? uid);
+
   final updateData = <String, dynamic>{
     'isCccdVerified': true,
+    'daXacThucCccd': true,
+    'trangThaiXacMinh': 'daXacThuc',
+    'trangThaiXacMinh_id': 'daXacThuc',
     'cccdNumber': cccdNumber,
+    'soCccd': cccdNumber,
+    'soGiayTo': cccdNumber,
     'cccdFullName': cccdFullName,
+    'hoTenCccd': cccdFullName,
     'displayName': cccdFullName,
     'cccdIssueDate': cccdIssueDate,
+    'ngayCap': cccdIssueDate,
     'cccdHometown': cccdHometown,
+    'queQuanCccd': cccdHometown,
     'gender': gender,
+    'gioiTinh': gender,
     if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate),
+    if (birthDate != null) 'ngaySinh': Timestamp.fromDate(birthDate),
     if (cccdFrontImageUrl.isNotEmpty) 'cccdFrontImageUrl': cccdFrontImageUrl,
     if (cccdBackImageUrl.isNotEmpty) 'cccdBackImageUrl': cccdBackImageUrl,
     'cccdVerifiedAt': FieldValue.serverTimestamp(),
-    'hoTen': FieldValue.delete(),
-    'gioiTinh': FieldValue.delete(),
-    'ngaySinh': FieldValue.delete(),
-    'daXacThucCccd': FieldValue.delete(),
-    'trangThaiXacMinh': FieldValue.delete(),
-    'trangThaiXacMinh_id': FieldValue.delete(),
-    'soCccd': FieldValue.delete(),
-    'soGiayTo': FieldValue.delete(),
-    'hoTenCccd': FieldValue.delete(),
-    'ngayCap': FieldValue.delete(),
-    'queQuanCccd': FieldValue.delete(),
-    'anhMatTruoc': FieldValue.delete(),
-    'anhMatSau': FieldValue.delete(),
-    'ngayXacMinh': FieldValue.delete(),
+    'ngayXacMinh': FieldValue.serverTimestamp(),
   };
 
-  try {
-    await firestore
-        .collection('users')
-        .doc(uid)
-        .set(updateData, SetOptions(merge: true));
-  } catch (e) {
-    // Offline / fallback fallback
+  if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
+    try {
+      await firestore
+          .collection('users')
+          .doc(effectiveUid)
+          .set(updateData, SetOptions(merge: true));
+      debugPrint('Đã lưu CCCD eKYC vào Firestore users/$effectiveUid thành công ✓');
+    } catch (e) {
+      debugPrint('Lỗi ghi CCCD vào Firestore users/$effectiveUid: $e');
+    }
+
+    try {
+      await firestore
+          .collection('users')
+          .doc(effectiveUid)
+          .collection('id_verifications')
+          .doc('cccd')
+          .set({
+        'id': 'cccd',
+        'type': 'cccd',
+        'cccdNumber': cccdNumber,
+        'cccdFullName': cccdFullName,
+        'cccdIssueDate': cccdIssueDate,
+        'cccdHometown': cccdHometown,
+        'gender': gender,
+        if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate),
+        if (cccdFrontImageUrl.isNotEmpty) 'cccdFrontImageUrl': cccdFrontImageUrl,
+        if (cccdBackImageUrl.isNotEmpty) 'cccdBackImageUrl': cccdBackImageUrl,
+        'status': 'verified',
+        'verifiedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Lỗi ghi subcollection id_verifications: $e');
+    }
   }
 
   try {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('cccd_verified_$uid', true);
-    await prefs.setString('cccd_number_$uid', cccdNumber);
-    await prefs.setString('cccd_name_$uid', cccdFullName);
+    final cacheKey = effectiveUid.isNotEmpty ? effectiveUid : 'current';
+    await prefs.setBool('cccd_verified_$cacheKey', true);
+    await prefs.setString('cccd_number_$cacheKey', cccdNumber);
+    await prefs.setString('cccd_name_$cacheKey', cccdFullName);
+    await prefs.setString('cccd_hometown_$cacheKey', cccdHometown);
+    await prefs.setString('cccd_gender_$cacheKey', gender);
+    if (birthDate != null) {
+      await prefs.setString('cccd_birth_$cacheKey', birthDate.toIso8601String());
+    }
     if (cccdFrontImageUrl.isNotEmpty) {
-      await prefs.setString('cccd_front_$uid', cccdFrontImageUrl);
+      await prefs.setString('cccd_front_$cacheKey', cccdFrontImageUrl);
     }
     if (cccdBackImageUrl.isNotEmpty) {
-      await prefs.setString('cccd_back_$uid', cccdBackImageUrl);
+      await prefs.setString('cccd_back_$cacheKey', cccdBackImageUrl);
     }
+  } catch (_) {}
+}
+
+/// Xóa toàn bộ thông tin xác thực CCCD trên Firestore và SharedPreferences để phục vụ kiểm thử
+Future<void> resetCccdVerificationForTesting({required String uid, FirebaseFirestore? firestore}) async {
+  final effectiveUid = (uid.isNotEmpty && uid != 'guest_uid')
+      ? uid
+      : (FirebaseAuth.instance.currentUser?.uid ?? uid);
+
+  final resetData = <String, dynamic>{
+    'isCccdVerified': false,
+    'daXacThucCccd': false,
+    'trangThaiXacMinh': 'chuaXacThuc',
+    'trangThaiXacMinh_id': 'chuaXacThuc',
+    'cccdNumber': FieldValue.delete(),
+    'soCccd': FieldValue.delete(),
+    'soGiayTo': FieldValue.delete(),
+    'cccdFullName': FieldValue.delete(),
+    'hoTenCccd': FieldValue.delete(),
+    'cccdIssueDate': FieldValue.delete(),
+    'ngayCap': FieldValue.delete(),
+    'cccdHometown': FieldValue.delete(),
+    'queQuanCccd': FieldValue.delete(),
+    'cccdFrontImageUrl': FieldValue.delete(),
+    'cccdBackImageUrl': FieldValue.delete(),
+    'cccdVerifiedAt': FieldValue.delete(),
+    'ngayXacMinh': FieldValue.delete(),
+  };
+
+  if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
+    try {
+      final db = firestore ?? FirebaseFirestore.instance;
+      await db.collection('users').doc(effectiveUid).set(resetData, SetOptions(merge: true));
+      await db.collection('users').doc(effectiveUid).collection('id_verifications').doc('cccd').delete();
+      debugPrint('Đã xóa dữ liệu xác thực CCCD users/$effectiveUid thành công ✓');
+    } catch (e) {
+      debugPrint('Lỗi xóa CCCD Firestore: $e');
+    }
+  }
+
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final cacheKey = effectiveUid.isNotEmpty ? effectiveUid : 'current';
+    await prefs.remove('cccd_verified_$cacheKey');
+    await prefs.remove('cccd_number_$cacheKey');
+    await prefs.remove('cccd_name_$cacheKey');
+    await prefs.remove('cccd_hometown_$cacheKey');
+    await prefs.remove('cccd_gender_$cacheKey');
+    await prefs.remove('cccd_birth_$cacheKey');
+    await prefs.remove('cccd_front_$cacheKey');
+    await prefs.remove('cccd_back_$cacheKey');
+    await prefs.remove('draft_cccd_front_image');
+    await prefs.remove('draft_cccd_back_image');
+    await prefs.remove('draft_cccd_data_json');
+    await prefs.remove('draft_cccd_qr_payload');
   } catch (_) {}
 }
 

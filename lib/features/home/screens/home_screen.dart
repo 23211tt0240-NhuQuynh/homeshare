@@ -17,6 +17,7 @@ import '../../profile/widgets/contact_hotline_sheet.dart';
 import '../../renter/screens/favorite_rooms_screen.dart';
 import '../../renter/screens/renter_bookings_screen.dart';
 import '../../renter/screens/my_homes_screen.dart';
+import '../../renter/widgets/report_room_issue_bottom_sheet.dart';
 import '../../host/screens/host_main_screen.dart';
 import '../../host/screens/host_property_management_screen.dart';
 import '../../host/screens/host_tenant_management_screen.dart';
@@ -448,6 +449,270 @@ class HomeScreen extends ConsumerWidget {
     showContactHotlineSheet(context);
   }
 
+  void _handleReportRoomIssue(
+    BuildContext context,
+    List<BookingRequestModel> activeRentals,
+    List<BookingRequestModel> allBookings,
+    String Function(String) tr,
+  ) {
+    if (activeRentals.isEmpty) {
+      final approvedBookings = allBookings.where((b) => b.isApproved).toList();
+      if (approvedBookings.isNotEmpty) {
+        if (approvedBookings.length == 1) {
+          showReportRoomIssueBottomSheet(context, booking: approvedBookings.first);
+          return;
+        } else {
+          _showSelectRoomForIssueBottomSheet(context, approvedBookings, tr);
+          return;
+        }
+      }
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3F2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.handyman_outlined, color: Color(0xFFD92D20), size: 22),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Chưa có phòng đang thuê',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Tính năng "Báo cáo sự cố phòng trọ" dành cho người thuê đang lưu trú để thông báo hỏng hóc kỹ thuật (máy lạnh, điện nước, wifi...) đến chủ trọ.\n\nBạn hiện chưa có phòng trọ nào đang hoạt động.',
+            style: TextStyle(fontSize: 13.5, color: Color(0xFF475467), height: 1.45),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Đóng'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MyHomesScreen(initialTab: 0)),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('Xem phòng của tôi'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    if (activeRentals.length == 1) {
+      showReportRoomIssueBottomSheet(context, booking: activeRentals.first);
+      return;
+    }
+
+    _showSelectRoomForIssueBottomSheet(context, activeRentals, tr);
+  }
+
+  void _showSelectRoomForIssueBottomSheet(
+    BuildContext context,
+    List<BookingRequestModel> rooms,
+    String Function(String) tr,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final textDark = isDark ? const Color(0xFFF8FAFC) : AppColors.textDark;
+    final textMuted = isDark ? const Color(0xFF94A3B8) : AppColors.textMuted;
+    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+        ),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF451A03) : const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A),
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.build_circle_outlined,
+                    color: Color(0xFFD97706),
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Chọn phòng cần báo sự cố',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: textDark,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Bạn đang có ${rooms.length} phòng đang thuê. Chọn phòng để báo:',
+                        style: TextStyle(fontSize: 12.5, color: textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.close_rounded, color: textMuted),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: rooms.length,
+                separatorBuilder: (_, index) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final b = rooms[index];
+                  return InkWell(
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      showReportRoomIssueBottomSheet(context, booking: b);
+                    },
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF8FF),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.meeting_room_outlined,
+                              color: Color(0xFF155EEF),
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  b.roomTitle,
+                                  style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: textDark,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  b.roomAddress,
+                                  style: TextStyle(fontSize: 12, color: textMuted),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.person_outline, size: 13, color: Color(0xFF027A48)),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        'Chủ trọ: ${b.hostName.isNotEmpty ? b.hostName : "Chủ nhà"}',
+                                        style: const TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF027A48),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 15,
+                            color: textMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showTermsDialog(BuildContext context) {
     Navigator.push(
       context,
@@ -474,14 +739,14 @@ class HomeScreen extends ConsumerWidget {
 
     // Thống kê thực tế phòng đã lưu
     final favState = ref.watch(favoritesProvider);
-    final savedCount = favState.favoriteRoomIds.length;
+    final savedCount = favState.favoriteRooms.length;
 
     // Thống kê thực tế đơn thuê & lịch hẹn của người thuê
     final bookingsAsync = currentUid.isNotEmpty
         ? ref.watch(renterBookingsStreamProvider(currentUid))
         : null;
     final bookings = bookingsAsync?.value ?? const <BookingRequestModel>[];
-    final appointmentCount = bookings.where((b) => !b.isCancelled && !b.isActive).length;
+    final appointmentCount = bookings.where((b) => b.isPending).length;
     final activeRentals = bookings.where((b) => b.isActive).toList();
     final activeCount = activeRentals.length;
 
@@ -491,6 +756,10 @@ class HomeScreen extends ConsumerWidget {
         : null;
     final hostBookings = hostBookingsAsync?.value ?? const <BookingRequestModel>[];
     final hostRentedCount = hostBookings.where((b) => b.isActive).length;
+    final rejectedCountAsync = currentUid.isNotEmpty
+        ? ref.watch(hostRejectedCountProvider(currentUid))
+        : null;
+    final rejectedPostsCount = rejectedCountAsync?.value ?? 0;
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = Theme.of(context).scaffoldBackgroundColor;
@@ -675,13 +944,16 @@ class HomeScreen extends ConsumerWidget {
                               )
                             else
                               InkWell(
-                                onTap: () {
-                                  Navigator.push(
+                                onTap: () async {
+                                  final res = await Navigator.push<bool>(
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) => const CccdVerificationScreen(),
                                     ),
                                   );
+                                  if (res == true && context.mounted) {
+                                    ref.invalidate(userProfileProvider);
+                                  }
                                 },
                                 borderRadius: BorderRadius.circular(6),
                                 child: Container(
@@ -822,10 +1094,10 @@ class HomeScreen extends ConsumerWidget {
                     ? [
                         _buildMenuRow(
                           icon: Icons.post_add_rounded,
-                          title: 'Quản lý bài đăng',
+                          title: tr('manage_posts'),
                           subtitle: rejectedPostsCount > 0
                               ? '$rejectedPostsCount bài đăng bị từ chối duyệt'
-                              : 'Danh sách bài đăng phòng, trạng thái kiểm duyệt',
+                              : tr('manage_posts_sub'),
                           badgeCount: rejectedPostsCount,
                           textDark: textDark,
                           textMuted: textMuted,
@@ -835,7 +1107,7 @@ class HomeScreen extends ConsumerWidget {
                               context,
                               MaterialPageRoute(
                                 builder: (_) => HostPostManagementScreen(
-                                  initialTabIndex: rejectedPostsCount > 0 ? 3 : 0,
+                                  initialTabIndex: rejectedPostsCount > 0 ? 0 : 2,
                                 ),
                               ),
                             );
@@ -1005,7 +1277,7 @@ class HomeScreen extends ConsumerWidget {
                           textDark: textDark,
                           textMuted: textMuted,
                           iconBg: iconBg,
-                          onTap: () {},
+                          onTap: () => _handleReportRoomIssue(context, activeRentals, bookings, tr),
                         ),
                       ],
               ),
@@ -1188,9 +1460,9 @@ class HomeScreen extends ConsumerWidget {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
-    Color textDark = AppColors.textDark,
-    Color textMuted = AppColors.textMuted,
-    Color iconBg = AppColors.surfaceVariant,
+    required Color textDark,
+    required Color textMuted,
+    required Color iconBg,
     int? badgeCount,
   }) {
     return ListTile(
@@ -1218,12 +1490,13 @@ class HomeScreen extends ConsumerWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (badgeCount != null && badgeCount > 0) ...[
+          if (badgeCount != null && badgeCount > 0)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              margin: const EdgeInsets.only(right: 6),
               decoration: BoxDecoration(
-                color: AppColors.danger,
-                borderRadius: BorderRadius.circular(10),
+                color: const Color(0xFFDC2626),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 '$badgeCount',
@@ -1234,8 +1507,6 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 6),
-          ],
           Icon(
             Icons.chevron_right,
             size: 20,

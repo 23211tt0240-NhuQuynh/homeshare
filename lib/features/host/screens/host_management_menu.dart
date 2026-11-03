@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 enum HostManagementSection {
+  posts,
   tenants,
   checkinCheckout,
   violations,
@@ -146,6 +147,15 @@ class HostManagementMenu extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _buildItem(
+            section: HostManagementSection.posts,
+            title: 'Quản lý bài đăng',
+            icon: Icons.post_add_rounded,
+            iconColor: const Color(0xFF2563EB),
+            iconBg: const Color(0xFFEFF6FF),
+            isSelected: currentSection == HostManagementSection.posts,
+          ),
+          const SizedBox(height: 4),
           _buildItem(
             section: HostManagementSection.tenants,
             title: 'Quản lý người thuê',

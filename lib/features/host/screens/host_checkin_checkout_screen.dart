@@ -13,6 +13,7 @@ import '../widgets/host_checkin_qr_result_sheet.dart';
 import 'host_checkin_handover_screen.dart';
 import 'host_management_menu.dart';
 import 'host_violation_management_screen.dart';
+import 'host_post_management_screen.dart';
 
 class HostCheckinCheckoutScreen extends ConsumerStatefulWidget {
   final ValueChanged<HostManagementSection>? onSectionChanged;
@@ -46,6 +47,12 @@ class _HostCheckinCheckoutScreenState
       onSelect: (section) {
         if (widget.onSectionChanged != null) {
           widget.onSectionChanged!(section);
+        } else if (section == HostManagementSection.posts) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => const HostPostManagementScreen(),
+            ),
+          );
         } else if (section == HostManagementSection.tenants) {
           Navigator.of(context).pushReplacementNamed('/host/tenants');
         } else if (section == HostManagementSection.violations) {

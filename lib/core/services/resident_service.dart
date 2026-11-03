@@ -8,12 +8,15 @@ class ResidentService {
   ResidentService(this.firestore);
 
   static bool isActive(ResidentModel resident) {
-    if (resident.moveOutDate != null &&
-        resident.moveOutDate!.isBefore(DateTime.now())) {
+    if (resident.isMovedOut) {
       return false;
     }
     final s = resident.statusId.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-    if (const ['daroi', 'movedout', 'daketthuc', 'cancelled', 'dahuy'].contains(s)) {
+    if (const ['daroi', 'movedout', 'daketthuc', 'cancelled', 'dahuy', 'checkedout', 'checkout', 'completed', 'ended', 'traphong'].contains(s)) {
+      return false;
+    }
+    if (resident.moveOutDate != null &&
+        resident.moveOutDate!.isBefore(DateTime.now())) {
       return false;
     }
     return const [

@@ -162,10 +162,16 @@ class FavoritesNotifier extends Notifier<FavoritesState> {
 
   Future<void> _hydrateMissingRooms(Set<String> roomIds) async {
     final updatedRooms = Map<String, RoomModel>.from(state.roomsCache);
+    final validRoomIds = Set<String>.from(state.favoriteRoomIds);
     bool hasNew = false;
+    bool hasPruned = false;
     final roomService = ref.read(roomServiceProvider);
     for (final id in roomIds) {
-      if (id.toLowerCase().startsWith('sample')) continue;
+      if (id.toLowerCase().startsWith('sample')) {
+        validRoomIds.remove(id);
+        hasPruned = true;
+        continue;
+      }
       if (!updatedRooms.containsKey(id)) {
         // Tìm trong Firestore
         try {
@@ -173,6 +179,9 @@ class FavoritesNotifier extends Notifier<FavoritesState> {
           if (room != null && room.isDisplayable) {
             updatedRooms[id] = room;
             hasNew = true;
+          } else {
+            validRoomIds.remove(id);
+            hasPruned = true;
           }
         } catch (e) {
           debugPrint('Error fetching room $id: $e');
@@ -180,15 +189,36 @@ class FavoritesNotifier extends Notifier<FavoritesState> {
       }
     }
 
-    if (hasNew) {
-      state = state.copyWith(roomsCache: updatedRooms);
-      _persistRoomsCache(updatedRooms);
+    if (hasNew || hasPruned) {
+      state = state.copyWith(
+        favoriteRoomIds: validRoomIds,
+        roomsCache: updatedRooms,
+      );
+      if (hasNew) {
+        _persistRoomsCache(updatedRooms);
+      }
+      if (hasPruned) {
+        try {
+          final sp = await SharedPreferences.getInstance();
+          await sp.setStringList(_spKeyRoomIds, validRoomIds.toList());
+          final user = ref.read(currentUserProvider);
+          if (user != null) {
+            await _firestore.collection('users').doc(user.uid).set({
+              'favoriteRoomIds': validRoomIds.toList(),
+            }, SetOptions(merge: true));
+          }
+        } catch (e) {
+          debugPrint('Error pruning dead room id from favorites: $e');
+        }
+      }
     }
   }
 
   Future<void> _hydrateMissingPosts(Set<String> postIds) async {
     final updatedPosts = Map<String, RoommatePostModel>.from(state.postsCache);
+    final validPostIds = Set<String>.from(state.favoritePostIds);
     bool hasNew = false;
+    bool hasPruned = false;
     final demoPosts = RoommateService.getDemoRoommatePosts();
 
     for (final id in postIds) {
@@ -207,6 +237,9 @@ class FavoritesNotifier extends Notifier<FavoritesState> {
           if (doc.exists) {
             updatedPosts[id] = RoommatePostModel.fromFirestore(doc);
             hasNew = true;
+          } else {
+            validPostIds.remove(id);
+            hasPruned = true;
           }
         } catch (e) {
           debugPrint('Error fetching post $id: $e');
@@ -214,9 +247,28 @@ class FavoritesNotifier extends Notifier<FavoritesState> {
       }
     }
 
-    if (hasNew) {
-      state = state.copyWith(postsCache: updatedPosts);
-      _persistPostsCache(updatedPosts);
+    if (hasNew || hasPruned) {
+      state = state.copyWith(
+        favoritePostIds: validPostIds,
+        postsCache: updatedPosts,
+      );
+      if (hasNew) {
+        _persistPostsCache(updatedPosts);
+      }
+      if (hasPruned) {
+        try {
+          final sp = await SharedPreferences.getInstance();
+          await sp.setStringList(_spKeyPostIds, validPostIds.toList());
+          final user = ref.read(currentUserProvider);
+          if (user != null) {
+            await _firestore.collection('users').doc(user.uid).set({
+              'favoritePostIds': validPostIds.toList(),
+            }, SetOptions(merge: true));
+          }
+        } catch (e) {
+          debugPrint('Error pruning dead post id from favorites: $e');
+        }
+      }
     }
   }
 
