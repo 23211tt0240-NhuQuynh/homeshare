@@ -246,7 +246,7 @@ class _ReportHostPostDialogState extends ConsumerState<ReportHostPostDialog> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7),
+                  color: AppColors.warningContainer,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Row(

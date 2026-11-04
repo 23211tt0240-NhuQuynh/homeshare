@@ -53,12 +53,14 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
     final currencyFormatter = NumberFormat('#,###', 'vi_VN');
 
     final roomsAsync = ref.watch(roomsStreamProvider(const RoomFilterParams()));
+    final colors = AppColors.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       appBar: AppBar(
         centerTitle: false,
-        backgroundColor: Colors.white,
+        backgroundColor: colors.surface,
+        foregroundColor: colors.textDark,
         elevation: 0,
         title: Row(
           children: [
@@ -66,23 +68,23 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.primary, AppColors.primaryLight],
+                gradient: LinearGradient(
+                  colors: [colors.primary, colors.primaryLight],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.22),
+                    color: colors.primary.withValues(alpha: 0.22),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
                 ],
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.home_work_rounded,
-                color: Colors.white,
+                color: colors.onPrimary,
                 size: 22,
               ),
             ),
@@ -94,13 +96,13 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                 children: [
                   Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
+                    children: [
                       Text(
                         'Home',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
-                          color: AppColors.textDark,
+                          color: colors.textDark,
                           letterSpacing: -0.5,
                         ),
                       ),
@@ -109,20 +111,20 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
-                          color: AppColors.primary,
+                          color: colors.primary,
                           letterSpacing: -0.5,
                         ),
                       ),
                     ],
                   ),
-                  const Text(
+                  Text(
                     'Tìm phòng & Ở ghép thông minh',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.textMuted,
+                      color: colors.textMuted,
                       letterSpacing: 0.1,
                     ),
                   ),
@@ -134,7 +136,7 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
         actions: [
           IconButton(
             tooltip: 'Mở bộ lọc tìm phòng',
-            icon: const Icon(Icons.search, color: AppColors.textMuted),
+            icon: Icon(Icons.search, color: colors.textMuted),
             onPressed: () {
               Navigator.push(
                 context,
@@ -161,10 +163,10 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                 padding: const EdgeInsets.only(bottom: 12.0),
                 child: Text(
                   'Xin chào, ${profile?.displayName.isNotEmpty == true ? profile!.displayName : "bạn"} 👋',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
+                    color: colors.textDark,
                   ),
                 ),
               ),
@@ -173,12 +175,12 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'TẤT CẢ BÀI VIẾT',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textMuted,
+                      color: colors.textMuted,
                       letterSpacing: 0.8,
                     ),
                   ),
@@ -191,14 +193,14 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                         ),
                       );
                     },
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.tune,
                       size: 16,
-                      color: AppColors.primary,
+                      color: colors.primary,
                     ),
-                    label: const Text(
+                    label: Text(
                       'Bộ lọc',
-                      style: TextStyle(fontSize: 12, color: AppColors.primary),
+                      style: TextStyle(fontSize: 12, color: colors.primary),
                     ),
                   ),
                 ],
@@ -214,11 +216,11 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                         horizontal: 16,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: colors.surface,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFF0F2F5)),
+                        border: Border.all(color: colors.border),
                       ),
-                      child: const Column(
+                      child: Column(
                         children: [
                           Icon(
                             Icons.home_outlined,
@@ -252,7 +254,10 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                     child: CircularProgressIndicator(),
                   ),
                 ),
-                error: (err, _) => Text('Lỗi tải bài viết: $err'),
+                error: (err, _) => Text(
+                  'Lỗi tải bài viết: $err',
+                  style: TextStyle(color: colors.textDark),
+                ),
               ),
               const SizedBox(height: 24),
             ],
@@ -263,28 +268,29 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
   }
 
   Widget _buildStatusBadge(RoomModel room) {
+    final colors = AppColors.of(context);
     final Color bgColor;
     final Color textColor;
     final IconData icon;
     final String label = room.statusDisplayLabel;
 
     if (room.isPending) {
-      bgColor = const Color(0xFFFEF0C7);
-      textColor = const Color(0xFFB54708);
+      bgColor = colors.warningContainer;
+      textColor = colors.warning;
       icon = Icons.schedule_rounded;
     } else if (room.isHiddenOrRejected) {
-      bgColor = const Color(0xFFFEE4E2);
-      textColor = const Color(0xFFD92D20);
+      bgColor = colors.dangerContainer;
+      textColor = colors.danger;
       icon = Icons.visibility_off_rounded;
     } else {
       final s = room.status.toLowerCase().trim();
       if (s == 'occupied' || s == 'dathue') {
-        bgColor = const Color(0xFFF2F4F7);
-        textColor = const Color(0xFF344054);
+        bgColor = colors.surfaceVariant;
+        textColor = colors.textMuted;
         icon = Icons.lock_outline_rounded;
       } else {
-        bgColor = const Color(0xFFECFDF3);
-        textColor = const Color(0xFF027A48);
+        bgColor = AppColors.successContainer;
+        textColor = colors.success;
         icon = Icons.check_circle_rounded;
       }
     }
@@ -315,6 +321,7 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
   }
 
   Widget _buildRoomCard(RoomModel room, NumberFormat formatter) {
+    final colors = AppColors.of(context);
     final priceStr = '${formatter.format(room.price)} đ';
     final addressLabel = _roomAddressLabel(room);
     final hostName = room.hostName.trim().isNotEmpty
@@ -323,9 +330,10 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
 
     return Card(
       margin: EdgeInsets.zero,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFFF0F2F5)),
+        side: BorderSide(color: colors.border),
       ),
       child: InkWell(
         onTap: () {
@@ -342,7 +350,7 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
             Container(
               height: 140,
               decoration: BoxDecoration(
-                color: Colors.grey.shade200,
+                color: colors.surfaceVariant,
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(16),
                 ),
@@ -431,13 +439,13 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.primary,
+                            color: colors.primary,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             room.roomType,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: colors.onPrimary,
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
@@ -474,8 +482,8 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                                   ),
                                   duration: const Duration(seconds: 1),
                                   backgroundColor: added
-                                      ? AppColors.primary
-                                      : const Color(0xFF334155),
+                                      ? colors.primary
+                                      : colors.surfaceVariant,
                                 ),
                               );
                             }
@@ -500,7 +508,7 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                                   : Icons.favorite_border_rounded,
                               color: isFav
                                   ? const Color(0xFFEF4444)
-                                  : const Color(0xFF64748B),
+                                  : AppColors.textMuted,
                               size: 18,
                             ),
                           ),
@@ -521,10 +529,10 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                     children: [
                       Text(
                         '$priceStr/tháng',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
+                          color: colors.textDark,
                         ),
                       ),
                       HostReputationStarLabel(hostId: room.hostId),
@@ -533,10 +541,10 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                   const SizedBox(height: 6),
                   Text(
                     room.title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
+                      color: colors.textDark,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -544,18 +552,18 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.location_on_outlined,
                         size: 14,
-                        color: AppColors.textMuted,
+                        color: colors.textMuted,
                       ),
                       const SizedBox(width: 2),
                       Expanded(
                         child: Text(
                           addressLabel,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textMuted,
+                            color: colors.textMuted,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -563,9 +571,9 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                       ),
                       Text(
                         '• ${room.area} m²',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textMuted,
+                          color: colors.textMuted,
                         ),
                       ),
                     ],
@@ -573,18 +581,18 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                   const SizedBox(height: 5),
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.person_outline_rounded,
                         size: 14,
-                        color: AppColors.textMuted,
+                        color: colors.textMuted,
                       ),
                       const SizedBox(width: 2),
                       Expanded(
                         child: Text(
                           'Chủ trọ: $hostName',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textMuted,
+                            color: colors.textMuted,
                             fontWeight: FontWeight.w500,
                           ),
                           maxLines: 1,

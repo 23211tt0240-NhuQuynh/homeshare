@@ -223,8 +223,8 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
               icon: const Icon(Icons.refresh_rounded, size: 16),
               label: const Text('Đặt lại', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF334155),
-                side: const BorderSide(color: Color(0xFFCBD5E1)),
+                foregroundColor: AppColors.textMuted,
+                side: BorderSide(color: AppColors.border),
                 minimumSize: const Size(0, 44),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -241,8 +241,8 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
 
     return Container(
       height: sheetHeight,
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -253,7 +253,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
             width: 44,
             height: 4.5,
             decoration: BoxDecoration(
-              color: const Color(0xFFCBD5E1),
+              color: AppColors.border,
               borderRadius: BorderRadius.circular(10),
             ),
           ),
@@ -269,12 +269,12 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                     children: [
                       Row(
                         children: [
-                          const Text(
+                          Text(
                             'Bộ lọc Lifestyle & Ở ghép',
                             style: TextStyle(
                               fontSize: 16.5,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF0F172A),
+                              color: AppColors.textDark,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -285,7 +285,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
                             ),
-                            child: const Text(
+                            child: Text(
                               'AI Match',
                               style: TextStyle(
                                 fontSize: 11,
@@ -297,9 +297,9 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                         ],
                       ),
                       const SizedBox(height: 3),
-                      const Text(
+                      Text(
                         'Tìm bạn cùng phòng hợp phong cách sống và tính tình',
-                        style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                        style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
                       ),
                     ],
                   ),
@@ -310,17 +310,17 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      color: AppColors.surfaceVariant,
                       shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      border: Border.all(color: AppColors.border),
                     ),
-                    child: const Icon(Icons.close, size: 18, color: Color(0xFF475569)),
+                    child: Icon(Icons.close, size: 18, color: AppColors.textMuted),
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          Divider(height: 1, color: AppColors.border),
 
           // Body Form cuộn mượt mà
           Expanded(
@@ -345,7 +345,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Row(
+            Row(
               children: [
                 Icon(Icons.apartment_rounded, size: 18, color: AppColors.primary),
                 SizedBox(width: 8),
@@ -355,7 +355,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.3,
-                    color: Color(0xFF0F172A),
+                    color: AppColors.textDark,
                   ),
                 ),
               ],
@@ -363,7 +363,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
             InkWell(
               onTap: () => setState(() => _hasRoom = null),
               borderRadius: BorderRadius.circular(6),
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 child: Text(
                   'Tất cả',
@@ -417,10 +417,10 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
         height: 120,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primarySurface : Colors.white,
+          color: isSelected ? AppColors.primarySurface : AppColors.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+            color: isSelected ? AppColors.primary : AppColors.border,
             width: isSelected ? 1.8 : 1,
           ),
         ),
@@ -435,19 +435,19 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+                    color: isSelected ? AppColors.primary : AppColors.border,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     icon,
                     size: 18,
-                    color: isSelected ? Colors.white : const Color(0xFF475569),
+                    color: isSelected ? Colors.white : AppColors.textMuted,
                   ),
                 ),
                 Icon(
                   isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
                   size: 20,
-                  color: isSelected ? AppColors.primary : const Color(0xFF94A3B8),
+                  color: isSelected ? AppColors.primary : AppColors.textMuted,
                 ),
               ],
             ),
@@ -459,13 +459,13 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.bold,
-                    color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF334155),
+                    color: isSelected ? AppColors.textDark : AppColors.textMuted,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), height: 1.25),
+                  style: TextStyle(fontSize: 10, color: AppColors.textMuted, height: 1.25),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -482,7 +482,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
             Icon(Icons.people_outline_rounded, size: 18, color: AppColors.primary),
             SizedBox(width: 8),
@@ -492,7 +492,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.3,
-                color: Color(0xFF0F172A),
+                color: AppColors.textDark,
               ),
             ),
           ],
@@ -500,9 +500,9 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
         const SizedBox(height: 10),
 
         // Giới tính mong muốn
-        const Text(
+        Text(
           'Giới tính mong muốn',
-          style: TextStyle(fontSize: 11.5, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+          style: TextStyle(fontSize: 11.5, color: AppColors.textMuted, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 6),
         Wrap(
@@ -529,9 +529,9 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
         ),
         const SizedBox(height: 14),
 
-        const Text(
+        Text(
           'Nghề nghiệp / Tình trạng',
-          style: TextStyle(fontSize: 11.5, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+          style: TextStyle(fontSize: 11.5, color: AppColors.textMuted, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 6),
         _buildChecklist(
@@ -575,9 +575,9 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
       textColor = AppColors.primary;
       border = Border.all(color: AppColors.primary, width: 1.2);
     } else {
-      bg = Colors.white;
-      textColor = const Color(0xFF334155);
-      border = Border.all(color: const Color(0xFFE2E8F0));
+      bg = AppColors.surface;
+      textColor = AppColors.textDark;
+      border = Border.all(color: AppColors.border);
     }
 
     return InkWell(
@@ -623,9 +623,9 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -633,7 +633,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
                   Icon(Icons.account_balance_wallet_outlined, size: 18, color: AppColors.primary),
                   SizedBox(width: 8),
@@ -643,7 +643,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
                       height: 1.2,
-                      color: Color(0xFF0F172A),
+                      color: AppColors.textDark,
                     ),
                   ),
                 ],
@@ -651,13 +651,13 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.surface,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppColors.primary.withValues(alpha: 0.25), width: 1.2),
                 ),
                 child: Text(
                   '$startStr - $endStr/tháng',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
@@ -670,7 +670,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               activeTrackColor: AppColors.primary,
-              inactiveTrackColor: const Color(0xFFCBD5E1),
+              inactiveTrackColor: AppColors.border,
               thumbColor: Colors.white,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10, elevation: 3),
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
@@ -689,14 +689,14 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
               },
             ),
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 6),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('500k', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-                Text('2.5 triệu', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-                Text('6 triệu+', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                Text('500k', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                Text('2.5 triệu', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                Text('6 triệu+', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
               ],
             ),
           ),
@@ -710,7 +710,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
             Icon(Icons.psychology_outlined, size: 19, color: AppColors.primary),
             SizedBox(width: 8),
@@ -720,15 +720,15 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.3,
-                color: Color(0xFF0F172A),
+                color: AppColors.textDark,
               ),
             ),
           ],
         ),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           'Chọn các tiêu chí mà bạn coi trọng nhất ở bạn cùng phòng',
-          style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+          style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
         ),
         const SizedBox(height: 12),
         _buildChecklist(
@@ -770,13 +770,13 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                 onSubmitted: (_) => onAdd(),
                 decoration: InputDecoration(
                   hintText: hint,
-                  hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                  hintStyle: TextStyle(fontSize: 13, color: AppColors.textMuted),
                   isDense: true,
                   filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
+                  fillColor: AppColors.background,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
                 ),
               ),
             ),
@@ -800,11 +800,11 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             elevation: 0,
-            color: isSelected ? AppColors.primarySurface : Colors.white,
+            color: isSelected ? AppColors.primarySurface : AppColors.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+                color: isSelected ? AppColors.primary : AppColors.border,
                 width: isSelected ? 1.4 : 1,
               ),
             ),
@@ -818,7 +818,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                     Icon(
                       isSelected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
                       size: 22,
-                      color: isSelected ? AppColors.primary : const Color(0xFF94A3B8),
+                      color: isSelected ? AppColors.primary : AppColors.textMuted,
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -827,7 +827,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color: const Color(0xFF0F172A),
+                          color: AppColors.textDark,
                         ),
                       ),
                     ),
@@ -847,7 +847,7 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -865,8 +865,8 @@ class _RoommateLifestyleFilterSheetState extends State<RoommateLifestyleFilterSh
               icon: const Icon(Icons.refresh_rounded, size: 16),
               label: const Text('Đặt lại', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF334155),
-                side: const BorderSide(color: Color(0xFFCBD5E1)),
+                foregroundColor: AppColors.textMuted,
+                side: BorderSide(color: AppColors.border),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),

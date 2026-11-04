@@ -288,23 +288,42 @@ class _HostCheckinCheckoutScreenState
       final checkoutItems = ref.read(hostCheckoutItemsProvider).value ?? [];
       CheckinCheckoutItem? matchedItem;
 
-      for (final item in checkoutItems) {
-        if (parsedBookingId.isNotEmpty &&
-            (item.bookingId == parsedBookingId ||
-                item.periodId == parsedBookingId)) {
-          matchedItem = item;
-          break;
-        }
-        if (parsedRoomId.isNotEmpty && item.roomId == parsedRoomId) {
-          matchedItem = item;
-          break;
-        }
-        if (parsedRoomCode.isNotEmpty &&
-            (item.roomCode == parsedRoomCode ||
-                item.roomCode.toLowerCase() == parsedRoomCode.toLowerCase())) {
-          matchedItem = item;
-          break;
-        }
+      final candidates = checkoutItems
+          .where(
+            (item) =>
+                !item.isCompleted &&
+                ((parsedBookingId.isNotEmpty &&
+                        (item.bookingId == parsedBookingId ||
+                            item.periodId == parsedBookingId)) ||
+                    (parsedRoomId.isNotEmpty && item.roomId == parsedRoomId) ||
+                    (parsedRoomCode.isNotEmpty &&
+                        item.roomCode.toLowerCase() ==
+                            parsedRoomCode.toLowerCase())),
+          )
+          .toList();
+      if (candidates.length == 1) {
+        matchedItem = candidates.single;
+      } else if (candidates.length > 1) {
+        matchedItem = await showModalBottomSheet<CheckinCheckoutItem>(
+          context: context,
+          builder: (ctx) => SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                const ListTile(title: Text('Chọn người muốn check-out')),
+                for (final candidate in candidates)
+                  ListTile(
+                    title: Text(candidate.renterName),
+                    subtitle: Text(
+                      'P. • ',
+                    ),
+                    onTap: () => Navigator.of(ctx).pop(candidate),
+                  ),
+              ],
+            ),
+          ),
+        );
+        if (!mounted || matchedItem == null) return;
       }
 
       if (matchedItem != null) {

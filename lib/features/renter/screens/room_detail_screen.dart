@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -12,9 +10,7 @@ import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
 import '../../profile/screens/host_profile_screen.dart';
 import '../../../core/utils/host_post_report_policy.dart';
-import '../../../core/utils/host_report_policy.dart';
 import '../widgets/report_host_post_dialog.dart';
-import 'report_host_screen.dart';
 import 'room_booking_detail_screen.dart';
 
 class RoomDetailScreen extends ConsumerStatefulWidget {
@@ -28,7 +24,7 @@ class RoomDetailScreen extends ConsumerStatefulWidget {
   });
 
   /// Làm sạch định dạng URL ảnh, loại bỏ triệt để lỗi crash hình ảnh khi Firestore trả về
-  /// chuỗi {url: ...} hoặc dấu ngoặc kép thừa hoặc Base64
+  /// chuỗi {url: ...} hoặc dấu ngoặc kép thừa
   static String cleanImageUrl(dynamic raw) {
     if (raw == null) return '';
     if (raw is Map) {
@@ -37,28 +33,12 @@ class RoomDetailScreen extends ConsumerStatefulWidget {
               raw['image'] ??
               raw['imageUrl'] ??
               raw['link'] ??
-              raw['photo'] ??
-              raw['path'] ??
               '')
           .toString()
           .trim();
       return cleanImageUrl(u);
     }
     var s = raw.toString().trim();
-    if (s.isEmpty) return '';
-
-    // Nếu là Base64 Data URI hoặc chuỗi Base64
-    if (s.startsWith('data:image') || s.startsWith('blob:') || s.startsWith('base64,')) {
-      return s;
-    }
-
-    // Nếu chuỗi chứa URL http/https hợp lệ
-    final httpMatch = RegExp(r"""https?://[^\s",'}\]]+""").firstMatch(s);
-    if (httpMatch != null) {
-      return httpMatch.group(0)!;
-    }
-
-    // Bóc ngoặc kép / ngoặc đơn
     if (s.startsWith('"') && s.endsWith('"') && s.length > 2) {
       s = s.substring(1, s.length - 1).trim();
     }
@@ -67,10 +47,10 @@ class RoomDetailScreen extends ConsumerStatefulWidget {
     }
     if (s.startsWith('{') && s.endsWith('}')) {
       final match = RegExp(
-        r'''["']?(?:duongDan|url|image|imageUrl|link|photo|path)["']?\s*:\s*["']?([^,"'}]+)["']?''',
+        r'(?:duongDan|url|image|imageUrl|link):\s*([^,}]+)',
       ).firstMatch(s);
       if (match != null) {
-        s = match.group(1)!.trim();
+        s = match.group(1)!.trim().replaceAll('"', '').replaceAll("'", "");
       }
     }
     return s;
@@ -92,86 +72,21 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
 
   List<String> get _cleanedImages {
     final list = <String>[];
-    final sourceImages = _room.images.isNotEmpty
-        ? _room.images
-        : widget.room.images;
-    for (final raw in sourceImages) {
+    for (final raw in _room.images) {
       final cleaned = RoomDetailScreen.cleanImageUrl(raw);
       if (cleaned.isNotEmpty &&
           (cleaned.startsWith('http://') ||
               cleaned.startsWith('https://') ||
               cleaned.startsWith('blob:') ||
-              cleaned.startsWith('data:') ||
-              cleaned.startsWith('base64,'))) {
+              cleaned.startsWith('data:'))) {
         list.add(cleaned);
       }
     }
     return list;
   }
 
-  Widget _buildRoomImage(String rawUrl) {
-    final clean = RoomDetailScreen.cleanImageUrl(rawUrl);
-    if (clean.isEmpty) {
-      return Container(
-        color: Colors.grey.shade200,
-        child: const Icon(Icons.apartment, size: 64, color: Colors.grey),
-      );
-    }
-
-    // 1. Base64 Data URI hoặc chuỗi Base64
-    if (clean.startsWith('data:image') || clean.startsWith('base64,')) {
-      try {
-        final commaIdx = clean.indexOf(',');
-        final base64Str = commaIdx != -1 ? clean.substring(commaIdx + 1) : clean;
-        final bytes = base64Decode(base64Str.trim());
-        return Image.memory(
-          bytes,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          errorBuilder: (context, error, stackTrace) => Container(
-            color: Colors.grey.shade200,
-            child: const Icon(Icons.apartment, size: 64, color: Colors.grey),
-          ),
-        );
-      } catch (e) {
-        debugPrint('[RoomDetailScreen] Lỗi giải mã Base64 ảnh: $e');
-        return Container(
-          color: Colors.grey.shade200,
-          child: const Icon(Icons.apartment, size: 64, color: Colors.grey),
-        );
-      }
-    }
-
-    // 2. Network Image (HTTP / HTTPS / Blob)
-    return Image.network(
-      clean,
-      fit: BoxFit.cover,
-      width: double.infinity,
-      webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return Container(
-          color: Colors.grey.shade100,
-          child: const Center(
-            child: SizedBox(
-              width: 32,
-              height: 32,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          ),
-        );
-      },
-      errorBuilder: (context, error, stackTrace) {
-        debugPrint('[RoomDetailScreen] Lỗi Image.network: $clean - $error');
-        return Container(
-          color: Colors.grey.shade200,
-          child: const Icon(Icons.apartment, size: 64, color: Colors.grey),
-        );
-      },
-    );
-  }
-
-  void _onQuickBookingPressed() async {    final user = ref.read(currentUserProvider);
+  void _onQuickBookingPressed() {
+    final user = ref.read(currentUserProvider);
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Vui lòng đăng nhập để đặt phòng')),
@@ -206,99 +121,10 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
       return;
     }
 
-    // Kiểm tra trạng thái phòng trên host_rooms trước khi chuyển màn hình
-    if (_room.id.isNotEmpty) {
-      try {
-        final hostRoomSnap = await FirebaseFirestore.instance.collection('host_rooms').doc(_room.id).get();
-        if (hostRoomSnap.exists) {
-          final rData = hostRoomSnap.data() ?? {};
-          final rStatus = (rData['status'] ?? '').toString().toLowerCase();
-          if (rStatus == 'pending_confirmation') {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Phòng này vừa có khách chuyển khoản cọc và đang chờ xác nhận. Vui lòng chọn phòng khác!'),
-                  backgroundColor: Color(0xFFB54708),
-                ),
-              );
-            }
-            return;
-          }
-
-          final isHolding = rData['isHolding'] == true;
-          final holdingExpiresAt = (rData['holdingExpiresAt'] as Timestamp?)?.toDate();
-          final holdingRenterId = (rData['holdingRenterId'] ?? '').toString();
-          if (isHolding && holdingExpiresAt != null && holdingExpiresAt.isAfter(DateTime.now())) {
-            if (holdingRenterId.isNotEmpty && holdingRenterId != user.uid) {
-              final diffMinutes = holdingExpiresAt.difference(DateTime.now()).inMinutes + 1;
-              if (mounted) {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    title: const Row(
-                      children: [
-                        Icon(Icons.hourglass_top_rounded, color: Color(0xFFB54708)),
-                        SizedBox(width: 8),
-                        Text('Phòng đang được giữ chỗ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      ],
-                    ),
-                    content: Text(
-                      'Phòng này hiện đang có khách quét mã QR chuyển khoản giữ chỗ (còn khoảng $diffMinutes phút).\n\nNếu khách không hoàn tất thanh toán trong thời gian trên, hệ thống sẽ tự động mở lại phòng để bạn đặt!',
-                      style: const TextStyle(fontSize: 13.5, height: 1.4),
-                    ),
-                    actions: [
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Đã hiểu'),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              return;
-            }
-          }
-        }
-      } catch (_) {}
-    }
-
-    if (mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => RoomBookingDetailScreen(room: _room),
-        ),
-      );
-    }
-  }
-
-  void _onReportHostPressed() {
-    final reporterId = ref.read(currentUserProvider)?.uid ?? '';
-    if (reporterId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng đăng nhập để báo cáo.')),
-      );
-      return;
-    }
-    if (!HostReportPolicy.canReport(
-      reporterId: reporterId,
-      hostId: _room.hostId,
-    )) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bạn không thể tự báo cáo chính mình.')),
-      );
-      return;
-    }
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ReportHostScreen.fromRoom(_room),
+        builder: (_) => RoomBookingDetailScreen(room: _room),
       ),
     );
   }
@@ -432,12 +258,12 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                 child: Container(
                   width: 48,
                   height: 48,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppColors.textDark, size: 20),
+                    icon: Icon(Icons.arrow_back, color: AppColors.textDark, size: 20),
                     tooltip: 'Quay lại',
                     onPressed: () => Navigator.pop(context),
                   ),
@@ -457,8 +283,8 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                       child: Container(
                         width: 48,
                         height: 48,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
@@ -478,7 +304,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                                       ? 'Đã thêm phòng vào danh sách yêu thích ❤️'
                                       : 'Đã bỏ lưu phòng khỏi danh sách yêu thích'),
                                   duration: const Duration(seconds: 2),
-                                  backgroundColor: added ? AppColors.primary : const Color(0xFF334155),
+                                  backgroundColor: added ? AppColors.primary : AppColors.textMuted,
                                 ),
                               );
                             }
@@ -494,19 +320,17 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                 child: Container(
                   width: 48,
                   height: 48,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
                     shape: BoxShape.circle,
                   ),
                   child: PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert, color: AppColors.textDark, size: 20),
+                    icon: Icon(Icons.more_vert, color: AppColors.textDark, size: 20),
                     tooltip: 'Tùy chọn',
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     onSelected: (value) {
                       if (value == 'report_post') {
                         _onReportPostPressed();
-                      } else if (value == 'report_host') {
-                        _onReportHostPressed();
                       }
                     },
                     itemBuilder: (context) => [
@@ -517,16 +341,6 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                             Icon(Icons.flag_outlined, size: 18, color: Color(0xFFDC2626)),
                             SizedBox(width: 8),
                             Text('Báo cáo bài viết này', style: TextStyle(fontSize: 13)),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'report_host',
-                        child: Row(
-                          children: [
-                            Icon(Icons.person_off_outlined, size: 18, color: Color(0xFFDC2626)),
-                            SizedBox(width: 8),
-                            Text('Báo cáo chủ trọ này', style: TextStyle(fontSize: 13)),
                           ],
                         ),
                       ),
@@ -546,7 +360,15 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                             return Semantics(
                               image: true,
                               label: 'Ảnh phòng trọ ${index + 1} trên ${_cleanedImages.length}',
-                              child: _buildRoomImage(_cleanedImages[index]),
+                              child: Image.network(
+                                _cleanedImages[index],
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  color: Colors.grey.shade200,
+                                  child: const Icon(Icons.apartment, size: 64, color: Colors.grey),
+                                ),
+                              ),
                             );
                           },
                         ),
@@ -569,7 +391,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                       ],
                     )
                   : Container(
-                      color: Colors.grey.shade300,
+                      color: AppColors.border,
                       child: const Icon(Icons.apartment, size: 80, color: Colors.grey),
                     ),
             ),
@@ -640,7 +462,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   // Title
                   Text(
                     _room.title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: AppColors.textDark,
@@ -652,12 +474,12 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   // Address
                   Row(
                     children: [
-                      const Icon(Icons.location_on_outlined, size: 16, color: AppColors.primary),
+                      Icon(Icons.location_on_outlined, size: 16, color: AppColors.primary),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           _room.address,
-                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                         ),
                       ),
                     ],
@@ -668,7 +490,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
@@ -684,11 +506,11 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Giá thuê phòng', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                            Text('Giá thuê phòng', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                             const SizedBox(height: 2),
                             Text(
                               priceStr,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.primary,
@@ -696,15 +518,15 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                             ),
                           ],
                         ),
-                        Container(height: 32, width: 1, color: const Color(0xFFE5E7EB)),
+                        Container(height: 32, width: 1, color: AppColors.border),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Tiền đặt cọc', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                            Text('Tiền đặt cọc', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                             const SizedBox(height: 2),
                             Text(
                               depositStr,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.textDark,
@@ -721,7 +543,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
@@ -742,7 +564,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   const SizedBox(height: 20),
 
                   // Chi phí điện, nước & dịch vụ
-                  const Text(
+                  Text(
                     'Chi phí dịch vụ hàng tháng',
                     style: TextStyle(
                       fontSize: 16,
@@ -754,7 +576,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
@@ -799,10 +621,10 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   const SizedBox(height: 20),
 
                   // Thông tin chủ nhà
-                  const Text('Thông tin chủ trọ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                  Text('Thông tin chủ trọ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
                   const SizedBox(height: 10),
                   Material(
-                    color: Colors.white,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(14),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(14),
@@ -816,7 +638,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                               backgroundColor: AppColors.primaryContainer,
                               child: Text(
                                 _room.hostName.isNotEmpty ? _room.hostName[0] : 'H',
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 18),
+                                style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 18),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -828,14 +650,14 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                                     children: [
                                       Text(
                                         _room.hostName,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textDark),
                                       ),
                                       const SizedBox(width: 4),
-                                      const Icon(Icons.verified, size: 14, color: AppColors.primary),
+                                      Icon(Icons.verified, size: 14, color: AppColors.primary),
                                     ],
                                   ),
                                   const SizedBox(height: 2),
-                                  const Text(
+                                  Text(
                                     'Chủ nhà đã xác minh • Nhấn để xem hồ sơ',
                                     style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                                   ),
@@ -843,7 +665,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.phone_in_talk, color: AppColors.primary),
+                              icon: Icon(Icons.phone_in_talk, color: AppColors.primary),
                               tooltip: 'Gọi điện chủ trọ',
                               onPressed: _onCallHostPressed,
                             ),
@@ -855,7 +677,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   const SizedBox(height: 20),
 
                   // Tiện ích phòng trọ
-                  const Text('Tiện ích phòng trọ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                  Text('Tiện ích phòng trọ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
@@ -864,18 +686,18 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.surface,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                          border: Border.all(color: AppColors.border),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.check_circle, size: 14, color: AppColors.primary),
+                            Icon(Icons.check_circle, size: 14, color: AppColors.primary),
                             const SizedBox(width: 6),
                             Text(
                               _getAmenityLabel(amenity),
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textDark),
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textDark),
                             ),
                           ],
                         ),
@@ -885,18 +707,18 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   const SizedBox(height: 20),
 
                   // Mô tả chi tiết
-                  const Text('Mô tả chi tiết', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                  Text('Mô tả chi tiết', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
                   const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.all(16),
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
                       _room.description,
-                      style: const TextStyle(fontSize: 14, height: 1.6, color: AppColors.textSecondary),
+                      style: TextStyle(fontSize: 14, height: 1.6, color: AppColors.textSecondary),
                     ),
                   ),
                 ],
@@ -919,7 +741,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
       bottomSheet: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -938,22 +760,22 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                 excludeSemantics: true,
                 child: OutlinedButton.icon(
                   onPressed: _onChatPressed,
-                  icon: const Icon(Icons.chat_outlined, color: AppColors.primary, size: 18),
-                  label: const Text(
+                  icon: Icon(Icons.chat_outlined, color: AppColors.primary, size: 17),
+                  label: Text(
                     'Nhắn tin',
-                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 14),
+                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12.5),
                   ),
                   style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(120, 50),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    side: const BorderSide(color: AppColors.primary, width: 1.5),
+                    minimumSize: const Size(92, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                    side: BorderSide(color: AppColors.primary, width: 1.4),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
 
-              // 2. Nút Đặt phòng nhanh (Ẩn nếu là Chủ trọ xem bài của chính mình)
+              // 3. Nút Đặt phòng nhanh (Ẩn nếu là Chủ trọ xem bài của chính mình)
               if (!widget.isHostView)
                 Expanded(
                   child: Semantics(
@@ -972,7 +794,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                             : _room.isPending
                                 ? Icons.schedule_outlined
                                 : Icons.bolt,
-                        color: Colors.white,
+                        color: AppColors.surface,
                         size: 18,
                       ),
                       label: FittedBox(
@@ -1007,7 +829,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                     height: 48,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
+                      color: AppColors.primaryContainer,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: const Color(0xFFBFDBFE)),
                     ),
@@ -1065,7 +887,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         foregroundColor: AppColors.textDark,
         elevation: 0,
         title: const Text('Chi tiết bài đăng'),
@@ -1081,7 +903,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textDark,
@@ -1091,7 +913,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(color: AppColors.textSecondary),
               ),
               if (action != null) ...[const SizedBox(height: 20), action],
             ],
@@ -1107,9 +929,9 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
         children: [
           Icon(icon, size: 20, color: AppColors.primary),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark)),
+          Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark)),
           const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+          Text(label, style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
         ],
       ),
     );
@@ -1119,7 +941,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
     return Container(
       height: 28,
       width: 1,
-      color: const Color(0xFFE5E7EB),
+      color: AppColors.border,
     );
   }
 
@@ -1147,7 +969,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
                 color: AppColors.textDark,
@@ -1157,7 +979,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
             Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
             ),
           ],
         ),

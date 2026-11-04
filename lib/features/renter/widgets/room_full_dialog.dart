@@ -34,12 +34,11 @@ class RoomFullDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final title = (roomTitle ?? '').trim();
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: isDark ? const Color(0xFF151C28) : Colors.white,
+      backgroundColor: AppColors.surface,
       surfaceTintColor: Colors.transparent,
       contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
       content: Column(
@@ -49,7 +48,7 @@ class RoomFullDialog extends StatelessWidget {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: const Color(0xFFFEF3C7),
+              color: AppColors.warningContainer,
               shape: BoxShape.circle,
               border: Border.all(color: const Color(0xFFFDE68A), width: 2),
             ),
@@ -66,14 +65,14 @@ class RoomFullDialog extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : const Color(0xFF0F172A),
+              color: AppColors.textDark,
             ),
           ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFFBEB),
+              color: AppColors.warningContainer,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFFDE68A)),
             ),
@@ -102,7 +101,7 @@ class RoomFullDialog extends StatelessWidget {
             style: TextStyle(
               fontSize: 13.5,
               height: 1.45,
-              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+              color: AppColors.textMuted,
             ),
           ),
           const SizedBox(height: 10),
@@ -112,7 +111,7 @@ class RoomFullDialog extends StatelessWidget {
             style: TextStyle(
               fontSize: 11.5,
               fontStyle: FontStyle.italic,
-              color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+              color: AppColors.textMuted,
             ),
           ),
         ],

@@ -10,7 +10,6 @@ import '../../../core/constants/firestore_collections.dart';
 import '../../../core/constants/vietnam_locations.dart';
 import '../../../core/utils/room_identity.dart';
 import '../../../core/utils/room_deposit.dart';
-import '../../../data/models/host_post_model.dart';
 import '../../../data/models/room_model.dart';
 import '../data/host_property.dart';
 
@@ -180,37 +179,38 @@ class HostRepository {
     final urls = <String>[];
     for (var i = 0; i < images.length; i++) {
       final image = images[i];
-      if (!['image/jpeg', 'image/png', 'image/webp'].contains(image.contentType) ||
-          image.bytes.length > 10 * 1024 * 1024) {
-        throw StateError('Mỗi ảnh phải là JPG/PNG/WEBP và không quá 10 MB.');
+      if (!['image/jpeg', 'image/png'].contains(image.contentType) ||
+          image.bytes.length > 5 * 1024 * 1024) {
+        throw StateError('Mỗi ảnh phải là JPG/PNG và không quá 5 MB.');
       }
       if (image.bytes.isEmpty) {
         throw StateError('Ảnh đã chọn bị rỗng. Vui lòng chọn lại ảnh.');
       }
+      final object = _storage.ref('$folder/$i');
+      final task = object.putData(
+        image.bytes,
+        SettableMetadata(contentType: image.contentType),
+      );
       try {
-        final object = _storage.ref('$folder/$i');
-        final task = object.putData(
-          image.bytes,
-          SettableMetadata(contentType: image.contentType),
-        );
         final snapshot = await task.timeout(
-          const Duration(seconds: 20),
+          const Duration(seconds: 60),
           onTimeout: () async {
             await task.cancel();
-            throw StateError('Tải ảnh quá lâu.');
+            throw StateError('Tải ảnh quá lâu. Kiểm tra mạng và thử lưu lại.');
           },
         );
         final url = await snapshot.ref.getDownloadURL();
-        if (url.startsWith('https://')) {
-          urls.add(url);
-          continue;
+        if (!url.startsWith('https://')) {
+          throw StateError('Không lấy được đường dẫn ảnh. Vui lòng thử lại.');
         }
-      } catch (_) {
-        // Fallback sang Base64 Data URI khi Storage không khả dụng (CORS trên Web hoặc chưa cấu hình Storage rules)
-        final b64 =
-            'data:${image.contentType};base64,${base64Encode(image.bytes)}';
-        urls.add(b64);
-        continue;
+        urls.add(url);
+      } on FirebaseException catch (error) {
+        if (error.code == 'unauthorized') {
+          throw StateError(
+            'Firebase Storage chưa cho phép lưu ảnh nhà/phòng. Cần cập nhật quyền host_media cho tài khoản Chủ trọ.',
+          );
+        }
+        rethrow;
       }
     }
     return urls;
@@ -1099,18 +1099,22 @@ class HostRepository {
 
     final batch = _db.batch();
 
-    var existingElectricity = room.electricityRate ?? 0.0;
-    var existingWater = room.waterRate ?? 0.0;
-    var existingService = room.serviceFee ?? 0.0;
-    if (existingElectricity <= 0) {
-      existingElectricity =
-          (sourceData['electricityRate'] as num?)?.toDouble() ?? 0;
-    }
-    if (existingWater <= 0) {
-      existingWater = (sourceData['waterRate'] as num?)?.toDouble() ?? 0;
-    }
-    if (existingService <= 0) {
-      existingService = (sourceData['serviceFee'] as num?)?.toDouble() ?? 0;
+    // 1. Lưu danh mục tiện ích vào collection amenities
+    for (final name in selectedAmenities) {
+      final key = name.trim().toLowerCase();
+      if (catalogAmenitiesMap.containsKey(key)) {
+        continue;
+      } else {
+        final amRef = _db.collection(FirestoreCollections.amenities).doc();
+        final amData = {
+          'id': amRef.id,
+          'name': name,
+          'icon': '',
+          'source': 'host_custom',
+          'createdAt': FieldValue.serverTimestamp(),
+        };
+        batch.set(amRef, amData);
+      }
     }
 
     // 4. Lưu bài đăng vào collection posts (100% tiếng Anh, không lặp key)
@@ -1127,76 +1131,13 @@ class HostRepository {
       'rentalPrice': giaThue,
       'depositAmount': calculatedDeposit,
       'depositPercentage': phanTramTienCoc,
-      'area': room.area > 0 ? room.area : (sourceData['area'] as num?)?.toDouble() ?? 25.0,
-      'capacity': room.capacity > 0 ? room.capacity : (sourceData['capacity'] as num?)?.toInt() ?? 2,
-      'address': room.address.isNotEmpty ? room.address : (sourceData['address'] ?? ''),
-      'district': room.district.isNotEmpty ? room.district : (sourceData['district'] ?? diaDiemId),
-      'city': room.city.isNotEmpty ? room.city : (sourceData['city'] ?? 'TP. Hồ Chí Minh'),
-      if (existingElectricity > 0) 'electricityRate': existingElectricity,
-      if (existingWater > 0) 'waterRate': existingWater,
-      if (existingService > 0) 'serviceFee': existingService,
       'images': finalUrls,
       'amenities': selectedAmenities.toList(),
-      'status': PostStatus.normalize(status),
-      'isAvailable': PostStatus.normalize(status) == PostStatus.active,
+      'status': status.isNotEmpty ? status : 'pending',
+      'isAvailable': status == 'active' || status == 'approved',
       'isPinned': false,
       'createdAt': FieldValue.serverTimestamp(),
     };
-
-    // 5. Cập nhật bảng phòng host_rooms (100% tiếng Anh, xóa sạch trường tiếng Việt trùng lặp)
-    final roomPayload = {
-      'id': targetRoomId,
-      'propertyId': sourceData['propertyId'] ?? nhaTroId ?? room.propertyId,
-      'roomCode': sourceData['roomCode'] ?? room.roomCode,
-      'area': room.area > 0 ? room.area : (sourceData['area'] as num?)?.toDouble() ?? 25.0,
-      'price': giaThue,
-      'deposit': calculatedDeposit,
-      'depositPercentage': phanTramTienCoc,
-      if (existingElectricity > 0) 'electricityRate': existingElectricity,
-      if (existingWater > 0) 'waterRate': existingWater,
-      if (existingService > 0) 'serviceFee': existingService,
-      'title': tieuDe,
-      'description': moTa,
-      'address': room.address.isNotEmpty ? room.address : (sourceData['address'] ?? ''),
-      'district': room.district.isNotEmpty ? room.district : (sourceData['district'] ?? diaDiemId),
-      'city': room.city.isNotEmpty ? room.city : (sourceData['city'] ?? 'TP. Hồ Chí Minh'),
-      'hostId': chuNhaId,
-      'isAvailable': true,
-      'status': 'available',
-      'images': finalUrls,
-      'amenities': selectedAmenities.toList(),
-      'updatedAt': FieldValue.serverTimestamp(),
-      // Xoá triệt để các trường tiếng Việt và trường thừa trùng lặp trên host_rooms & rooms
-      'maPhong': FieldValue.delete(),
-      'maphong': FieldValue.delete(),
-      'trangThai': FieldValue.delete(),
-      'trangthai': FieldValue.delete(),
-      'anhPhong': FieldValue.delete(),
-      'tienIch': FieldValue.delete(),
-      'tieuDe': FieldValue.delete(),
-      'gia': FieldValue.delete(),
-      'giaThue': FieldValue.delete(),
-      'giaThueThang': FieldValue.delete(),
-      'tienCoc': FieldValue.delete(),
-      'dienTich': FieldValue.delete(),
-      'dienTichM2': FieldValue.delete(),
-      'sucChua': FieldValue.delete(),
-      'tang': FieldValue.delete(),
-      'moTa': FieldValue.delete(),
-      'noiDung': FieldValue.delete(),
-      'anhBatDongSan': FieldValue.delete(),
-      'phongId': FieldValue.delete(),
-      'property_id': FieldValue.delete(),
-      'room_code': FieldValue.delete(),
-      'rental_price': FieldValue.delete(),
-      'deposit_amount': FieldValue.delete(),
-    };
-    batch.set(
-      _db.collection(FirestoreCollections.hostRooms).doc(targetRoomId),
-      roomPayload,
-      SetOptions(merge: true),
-    );
-
     await batch.commit();
     // Recheck after uploads; touching the room serializes against deposit approval.
     await _db.runTransaction((transaction) async {

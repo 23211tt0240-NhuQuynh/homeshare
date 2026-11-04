@@ -159,14 +159,6 @@ class HostProperty {
   factory HostProperty.fromBatDongSanSql(Map<String, dynamic> data, String id) {
     return HostProperty.fromMap(id, data);
   }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is HostProperty && runtimeType == other.runtimeType && id == other.id;
-
-  @override
-  int get hashCode => id.hashCode;
 }
 
 // Chủ trọ - Tổng hợp cơ sở - Luồng đi: Ghép properties với host_rooms theo

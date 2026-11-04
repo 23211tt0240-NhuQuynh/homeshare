@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/localization/app_translations.dart';
 import '../../../core/providers/app_settings_provider.dart';
+import '../../../core/theme/app_theme_controller.dart';
 import '../../home/screens/home_screen.dart';
 import '../../chat/screens/chat_list_screen.dart';
 import 'renter_dashboard_screen.dart';
@@ -26,14 +27,6 @@ class RenterMainScreen extends ConsumerStatefulWidget {
 }
 
 class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
-  final List<Widget> _screens = const [
-    RenterDashboardScreen(),
-    ChatListScreen(),
-    CreateRoommatePostScreen(),
-    RoommateCommunityScreen(),
-    HomeScreen(),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -42,34 +35,54 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
     });
   }
 
+  Brightness _resolvedBrightness() {
+    final mode =
+        ref.watch(appThemeControllerProvider).value?.mode ?? ThemeMode.light;
+    switch (mode) {
+      case ThemeMode.dark:
+        return Brightness.dark;
+      case ThemeMode.light:
+        return Brightness.light;
+      case ThemeMode.system:
+        return MediaQuery.platformBrightnessOf(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final brightness = _resolvedBrightness();
+    AppColors.bind(brightness);
     final currentIndex = ref.watch(renterBottomNavIndexProvider);
     final currentLang = ref.watch(appLanguageProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = AppColors.of(context);
+    // Không const — IndexedStack bỏ qua widget identical khi đổi theme.
+    final screens = [
+      RenterDashboardScreen(),
+      ChatListScreen(),
+      CreateRoommatePostScreen(),
+      RoommateCommunityScreen(),
+      HomeScreen(),
+    ];
 
     return Scaffold(
       body: IndexedStack(
         index: currentIndex,
-        children: _screens,
+        children: screens,
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF151C28) : Colors.white,
+          color: colors.surface,
           border: Border(
-            top: BorderSide(
-              color: isDark ? const Color(0xFF243044) : const Color(0xFFE5EBF1),
-              width: 1,
-            ),
+            top: BorderSide(color: colors.border, width: 1),
           ),
         ),
         child: BottomNavigationBar(
           currentIndex: currentIndex,
           type: BottomNavigationBarType.fixed,
-          backgroundColor: isDark ? const Color(0xFF151C28) : Colors.white,
+          backgroundColor: colors.surface,
           elevation: 0,
-          selectedItemColor: isDark ? const Color(0xFF10B981) : AppColors.primary,
-          unselectedItemColor: isDark ? const Color(0xFF64748B) : AppColors.textMuted,
+          selectedItemColor: colors.primary,
+          unselectedItemColor: colors.textMuted,
           selectedFontSize: 11,
           unselectedFontSize: 11,
           onTap: (index) {
@@ -82,12 +95,12 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
               label: AppTranslations.tr('nav_home', currentLang),
             ),
             BottomNavigationBarItem(
-              icon: const Badge(
+              icon: Badge(
                 smallSize: 8,
                 backgroundColor: AppColors.danger,
                 child: Icon(Icons.chat_bubble_outline),
               ),
-              activeIcon: const Badge(
+              activeIcon: Badge(
                 smallSize: 8,
                 backgroundColor: AppColors.danger,
                 child: Icon(Icons.chat_bubble),
@@ -95,8 +108,8 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
               label: AppTranslations.tr('nav_messages', currentLang),
             ),
             BottomNavigationBarItem(
-              icon: const Icon(Icons.add_circle, color: Color(0xFF155EEF), size: 28),
-              activeIcon: const Icon(Icons.add_circle, color: Color(0xFF155EEF), size: 28),
+              icon: Icon(Icons.add_circle, color: colors.primary, size: 28),
+              activeIcon: Icon(Icons.add_circle, color: colors.primary, size: 28),
               label: AppTranslations.tr('nav_post', currentLang),
             ),
             BottomNavigationBarItem(

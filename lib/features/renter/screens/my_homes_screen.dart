@@ -7,9 +7,11 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/firestore_collections.dart';
 import '../../../core/localization/app_translations.dart';
 import '../../../core/services/booking_service.dart';
-import '../../../core/services/resident_service.dart';
 import '../../../core/services/host_review_service.dart';
+import '../../../core/services/resident_service.dart';
+import '../../../core/services/room_service.dart';
 import '../../../core/utils/host_review_policy.dart';
+import '../../../core/utils/vietnamese_utils.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/checkout_record_model.dart';
 import '../../../data/models/room_model.dart';
@@ -66,13 +68,125 @@ class PastRentalHomeItem {
   });
 }
 
+PastRentalHomeItem pastHomeFromEndedBooking(BookingRequestModel booking) {
+  return PastRentalHomeItem(
+    id: booking.id,
+    roomId: booking.roomId,
+    roomTitle: booking.roomTitle.isNotEmpty ? booking.roomTitle : 'Phòng đã thuê',
+    roomAddress:
+        booking.roomAddress.isNotEmpty ? booking.roomAddress : 'Địa chỉ phòng trọ',
+    hostId: booking.hostId,
+    hostName: booking.hostName.isNotEmpty ? booking.hostName : 'Chủ nhà',
+    roomPrice: booking.roomPrice,
+    depositAmount: booking.deposit,
+    refundAmount: booking.deposit,
+    moveInDate: booking.moveInDate,
+    moveOutDate: booking.moveOutDate ?? booking.acceptedDate,
+    status: booking.note == 'Ở ghép' ? 'Đã kết thúc ở ghép' : 'Đã trả phòng',
+    note: booking.note,
+    booking: booking,
+  );
+}
+
+String _pastRoomKey(String value) {
+  final withoutMarks = value.replaceAll(RegExp(r'[\u0300-\u036f]'), '');
+  return normalizeVietnameseComparison(withoutMarks);
+}
+
+Map<String, dynamic>? _linkedHostRoom(
+  Map<String, Map<String, dynamic>> cache,
+  String title,
+) {
+  final wanted = _pastRoomKey(title);
+  if (wanted.isEmpty) return null;
+  for (final data in cache.values) {
+    final cached = _pastRoomKey(
+      '${data['title'] ?? data['tieuDe'] ?? data['roomTitle'] ?? ''}',
+    );
+    if (cached.isNotEmpty && cached == wanted) return data;
+  }
+  return null;
+}
+
+bool _samePastRoomLabel(String left, String right, Set<String> generic) {
+  final a = _pastRoomKey(left);
+  final b = _pastRoomKey(right);
+  return a.isNotEmpty && a == b && !generic.contains(a);
+}
+
+/// Biên bản trả phòng lưu mã `host_rooms`, đơn thuê thường lưu mã bài đăng.
+/// Cùng một lần trả phòng thì không được hiện thành hai mục.
+bool pastHomeMatchesBooking(PastRentalHomeItem item, BookingRequestModel booking) {
+  final known = <String>{
+    item.id.trim(),
+    item.roomId.trim(),
+    item.booking?.id.trim() ?? '',
+    item.booking?.roomId.trim() ?? '',
+    item.booking?.roomCode.trim() ?? '',
+  }..removeWhere((value) => value.isEmpty);
+  for (final key in [booking.id, booking.roomId, booking.roomCode]) {
+    if (key.trim().isNotEmpty && known.contains(key.trim())) return true;
+  }
+
+  final hostA = item.hostId.trim();
+  final hostB = booking.hostId.trim();
+  final hostOk = hostA.isEmpty || hostB.isEmpty || hostA == hostB;
+  if (!hostOk) return false;
+  if (_samePastRoomLabel(item.roomTitle, booking.roomTitle, const {
+    'phong da thue',
+    'phong tro',
+  })) {
+    return true;
+  }
+  return _samePastRoomLabel(item.roomAddress, booking.roomAddress, const {
+    'dia chi phong tro',
+  });
+}
+
+List<PastRentalHomeItem> mergeEndedBookingsIntoPastHomes(
+  List<PastRentalHomeItem> items,
+  Iterable<BookingRequestModel> endedBookings,
+) {
+  final merged = [...items];
+  for (final booking in endedBookings) {
+    if (merged.any((item) => pastHomeMatchesBooking(item, booking))) continue;
+    merged.add(pastHomeFromEndedBooking(booking));
+  }
+  merged.sort((a, b) {
+    final dateA = a.moveOutDate ?? a.moveInDate;
+    final dateB = b.moveOutDate ?? b.moveInDate;
+    return dateB.compareTo(dateA);
+  });
+  return merged;
+}
+
 /// Provider truy vấn danh sách Lịch sử nhà đã ở của người dùng
 final pastRentalHomesProvider = FutureProvider.autoDispose.family<List<PastRentalHomeItem>, String>((ref, userId) async {
   if (userId.isEmpty || userId == 'guest') return [];
 
   final firestore = FirebaseFirestore.instance;
+  final bookingService = BookingService(firestore: firestore);
+  final residentService = ResidentService(firestore);
+  final roomTitleCache = <String, Map<String, dynamic>>{};
   final items = <PastRentalHomeItem>[];
   final processedRoomIds = <String>{};
+
+  Future<void> markRoom(String roomId) async {
+    final id = roomId.trim();
+    if (id.isEmpty) return;
+    processedRoomIds.add(id);
+    try {
+      processedRoomIds.add(await residentService.resolveRoomId(id));
+    } catch (_) {}
+  }
+
+  Future<String> hostRoomTitle(String roomId, String fallback) async {
+    final title = await bookingService.titleFromHostRooms(
+      roomId,
+      cache: roomTitleCache,
+    );
+    return title.isNotEmpty ? title : fallback;
+  }
 
   try {
     // 1. Truy vấn các biên bản trả phòng (checkout_records) mà người dùng là renterId
@@ -83,7 +197,7 @@ final pastRentalHomesProvider = FutureProvider.autoDispose.family<List<PastRenta
 
     for (final doc in checkoutSnap.docs) {
       final record = CheckoutRecordModel.fromFirestore(doc);
-      processedRoomIds.add(record.roomId);
+      await markRoom(record.roomId);
 
       // Tra cứu thông tin phòng
       String title = 'Phòng đã thuê';
@@ -95,41 +209,49 @@ final pastRentalHomesProvider = FutureProvider.autoDispose.family<List<PastRenta
       DateTime moveIn = record.checkoutTime.subtract(const Duration(days: 30));
 
       try {
-        final hostRoomDoc = await firestore.collection('host_rooms').doc(record.roomId).get();
-        if (hostRoomDoc.exists) {
-          final data = hostRoomDoc.data() ?? {};
-          final rawT = (data['title'] ?? data['roomTitle'] ?? data['roomCode'] ?? data['maPhong'] ?? '').toString();
-          if (rawT.isNotEmpty) title = BookingService.formatRoomTitle(rawT);
+        final roomDoc = await firestore.collection('rooms').doc(record.roomId).get();
+        if (roomDoc.exists) {
+          final data = roomDoc.data() ?? {};
+          title = data['title'] ?? data['tieuDe'] ?? title;
           address = data['address'] ?? data['diaChi'] ?? address;
           hostName = data['hostName'] ?? data['tenChuNha'] ?? hostName;
           hostId = data['hostId'] ?? data['chuNhaId'] ?? '';
           hostPhone = data['hostPhone'] ?? data['sdtChuNha'] ?? '';
-          price = ((data['price'] ?? data['roomPrice'] ?? data['giaThue']) as num?)?.toDouble() ?? 0.0;
+          price = ((data['price'] ?? data['giaThue']) as num?)?.toDouble() ?? 0.0;
         } else {
-          final roomDoc = await firestore.collection('rooms').doc(record.roomId).get();
-          if (roomDoc.exists) {
-            final data = roomDoc.data() ?? {};
-            final linkedId = (data['hostRoomId'] ?? data['roomId'] ?? '').toString().trim();
-            if (linkedId.isNotEmpty) {
-              final linkedDoc = await firestore.collection('host_rooms').doc(linkedId).get();
-              if (linkedDoc.exists) {
-                final lData = linkedDoc.data() ?? {};
-                final rawT = (lData['title'] ?? lData['roomTitle'] ?? lData['roomCode'] ?? '').toString();
-                if (rawT.isNotEmpty) title = BookingService.formatRoomTitle(rawT);
-              }
-            }
-            if (title.isEmpty) {
-              final rawCode = (data['roomCode'] ?? data['maPhong'] ?? '').toString();
-              title = rawCode.isNotEmpty ? BookingService.formatRoomTitle(rawCode) : (data['title'] ?? data['tieuDe'] ?? title);
-            }
-            address = data['address'] ?? data['diaChi'] ?? address;
-            hostName = data['hostName'] ?? data['tenChuNha'] ?? hostName;
-            hostId = data['hostId'] ?? data['chuNhaId'] ?? '';
-            hostPhone = data['hostPhone'] ?? data['sdtChuNha'] ?? '';
-            price = ((data['price'] ?? data['giaThue']) as num?)?.toDouble() ?? 0.0;
+          final hostRoomDoc = await firestore.collection('host_rooms').doc(record.roomId).get();
+          if (hostRoomDoc.exists) {
+            final data = hostRoomDoc.data() ?? {};
+            title = data['title'] ?? data['tieuDe'] ?? data['roomCode'] ?? title;
+            address = data['address'] ?? address;
+            hostName = data['hostName'] ?? hostName;
+            hostId = data['hostId'] ?? '';
+            hostPhone = data['hostPhone'] ?? '';
+            price = ((data['price'] ?? data['roomPrice']) as num?)?.toDouble() ?? 0.0;
           }
         }
       } catch (_) {}
+      title = await hostRoomTitle(record.roomId, title);
+      final linked = _linkedHostRoom(roomTitleCache, title);
+      if (linked != null) {
+        final linkedId = '${linked['id'] ?? ''}'.trim();
+        if (linkedId.isNotEmpty) await markRoom(linkedId);
+        final linkedAddress = '${linked['address'] ?? ''}'.trim();
+        if (linkedAddress.isNotEmpty && address == 'Địa chỉ phòng trọ') {
+          address = linkedAddress;
+        }
+        final linkedHostId = '${linked['hostId'] ?? ''}'.trim();
+        if (hostId.isEmpty && linkedHostId.isNotEmpty) hostId = linkedHostId;
+        final linkedHostName = '${linked['hostName'] ?? ''}'.trim();
+        if ((hostName.isEmpty || hostName == 'Chủ nhà') &&
+            linkedHostName.isNotEmpty) {
+          hostName = linkedHostName;
+        }
+        if (price <= 0) {
+          price = ((linked['price'] ?? linked['roomPrice']) as num?)?.toDouble() ??
+              price;
+        }
+      }
 
       // Tra cứu thêm ngày dọn vào từ period hoặc booking nếu có
       if (record.periodId.isNotEmpty) {
@@ -177,139 +299,70 @@ final pastRentalHomesProvider = FutureProvider.autoDispose.family<List<PastRenta
 
     for (final doc in bookingSnap.docs) {
       final b = BookingRequestModel.fromFirestore(doc);
-      final s = b.status.toLowerCase();
-      final data = doc.data();
-      final hasStayRecord = (data['isCheckIn'] == true) ||
-          (data['daNhanPhong'] == true) ||
-          (data['checkoutRecordId'] != null) ||
-          (data['checkedInAt'] != null);
-      final isEnded = s == 'completed' ||
-          s == 'checked_out' ||
-          s == 'traphong' ||
-          s == 'daketthuc' ||
-          s == 'daroi' ||
-          s == 'ended' ||
-          ((s == 'cancelled' || s == 'dahuy') && hasStayRecord);
-
-      if (isEnded) {
-        // Tránh trùng lặp nếu đã có bản ghi checkout_records
-        if (!processedRoomIds.contains(b.roomId)) {
-          processedRoomIds.add(b.roomId);
-          items.add(
-            PastRentalHomeItem(
-              id: b.id,
-              roomId: b.roomId,
-              roomTitle: b.roomTitle,
-              roomAddress: b.roomAddress,
-              hostId: b.hostId,
-              hostName: b.hostName,
-              roomPrice: b.roomPrice,
-              depositAmount: b.deposit,
-              refundAmount: b.deposit,
-              moveInDate: b.moveInDate,
-              moveOutDate: b.acceptedDate ?? b.createdAt.add(Duration(days: b.rentalMonths * 30)),
-              status: 'Đã hoàn tất kỳ ở',
-              note: b.note,
-              hasCheckoutRecord: false,
-              booking: b,
-            ),
-          );
-        }
+      if (!b.isEnded && b.status.toLowerCase() != 'completed') continue;
+      var resolvedRoomId = b.roomId.trim();
+      try {
+        resolvedRoomId = await residentService.resolveRoomId(b.roomId);
+      } catch (_) {}
+      if (processedRoomIds.contains(b.roomId) ||
+          processedRoomIds.contains(resolvedRoomId) ||
+          processedRoomIds.contains(b.roomCode.trim()) ||
+          items.any((item) => pastHomeMatchesBooking(item, b))) {
+        continue;
       }
-    }
-
-    // 3. Truy vấn trực tiếp cư dân trong bảng residents có trạng thái đã rời phòng (moved_out / daRoi)
-    try {
-      final residentService = ResidentService(firestore);
-      final userResidents = await residentService.forUser(userId);
-      for (final res in userResidents) {
-        if (ResidentService.isActive(res)) continue;
-        if (res.roomId.trim().isEmpty) continue;
-
-        final rawRoomId = res.roomId.trim();
-        var resolvedRoomId = rawRoomId;
-        try {
-          final canon = await residentService.resolveRoomId(rawRoomId);
-          if (canon.isNotEmpty) resolvedRoomId = canon;
-        } catch (_) {}
-
-        if (processedRoomIds.contains(rawRoomId) || processedRoomIds.contains(resolvedRoomId)) {
-          continue;
-        }
-        processedRoomIds.add(rawRoomId);
-        if (resolvedRoomId.isNotEmpty) processedRoomIds.add(resolvedRoomId);
-
-        // Tra cứu thông tin phòng
-        String title = 'Phòng đã thuê';
-        String address = 'Địa chỉ phòng trọ';
-        String hostName = 'Chủ nhà';
-        String hostId = '';
-        String hostPhone = '';
-        double price = 0.0;
-
-        try {
-          DocumentSnapshot<Map<String, dynamic>> roomDoc =
-              await firestore.collection('host_rooms').doc(resolvedRoomId).get();
-          if (!roomDoc.exists && resolvedRoomId != rawRoomId) {
-            roomDoc = await firestore.collection('host_rooms').doc(rawRoomId).get();
-          }
-          if (!roomDoc.exists) {
-            roomDoc = await firestore.collection('rooms').doc(resolvedRoomId).get();
-          }
-          if (!roomDoc.exists) {
-            roomDoc = await firestore.collection('posts').doc(resolvedRoomId).get();
-          }
-
-          if (roomDoc.exists) {
-            final data = roomDoc.data() ?? {};
-            final rawT = (data['title'] ?? data['roomTitle'] ?? data['tieuDe'] ?? data['roomCode'] ?? data['maPhong'] ?? '').toString();
-            if (rawT.isNotEmpty) title = BookingService.formatRoomTitle(rawT);
-            address = data['address'] ?? data['diaChi'] ?? address;
-            hostName = data['hostName'] ?? data['tenChuNha'] ?? hostName;
-            hostId = data['hostId'] ?? data['chuNhaId'] ?? '';
-            hostPhone = data['hostPhone'] ?? data['sdtChuNha'] ?? '';
-            price = ((data['price'] ?? data['roomPrice'] ?? data['giaThue']) as num?)?.toDouble() ?? 0.0;
-          }
-        } catch (_) {}
-
-        items.add(
-          PastRentalHomeItem(
-            id: res.id,
-            roomId: resolvedRoomId.isNotEmpty ? resolvedRoomId : rawRoomId,
-            roomTitle: title,
-            roomAddress: address,
-            hostId: hostId,
-            hostName: hostName,
-            hostPhone: hostPhone,
-            roomPrice: price,
-            depositAmount: 0.0,
-            refundAmount: 0.0,
-            moveInDate: res.moveInDate,
-            moveOutDate: res.moveOutDate ?? DateTime.now(),
-            status: 'Đã hoàn tất trả phòng',
-            note: res.formId == 'oGhep' ? 'Ở ghép' : 'Đã trả phòng',
-            hasCheckoutRecord: false,
+      await markRoom(b.roomId);
+      await markRoom(b.roomCode);
+      items.add(
+        PastRentalHomeItem(
+          id: b.id,
+          roomId: b.roomId,
+          roomTitle: await hostRoomTitle(
+            b.roomId,
+            b.roomTitle.isNotEmpty ? b.roomTitle : 'Phòng đã thuê',
           ),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error fetching past residents directly: $e');
+          roomAddress: b.roomAddress,
+          hostId: b.hostId,
+          hostName: b.hostName,
+          roomPrice: b.roomPrice,
+          depositAmount: b.deposit,
+          refundAmount: b.deposit,
+          moveInDate: b.moveInDate,
+          moveOutDate: b.moveOutDate ??
+              b.acceptedDate ??
+              b.createdAt.add(Duration(days: b.rentalMonths * 30)),
+          status: 'Đã trả phòng',
+          note: b.note,
+          hasCheckoutRecord: false,
+          booking: b,
+        ),
+      );
     }
 
-    // 4. Người ở ghép đã rời phòng, không có đơn bookings riêng
+    // 3. Người ở ghép đã rời phòng, không có đơn bookings riêng
     try {
       final endedStays = await BookingService(firestore: firestore)
           .loadResidentStays(userId, activeOnly: false);
       for (final stay in endedStays) {
-        if (stay.roomId.isEmpty || processedRoomIds.contains(stay.roomId)) {
+        var resolvedRoomId = stay.roomId.trim();
+        try {
+          resolvedRoomId = await residentService.resolveRoomId(stay.roomId);
+        } catch (_) {}
+        if (stay.roomId.isEmpty ||
+            processedRoomIds.contains(stay.roomId) ||
+            processedRoomIds.contains(resolvedRoomId) ||
+            processedRoomIds.contains(stay.roomCode.trim()) ||
+            items.any((item) => pastHomeMatchesBooking(item, stay))) {
           continue;
         }
-        processedRoomIds.add(stay.roomId);
+        await markRoom(stay.roomId);
         items.add(
           PastRentalHomeItem(
             id: stay.id,
             roomId: stay.roomId,
-            roomTitle: stay.roomTitle.isNotEmpty ? stay.roomTitle : 'Phòng đã thuê',
+            roomTitle: await hostRoomTitle(
+              stay.roomId,
+              stay.roomTitle.isNotEmpty ? stay.roomTitle : 'Phòng đã thuê',
+            ),
             roomAddress: stay.roomAddress.isNotEmpty ? stay.roomAddress : 'Địa chỉ phòng trọ',
             hostId: stay.hostId,
             hostName: stay.hostName.isNotEmpty ? stay.hostName : 'Chủ nhà',
@@ -318,7 +371,7 @@ final pastRentalHomesProvider = FutureProvider.autoDispose.family<List<PastRenta
             refundAmount: stay.deposit,
             moveInDate: stay.moveInDate,
             moveOutDate: stay.moveOutDate ?? stay.createdAt,
-            status: stay.note == 'Ở ghép' ? 'Đã kết thúc ở ghép' : 'Đã hoàn tất kỳ ở',
+            status: stay.note == 'Ở ghép' ? 'Đã kết thúc ở ghép' : 'Đã trả phòng',
             note: stay.note,
             hasCheckoutRecord: false,
             booking: stay,
@@ -329,7 +382,7 @@ final pastRentalHomesProvider = FutureProvider.autoDispose.family<List<PastRenta
       debugPrint('Error fetching past resident stays: $e');
     }
 
-    // 5. Sắp xếp theo ngày kết thúc mới nhất lên đầu
+    // 4. Sắp xếp theo ngày kết thúc mới nhất lên đầu
     items.sort((a, b) {
       final dateA = a.moveOutDate ?? a.moveInDate;
       final dateB = b.moveOutDate ?? b.moveInDate;
@@ -396,26 +449,75 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
     }
   }
 
-  Future<void> _openRoomDetail(String roomId, String title) async {
-    try {
-      final firestore = FirebaseFirestore.instance;
-      RoomModel? room;
-      final doc = await firestore.collection('rooms').doc(roomId).get();
-      if (doc.exists) {
-        room = RoomModel.fromFirestore(doc);
-      } else {
-        final hostDoc = await firestore.collection('host_rooms').doc(roomId).get();
-        if (hostDoc.exists) {
-          room = RoomModel.fromFirestore(hostDoc);
-        }
+  Future<RoomModel?> _loadListedRoom(String roomId, String title) async {
+    final firestore = FirebaseFirestore.instance;
+    final id = roomId.trim();
+    if (id.isNotEmpty) {
+      try {
+        final postDoc = await firestore.collection('posts').doc(id).get();
+        if (postDoc.exists) return RoomModel.fromFirestore(postDoc);
+      } catch (_) {}
+      for (final field in ['roomId', 'room_id', 'phongId', 'phong_tro_id']) {
+        try {
+          final snap = await firestore
+              .collection('posts')
+              .where(field, isEqualTo: id)
+              .limit(1)
+              .get();
+          if (snap.docs.isNotEmpty) {
+            return RoomModel.fromFirestore(snap.docs.first);
+          }
+        } catch (_) {}
       }
+    }
+    final label = title.trim();
+    if (label.isEmpty) return null;
+    try {
+      final snap = await firestore
+          .collection('posts')
+          .where('title', isEqualTo: label)
+          .limit(1)
+          .get();
+      if (snap.docs.isNotEmpty) return RoomModel.fromFirestore(snap.docs.first);
+    } catch (_) {}
+    return null;
+  }
 
-      if (room != null && mounted) {
+  Future<void> _openRoomDetail(
+    String roomId,
+    String title, {
+    String hostId = '',
+    String roomCode = '',
+  }) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    var openedLoading = true;
+    void dismissLoading() {
+      if (!openedLoading || !mounted) return;
+      openedLoading = false;
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+
+    try {
+      RoomModel? room = await ref.read(roomServiceProvider).resolveRentedRoom(
+            roomId: roomId,
+            hostId: hostId,
+            roomCode: roomCode,
+            title: title,
+          );
+      room ??= await _loadListedRoom(roomId, title);
+
+      if (!mounted) return;
+      dismissLoading();
+      if (room != null) {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => RoomDetailScreen(room: room!)),
         );
-      } else if (mounted) {
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Không thể tìm thấy thông tin phòng: $title'),
@@ -424,6 +526,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
         );
       }
     } catch (e) {
+      dismissLoading();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Lỗi tải thông tin phòng: $e')),
@@ -449,7 +552,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          color: AppColors.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
@@ -462,7 +565,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  color: isDark ? Colors.white24 : AppColors.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -488,7 +591,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : AppColors.textDark,
+                          color: AppColors.textDark,
                         ),
                       ),
                       Text(
@@ -497,7 +600,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 13,
-                          color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted,
+                          color: AppColors.textMuted,
                         ),
                       ),
                     ],
@@ -511,10 +614,10 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                color: AppColors.background,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                  color: AppColors.border,
                 ),
               ),
               child: Column(
@@ -546,10 +649,10 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                  color: AppColors.background,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                    color: AppColors.border,
                   ),
                 ),
                 child: Column(
@@ -586,7 +689,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                          color: AppColors.textMuted,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -594,7 +697,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                         record.note,
                         style: TextStyle(
                           fontSize: 13,
-                          color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
+                          color: AppColors.textDark,
                         ),
                       ),
                     ],
@@ -607,13 +710,13 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
             // Thời gian trả phòng
             Row(
               children: [
-                Icon(Icons.calendar_today_rounded, size: 15, color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted),
+                Icon(Icons.calendar_today_rounded, size: 15, color: AppColors.textMuted),
                 const SizedBox(width: 6),
                 Text(
                   'Thời điểm trả phòng: ${item.moveOutDate != null ? DateFormat('HH:mm - dd/MM/yyyy').format(item.moveOutDate!) : "Đã hoàn tất"}',
                   style: TextStyle(
                     fontSize: 12.5,
-                    color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted,
+                    color: AppColors.textMuted,
                   ),
                 ),
               ],
@@ -645,7 +748,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
           label,
           style: TextStyle(
             fontSize: fontSize,
-            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+            color: AppColors.textMuted,
           ),
         ),
         Text(
@@ -653,7 +756,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
           style: TextStyle(
             fontSize: fontSize,
             fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-            color: valueColor ?? (isDark ? Colors.white : AppColors.textDark),
+            color: valueColor ?? (AppColors.textDark),
           ),
         ),
       ],
@@ -679,7 +782,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
               label,
               style: TextStyle(
                 fontSize: 11,
-                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                color: AppColors.textMuted,
               ),
             ),
             Text(
@@ -687,7 +790,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : AppColors.textDark,
+                color: AppColors.textDark,
               ),
             ),
           ],
@@ -701,11 +804,11 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
     final user = ref.watch(currentUserProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final bgColor = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
-    final cardColor = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFEAECF0);
-    final textDark = isDark ? Colors.white : const Color(0xFF1D2939);
-    final textMuted = isDark ? const Color(0xFF94A3B8) : const Color(0xFF667085);
+    final bgColor = AppColors.background;
+    final cardColor = AppColors.surface;
+    final borderColor = AppColors.border;
+    final textDark = AppColors.textDark;
+    final textMuted = AppColors.textMuted;
 
     if (user == null) {
       return Scaffold(
@@ -715,7 +818,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.lock_outline, size: 64, color: Colors.grey.shade400),
+              Icon(Icons.lock_outline, size: 64, color: AppColors.textMuted),
               const SizedBox(height: 16),
               const Text(
                 'Vui lòng đăng nhập để xem thông tin phòng của bạn',
@@ -729,13 +832,16 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
 
     final bookingsAsync = ref.watch(renterBookingsStreamProvider(user.uid));
     final pastHomesAsync = ref.watch(pastRentalHomesProvider(user.uid));
+    final endedBookings =
+        bookingsAsync.value?.where((b) => b.isEnded).toList() ?? const [];
+    final pastHomes = mergeEndedBookingsIntoPastHomes(
+      pastHomesAsync.value ?? const [],
+      endedBookings,
+    );
 
-    // Lấy tập hợp các phòng trong lịch sử đã ở (đã rời phòng / moved_out / daRoi)
-    final pastRoomIds = pastHomesAsync.value?.map((p) => p.roomId).toSet() ?? {};
-
-    // Đếm số lượng nhà đang ở để gắn Badge trên Tab (loại trừ các phòng đã chuyển sang lịch sử)
-    final activeCount = bookingsAsync.value?.where((b) => b.isActive && !pastRoomIds.contains(b.roomId)).length ?? 0;
-    final pastCount = pastHomesAsync.value?.length ?? 0;
+    // Đếm số lượng nhà đang ở để gắn Badge trên Tab
+    final activeCount = bookingsAsync.value?.where((b) => b.isActive).length ?? 0;
+    final pastCount = pastHomes.length;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -800,7 +906,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF64748B),
+                            color: AppColors.textMuted,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
@@ -827,7 +933,6 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
           // TAB 1: NHÀ ĐANG Ở
           _buildActiveHomesTab(
             bookingsAsync: bookingsAsync,
-            pastRoomIds: pastRoomIds,
             isDark: isDark,
             cardColor: cardColor,
             borderColor: borderColor,
@@ -838,6 +943,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
           // TAB 2: LỊCH SỬ NHÀ ĐÃ Ở
           _buildPastHomesTab(
             pastHomesAsync: pastHomesAsync,
+            endedBookings: endedBookings,
             isDark: isDark,
             cardColor: cardColor,
             borderColor: borderColor,
@@ -852,7 +958,6 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
   // ==================== TAB 1: NHÀ ĐANG Ở ====================
   Widget _buildActiveHomesTab({
     required AsyncValue<List<BookingRequestModel>> bookingsAsync,
-    required Set<String> pastRoomIds,
     required bool isDark,
     required Color cardColor,
     required Color borderColor,
@@ -861,7 +966,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
   }) {
     return bookingsAsync.when(
       data: (bookings) {
-        final activeList = bookings.where((b) => b.isActive && !pastRoomIds.contains(b.roomId)).toList();
+        final activeList = bookings.where((b) => b.isActive).toList();
 
         if (activeList.isEmpty) {
           return Center(
@@ -876,7 +981,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                       color: AppColors.primary.withValues(alpha: 0.08),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.home_work_outlined,
                       size: 64,
                       color: AppColors.primary,
@@ -989,7 +1094,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                      color: AppColors.border,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -1055,10 +1160,10 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                color: AppColors.background,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                  color: AppColors.border,
                 ),
               ),
               child: Column(
@@ -1185,8 +1290,8 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                     icon: const Icon(Icons.build_outlined, size: 16),
                     label: Text(AppTranslations.tr('report_room_issue')),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155),
-                      side: BorderSide(color: isDark ? const Color(0xFF475467) : const Color(0xFFD0D5DD)),
+                      foregroundColor: AppColors.textDark,
+                      side: BorderSide(color: AppColors.border),
                       minimumSize: const Size.fromHeight(38),
                       textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1196,12 +1301,17 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _openRoomDetail(b.roomId, b.roomTitle),
+                    onPressed: () => _openRoomDetail(
+                      b.roomId,
+                      b.roomTitle,
+                      hostId: b.hostId,
+                      roomCode: b.roomCode,
+                    ),
                     icon: const Icon(Icons.visibility_outlined, size: 16),
                     label: Text(AppTranslations.tr('re_rent_room')),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.primary),
+                      side: BorderSide(color: AppColors.primary),
                       minimumSize: const Size.fromHeight(38),
                       textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1238,6 +1348,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
   // ==================== TAB 2: LỊCH SỬ NHÀ ĐÃ Ở ====================
   Widget _buildPastHomesTab({
     required AsyncValue<List<PastRentalHomeItem>> pastHomesAsync,
+    required List<BookingRequestModel> endedBookings,
     required bool isDark,
     required Color cardColor,
     required Color borderColor,
@@ -1246,7 +1357,8 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
   }) {
     return pastHomesAsync.when(
       data: (items) {
-        if (items.isEmpty) {
+        final merged = mergeEndedBookingsIntoPastHomes(items, endedBookings);
+        if (merged.isEmpty) {
           return Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
@@ -1289,9 +1401,9 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
 
         return ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: items.length,
+          itemCount: merged.length,
           itemBuilder: (context, index) {
-            final item = items[index];
+            final item = merged[index];
             return _buildPastHomeCard(
               item: item,
               isDark: isDark,
@@ -1340,7 +1452,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                   decoration: BoxDecoration(
                     color: const Color(0xFFF2F4F7),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFD0D5DD)),
+                    border: Border.all(color: AppColors.border),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1398,10 +1510,10 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                color: AppColors.background,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                  color: AppColors.border,
                 ),
               ),
               child: Column(
@@ -1456,18 +1568,60 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                 ],
               ),
             ),
-            if (hasCheckout) ...[
-              const SizedBox(height: 14),
+            const SizedBox(height: 14),
+
+            // Nút bấm hành động
+            Row(
+              children: [
+                if (hasCheckout) ...[
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showCheckoutDetailModal(item),
+                      icon: const Icon(Icons.receipt_long_rounded, size: 16),
+                      label: Text(AppTranslations.tr('view_checkout_detail')),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF7C3AED),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        minimumSize: const Size.fromHeight(40),
+                        textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _openRoomDetail(
+                      item.roomId,
+                      item.roomTitle,
+                      hostId: item.hostId,
+                    ),
+                    icon: const Icon(Icons.refresh_rounded, size: 16),
+                    label: Text(AppTranslations.tr('re_rent_room')),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: BorderSide(color: AppColors.primary),
+                      minimumSize: const Size.fromHeight(40),
+                      textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (item.booking != null && _canReviewHost(item.booking!)) ...[
+              const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => _showCheckoutDetailModal(item),
-                  icon: const Icon(Icons.receipt_long_rounded, size: 16),
-                  label: Text(AppTranslations.tr('view_checkout_detail')),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C3AED),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
+                child: OutlinedButton.icon(
+                  onPressed: () => _openHostReview(item.booking!),
+                  icon: const Icon(Icons.rate_review_outlined, size: 16),
+                  label: Text(AppTranslations.tr('review_host_btn')),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF027A48),
+                    side: const BorderSide(color: Color(0xFF027A48)),
                     minimumSize: const Size.fromHeight(40),
                     textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

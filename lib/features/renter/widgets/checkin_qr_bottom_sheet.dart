@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../../data/models/booking_model.dart';
 
 /// Modal Hiển thị Mã QR Nhận Phòng & Bàn Giao Thiết Bị cho Khách Thuê
@@ -29,8 +30,8 @@ class CheckinQrBottomSheet extends StatelessWidget {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.9,
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
@@ -42,7 +43,7 @@ class CheckinQrBottomSheet extends StatelessWidget {
             width: 44,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
+              color: AppColors.border,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -70,12 +71,12 @@ class CheckinQrBottomSheet extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'MÃ QR NHẬN PHÒNG',
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF101828),
+                          color: AppColors.textDark,
                           letterSpacing: 0.2,
                         ),
                       ),
@@ -106,7 +107,7 @@ class CheckinQrBottomSheet extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, color: Color(0xFF667085)),
+                  icon: Icon(Icons.close_rounded, color: AppColors.textMuted),
                 ),
               ],
             ),
@@ -124,9 +125,9 @@ class CheckinQrBottomSheet extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: const Color(0xFFEAECF0), width: 1.5),
+                      border: Border.all(color: AppColors.border, width: 1.5),
                       boxShadow: [
                         BoxShadow(
                           color: const Color(0xFF155EEF).withValues(alpha: 0.08),
@@ -141,13 +142,14 @@ class CheckinQrBottomSheet extends StatelessWidget {
                           data: qrData,
                           version: QrVersions.auto,
                           size: 210,
+                          backgroundColor: Colors.white,
                           eyeStyle: const QrEyeStyle(
                             eyeShape: QrEyeShape.square,
                             color: Color(0xFF155EEF),
                           ),
                           dataModuleStyle: const QrDataModuleStyle(
                             dataModuleShape: QrDataModuleShape.square,
-                            color: Color(0xFF101828),
+                            color: Color(0xFF0F172A),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -168,9 +170,9 @@ class CheckinQrBottomSheet extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
+                              color: AppColors.background,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                              border: Border.all(color: AppColors.border),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -308,9 +310,9 @@ class CheckinQrBottomSheet extends StatelessWidget {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFEAECF0)),
+        border: Border.all(color: AppColors.border),
       ),
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -332,7 +334,7 @@ class CheckinQrBottomSheet extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          const Divider(height: 1, color: Color(0xFFEAECF0)),
+          Divider(height: 1, color: AppColors.border),
           const SizedBox(height: 10),
           ...children,
         ],
@@ -355,9 +357,9 @@ class CheckinQrBottomSheet extends StatelessWidget {
             width: 125,
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12.5,
-                color: Color(0xFF667085),
+                color: AppColors.textMuted,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -368,7 +370,7 @@ class CheckinQrBottomSheet extends StatelessWidget {
               textAlign: TextAlign.right,
               style: TextStyle(
                 fontSize: 13,
-                color: highlightColor ?? (isBold ? const Color(0xFF101828) : const Color(0xFF344054)),
+                color: highlightColor ?? (isBold ? AppColors.textDark : const Color(0xFF344054)),
                 fontWeight: (isBold || highlightColor != null)
                     ? FontWeight.bold
                     : FontWeight.w500,
