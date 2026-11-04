@@ -3,6 +3,7 @@ import 'package:home_share/core/services/booking_service.dart';
 import 'package:home_share/core/services/resident_service.dart';
 import 'package:home_share/data/models/booking_model.dart';
 import 'package:home_share/data/models/resident_model.dart';
+import 'package:home_share/data/models/room_model.dart';
 import 'package:home_share/features/renter/screens/my_homes_screen.dart';
 import 'package:home_share/features/renter/screens/my_home_detail_screen.dart';
 
@@ -538,6 +539,35 @@ void main() {
       expect(widget.booking, isNull);
       expect(widget.pastItem!.roomTitle, equals('Phòng 202'));
       expect(widget.pastItem!.status, equals('Đã hoàn tất trả phòng'));
+    });
+
+    test('RoomModel with images, rates and specific area creates properly', () {
+      final room = RoomModel(
+        id: 'ROOM_DIAMOND',
+        title: 'Diamond',
+        description: 'Phòng cao cấp',
+        price: 2500000,
+        deposit: 500000,
+        address: '73/14 Lê Văn Việt',
+        district: 'Thủ Đức',
+        area: 25.0,
+        roomType: 'Phòng trọ khép kín',
+        amenities: ['Máy lạnh', 'Wifi', 'Tủ lạnh'],
+        images: ['https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800'],
+        hostId: 'host_tienanh',
+        hostName: 'Chủ trọ: tienanh pro',
+        hostPhone: '0901234567',
+        electricityRate: 3500.0,
+        waterRate: 20000.0,
+        serviceFee: 100000.0,
+        createdAt: DateTime.now(),
+      );
+
+      expect(room.images.length, equals(1));
+      expect(room.area, equals(25.0));
+      expect(room.electricityRate, equals(3500.0));
+      expect(room.waterRate, equals(20000.0));
+      expect(room.serviceFee, equals(100000.0));
     });
   });
 }

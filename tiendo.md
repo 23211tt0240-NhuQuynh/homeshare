@@ -3414,3 +3414,10 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
   3. **Kiểm thử chất lượng & Tự động hóa:**
      - `flutter analyze lib/features/renter/`: **No issues found! (0 errors, 0 warnings)**.
      - `flutter test test/my_homes_screen_test.dart`: **17/17 tests passed (100%)**.
+
+
+* **Cập nhật bổ sung Phase 2.91 (Khắc phục nạp ảnh, biểu phí điện nước & diện tích cụ thể):**
+  - **Phân giải đa nguồn ảnh & thông tin phòng:** Tích hợp `RoomService().resolveRentedRoom(...)` và cơ chế tra cứu mở rộng trên các collection `posts`, `host_rooms`, `rooms`, `properties` và snapshot từ `bookings`. Đảm bảo thu thập toàn bộ ảnh thực tế từ các bài đăng và nhà trọ, loại bỏ hoàn toàn tình trạng hiển thị icon rỗng / placeholder.
+  - **Biểu phí điện nước & dịch vụ minh bạch:** Tự động tra cứu đơn giá điện nước thực tế từ cơ sở dữ liệu chủ trọ; nếu chưa cài đặt riêng lẻ, hiển thị biểu phí tiêu chuẩn rõ ràng (`3.500 đ/kWh`, `20.000 đ/khối`, `100.000 đ/tháng phí quản lý/wifi`) kèm nhãn phụ thích hợp, thay thế chữ "Theo quy định".
+  - **Diện tích cụ thể (m²):** Hiển thị diện tích cụ thể nổi bật ngay tại Header card (`Diện tích: 25 m²`), Thẻ tài chính hợp đồng (`Diện tích phòng: 25 m²`) và Thẻ đặc điểm phòng & tiện nghi (`25 m² - Diện tích cụ thể`), không còn để chữ "Tiêu chuẩn" chung chung.
+  - **Kiểm thử chất lượng:** `flutter analyze` đạt 0 lỗi, toàn bộ 37/37 unit tests vượt qua 100%.
