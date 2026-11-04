@@ -12,12 +12,11 @@ import '../../../core/services/host_review_service.dart';
 import '../../../core/utils/host_review_policy.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/checkout_record_model.dart';
-import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../profile/widgets/host_review_sheet.dart';
 import '../widgets/send_roommate_invite_sheet.dart';
 import '../widgets/report_room_issue_bottom_sheet.dart';
-import 'room_detail_screen.dart';
+import 'my_home_detail_screen.dart';
 
 /// Item tóm tắt lịch sử căn phòng/nhà người dùng đã từng thuê trong quá khứ
 class PastRentalHomeItem {
@@ -396,40 +395,22 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
     }
   }
 
-  Future<void> _openRoomDetail(String roomId, String title) async {
-    try {
-      final firestore = FirebaseFirestore.instance;
-      RoomModel? room;
-      final doc = await firestore.collection('rooms').doc(roomId).get();
-      if (doc.exists) {
-        room = RoomModel.fromFirestore(doc);
-      } else {
-        final hostDoc = await firestore.collection('host_rooms').doc(roomId).get();
-        if (hostDoc.exists) {
-          room = RoomModel.fromFirestore(hostDoc);
-        }
-      }
+  void _openActiveHomeDetail(BookingRequestModel b) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MyHomeDetailScreen(booking: b),
+      ),
+    );
+  }
 
-      if (room != null && mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => RoomDetailScreen(room: room!)),
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Không thể tìm thấy thông tin phòng: $title'),
-            backgroundColor: const Color(0xFFD92D20),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi tải thông tin phòng: $e')),
-        );
-      }
-    }
+  void _openPastHomeDetail(PastRentalHomeItem item) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MyHomeDetailScreen(pastItem: item),
+      ),
+    );
   }
 
   Future<void> _showReportIssueSheet(BookingRequestModel b) async {
@@ -953,8 +934,11 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: borderColor),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _openActiveHomeDetail(b),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1006,13 +990,20 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
             const SizedBox(height: 12),
 
             // Tiêu đề phòng
-            Text(
-              b.roomTitle,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: textDark,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    b.roomTitle,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: textDark,
+                    ),
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, size: 22, color: textMuted),
+              ],
             ),
             if (b.note == 'Ở ghép') ...[
               const SizedBox(height: 6),
@@ -1196,9 +1187,9 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _openRoomDetail(b.roomId, b.roomTitle),
-                    icon: const Icon(Icons.visibility_outlined, size: 16),
-                    label: Text(AppTranslations.tr('re_rent_room')),
+                    onPressed: () => _openActiveHomeDetail(b),
+                    icon: const Icon(Icons.info_outline_rounded, size: 16),
+                    label: const Text('Chi tiết phòng'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.primary,
                       side: const BorderSide(color: AppColors.primary),
@@ -1231,6 +1222,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
             ],
           ],
         ),
+      ),
       ),
     );
   }
@@ -1326,8 +1318,11 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: borderColor),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _openPastHomeDetail(item),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1368,13 +1363,20 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
             const SizedBox(height: 12),
 
             // Tiêu đề phòng
-            Text(
-              item.roomTitle,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: textDark,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.roomTitle,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: textDark,
+                    ),
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, size: 22, color: textMuted),
+              ],
             ),
             const SizedBox(height: 4),
 
@@ -1474,9 +1476,27 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                   ),
                 ),
               ),
+            ] else ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _openPastHomeDetail(item),
+                  icon: const Icon(Icons.info_outline_rounded, size: 16),
+                  label: const Text('Xem chi tiết kỳ ở'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF64748B),
+                    side: BorderSide(color: borderColor),
+                    minimumSize: const Size.fromHeight(38),
+                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
             ],
           ],
         ),
+      ),
       ),
     );
   }

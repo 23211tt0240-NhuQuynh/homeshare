@@ -3387,3 +3387,30 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
      - Tạo mới bộ test `test/change_move_in_date_test.dart` kiểm tra toàn diện chính sách phân quyền và logic model.
      - `flutter analyze lib/`: **No issues found! (0 errors, 0 warnings)**.
      - `flutter test`: **137/137 tests Passed (100%)**.
+
+
+---
+
+### Phase 2.91: Nâng Cấp Hiển Thị Đầy Đủ Chi Tiết Phòng Trong "Phòng Của Tôi" (MyHomesScreen & MyHomeDetailScreen)
+* **Ngày hoàn thành:** 04/11/2026
+* **Yêu cầu & Thực hiện:**
+  1. **Tạo mới Màn hình Chi tiết Phòng Đang Thuê / Lịch sử kỳ ở (`MyHomeDetailScreen`):**
+     - Tạo file `lib/features/renter/screens/my_home_detail_screen.dart` với giao diện cao cấp:
+       + Image carousel / banner ảnh phòng thực tế từ collection `host_rooms` / `rooms` / `posts`.
+       + Header thông tin mã phòng (`roomCode`), mã hợp đồng / booking (`#DP...`), tag trạng thái ("Đang sinh sống" hoặc "Đã hoàn tất kỳ ở").
+       + Khung Tài chính & Hợp đồng: Giá thuê tháng, Tiền cọc giữ chỗ/hoàn cọc, Ngày dọn vào, Thời hạn thuê.
+       + Biểu phí dịch vụ chi tiết: Tiền điện (/kWh), Tiền nước (/khối), Phí quản lý / dịch vụ chung.
+       + Đặc điểm phòng & Tiện nghi: Diện tích, Số tầng, Loại phòng, Bộ chip tiện ích (Máy lạnh, Máy giặt, Tủ lạnh, Wifi, Vệ sinh riêng, Kệ bếp, Khóa vân tay, Camera, Giờ giấc tự do...).
+       + Thông tin Chủ trọ & Nút gọi điện trực tiếp (`url_launcher`).
+       + Danh sách bạn cùng phòng / Cư dân hiện tại (truy vấn collection `residents`).
+       + Biên bản bàn giao thanh lý & hoàn cọc (dành cho phòng trong tab Lịch sử đã ở).
+       + Nội quy & Quy định phòng trọ.
+       + Thanh tác vụ tiện ích dưới cùng: Nút "Báo sự cố phòng", "Tìm ở ghép", "Đánh giá chủ trọ", "Thuê lại phòng".
+  2. **Tích hợp Tương Tác Chạm Vào Thẻ Phòng Trên `MyHomesScreen`:**
+     - Cho phép người dùng chạm trực tiếp vào bất kỳ thẻ phòng nào ở cả 2 tab ("Nhà đang ở" và "Lịch sử nhà đã ở") để mở ngay `MyHomeDetailScreen`.
+     - Bổ sung icon chỉ dẫn `chevron_right` trực quan trên tiêu đề mỗi card.
+     - Đổi nút phụ trên thẻ "Nhà đang ở" thành "Chi tiết phòng" mở thẳng `MyHomeDetailScreen`.
+     - Loại bỏ hoàn toàn nút "Xem lại phòng" đối với thẻ phòng đã trả phòng (Lịch sử đã ở), thay thế bằng "Xem chi tiết kỳ ở" hoặc "Xem biên bản bàn giao & hoàn cọc".
+  3. **Kiểm thử chất lượng & Tự động hóa:**
+     - `flutter analyze lib/features/renter/`: **No issues found! (0 errors, 0 warnings)**.
+     - `flutter test test/my_homes_screen_test.dart`: **17/17 tests passed (100%)**.

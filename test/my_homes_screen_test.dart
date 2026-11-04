@@ -4,6 +4,7 @@ import 'package:home_share/core/services/resident_service.dart';
 import 'package:home_share/data/models/booking_model.dart';
 import 'package:home_share/data/models/resident_model.dart';
 import 'package:home_share/features/renter/screens/my_homes_screen.dart';
+import 'package:home_share/features/renter/screens/my_home_detail_screen.dart';
 
 void main() {
   group('MyHomesScreen & PastRentalHomeItem Tests', () {
@@ -490,6 +491,53 @@ void main() {
         roomData: hostRoomData,
       );
       expect(titleFromHostRoom, equals('QM08-1'));
+    });
+  });
+
+  group('MyHomeDetailScreen Tests', () {
+    test('MyHomeDetailScreen initializes with active booking', () {
+      final booking = BookingRequestModel(
+        id: 'BK_TEST',
+        renterId: 'RENTER_1',
+        renterName: 'Khách thuê',
+        renterPhone: '0901234567',
+        roomId: 'ROOM_1',
+        roomTitle: 'Phòng 101',
+        roomAddress: '123 Đường số 1, Q.Bình Thạnh',
+        roomPrice: 3500000,
+        status: 'dangO',
+        moveInDate: DateTime(2026, 1, 1),
+        createdAt: DateTime(2026, 1, 1),
+        hostName: 'Chủ trọ Nguyễn Văn A',
+        deposit: 3500000,
+      );
+
+      final widget = MyHomeDetailScreen(booking: booking);
+      expect(widget.booking, isNotNull);
+      expect(widget.pastItem, isNull);
+      expect(widget.booking!.roomTitle, equals('Phòng 101'));
+      expect(widget.booking!.roomPrice, equals(3500000));
+    });
+
+    test('MyHomeDetailScreen initializes with past rental home item', () {
+      final pastItem = PastRentalHomeItem(
+        id: 'PAST_1',
+        roomId: 'ROOM_OLD',
+        roomTitle: 'Phòng 202',
+        roomAddress: '456 Lê Văn Sỹ, Q.3',
+        hostId: 'HOST_2',
+        hostName: 'Chủ nhà B',
+        roomPrice: 4000000,
+        moveInDate: DateTime(2025, 6, 1),
+        moveOutDate: DateTime(2026, 1, 1),
+        status: 'Đã hoàn tất trả phòng',
+      );
+
+      final widget = MyHomeDetailScreen(pastItem: pastItem);
+      expect(widget.pastItem, isNotNull);
+      expect(widget.booking, isNull);
+      expect(widget.pastItem!.roomTitle, equals('Phòng 202'));
+      expect(widget.pastItem!.status, equals('Đã hoàn tất trả phòng'));
     });
   });
 }
