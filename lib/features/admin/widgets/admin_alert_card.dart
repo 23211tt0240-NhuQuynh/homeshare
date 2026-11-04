@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 enum AdminActionType {
   disbursement, // Giải ngân tiền cọc
-  postReview, // Duyệt bài đăng mới
-  ekyc, // Xác thực CCCD / eKYC
-  report, // Xử lý báo cáo sự cố
+  postReview,   // Duyệt bài đăng mới
+  ekyc,         // Xác thực CCCD / eKYC
+  report,       // Xử lý báo cáo sự cố
 }
 
 class AdminAlertCard extends StatelessWidget {
@@ -87,27 +87,15 @@ class AdminAlertCard extends StatelessWidget {
         break;
       case AdminActionType.postReview:
         iconBgColor = const Color(0xFFE9F5FC);
-        iconWidget = const Icon(
-          Icons.apartment_rounded,
-          color: Color(0xFF398FC0),
-          size: 19,
-        );
+        iconWidget = const Icon(Icons.apartment_rounded, color: Color(0xFF398FC0), size: 19);
         break;
       case AdminActionType.ekyc:
         iconBgColor = const Color(0xFFFEF0C7);
-        iconWidget = const Icon(
-          Icons.badge_outlined,
-          color: Color(0xFFB54708),
-          size: 19,
-        );
+        iconWidget = const Icon(Icons.badge_outlined, color: Color(0xFFB54708), size: 19);
         break;
       case AdminActionType.report:
         iconBgColor = const Color(0xFFFEE4E2);
-        iconWidget = const Icon(
-          Icons.warning_amber_rounded,
-          color: Color(0xFFD92D20),
-          size: 19,
-        );
+        iconWidget = const Icon(Icons.warning_amber_rounded, color: Color(0xFFD92D20), size: 19);
         break;
     }
 

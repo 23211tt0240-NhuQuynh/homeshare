@@ -23,6 +23,35 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.103 - Tich Hop Toan Dien Module Quan Tri He Thong (Admin Portal) Tu Nhanh dev-QUYNH:**
+    - **Yeu cau & Muc tieu nghiep vu:**
+      + Trich xuat va tich hop toan bo phan he Quan tri vien (Admin) tu nhanh origin/dev-QUYNH ghep vao nhanh phat trien chinh dev-TOAN.
+      + Bao toan tuyet doi moi tinh nang da hoan thien cua dev-TOAN (quy trinh khach xac nhan sua ngay den, bao su co tu trang ca nhan, reset CCCD test, dong bo residents status moved_out/daRoi sang tab Lich su va bo nut Xem lai phong).
+      + Tranh moi xung dot ma nguon (merge conflict) co the gay mat mat tinh nang nguoi dung/nguoi thue/chu tro cua dev-TOAN.
+    - **Cac tinh nang Admin duoc ghep vao:**
+      1. **Quan ly bai dang & Kiem duyet noi dung (AdminPostsScreen):**
+         - Bo loc da chieu: Loc theo thoi gian (Hom nay, 7 ngay, 30 ngay, Tat ca), tim kiem theo tu khoa phong/dia chi, loc theo chu tro cu the.
+         - Tab chuyen biet 'Bai dang can luu y': Tu dong phat hien vi pham noi dung (PostContentScreeningService) va quet ky tu trong hinh anh bai dang (PostImageOcrService).
+      2. **Quan ly lich su giao dich & Xuat hoa don/bien nhan (AdminHistoryScreen):**
+         - Theo doi toan bo dong tien: Lich su thanh toan coc, hoan tien coc, giai ngan cho chu tro.
+         - Xuat hoa don huy coc chuyen nghiep (CancellationInvoiceScreen, CancellationReceiptScreen).
+         - Xuat hoa don quyet toan giai ngan (SettlementInvoiceScreen, SettlementReceiptScreen).
+         - Xuat bao cao kiem toan he thong ra file Excel XLSX (AdminAuditExcelExporter) su dung thu vien archive va ho tro chia se (share_plus).
+         - Xuat bien nhan dinh dang PDF chuan font tieng Viet (AdminReceiptPdf, admin_receipt_font.ttf).
+      3. **Quan ly nguoi dung & Diem uy tin (AdminUsersScreen):**
+         - Quan ly danh sach tai khoan nguoi dung va chu tro.
+         - Dieu chinh diem uy tin nguoi dung linh hoat (AdminUserReputationDialog).
+         - Tiep nhan va xu ly khieu nai, bao cao vi pham (reports).
+      4. **Cau hinh chiet khau hoa hong san (CommissionRateService):**
+         - Tuy chinh linh hoat ty le phan tram hoa hong nen tang theo thoi gian thuc.
+      5. **Bao mat va Phan quyen Quan tri (AdminAccessService):**
+         - Gioi han quyen truy cap theo vai tro (admin, administrator, quantri).
+         - Quan ly danh sach tai khoan duoc uy quyen Admin Portal.
+    - **Kiem dinh chat luong & Hoi quy:**
+      + Chay bo kiem thu Admin (test/admin_*): 20/20 test cases PASSED 100%.
+      + Chay bo hoi quy dev-TOAN (past_homes_resident_moved_out_test.dart, room_issue_test.dart, booking_date_adjustment_flow_test.dart): 19/19 test cases PASSED 100%.
+      + Phan tich tinh flutter analyze lib/features/admin/: 0 error.
+
   * **Phase 2.102 - Tối Ưu Lịch Sử Nhà Đã Ở & Đồng Bộ Trạng Thái Cư Dân Đã Rời Phòng (moved_out / daRoi):**
     - **Yêu cầu & Nghiệp vụ:**
       + Khi một phòng có bản ghi trong bảng `residents` với trạng thái `status: "moved_out"` hoặc `statusId: "daRoi"`:

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'admin_audit_identity.dart';
 
 /// Duyệt / từ chối bài đăng và gửi thông báo cho chủ trọ.
 /// Dữ liệu được đọc từ chính document trong collection `posts`.
@@ -10,10 +11,6 @@ class PostReviewService {
 
   static Future<void> approve(String postId, {String performer = 'Admin'}) {
     return _review(postId, approved: true, performer: performer);
-  }
-
-  static Future<void> unhide(String postId, {String performer = 'Admin'}) {
-    return approve(postId, performer: performer);
   }
 
   static Future<void> reject(
@@ -31,14 +28,6 @@ class PostReviewService {
     );
   }
 
-  static Future<void> hide(
-    String postId, {
-    String reason = 'Admin đã ẩn bài đăng khỏi hệ thống',
-    String performer = 'Admin',
-  }) {
-    return reject(postId, reason: reason, performer: performer);
-  }
-
   static Future<void> _review(
     String postId, {
     required bool approved,
@@ -46,6 +35,8 @@ class PostReviewService {
     String penaltyType = 'reject_only',
     required String performer,
   }) async {
+    final actorFields = await AdminAuditIdentity.currentActorFields();
+    final actorName = (actorFields['performer'] ?? performer).toString();
     final postRef = _db.collection('posts').doc(postId);
     final snap = await postRef.get();
     if (!snap.exists) {
@@ -54,6 +45,42 @@ class PostReviewService {
 
     // ===== Lấy dữ liệu từ bảng posts =====
     final data = snap.data() ?? {};
+    final currentStatus =
+        (data['status'] ?? data['statusId'] ?? data['status_id'] ?? 'pending')
+            .toString()
+            .trim()
+            .toLowerCase();
+    final isRejected = const {
+      'rejected',
+      'reject',
+      'denied',
+      'tuchoi',
+      'tu choi',
+      'từ chối',
+      'đã từ chối',
+      'da tu choi',
+      'da_tu_choi',
+      'hidden',
+      'da an',
+      'đã ẩn',
+    }.contains(currentStatus);
+    DateTime? parseTime(dynamic value) {
+      if (value is Timestamp) return value.toDate();
+      if (value is DateTime) return value;
+      return DateTime.tryParse(value?.toString() ?? '');
+    }
+
+    final reviewedAt = parseTime(data['reviewedAt']);
+    final updatedAt = parseTime(data['updatedAt']);
+    final isResubmitted =
+        data['hostResubmittedAt'] != null ||
+        data['resubmittedAt'] != null ||
+        (reviewedAt != null &&
+            updatedAt != null &&
+            updatedAt.difference(reviewedAt).inSeconds > 2);
+    if (approved && isRejected && !isResubmitted) {
+      throw StateError('Chủ trọ cần chỉnh sửa và gửi lại bài trước khi duyệt.');
+    }
     final hostId =
         (data['hostId'] ?? data['landlordId'] ?? data['userId'] ?? '')
             .toString();
@@ -81,48 +108,30 @@ class PostReviewService {
       final hostRef = _db.collection('users').doc(hostId);
       final hostSnap = await hostRef.get();
       final hostData = hostSnap.data() ?? {};
-      final currentScore = (hostData['diemUyTin'] ?? 100) as num;
+      final rawScore =
+          hostData['reputationScore'] ?? hostData['diemUyTin'] ?? 100;
+      final currentScore = rawScore is num
+          ? rawScore.toInt()
+          : int.tryParse(rawScore.toString()) ?? 100;
       if (hostSnap.exists) {
         batch.update(hostRef, {
-          'diemUyTin': (currentScore.toInt() - 1).clamp(0, 100),
+          'reputationScore': (currentScore - 1).clamp(0, 100),
+          if (hostData.containsKey('diemUyTin'))
+            'diemUyTin': FieldValue.delete(),
         });
       }
     }
 
-    final currentStatus = (data['status'] ?? 'pending').toString().toLowerCase();
-    if (approved &&
-        (currentStatus == 'rejected' || currentStatus == 'tuchoi') &&
-        data['hostResubmittedAt'] == null) {
-      throw StateError('Chủ trọ cần chỉnh sửa và gửi lại bài trước khi duyệt.');
-    }
-
-    final statusValue = approved ? 'active' : 'rejected';
-
-    // 1) Cập nhật bài đăng (chủ trọ và dashboard đọc các field này ngay trên post)
+    // 1) Cập nhật bài đăng (chủ trọ đọc được các field này ngay trên post)
     batch.update(postRef, {
-      'status': statusValue,
-      'isAvailable': approved,
+      'status': approved ? 'active' : 'rejected',
       if (!approved) 'hostResubmittedAt': FieldValue.delete(),
       'rejectReason': approved ? FieldValue.delete() : cleanReason,
-      'reviewedBy': performer,
+      'reviewedBy': actorName,
+      'reviewedById': actorFields['actorUid'],
       'reviewedAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
-
-    // 1b) Cập nhật đồng bộ document phòng nếu có liên kết roomId
-    if (roomId.isNotEmpty) {
-      for (final col in const ['rooms', 'host_rooms']) {
-        batch.set(
-          _db.collection(col).doc(roomId),
-          {
-            'status': statusValue,
-            'isAvailable': approved,
-            'updatedAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        );
-      }
-    }
 
     // 2) Thông báo cho chủ trọ
     if (hostId.isNotEmpty) {
@@ -147,12 +156,12 @@ class PostReviewService {
 
     // 3) Nhật ký kiểm toán
     batch.set(_db.collection('audit_logs').doc(), {
+      ...actorFields,
       'title': approved ? 'Duyệt Tin Đăng $code' : 'Từ Chối Bài Đăng $code',
       'subtitle': approved
           ? 'Phê duyệt hiển thị phòng: $title'
           : 'Từ chối bài đăng: $title ($cleanReason)',
       'category': 'post',
-      'performer': performer,
       'code': code,
       'timeStr': DateFormat('HH:mm:ss').format(now),
       'dateGroup': 'HÔM NAY - ${DateFormat('dd/MM/yyyy').format(now)}',

@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/utils/vietqr_helper.dart';
 import '../utils/booking_utils.dart';
+import '../utils/commission_rate_service.dart';
 import '../widgets/admin_branded_title.dart';
+import '../services/admin_audit_identity.dart';
 import 'settlement_receipt_screen.dart';
 
 class SettlementInvoiceScreen extends StatefulWidget {
@@ -23,6 +25,8 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
   // Tỷ lệ được chụp vào từng đơn khi xác nhận quyết toán.
   double _commissionRate = 0.10;
   bool _commissionRateLoaded = false;
+  bool _bookingRatesLoaded = false;
+  final Map<String, double> _bookingCommissionRates = {};
 
   final currencyFormatter = NumberFormat('#,###', 'vi_VN');
   bool _isProcessing = false;
@@ -40,12 +44,42 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
     super.initState();
     _loadHostProfile();
     _loadCommissionRate();
+    _loadBookingCommissionRates();
   }
 
-  String get _commissionRateLabel {
-    final percent = _commissionRate * 100;
-    final digits = percent == percent.roundToDouble() ? 0 : 1;
-    return '${percent.toStringAsFixed(digits)}%';
+  Future<void> _loadBookingCommissionRates() async {
+    final rates = <String, double>{};
+    for (final id in widget.selectedBookingIds) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('bookings')
+            .doc(id)
+            .get();
+        final raw = doc.data();
+        if (raw == null) continue;
+        final data = BookingUtils.canonical(raw);
+        final stored =
+            data['commissionRateAtBooking'] ?? data['platformFeeRate'];
+        if (stored is num) {
+          rates[id] = stored.toDouble().clamp(0, 50) / 100;
+        } else {
+          rates[id] = await CommissionRateService.rateAt(
+            BookingUtils.createdAt(data),
+            fallback: _commissionRate,
+          );
+        }
+      } catch (error) {
+        debugPrint('Không tải được tỷ lệ hoa hồng của đơn $id: $error');
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _bookingCommissionRates
+          ..clear()
+          ..addAll(rates);
+        _bookingRatesLoaded = true;
+      });
+    }
   }
 
   Future<void> _loadCommissionRate() async {
@@ -84,7 +118,21 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
             .get();
         final rawData = first.data() ?? {};
         final canonicalData = BookingUtils.canonical(rawData);
-        final hostId = (canonicalData['hostId'] ?? '').toString();
+        final hostIds = <String>{};
+        for (final key in const [
+          'hostId',
+          'landlordId',
+          'hostUserId',
+          'landlordUserId',
+          'ownerId',
+          'propertyOwnerId',
+        ]) {
+          final candidateId = (rawData[key] ?? canonicalData[key] ?? '')
+              .toString()
+              .trim();
+          if (candidateId.isNotEmpty) hostIds.add(candidateId);
+        }
+        final hostId = hostIds.isEmpty ? '' : hostIds.first;
         if (hostId.isNotEmpty) {
           final u = await db.collection('users').doc(hostId).get();
           _hostProfile = u.data();
@@ -102,7 +150,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
             'stk',
           ],
         ).isNotEmpty;
-        if (!hasBank) {
+        if (_hostProfile == null && !hasBank) {
           final hostName = (canonicalData['hostName'] ?? '').toString().trim();
           if (hostName.isNotEmpty) {
             final query = await db
@@ -122,6 +170,71 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                 _hostProfile = query2.docs.first.data();
               }
             }
+          }
+        }
+
+        // bank_accounts là nguồn chuẩn và mới nhất cho tài khoản nhận tiền.
+        // Ưu tiên document id == userId, sau đó tra theo userId/hostId.
+        if (hostId.isNotEmpty) {
+          try {
+            final bankCollection = db.collection('bank_accounts');
+            Map<String, dynamic>? bankData;
+            for (final candidateId in hostIds) {
+              final bankById = await bankCollection.doc(candidateId).get();
+              if (bankById.exists) {
+                bankData = bankById.data();
+              } else {
+                final byUserId = await bankCollection
+                    .where('userId', isEqualTo: candidateId)
+                    .limit(1)
+                    .get();
+                if (byUserId.docs.isNotEmpty) {
+                  bankData = byUserId.docs.first.data();
+                } else {
+                  final byHostId = await bankCollection
+                      .where('hostId', isEqualTo: candidateId)
+                      .limit(1)
+                      .get();
+                  if (byHostId.docs.isNotEmpty) {
+                    bankData = byHostId.docs.first.data();
+                  }
+                }
+              }
+              final hasAccountNumber = _pick(
+                [bankData],
+                ['accountNumber', 'bankAccountNumber'],
+              ).isNotEmpty;
+              if (hasAccountNumber) break;
+            }
+            if (bankData != null) {
+              _hostProfile = {
+                ...(_hostProfile ?? {}),
+                'accountNumber': _pick(
+                  [bankData, _hostProfile],
+                  [
+                    'accountNumber',
+                    'bankAccountNumber',
+                    'hostAccountNumber',
+                    'soTaiKhoan',
+                    'stk',
+                  ],
+                ),
+                'bankName': _pick(
+                  [bankData, _hostProfile],
+                  ['bankName', 'hostBankName', 'nganHang', 'tenNganHang'],
+                ),
+                'bankCode': _pick(
+                  [bankData, _hostProfile],
+                  ['bankCode', 'hostBankCode'],
+                ),
+                'accountHolder': _pick(
+                  [bankData, _hostProfile],
+                  ['accountHolder', 'accountName', 'hostAccountHolder'],
+                ),
+              };
+            }
+          } catch (e) {
+            debugPrint('Fallback bank_accounts read error: $e');
           }
         }
       }
@@ -479,6 +592,8 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
     required String hostId,
     required String hostName,
     required String bankName,
+    required String bankCode,
+    required String accountHolder,
     required String accountNo,
   }) async {
     final appliedRate = _commissionRate;
@@ -518,6 +633,8 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
       hostId: hostId,
       hostName: hostName,
       bankName: bankName,
+      bankCode: bankCode,
+      accountHolder: accountHolder,
       accountNo: accountNo,
     );
   }
@@ -532,6 +649,8 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
     required String hostId,
     required String hostName,
     required String bankName,
+    required String bankCode,
+    required String accountHolder,
     required String accountNo,
   }) async {
     if (_isProcessing) return;
@@ -544,6 +663,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
       final now = DateTime.now();
       final receiptCode =
           '#REC-${DateFormat('yyyyMMdd-HHmmss').format(now)}-${disbursementRef.id.substring(0, 4).toUpperCase()}';
+      final actorFields = await AdminAuditIdentity.currentActorFields();
 
       await db.runTransaction((tx) async {
         // Đọc & kiểm tra tất cả đơn trước khi ghi
@@ -553,9 +673,11 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
           if (!snap.exists) {
             throw Exception('Đơn ${item['orderCode']} không còn tồn tại');
           }
-          final st = BookingUtils.status(snap.data() ?? {});
-          final isDisbursed = snap.data()?['isDisbursed'] == true;
+          final booking = BookingUtils.canonical(snap.data() ?? {});
+          final st = BookingUtils.uiStatus(booking);
+          final isDisbursed = BookingUtils.isDisbursed(booking);
           if (isDisbursed ||
+              booking['isCheckIn'] != true ||
               (st != BookingUtils.statusDepositPaid &&
                   st != BookingUtils.statusCompleted)) {
             throw Exception(
@@ -571,7 +693,8 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
             'disbursedAt': FieldValue.serverTimestamp(),
             'disbursementId': disbursementRef.id,
             'platformFee': (item['fee'] as num).round(),
-            'platformFeeRate': commissionRate * 100,
+            'platformFeeRate':
+                ((item['commissionRate'] as num).toDouble()) * 100,
             'updatedAt': FieldValue.serverTimestamp(),
           });
         }
@@ -581,21 +704,41 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
           'hostId': hostId,
           'hostName': hostName,
           'hostBankName': bankName,
+          'hostBankCode': bankCode,
+          'hostAccountHolder': accountHolder,
           'hostAccountNumber': accountNo,
           'totalDeposit': totalDeposit,
           'platformFee': platformFee,
-          'platformFeeRate': commissionRate * 100,
+          'platformFeeRate': totalDeposit == 0
+              ? commissionRate * 100
+              : platformFee / totalDeposit * 100,
           'totalAmount': netSettlement,
+          'netAmount': netSettlement,
           'itemCount': items.length,
           'bookingIds': items.map((e) => e['docId']).toList(),
+          'bookingDetails': items
+              .map(
+                (item) => {
+                  'bookingId': item['docId'],
+                  'orderCode': item['rawOrderCode'] ?? item['orderCode'],
+                  'amount': (item['amount'] as num).round(),
+                  'platformFee': (item['fee'] as num).round(),
+                  'platformFeeRate':
+                      ((item['commissionRate'] as num).toDouble()) * 100,
+                  'netAmount': (item['net'] as num).round(),
+                },
+              )
+              .toList(),
+          'status': 'completed',
+          'disbursedAt': FieldValue.serverTimestamp(),
           'createdAt': FieldValue.serverTimestamp(),
         });
 
         // Nhật ký kiểm toán — ghi đủ cả hai bộ trường đang dùng trong app
         // (xem ghi chú: cần thống nhất khi có admin_history_screen.dart)
         tx.set(auditLogRef, {
+          ...actorFields,
           'action': 'Duyệt giải ngân cọc',
-          'actor': 'Admin',
           'details':
               'Admin xác nhận đã chuyển ${currencyFormatter.format(netSettlement)} đ '
               'cho chủ trọ $hostName ($bankName - $accountNo), ${items.length} đơn. Mã $receiptCode',
@@ -606,7 +749,6 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
           'subtitle':
               'Chuyển ${currencyFormatter.format(netSettlement)} đ ➔ Chủ trọ $hostName',
           'amount': netSettlement,
-          'performer': 'Admin',
           'code': receiptCode,
           'timestamp': FieldValue.serverTimestamp(),
         });
@@ -635,9 +777,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: const Color(0xFFD92D20),
-            content: const Text(
-              'Không thể ghi sổ giải ngân. Vui lòng thử lại.',
-            ),
+            content: Text('Không thể ghi sổ giải ngân: $e'),
           ),
         );
       }
@@ -669,7 +809,8 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting ||
                 !_hostLoaded ||
-                !_commissionRateLoaded) {
+                !_commissionRateLoaded ||
+                !_bookingRatesLoaded) {
               return const Center(
                 child: CircularProgressIndicator(color: Color(0xFF398FC0)),
               );
@@ -703,7 +844,8 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
               );
               final st = BookingUtils.uiStatus(data);
               // Cả đơn Đã cọc (deposit_paid) và Đã cọc hết / Đã trả hết (completed / paid) đều được quyết toán nếu chưa giải ngân
-              if (data['isDisbursed'] == true ||
+              if (BookingUtils.isDisbursed(data) ||
+                  data['isCheckIn'] != true ||
                   (st != BookingUtils.statusDepositPaid &&
                       st != BookingUtils.statusCompleted)) {
                 excludedCount++;
@@ -715,7 +857,9 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
               );
 
               final amount = BookingUtils.amount(data).round();
-              final fee = (amount * _commissionRate).round();
+              final commissionRate =
+                  _bookingCommissionRates[doc.id] ?? _commissionRate;
+              final fee = (amount * commissionRate).round();
               totalDeposit += amount;
               platformFee += fee;
 
@@ -749,6 +893,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                     .toString(),
                 'amount': amount.toDouble(),
                 'fee': fee.toDouble(),
+                'commissionRate': commissionRate,
                 'net': (amount - fee).toDouble(),
               });
             }
@@ -816,17 +961,32 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
               firstBooking,
               _hostProfile,
             ];
+            final bankSources = <Map<String, dynamic>?>[
+              if (_customBankName != null || _customAccountNo != null)
+                {
+                  'bankName': _customBankName,
+                  'accountNumber': _customAccountNo,
+                },
+              _hostProfile,
+              firstBooking,
+            ];
             final hostId = _pick(sources, ['hostId']);
-            final hostName =
-                _pick(sources, ['hostName', 'fullName', 'name']).isNotEmpty
-                ? _pick(sources, ['hostName', 'fullName', 'name'])
-                : 'Chủ trọ';
-            final bankName = _pick(sources, [
+            // Booking có thể chỉ lưu nhãn mặc định "Chủ nhà". Ưu tiên tên
+            // hồ sơ users tải theo hostId rồi mới dùng tên trên booking.
+            final profileHostName = _pick(
+              [_hostProfile],
+              ['displayName', 'fullName', 'hoTen', 'name', 'hostName'],
+            );
+            final bookingHostName = _pick([firstBooking], ['hostName']);
+            final hostName = profileHostName.isNotEmpty
+                ? profileHostName
+                : (bookingHostName.isNotEmpty ? bookingHostName : 'Chủ trọ');
+            final bankName = _pick(bankSources, [
               'hostBankName',
               'bankName',
               'nganHang',
             ]);
-            final accountNo = _pick(sources, [
+            final accountNo = _pick(bankSources, [
               'hostAccountNumber',
               'bankAccountNumber',
               'accountNumber',
@@ -836,7 +996,12 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
             ]).replaceAll(RegExp(r'\s+'), '');
 
             final netSettlement = totalDeposit - platformFee;
-            final storedBankCode = _pick(sources, [
+            final effectiveCommissionPercent = totalDeposit == 0
+                ? _commissionRate * 100
+                : platformFee / totalDeposit * 100;
+            final commissionRateLabel =
+                '${effectiveCommissionPercent.toStringAsFixed(effectiveCommissionPercent % 1 == 0 ? 0 : 1)}%';
+            final storedBankCode = _pick(bankSources, [
               'hostBankCode',
               'bankCode',
             ]).toUpperCase();
@@ -845,20 +1010,102 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                 : _vietQrBankCode(bankName);
             final hasAccount = accountNo.isNotEmpty;
             final bankBin = bankCode == null ? null : _bankBins[bankCode];
+            final accountHolder = _pick(bankSources, [
+              'accountHolder',
+              'accountName',
+              'hostAccountHolder',
+            ]);
 
-            final orderRef =
-                _removeDiacritics(
-                      (settlementItems.isEmpty
-                              ? ''
-                              : settlementItems.first['orderCode'] ?? '')
-                          .toString(),
+            String extractHostCode() {
+              final hostProfileCode = _pick(
+                [_hostProfile],
+                ['hostCode', 'maChuTro', 'userCode', 'maNguoiDung', 'idNguoiDung'],
+              ).toUpperCase();
+              final bookingHostCode = _pick(
+                [firstBooking],
+                ['hostCode', 'maChuTro'],
+              ).toUpperCase();
+              final candidate = hostProfileCode.isNotEmpty
+                  ? hostProfileCode
+                  : bookingHostCode;
+              final ctMatch = RegExp(r'CT\d{2,5}').firstMatch(candidate);
+              if (ctMatch != null) return ctMatch.group(0)!;
+              final ntMatch = RegExp(r'NT(\d{2,5})').firstMatch(candidate);
+              if (ntMatch != null) return 'CT${ntMatch.group(1)!}';
+              final cleanDigits = candidate.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+              if (RegExp(r'^\d{3,4}$').hasMatch(cleanDigits)) {
+                return 'CT$cleanDigits';
+              }
+              if (hostId.isNotEmpty) {
+                var hash = 0;
+                for (var i = 0; i < hostId.length; i++) {
+                  hash = (hash * 31 + hostId.codeUnitAt(i)) & 0x7FFFFFFF;
+                }
+                final val = (hash % 900) + 100;
+                return 'CT$val';
+              }
+              return 'CT';
+            }
+
+            String shortItemCode(Map<String, dynamic> item, {int maxLen = 4}) {
+              final rawOrder = (item['rawOrderCode'] ?? '').toString().trim();
+              final docId = (item['docId'] ?? '').toString().trim();
+              final raw = (rawOrder.isNotEmpty ? rawOrder : docId).toUpperCase();
+              if (raw.contains('_')) {
+                final parts = raw
+                    .split('_')
+                    .where(
+                      (p) =>
+                          p.isNotEmpty &&
+                          p != 'DP' &&
+                          !RegExp(r'^20\d{6}$').hasMatch(p) &&
+                          !RegExp(r'^(NT|CT)[A-Z0-9]+$').hasMatch(p),
                     )
-                    .toUpperCase()
-                    .replaceAll(RegExp(r'[^A-Z0-9 ]'), ' ')
+                    .toList();
+                if (parts.isNotEmpty) {
+                  final mid = parts.first.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+                  if (mid.isNotEmpty) {
+                    return mid.length > maxLen
+                        ? mid.substring(mid.length - maxLen)
+                        : mid;
+                  }
+                }
+              }
+              final clean = _removeDiacritics(raw)
+                  .replaceAll(RegExp(r'[^A-Z0-9]'), '');
+              return clean.length > maxLen
+                  ? clean.substring(clean.length - maxLen)
+                  : clean;
+            }
+
+            final hostCode = extractHostCode();
+            String transferInfoRaw;
+            if (settlementItems.length > 1) {
+              final batchPrefix = 'QT ${settlementItems.length}D $hostCode';
+              String? matchedBatch;
+              for (final len in [4, 3, 2]) {
+                final codes = settlementItems
+                    .map((item) => shortItemCode(item, maxLen: len))
+                    .where((c) => c.isNotEmpty)
+                    .toList();
+                final candidate = '$batchPrefix ${codes.join(' ')}'
                     .replaceAll(RegExp(r'\s+'), ' ')
                     .trim();
-            final transferInfoRaw =
-                'QUYET TOAN ${orderRef.isEmpty ? 'COC' : orderRef}';
+                if (candidate.length <= 25) {
+                  matchedBatch = candidate;
+                  break;
+                }
+              }
+              transferInfoRaw = matchedBatch ??
+                  'QT ${settlementItems.length}D $hostCode ${DateFormat('ddMM').format(DateTime.now())}';
+            } else {
+              final singleCode = settlementItems.isEmpty
+                  ? ''
+                  : shortItemCode(settlementItems.first, maxLen: 4);
+              transferInfoRaw = 'QT $hostCode $singleCode'
+                  .replaceAll(RegExp(r'\s+'), ' ')
+                  .trim();
+            }
             final transferInfo = transferInfoRaw.length > 25
                 ? transferInfoRaw.substring(0, 25).trimRight()
                 : transferInfoRaw;
@@ -870,7 +1117,9 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                 addInfo: transferInfo,
                 accountNo: accountNo,
                 bankBin: bankBin,
-                accountName: 'NGUOI NHAN',
+                accountName: accountHolder.isEmpty
+                    ? 'NGUOI NHAN'
+                    : accountHolder,
               );
             }
             final canConfirm = hasAccount && bankBin != null && !_isProcessing;
@@ -1108,7 +1357,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                'Hoa hồng sàn ($_commissionRateLabel) trừ\n-${currencyFormatter.format(platformFee)} đ',
+                                'Hoa hồng sàn ($commissionRateLabel) trừ\n-${currencyFormatter.format(platformFee)} đ',
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   fontSize: 11,
@@ -1280,13 +1529,16 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              '1. Tổng tiền cọc giữ chỗ (${settlementItems.length} đơn):',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF667085),
+                            Expanded(
+                              child: Text(
+                                '1. Tổng tiền cọc giữ chỗ (${settlementItems.length} đơn):',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF667085),
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             Text(
                               '${currencyFormatter.format(totalDeposit)} đ',
                               style: const TextStyle(
@@ -1301,13 +1553,16 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              '2. Hoa hồng sàn ($_commissionRateLabel) (Trừ):',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFFD92D20),
+                            Expanded(
+                              child: Text(
+                                '2. Hoa hồng sàn ($commissionRateLabel) (Trừ):',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFFD92D20),
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             Text(
                               '-${currencyFormatter.format(platformFee)} đ',
                               style: const TextStyle(
@@ -1328,14 +1583,17 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                'TỔNG CỘNG THỰC CHUYỂN:',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF027A48),
+                              const Expanded(
+                                child: Text(
+                                  'TỔNG CỘNG THỰC CHUYỂN:',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF027A48),
+                                  ),
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               Text(
                                 '${currencyFormatter.format(netSettlement)} đ',
                                 style: const TextStyle(
@@ -1558,34 +1816,6 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                   // 6. Nút chuyển khoản
                   Row(
                     children: [
-                      OutlinedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Tính năng in phiếu đang được phát triển',
-                              ),
-                            ),
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: const Text(
-                          'In Phiếu',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF344054),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: !canConfirm
@@ -1598,6 +1828,8 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                                   hostId: hostId,
                                   hostName: hostName,
                                   bankName: bankName,
+                                  bankCode: bankCode ?? '',
+                                  accountHolder: accountHolder,
                                   accountNo: accountNo,
                                 ),
                           icon: _isProcessing
