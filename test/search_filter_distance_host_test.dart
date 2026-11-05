@@ -96,6 +96,7 @@ void main() {
         city: 'TP. Hồ Chí Minh',
         district: 'Quận 1',
         hostQuery: 'Nguyễn Văn A',
+        hostId: 'host_123',
         userLat: 10.7769,
         userLng: 106.7009,
         maxDistanceKm: 5.0,
@@ -106,6 +107,7 @@ void main() {
         city: 'TP. Hồ Chí Minh',
         district: 'Quận 1',
         hostQuery: 'Nguyễn Văn A',
+        hostId: 'host_123',
         userLat: 10.7769,
         userLng: 106.7009,
         maxDistanceKm: 5.0,
@@ -116,6 +118,7 @@ void main() {
         city: 'TP. Hồ Chí Minh',
         district: 'Quận 1',
         hostQuery: 'Trần Thị B',
+        hostId: 'host_456',
         userLat: 10.7769,
         userLng: 106.7009,
         maxDistanceKm: 10.0,
@@ -125,6 +128,16 @@ void main() {
       expect(p1, equals(p2));
       expect(p1.hashCode, equals(p2.hashCode));
       expect(p1, isNot(equals(p3)));
+    });
+
+    test('HostInfo model supports equality and room count updates', () {
+      const h1 = HostInfo(id: 'host_1', name: 'Cô Ba', phone: '0901234567', roomCount: 3);
+      const h2 = HostInfo(id: 'host_1', name: 'Cô Ba', phone: '0901234567', roomCount: 3);
+      final h3 = h1.copyWith(roomCount: 4);
+
+      expect(h1, equals(h2));
+      expect(h3.roomCount, equals(4));
+      expect(h3.id, equals('host_1'));
     });
   });
 }

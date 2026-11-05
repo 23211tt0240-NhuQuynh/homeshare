@@ -6,6 +6,49 @@ import '../constants/firestore_collections.dart';
 import '../utils/vietnam_address_parser.dart';
 import '../../data/models/room_model.dart';
 
+class HostInfo {
+  final String id;
+  final String name;
+  final String phone;
+  final String avatar;
+  final int roomCount;
+
+  const HostInfo({
+    required this.id,
+    required this.name,
+    this.phone = '',
+    this.avatar = '',
+    this.roomCount = 0,
+  });
+
+  HostInfo copyWith({
+    String? id,
+    String? name,
+    String? phone,
+    String? avatar,
+    int? roomCount,
+  }) {
+    return HostInfo(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      avatar: avatar ?? this.avatar,
+      roomCount: roomCount ?? this.roomCount,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HostInfo &&
+          id == other.id &&
+          name == other.name &&
+          phone == other.phone;
+
+  @override
+  int get hashCode => Object.hash(id, name, phone);
+}
+
 class RoomFilterParams {
   final String city;
   final String district;
@@ -19,6 +62,7 @@ class RoomFilterParams {
   final String searchQuery;
   final String sortBy; // 'newest', 'price_asc', 'price_desc', 'rating', 'distance'
   final String hostQuery; // Tên, SĐT hoặc Host ID chủ trọ
+  final String? hostId; // ID định danh chính xác của chủ trọ được chọn
   final double? userLat;
   final double? userLng;
   final double? maxDistanceKm; // Bán kính km tối đa
@@ -37,6 +81,7 @@ class RoomFilterParams {
     this.searchQuery = '',
     this.sortBy = 'newest',
     this.hostQuery = '',
+    this.hostId,
     this.userLat,
     this.userLng,
     this.maxDistanceKm,
@@ -59,6 +104,7 @@ class RoomFilterParams {
           searchQuery == other.searchQuery &&
           sortBy == other.sortBy &&
           hostQuery == other.hostQuery &&
+          hostId == other.hostId &&
           userLat == other.userLat &&
           userLng == other.userLng &&
           maxDistanceKm == other.maxDistanceKm &&
@@ -78,6 +124,7 @@ class RoomFilterParams {
     searchQuery,
     sortBy,
     hostQuery,
+    hostId,
     userLat,
     userLng,
     maxDistanceKm,
@@ -383,6 +430,7 @@ class RoomService {
     String? searchQuery,
     String? sortBy,
     String? hostQuery,
+    String? hostId,
     double? userLat,
     double? userLng,
     double? maxDistanceKm,
@@ -496,17 +544,28 @@ class RoomService {
             .toList();
       }
 
-      // 8. Lọc theo thông tin chủ trọ (Tên, SĐT, hoặc Host ID)
-      if (hostQuery != null && hostQuery.trim().isNotEmpty) {
-        final hq = hostQuery.toLowerCase().trim();
+      // 8. Lọc theo thông tin chủ trọ (Host ID chính xác, Tên, hoặc SĐT)
+      if ((hostId != null && hostId.isNotEmpty) ||
+          (hostQuery != null && hostQuery.trim().isNotEmpty)) {
+        final targetHostId = hostId?.toLowerCase().trim() ?? '';
+        final hq = hostQuery?.toLowerCase().trim() ?? '';
         final cleanHq = hq.replaceAll(RegExp(r'\s+'), '');
         list = list.where((r) {
-          final hName = r.hostName.toLowerCase();
-          final hPhone = r.hostPhone.toLowerCase().replaceAll(RegExp(r'\s+'), '');
-          final hId = r.hostId.toLowerCase();
-          return hName.contains(hq) ||
-              hPhone.contains(cleanHq) ||
-              hId.contains(hq);
+          final rHostId = r.hostId.toLowerCase().trim();
+          final rHostName = r.hostName.toLowerCase().trim();
+          final rHostPhone = r.hostPhone.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+
+          // Nếu có chọn hostId cụ thể, ưu tiên khớp chính xác hostId
+          if (targetHostId.isNotEmpty && rHostId == targetHostId) {
+            return true;
+          }
+          if (hq.isNotEmpty) {
+            return rHostName.contains(hq) ||
+                (cleanHq.isNotEmpty && rHostPhone.contains(cleanHq)) ||
+                (targetHostId.isNotEmpty && rHostId.contains(targetHostId)) ||
+                rHostId.contains(hq);
+          }
+          return false;
         }).toList();
       }
 
@@ -1177,6 +1236,112 @@ class RoomService {
     return _uniqueNames(names);
   }
 
+  // Lấy danh sách các chủ trọ có sẵn (từ users + posts + host_rooms)
+  Future<List<HostInfo>> getAvailableHosts() async {
+    final Map<String, HostInfo> hostMap = {};
+
+    // 1. Quét từ collection users (những người có vai trò host/landlord)
+    try {
+      final userSnap = await _firestore.collection(FirestoreCollections.users).get();
+      for (final doc in userSnap.docs) {
+        final data = doc.data();
+        final role = (data['role'] ?? data['vaiTro'] ?? '').toString().toLowerCase();
+        final isHost = role == 'host' || role == 'landlord' || role == 'chutro' || role == 'chu_tro';
+        if (isHost) {
+          final name = (data['displayName'] ?? data['name'] ?? data['hoTen'] ?? 'Chủ trọ').toString().trim();
+          final phone = (data['phoneNumber'] ?? data['phone'] ?? data['sdt'] ?? '').toString().trim();
+          final avatar = (data['photoURL'] ?? data['avatarUrl'] ?? data['avatar'] ?? '').toString().trim();
+          if (name.isNotEmpty && name != 'Chủ trọ') {
+            hostMap[doc.id] = HostInfo(
+              id: doc.id,
+              name: name,
+              phone: phone,
+              avatar: avatar,
+              roomCount: 0,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading hosts from users: $e');
+    }
+
+    // 2. Quét từ collection posts để cập nhật số phòng và bổ sung chủ trọ
+    try {
+      final postsSnap = await _firestore.collection(FirestoreCollections.posts).get();
+      for (final doc in postsSnap.docs) {
+        final data = doc.data();
+        final hostId = (data['hostId'] ?? data['authorId'] ?? data['userId'] ?? '').toString().trim();
+        final hostName = (data['hostName'] ?? data['authorName'] ?? data['userName'] ?? data['hoTen'] ?? '').toString().trim();
+        final hostPhone = (data['hostPhone'] ?? data['phone'] ?? data['sdt'] ?? data['contactPhone'] ?? '').toString().trim();
+        final hostAvatar = (data['hostAvatar'] ?? data['authorAvatar'] ?? '').toString().trim();
+
+        final key = hostId.isNotEmpty ? hostId : hostName;
+        if (key.isNotEmpty) {
+          if (hostMap.containsKey(key)) {
+            final old = hostMap[key]!;
+            hostMap[key] = old.copyWith(
+              roomCount: old.roomCount + 1,
+              phone: old.phone.isNotEmpty ? old.phone : hostPhone,
+              avatar: old.avatar.isNotEmpty ? old.avatar : hostAvatar,
+            );
+          } else if (hostName.isNotEmpty) {
+            hostMap[key] = HostInfo(
+              id: hostId.isNotEmpty ? hostId : key,
+              name: hostName,
+              phone: hostPhone,
+              avatar: hostAvatar,
+              roomCount: 1,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading hosts from posts: $e');
+    }
+
+    // 3. Quét từ collection host_rooms
+    try {
+      final hrSnap = await _firestore.collection(FirestoreCollections.hostRooms).get();
+      for (final doc in hrSnap.docs) {
+        final data = doc.data();
+        final hostId = (data['hostId'] ?? data['userId'] ?? '').toString().trim();
+        final hostName = (data['hostName'] ?? data['userName'] ?? data['hoTen'] ?? '').toString().trim();
+        final hostPhone = (data['hostPhone'] ?? data['phone'] ?? data['sdt'] ?? '').toString().trim();
+
+        final key = hostId.isNotEmpty ? hostId : hostName;
+        if (key.isNotEmpty) {
+          if (hostMap.containsKey(key)) {
+            final old = hostMap[key]!;
+            hostMap[key] = old.copyWith(
+              roomCount: old.roomCount + 1,
+              phone: old.phone.isNotEmpty ? old.phone : hostPhone,
+            );
+          } else if (hostName.isNotEmpty) {
+            hostMap[key] = HostInfo(
+              id: hostId.isNotEmpty ? hostId : key,
+              name: hostName,
+              phone: hostPhone,
+              roomCount: 1,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading hosts from host_rooms: $e');
+    }
+
+    final hosts = hostMap.values.toList();
+    hosts.sort((a, b) {
+      if (b.roomCount != a.roomCount) {
+        return b.roomCount.compareTo(a.roomCount);
+      }
+      return a.name.compareTo(b.name);
+    });
+
+    return hosts;
+  }
+
   // Đã gỡ bỏ toàn bộ bài mẫu hardcode
   static List<RoomModel> getSampleRooms() {
     return const <RoomModel>[];
@@ -1195,6 +1360,10 @@ final roomPostDetailProvider = StreamProvider.autoDispose
       return ref.watch(roomServiceProvider).watchPostById(postId);
     });
 
+final availableHostsProvider = FutureProvider.autoDispose<List<HostInfo>>((ref) {
+  return ref.watch(roomServiceProvider).getAvailableHosts();
+});
+
 final roomsStreamProvider = StreamProvider.autoDispose
     .family<List<RoomModel>, RoomFilterParams>((ref, filters) {
       final service = ref.watch(roomServiceProvider);
@@ -1211,6 +1380,7 @@ final roomsStreamProvider = StreamProvider.autoDispose
         searchQuery: filters.searchQuery,
         sortBy: filters.sortBy,
         hostQuery: filters.hostQuery,
+        hostId: filters.hostId,
         userLat: filters.userLat,
         userLng: filters.userLng,
         maxDistanceKm: filters.maxDistanceKm,
