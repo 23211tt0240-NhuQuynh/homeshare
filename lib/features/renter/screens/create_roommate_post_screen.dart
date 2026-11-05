@@ -1377,63 +1377,178 @@ class _CreateRoommatePostScreenState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionCard(
-          title: 'Tiêu chí sinh hoạt & Lối sống',
+          title: 'Tiêu chí sinh hoạt & Lối sống (Check List)',
           subtitle:
-              'Chọn tiêu chí có sẵn hoặc nhập thêm tiêu chí mong muốn của bạn',
-          icon: Icons.interests_outlined,
+              'Đánh dấu vào danh sách kiểm tra (check list) các tiêu chí phù hợp với bạn',
+          icon: Icons.checklist_rounded,
           children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _allHabits.map((habit) {
-                final isSelected = _selectedHabits.contains(habit);
-                final isCustom = _customHabits.contains(habit);
-                return FilterChip(
-                  label: Text(habit),
-                  selected: isSelected,
-                  onSelected: (selected) {
+            // Thanh trạng thái & Nút chọn nhanh
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.check_circle_outline,
+                      size: 16,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Đã chọn ${_selectedHabits.length}/${_allHabits.length} tiêu chí',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryDark,
+                      ),
+                    ),
+                  ],
+                ),
+                TextButton.icon(
+                  onPressed: () {
                     setState(() {
-                      if (selected) {
-                        _selectedHabits.add(habit);
+                      if (_selectedHabits.length == _allHabits.length) {
+                        _selectedHabits.clear();
                       } else {
-                        _selectedHabits.remove(habit);
+                        _selectedHabits
+                          ..clear()
+                          ..addAll(_allHabits);
                       }
                     });
                   },
-                  onDeleted: isCustom
-                      ? () {
-                          setState(() {
-                            _customHabits.remove(habit);
-                            _selectedHabits.remove(habit);
-                          });
+                  icon: Icon(
+                    _selectedHabits.length == _allHabits.length
+                        ? Icons.deselect_rounded
+                        : Icons.select_all_rounded,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
+                  label: Text(
+                    _selectedHabits.length == _allHabits.length
+                        ? 'Bỏ chọn tất cả'
+                        : 'Chọn tất cả',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Danh sách dạng Check List
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                itemCount: _allHabits.length,
+                separatorBuilder: (context, index) => const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFFF1F5F9),
+                  indent: 14,
+                  endIndent: 14,
+                ),
+                itemBuilder: (context, index) {
+                  final habit = _allHabits[index];
+                  final isSelected = _selectedHabits.contains(habit);
+                  final isCustom = _customHabits.contains(habit);
+
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedHabits.remove(habit);
+                        } else {
+                          _selectedHabits.add(habit);
                         }
-                      : null,
-                  deleteIcon: isCustom
-                      ? const Icon(
-                          Icons.close_rounded,
-                          size: 14,
-                          color: Color(0xFF64748B),
-                        )
-                      : null,
-                  selectedColor: AppColors.primarySurface,
-                  checkmarkColor: AppColors.primary,
-                  backgroundColor: const Color(0xFFF1F5F9),
-                  labelStyle: TextStyle(
-                    fontSize: 12,
-                    color: isSelected
-                        ? AppColors.primaryDark
-                        : const Color(0xFF334155),
-                    fontWeight: isSelected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                  ),
-                  side: BorderSide(
-                    color: isSelected
-                        ? AppColors.primary.withValues(alpha: 0.3)
-                        : const Color(0xFFE2E8F0),
-                  ),
-                );
-              }).toList(),
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Checkbox(
+                              value: isSelected,
+                              activeColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              side: BorderSide(
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : const Color(0xFF94A3B8),
+                                width: 1.5,
+                              ),
+                              onChanged: (val) {
+                                setState(() {
+                                  if (val == true) {
+                                    _selectedHabits.add(habit);
+                                  } else {
+                                    _selectedHabits.remove(habit);
+                                  }
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              habit,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                                color: isSelected
+                                    ? AppColors.primaryDark
+                                    : const Color(0xFF334155),
+                              ),
+                            ),
+                          ),
+                          if (isCustom)
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                size: 18,
+                                color: Color(0xFFEF4444),
+                              ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              tooltip: 'Xóa tiêu chí riêng',
+                              onPressed: () {
+                                setState(() {
+                                  _customHabits.remove(habit);
+                                  _selectedHabits.remove(habit);
+                                });
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
             const SizedBox(height: 14),
             Container(

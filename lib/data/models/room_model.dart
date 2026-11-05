@@ -1,5 +1,7 @@
+import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/firestore_collections.dart';
+import '../../core/utils/map_address_locator.dart';
 import '../../core/utils/vietnam_address_parser.dart';
 
 /// Model Phòng trọ & Bài đăng chuẩn hóa theo Database homeShare
@@ -48,6 +50,9 @@ class RoomModel {
   final int capacity; // sucChua
   final int floor; // tang
   final DateTime createdAt; // ngayTao / ngayDang
+  final double? latitude;
+  final double? longitude;
+  final bool isUnposted; // True nếu là phòng chưa tạo bài đăng công khai
 
   // Vietnamese DrawIO Alias Getters
   String get phongId => id;
@@ -195,7 +200,11 @@ class RoomModel {
   }
 
   /// Chỉ các bài ĐANG HIỂN THỊ (đã duyệt, còn mở, không bị ẩn/gỡ/từ chối/chờ duyệt, không phải bài mẫu hardcode)
+  /// Hoặc phòng chưa đăng bài nhưng còn trống và hợp lệ khi được bật tìm kiếm phòng chưa đăng
   bool get isDisplayable {
+    if (isUnposted) {
+      return isAvailable && !isOccupied && !isSampleOrHardcode && !isDeleted;
+    }
     return isApproved &&
         !isPending &&
         !isHiddenOrRejected &&
@@ -251,6 +260,9 @@ class RoomModel {
     this.capacity = 2,
     this.floor = 1,
     required this.createdAt,
+    this.latitude,
+    this.longitude,
+    this.isUnposted = false,
   }) : status = status ?? (isAvailable ? 'available' : 'unavailable');
 
   factory RoomModel.fromFirestore(DocumentSnapshot doc) {
@@ -568,7 +580,55 @@ class RoomModel {
           : (data['ngayDang'] is Timestamp)
           ? (data['ngayDang'] as Timestamp).toDate()
           : DateTime.now(),
+      latitude: () {
+        final val = data['latitude'] ?? data['lat'] ?? data['viDo'] ?? data['vi_do'];
+        if (val is num) return val.toDouble();
+        if (val is String && val.trim().isNotEmpty) return double.tryParse(val.trim());
+        return null;
+      }(),
+      longitude: () {
+        final val = data['longitude'] ?? data['lng'] ?? data['kinhDo'] ?? data['kinh_do'];
+        if (val is num) return val.toDouble();
+        if (val is String && val.trim().isNotEmpty) return double.tryParse(val.trim());
+        return null;
+      }(),
+      isUnposted: data['isUnposted'] == true ||
+          data['_isUnposted'] == true ||
+          data['status'] == 'unposted',
     );
+  }
+
+  /// Tính khoảng cách (km) giữa vị trí người dùng và phòng trọ (Haversine formula).
+  /// Tự động lấy tọa độ đã lưu hoặc dự phòng theo địa bàn (quận/huyện/thành phố).
+  double? distanceTo(double? userLat, double? userLng) {
+    if (userLat == null || userLng == null) return null;
+    final rLat = latitude ?? _approximateLat();
+    final rLng = longitude ?? _approximateLng();
+    if (rLat == null || rLng == null) return null;
+    return _haversineDistanceKm(userLat, userLng, rLat, rLng);
+  }
+
+  double? _approximateLat() {
+    final bias = knownPlaceBias('$address $district $city');
+    return bias?.latitude;
+  }
+
+  double? _approximateLng() {
+    final bias = knownPlaceBias('$address $district $city');
+    return bias?.longitude;
+  }
+
+  static double _haversineDistanceKm(double lat1, double lon1, double lat2, double lon2) {
+    const double r = 6371.0;
+    final dLat = (lat2 - lat1) * math.pi / 180.0;
+    final dLon = (lon2 - lon1) * math.pi / 180.0;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180.0) *
+            math.cos(lat2 * math.pi / 180.0) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return r * c;
   }
 
   /// Mapper chuẩn ghi Firestore theo Database.docx & ERD (100% tiếng Anh)
@@ -599,6 +659,9 @@ class RoomModel {
       if (electricityRate != null) 'electricityRate': electricityRate,
       if (waterRate != null) 'waterRate': waterRate,
       if (serviceFee != null) 'serviceFee': serviceFee,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (isUnposted) 'isUnposted': true,
       'createdAt': Timestamp.fromDate(createdAt),
       if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
     };
@@ -815,6 +878,9 @@ class RoomModel {
     double? electricityRate,
     double? waterRate,
     double? serviceFee,
+    double? latitude,
+    double? longitude,
+    bool? isUnposted,
   }) {
     return RoomModel(
       id: id ?? this.id,
@@ -856,6 +922,9 @@ class RoomModel {
       electricityRate: electricityRate ?? this.electricityRate,
       waterRate: waterRate ?? this.waterRate,
       serviceFee: serviceFee ?? this.serviceFee,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      isUnposted: isUnposted ?? this.isUnposted,
     );
   }
 }

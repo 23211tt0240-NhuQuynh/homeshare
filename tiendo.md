@@ -23,6 +23,19 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.106 - Hoàn Thiện Bước 3 Đăng Bài Ở Ghép (Check List) & Nâng Cấp Bộ Lọc Tìm Kiếm (Chủ Trọ, So Khoảng Cách Vị Trí, Phòng Chưa Đăng Bài):**
+    - **Yêu cầu & Nghiệp vụ người dùng:**
+      1. Đăng bài ở ghép Bước 3: Đổi toàn bộ các nút chọn sở thích thành danh sách kiểm tra (Check List với Checkbox).
+      2. Tìm kiếm & Bộ lọc: Thêm tính năng lọc theo chủ trọ (tên, SĐT, mã chủ trọ).
+      3. Tìm kiếm & Bộ lọc: Bổ sung so sánh khoảng cách giữa vị trí người dùng và phòng trọ (Haversine formula, chọn mốc vị trí, bán kính < 2km, < 5km, < 10km, < 15km, sắp xếp theo gần nhất).
+      4. Tìm kiếm & Bộ lọc: Cho phép tìm kiếm và hiển thị cả phòng chưa tạo bài đăng công khai từ kho phòng chủ trọ (host_rooms), kèm nhãn phân biệt Chưa đăng.
+      5. Quy định Git: Tuyệt đối KHÔNG push git lên GitHub remote (k push git), chỉ lưu commit ở local.
+    - **Triển khai kỹ thuật:**
+      1. create_roommate_post_screen.dart: Thay thế FilterChips thành ListView Check List chuẩn, hàng Checkbox sắc nét bo góc, hiệu ứng active text đậm, nút Chọn tất cả / Bỏ chọn tất cả, và nút xóa tiêu chí riêng cho custom habits.
+      2. room_model.dart: Thêm latitude, longitude, isUnposted vào constructor, fromMap, toFirestore, copyWith. Bổ sung hàm tính khoảng cách distanceTo(userLat, userLng) sử dụng công thức Haversine và tự động fallback sang knownPlaceBias khi phòng chưa có tọa độ GPS. Cập nhật getter isDisplayable để phòng chưa đăng bài (isUnposted) nhưng còn trống và hợp lệ vẫn hiển thị khi bật tìm kiếm.
+      3. room_service.dart: Nâng cấp RoomFilterParams bổ sung hostQuery, userLat, userLng, maxDistanceKm, includeUnpostedRooms. Nâng cấp mergeDashboardListings hỗ trợ includeUnpostedRooms. Nâng cấp getRoomsStream lọc theo chủ trọ, bán kính khoảng cách tối đa, sắp xếp distance, lắng nghe realtime host_rooms.
+      4. search_filter_screen.dart: Bổ sung 3 khối UI (lọc chủ trọ, vị trí & bán kính khoảng cách kèm BottomSheet đổi điểm mốc, công tắc hiển thị cả phòng chưa đăng bài). Thêm tùy chọn sắp xếp Gần vị trí tôi nhất. Cập nhật thẻ phòng ngang hiển thị badge Chưa đăng màu cam, khoảng cách km, tên chủ trọ.
+      5. search_filter_distance_host_test.dart: Bộ unit test toàn diện 4/4 test cases PASSED 100%. flutter analyze: No issues found! (0 errors, 0 warnings).
   * **Phase 2.103 - Tich Hop Toan Dien Module Quan Tri He Thong (Admin Portal) Tu Nhanh dev-QUYNH:**
     - **Yeu cau & Muc tieu nghiep vu:**
       + Trich xuat va tich hop toan bo phan he Quan tri vien (Admin) tu nhanh origin/dev-QUYNH ghep vao nhanh phat trien chinh dev-TOAN.

@@ -17,7 +17,12 @@ class RoomFilterParams {
   final List<String> amenities;
   final String roomType;
   final String searchQuery;
-  final String sortBy; // 'newest', 'price_asc', 'price_desc', 'rating'
+  final String sortBy; // 'newest', 'price_asc', 'price_desc', 'rating', 'distance'
+  final String hostQuery; // Tên, SĐT hoặc Host ID chủ trọ
+  final double? userLat;
+  final double? userLng;
+  final double? maxDistanceKm; // Bán kính km tối đa
+  final bool includeUnpostedRooms; // Hiển thị cả phòng chưa đăng bài
 
   const RoomFilterParams({
     this.city = 'Tất cả',
@@ -31,6 +36,11 @@ class RoomFilterParams {
     this.roomType = 'Tất cả',
     this.searchQuery = '',
     this.sortBy = 'newest',
+    this.hostQuery = '',
+    this.userLat,
+    this.userLng,
+    this.maxDistanceKm,
+    this.includeUnpostedRooms = false,
   });
 
   @override
@@ -47,7 +57,12 @@ class RoomFilterParams {
           listEquals(amenities, other.amenities) &&
           roomType == other.roomType &&
           searchQuery == other.searchQuery &&
-          sortBy == other.sortBy;
+          sortBy == other.sortBy &&
+          hostQuery == other.hostQuery &&
+          userLat == other.userLat &&
+          userLng == other.userLng &&
+          maxDistanceKm == other.maxDistanceKm &&
+          includeUnpostedRooms == other.includeUnpostedRooms;
 
   @override
   int get hashCode => Object.hash(
@@ -62,28 +77,50 @@ class RoomFilterParams {
     roomType,
     searchQuery,
     sortBy,
+    hostQuery,
+    userLat,
+    userLng,
+    maxDistanceKm,
+    includeUnpostedRooms,
   );
 }
 
 class RoomService {
   FirebaseFirestore get _firestore => FirebaseFirestore.instance;
 
-  /// `posts` là nguồn dữ liệu công khai duy nhất của Dashboard người thuê.
-  ///
-  /// `rooms` chỉ là bản sao thông tin phòng để quản lý/đặt phòng. Nếu tiếp tục
-  /// ghép bản sao đó vào feed, một bài đã xóa khỏi `posts` có thể xuất hiện lại
-  /// vì document `rooms` cũ vẫn còn trạng thái active/available.
+  /// `posts` là nguồn dữ liệu công khai tiêu chuẩn của Dashboard người thuê.
+  /// Khi [includeUnpostedRooms] = true, hỗ trợ tìm kiếm và hiển thị thêm cả các
+  /// phòng trống từ kho phòng của chủ trọ (`host_rooms`/`rooms`) chưa tạo bài đăng công khai.
   @visibleForTesting
   static List<RoomModel> mergeDashboardListings({
     required Iterable<RoomModel> roomMirrors,
     required Iterable<RoomModel> posts,
+    bool includeUnpostedRooms = false,
   }) {
-    // Cố ý không đưa roomMirrors vào kết quả. Tham số này giúp kiểm thử và ghi
-    // rõ ranh giới giữa dữ liệu quản lý phòng với dữ liệu bài đăng công khai.
     final listingsById = <String, RoomModel>{};
     for (final post in posts) {
       if (post.isDisplayable) listingsById[post.id] = post;
     }
+
+    if (includeUnpostedRooms) {
+      final postedRoomIds = <String>{};
+      for (final post in listingsById.values) {
+        if (post.id.isNotEmpty) postedRoomIds.add(post.id);
+        if (post.phongId.isNotEmpty) postedRoomIds.add(post.phongId);
+        if (post.roomCode.isNotEmpty) postedRoomIds.add(post.roomCode);
+      }
+
+      for (final mirror in roomMirrors) {
+        if (mirror.isDeleted) continue;
+        final alreadyPosted = postedRoomIds.contains(mirror.id) ||
+            postedRoomIds.contains(mirror.phongId) ||
+            (mirror.roomCode.isNotEmpty && postedRoomIds.contains(mirror.roomCode));
+        if (!alreadyPosted && mirror.isAvailable) {
+          listingsById[mirror.id] = mirror.copyWith(isUnposted: true);
+        }
+      }
+    }
+
     return listingsById.values.toList();
   }
 
@@ -345,14 +382,21 @@ class RoomService {
     String? roomType,
     String? searchQuery,
     String? sortBy,
+    String? hostQuery,
+    double? userLat,
+    double? userLng,
+    double? maxDistanceKm,
+    bool includeUnpostedRooms = false,
   }) {
     late StreamController<List<RoomModel>> controller;
     StreamSubscription? postsSub;
+    StreamSubscription? hostRoomsSub;
     List<RoomModel> latestPosts = [];
+    List<RoomModel> latestRoomMirrors = [];
 
     List<RoomModel> filterAndSort(List<RoomModel> rawList) {
-      // Chỉ giữ lại những bài đang hiển thị hợp lệ (đã duyệt, còn mở, không bị ẩn/gỡ, không phải bài mẫu hardcode)
-      var list = rawList.where((r) => r.isDisplayable).toList();
+      // Chỉ giữ lại những bài đang hiển thị hợp lệ hoặc phòng chưa đăng bài được phép hiển thị
+      var list = rawList.where((r) => r.isDisplayable || (r.isUnposted && r.isAvailable && !r.isDeleted)).toList();
 
       // 1. Lọc theo Thành phố
       if (city != null &&
@@ -452,7 +496,30 @@ class RoomService {
             .toList();
       }
 
-      // 8. Sắp xếp kết quả
+      // 8. Lọc theo thông tin chủ trọ (Tên, SĐT, hoặc Host ID)
+      if (hostQuery != null && hostQuery.trim().isNotEmpty) {
+        final hq = hostQuery.toLowerCase().trim();
+        final cleanHq = hq.replaceAll(RegExp(r'\s+'), '');
+        list = list.where((r) {
+          final hName = r.hostName.toLowerCase();
+          final hPhone = r.hostPhone.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+          final hId = r.hostId.toLowerCase();
+          return hName.contains(hq) ||
+              hPhone.contains(cleanHq) ||
+              hId.contains(hq);
+        }).toList();
+      }
+
+      // 9. Lọc theo khoảng cách tối đa (so với vị trí người dùng)
+      if (userLat != null && userLng != null && maxDistanceKm != null && maxDistanceKm > 0) {
+        list = list.where((r) {
+          final dist = r.distanceTo(userLat, userLng);
+          if (dist == null) return false;
+          return dist <= maxDistanceKm;
+        }).toList();
+      }
+
+      // 10. Sắp xếp kết quả
       switch (sortBy) {
         case 'price_asc':
           list.sort((a, b) => a.price.compareTo(b.price));
@@ -462,6 +529,15 @@ class RoomService {
           break;
         case 'rating':
           list.sort((a, b) => b.rating.compareTo(a.rating));
+          break;
+        case 'distance':
+          if (userLat != null && userLng != null) {
+            list.sort((a, b) {
+              final distA = a.distanceTo(userLat, userLng) ?? double.infinity;
+              final distB = b.distanceTo(userLat, userLng) ?? double.infinity;
+              return distA.compareTo(distB);
+            });
+          }
           break;
         case 'newest':
         default:
@@ -475,8 +551,9 @@ class RoomService {
     void emitMerged() {
       if (controller.isClosed) return;
       final publicListings = mergeDashboardListings(
-        roomMirrors: const <RoomModel>[],
+        roomMirrors: latestRoomMirrors,
         posts: latestPosts,
+        includeUnpostedRooms: includeUnpostedRooms,
       );
       final merged = filterAndSort(publicListings);
       controller.add(merged);
@@ -501,9 +578,31 @@ class RoomService {
                 emitMerged();
               },
             );
+
+        if (includeUnpostedRooms) {
+          hostRoomsSub = _firestore
+              .collection(FirestoreCollections.hostRooms)
+              .snapshots()
+              .listen(
+                (snapshot) {
+                  if (controller.isClosed) return;
+                  latestRoomMirrors = snapshot.docs
+                      .where((d) => !d.id.toLowerCase().startsWith('sample'))
+                      .map((d) => RoomModel.fromFirestore(d))
+                      .where((r) => r.isAvailable && !r.isDeleted)
+                      .toList();
+                  emitMerged();
+                },
+                onError: (err) {
+                  debugPrint('Firestore hostRooms stream error: $err');
+                  emitMerged();
+                },
+              );
+        }
       },
       onCancel: () async {
         await postsSub?.cancel();
+        await hostRoomsSub?.cancel();
       },
     );
 
@@ -1111,5 +1210,10 @@ final roomsStreamProvider = StreamProvider.autoDispose
         roomType: filters.roomType,
         searchQuery: filters.searchQuery,
         sortBy: filters.sortBy,
+        hostQuery: filters.hostQuery,
+        userLat: filters.userLat,
+        userLng: filters.userLng,
+        maxDistanceKm: filters.maxDistanceKm,
+        includeUnpostedRooms: filters.includeUnpostedRooms,
       );
     });
