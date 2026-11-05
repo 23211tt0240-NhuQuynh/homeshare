@@ -634,7 +634,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                                                     enabled: value,
                                                   );
                                                 } catch (e) {
-                                                  if (!mounted) return;
+                                                  if (!mounted || !context.mounted) return;
                                                   ScaffoldMessenger.of(
                                                     context,
                                                   ).showSnackBar(

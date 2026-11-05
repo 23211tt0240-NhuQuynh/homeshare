@@ -381,7 +381,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       if (isLowStar || existingMod != null) {
         final merged = <String, dynamic>{
           ...rev,
-          if (existingMod != null) ...existingMod,
+          ...?existingMod,
           'id': d.id,
           'isHostReview': true,
           'bookingId': bookingId.isNotEmpty ? bookingId : d.id,
@@ -695,7 +695,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       'status': status,
       'resolution': resolution,
       'adminNote': adminNote,
-      if (penaltyPoints != null) 'penaltyPoints': penaltyPoints,
+      'penaltyPoints': ?penaltyPoints,
       'reportedUserId': _s(r, ['reportedUserId', 'hostId']),
       'reportedUserName': _s(r, ['reportedName', 'reportedUserName']),
       'reportedRole': _s(r, ['reportedRole', 'role']),
@@ -1100,7 +1100,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           'recipientId': uid,
           'recipientRole': (report['reportedRole'] ?? '').toString(),
           'title': deducted > 0
-              ? 'Cảnh báo vi phạm (-${deducted}đ uy tín)'
+              ? 'Cảnh báo vi phạm (-$deductedđ uy tín)'
               : 'Nhắc nhở từ Admin',
           'body': '$note (Điểm uy tín hiện tại: $nextScore/100)',
           'notificationType': 'warning',
@@ -1113,12 +1113,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       await batch.commit();
       await _audit(
         lockNow ? 'Cảnh cáo & Khóa TK' : 'Cảnh cáo người dùng',
-        'Admin cảnh cáo "$name" (-${deducted}đ, còn $nextScore/100). Nội dung: $note',
+        'Admin cảnh cáo "$name" (-$deductedđ, còn $nextScore/100). Nội dung: $note',
         'User $uid',
       );
       _snack(
         deducted > 0
-            ? 'Đã cảnh cáo $name (-${deducted}đ, còn $nextScore/100)'
+            ? 'Đã cảnh cáo $name (-$deductedđ, còn $nextScore/100)'
             : 'Đã gửi nhắc nhở tới $name',
       );
     } catch (e) {
@@ -1427,8 +1427,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         'recipientId': uid,
         'recipientRole': (user['role'] ?? '').toString(),
         'title': isRestore
-            ? 'Khôi phục điểm uy tín (+${effectiveDelta}đ)'
-            : 'Điều chỉnh điểm uy tín (${effectiveDelta}đ)',
+            ? 'Khôi phục điểm uy tín (+$effectiveDeltađ)'
+            : 'Điều chỉnh điểm uy tín ($effectiveDeltađ)',
         'body': '$reason (Điểm uy tín mới: $nextScore/100)',
         'notificationType': isRestore ? 'reputation_restored' : 'warning',
         'isRead': false,
@@ -2542,7 +2542,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     final resolutionLabel = {
       'banned': 'Đã khóa tài khoản',
       'warned': penaltyPoints != null && penaltyPoints > 0
-          ? 'Đã cảnh cáo (-${penaltyPoints}đ UT)'
+          ? 'Đã cảnh cáo (-$penaltyPointsđ UT)'
           : 'Đã nhắc nhở',
       'dismissed': 'Đã bỏ qua',
     }[resolution];
@@ -2638,8 +2638,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                           if (_s(r, ['postTitle', 'roomTitle']).isNotEmpty)
                             _chip(
                               _s(r, ['targetType']) == 'post'
-                                  ? 'Bài đăng: ' + _s(r, ['postTitle', 'roomTitle'])
-                                  : 'Phòng: ' + _s(r, ['postTitle', 'roomTitle']),
+                                  ? 'Bài đăng: ${_s(r, ['postTitle', 'roomTitle'])}'
+                                  : 'Phòng: ${_s(r, ['postTitle', 'roomTitle'])}',
                               _primaryDark,
                             ),
                           if (hostScore != null)

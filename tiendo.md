@@ -3421,3 +3421,17 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
   - **Biểu phí điện nước & dịch vụ minh bạch:** Tự động tra cứu đơn giá điện nước thực tế từ cơ sở dữ liệu chủ trọ; nếu chưa cài đặt riêng lẻ, hiển thị biểu phí tiêu chuẩn rõ ràng (`3.500 đ/kWh`, `20.000 đ/khối`, `100.000 đ/tháng phí quản lý/wifi`) kèm nhãn phụ thích hợp, thay thế chữ "Theo quy định".
   - **Diện tích cụ thể (m²):** Hiển thị diện tích cụ thể nổi bật ngay tại Header card (`Diện tích: 25 m²`), Thẻ tài chính hợp đồng (`Diện tích phòng: 25 m²`) và Thẻ đặc điểm phòng & tiện nghi (`25 m² - Diện tích cụ thể`), không còn để chữ "Tiêu chuẩn" chung chung.
   - **Kiểm thử chất lượng:** `flutter analyze` đạt 0 lỗi, toàn bộ 37/37 unit tests vượt qua 100%.
+
+
+* **Cập nhật bổ sung Phase 2.92 (Chuẩn hóa dứt điểm danh mục 34 Tỉnh / Thành phố mới theo Nghị quyết 202/2025/QH15):**
+  - **Rà soát & thanh lọc toàn diện:** Xác nhận hệ thống đã chuyển sang chuẩn 34 Tỉnh/Thành phố mới. Loại bỏ hoàn toàn 30 mục tỉnh thành cũ dư thừa còn lưu trong dữ liệu thô (rút gọn từ 64 xuống đúng 34 tỉnh/thành phố).
+  - **Tối ưu hóa cấu trúc dữ liệu (`vietnam_divisions_data.dart`, `vietnam_locations.dart`):**
+    + Danh mục 34 tỉnh/thành gồm 6 Thành phố trực thuộc Trung ương (`TP. Hồ Chí Minh`, `Hà Nội`, `Đà Nẵng`, `Hải Phòng`, `Cần Thơ`, `Huế`) và 28 Tỉnh đã sáp nhập đơn vị hành chính.
+    + Bảo toàn đầy đủ 715 Quận/Huyện/Thị xã và 10.234 Phường/Xã trên toàn quốc.
+    + Xóa bỏ `provinces63` và `_districtsMap` cũ (~900 dòng code dư thừa), giải phóng bộ nhớ RAM và giảm kích thước ứng dụng.
+    + Xóa bỏ file dữ liệu cũ `vietnam_current_data.dart` (400KB dữ liệu 63 tỉnh cũ không còn sử dụng).
+    + Cập nhật các chú thích giao diện tại `host_dashboard_screen.dart` thành chuẩn 34 tỉnh thành mới.
+  - **Kiểm thử chất lượng & Phân tích tĩnh:**
+    + Xây dựng bộ test mới `test/vietnam_locations_test.dart`: 5/5 tests passed 100%.
+    + Toàn bộ suite kiểm thử tự động hệ thống: **209/209 tests passed (100%)**.
+    + `flutter analyze`: **No issues found! (0 errors, 0 warnings, 0 lints)** sạch hoàn hảo.

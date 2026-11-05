@@ -664,7 +664,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
 
   /// Thành phần lọc khu vực dùng chung cho cả Dropdown ngoài (Ảnh 1)
   /// và Bộ lọc nâng cao (Ảnh 2).
-  /// Hiển thị đầy đủ tất cả 63 tỉnh thành Việt Nam + Toàn quốc.
+  /// Hiển thị đầy đủ danh sách 34 tỉnh/thành phố Việt Nam (chuẩn NQ 202/2025/QH15) + Toàn quốc.
   Widget _buildLocationSelectorWidget({
     required bool isInsideAdvancedFilter,
   }) {
