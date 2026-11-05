@@ -169,6 +169,112 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                 ),
               ),
 
+              // Thanh tìm kiếm & Bộ lọc nâng cao trên Trang chủ
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SearchFilterScreen(),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            children: const [
+                              Icon(
+                                Icons.search_rounded,
+                                color: AppColors.primary,
+                                size: 20,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Tìm kiếm theo vị trí, chủ trọ...',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: AppColors.textMuted,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SearchFilterScreen(
+                              initialAdvanced: true,
+                            ),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryContainer,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFB2CCFF)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(
+                              Icons.tune_rounded,
+                              size: 14,
+                              color: AppColors.primary,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Nâng cao',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
               // Danh sách tất cả bài viết phòng trọ (Realtime Firestore)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -266,26 +372,35 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
     final Color bgColor;
     final Color textColor;
     final IconData icon;
-    final String label = room.statusDisplayLabel;
+    final String label;
 
-    if (room.isPending) {
+    if (room.isUnposted) {
+      bgColor = const Color(0xFFFFEDD5);
+      textColor = const Color(0xFFEA580C);
+      icon = Icons.inventory_2_outlined;
+      label = 'Chưa đăng';
+    } else if (room.isPending) {
       bgColor = const Color(0xFFFEF0C7);
       textColor = const Color(0xFFB54708);
       icon = Icons.schedule_rounded;
+      label = 'Chờ duyệt';
     } else if (room.isHiddenOrRejected) {
       bgColor = const Color(0xFFFEE4E2);
       textColor = const Color(0xFFD92D20);
       icon = Icons.visibility_off_rounded;
+      label = 'Đã ẩn';
     } else {
       final s = room.status.toLowerCase().trim();
       if (s == 'occupied' || s == 'dathue') {
         bgColor = const Color(0xFFF2F4F7);
         textColor = const Color(0xFF344054);
         icon = Icons.lock_outline_rounded;
+        label = 'Đã thuê';
       } else {
         bgColor = const Color(0xFFECFDF3);
         textColor = const Color(0xFF027A48);
         icon = Icons.check_circle_rounded;
+        label = 'Đã duyệt';
       }
     }
 
@@ -591,6 +706,40 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      () {
+                        final dist = room.distanceTo(10.7769, 106.7009);
+                        if (dist == null) return const SizedBox.shrink();
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF8FF),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFB2DDFF)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.near_me_rounded,
+                                size: 10,
+                                color: Color(0xFF175CD3),
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                '${dist.toStringAsFixed(1)} km',
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF175CD3),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }(),
                     ],
                   ),
                 ],
