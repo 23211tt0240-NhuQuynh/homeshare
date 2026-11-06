@@ -92,6 +92,45 @@ void main() {
       expect(unpostedItem.isDisplayable, isTrue);
     });
 
+    test('RoomService.mergeDashboardListings treats pending posts as unposted room inventory and excludes from public posts', () {
+      final approvedPost = RoomModel.fromMap({
+        'title': 'Bài đăng đã duyệt',
+        'address': 'Quận 1',
+        'district': 'Quận 1',
+        'isAvailable': true,
+        'status': 'active',
+      }, 'approved_post_1');
+
+      final pendingPost = RoomModel.fromMap({
+        'roomCode': 'LM15-55',
+        'title': 'Bốn bể là nhà, phổ độ chúng sinh',
+        'address': 'Bình Thạnh',
+        'district': 'Bình Thạnh',
+        'isAvailable': true,
+        'status': 'pending',
+      }, 'pending_post_1');
+
+      // 1. Khi includeUnpostedRooms = false: Chỉ trả về bài đăng đã duyệt, loại bỏ bài chờ duyệt
+      final approvedOnly = RoomService.mergeDashboardListings(
+        roomMirrors: [],
+        posts: [approvedPost, pendingPost],
+        includeUnpostedRooms: false,
+      );
+      expect(approvedOnly.length, equals(1));
+      expect(approvedOnly.first.id, equals('approved_post_1'));
+
+      // 2. Khi includeUnpostedRooms = true: Bài chờ duyệt xuất hiện dưới dạng THÔNG TIN PHÒNG TRỌ (isUnposted = true)
+      final withInventory = RoomService.mergeDashboardListings(
+        roomMirrors: [],
+        posts: [approvedPost, pendingPost],
+        includeUnpostedRooms: true,
+      );
+      expect(withInventory.length, equals(2));
+      final pendingAsRoom = withInventory.firstWhere((r) => r.id == 'pending_post_1');
+      expect(pendingAsRoom.isUnposted, isTrue);
+      expect(pendingAsRoom.title, equals('Phòng LM15-55'));
+    });
+
     test('RoomFilterParams equality and hashing includes new filter fields', () {
       const p1 = RoomFilterParams(
         city: 'TP. Hồ Chí Minh',

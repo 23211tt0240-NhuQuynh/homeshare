@@ -507,7 +507,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: _room.isPending ? const Color(0xFFD97706) : const Color(0xFFEA580C),
+                          color: const Color(0xFFEA580C),
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
@@ -516,18 +516,18 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                             ),
                           ],
                         ),
-                        child: Row(
+                        child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              _room.isPending ? Icons.pending_actions_rounded : Icons.inventory_2_outlined,
+                              Icons.meeting_room_outlined,
                               color: Colors.white,
                               size: 13,
                             ),
-                            const SizedBox(width: 5),
+                            SizedBox(width: 5),
                             Text(
-                              _room.isPending ? 'BÀI ĐĂNG CHỜ DUYỆT • HỒ SƠ PHÒNG' : 'KHO PHÒNG • HỒ SƠ PHÒNG',
-                              style: const TextStyle(
+                              'THÔNG TIN PHÒNG TRỌ • KHO CHỦ TRỌ',
+                              style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.bold,
@@ -889,48 +889,44 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. Alert Banner phân biệt rõ ràng
+          // 1. Alert Banner nhận diện: Hồ sơ thông tin phòng trọ
           Container(
             margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: _room.isPending ? const Color(0xFFFEF0C7) : const Color(0xFFFFF7ED),
+              color: const Color(0xFFFFF7ED),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _room.isPending ? const Color(0xFFFEDF89) : const Color(0xFFFFD6A4),
+                color: const Color(0xFFFFD6A4),
                 width: 1.2,
               ),
             ),
-            child: Row(
+            child: const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
-                  _room.isPending ? Icons.pending_actions_rounded : Icons.inventory_2_outlined,
-                  color: _room.isPending ? const Color(0xFFB54708) : const Color(0xFFC2410C),
+                  Icons.meeting_room_outlined,
+                  color: Color(0xFFC2410C),
                   size: 24,
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _room.isPending
-                            ? 'THÔNG TIN PHÒNG TRỌ (BÀI ĐĂNG CHỜ DUYỆT)'
-                            : 'THÔNG TIN PHÒNG TRỌ (KHO PHÒNG CHỦ TRỌ)',
+                        'THÔNG TIN PHÒNG TRỌ (KHO QUẢN LÝ CỦA CHỦ TRỌ)',
                         style: TextStyle(
-                          color: _room.isPending ? const Color(0xFF93370D) : const Color(0xFF9A3412),
+                          color: Color(0xFF9A3412),
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text(
-                        _room.isPending
-                            ? 'Bài viết quảng cáo của phòng này đang được Quản trị viên xét duyệt. Bố cục bên dưới là hồ sơ thông số kỹ thuật của phòng để bạn tham khảo trước khi liên hệ chủ trọ.'
-                            : 'Phòng này được lưu trữ trong kho phòng của chủ trọ và chưa tạo bài đăng công khai. Bạn có thể xem thông số kỹ thuật và liên hệ trực tiếp chủ trọ để hỏi thuê.',
+                        'Phòng này hiện hiển thị hồ sơ thông số kỹ thuật từ kho quản lý của chủ trọ. Bạn có thể xem diện tích, tiện ích và liên hệ trực tiếp chủ trọ qua số điện thoại hoặc tin nhắn để hỏi thuê phòng.',
                         style: TextStyle(
-                          color: _room.isPending ? const Color(0xFF78350F) : const Color(0xFF7C2D12),
+                          color: Color(0xFF7C2D12),
                           fontSize: 12.5,
                           height: 1.4,
                         ),
@@ -994,19 +990,6 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
               height: 1.25,
             ),
           ),
-          if (_room.title.isNotEmpty &&
-              _room.title.trim().toUpperCase() != _room.maPhong &&
-              _room.title.trim().toUpperCase() != _room.roomCode.toUpperCase()) ...[
-            const SizedBox(height: 4),
-            Text(
-              'Dự thảo bài viết: "${_room.title}"',
-              style: const TextStyle(
-                fontSize: 13,
-                fontStyle: FontStyle.italic,
-                color: Color(0xFF64748B),
-              ),
-            ),
-          ],
           const SizedBox(height: 8),
 
           // Địa chỉ
@@ -1444,22 +1427,20 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
+              child: const Row(
                 children: [
                   Icon(
                     Icons.info_outline,
                     size: 14,
-                    color: _room.isPending ? const Color(0xFFB54708) : const Color(0xFFC2410C),
+                    color: Color(0xFFC2410C),
                   ),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      _room.isPending
-                          ? 'Bài đăng đang chờ duyệt. Liên hệ chủ trọ để hỏi thêm thông tin phòng.'
-                          : 'Phòng trong kho lưu trữ. Liên hệ trực tiếp chủ trọ để hỏi thuê.',
+                      'Thông tin phòng trọ. Liên hệ trực tiếp chủ trọ qua số điện thoại hoặc tin nhắn để hỏi thuê phòng.',
                       style: TextStyle(
                         fontSize: 11,
-                        color: _room.isPending ? const Color(0xFFB54708) : const Color(0xFFC2410C),
+                        color: Color(0xFFC2410C),
                         fontWeight: FontWeight.w500,
                       ),
                     ),

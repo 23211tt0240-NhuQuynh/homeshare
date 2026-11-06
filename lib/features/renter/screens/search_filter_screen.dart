@@ -2671,7 +2671,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
     return _buildPublishedPostCard(room);
   }
 
-  // WIDGET 1: Thẻ Thông tin phòng trọ (Kho phòng / Bài chờ duyệt)
+  // WIDGET 1: Thẻ Thông tin phòng trọ (Kho phòng / Thông số kỹ thuật)
   // Bố cục phân biệt hoàn toàn với bài đăng: Header banner hồ sơ phòng, tên phòng kỹ thuật (mã phòng), thông số blueprint
   Widget _buildInventoryRoomCard(RoomModel room) {
     final priceStr = '${currencyFormatter.format(room.price)} đ/tháng';
@@ -2679,13 +2679,12 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
         ? room.images.first
         : 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';
 
-    final isPending = room.isPending;
-    final bannerBg = isPending ? const Color(0xFFFEF0C7) : const Color(0xFFFFF7ED);
-    final bannerBorder = isPending ? const Color(0xFFFEDF89) : const Color(0xFFFFD6A4);
-    final bannerText = isPending ? '⏳ THÔNG TIN PHÒNG (BÀI ĐĂNG CHỜ DUYỆT)' : '📦 THÔNG TIN PHÒNG TRỌ (KHO CHỦ TRỌ)';
-    final bannerColor = isPending ? const Color(0xFF93370D) : const Color(0xFF9A3412);
-    final badgeLabel = isPending ? 'Chờ duyệt' : 'Kho phòng';
-    final badgeColor = isPending ? const Color(0xFFD97706) : const Color(0xFFEA580C);
+    const bannerBg = Color(0xFFFFF7ED);
+    const bannerBorder = Color(0xFFFFD6A4);
+    const bannerText = '📦 THÔNG TIN PHÒNG TRỌ (KHO CHỦ TRỌ)';
+    const bannerColor = Color(0xFF9A3412);
+    const badgeLabel = 'Kho phòng';
+    const badgeColor = Color(0xFFEA580C);
 
     return InkWell(
       onTap: () {
@@ -2714,21 +2713,21 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
             // Dải Banner nhận diện Hồ sơ thông tin phòng
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: bannerBg,
-                borderRadius: const BorderRadius.only(
+                borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(15),
                   topRight: Radius.circular(15),
                 ),
               ),
-              child: Row(
+              child: const Row(
                 children: [
                   Icon(
-                    isPending ? Icons.pending_actions_rounded : Icons.inventory_2_outlined,
+                    Icons.meeting_room_outlined,
                     size: 13,
                     color: bannerColor,
                   ),
-                  const SizedBox(width: 5),
+                  SizedBox(width: 5),
                   Expanded(
                     child: Text(
                       bannerText,
@@ -2743,7 +2742,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                     ),
                   ),
                   Text(
-                    'Xem hồ sơ ➔',
+                    'Xem thông tin ➔',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -2791,9 +2790,9 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                                 color: badgeColor,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text(
+                              child: const Text(
                                 badgeLabel,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.bold,
@@ -2885,21 +2884,6 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                             ),
                           ],
                         ),
-                        if (room.title.isNotEmpty &&
-                            room.title.trim().toUpperCase() != room.maPhong &&
-                            room.title.trim().toUpperCase() != room.roomCode.toUpperCase()) ...[
-                          const SizedBox(height: 1),
-                          Text(
-                            'Dự thảo: ${room.title}',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontStyle: FontStyle.italic,
-                              color: Color(0xFF64748B),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
                         const SizedBox(height: 3),
 
                         // Giá niêm yết

@@ -136,8 +136,10 @@ class RoomService {
   FirebaseFirestore get _firestore => FirebaseFirestore.instance;
 
   /// `posts` là nguồn dữ liệu công khai tiêu chuẩn của Dashboard người thuê.
-  /// Khi [includeUnpostedRooms] = true, hỗ trợ tìm kiếm và hiển thị thêm cả các
-  /// phòng trống từ kho phòng của chủ trọ (`host_rooms`/`rooms`) chưa tạo bài đăng công khai.
+  /// Bài đăng đang chờ duyệt (isPending) tuyệt đối không được hiển thị dưới dạng bài đăng.
+  /// Khi [includeUnpostedRooms] = true, hỗ trợ tìm kiếm và hiển thị thêm các
+  /// phòng trống từ kho phòng của chủ trọ (`host_rooms`/`rooms`) chưa tạo bài đăng công khai,
+  /// hoặc các phòng có bài đăng nhưng bài đăng đang chờ duyệt (hiển thị dưới dạng thông tin phòng).
   @visibleForTesting
   static List<RoomModel> mergeDashboardListings({
     required Iterable<RoomModel> roomMirrors,
@@ -145,25 +147,58 @@ class RoomService {
     bool includeUnpostedRooms = true,
   }) {
     final listingsById = <String, RoomModel>{};
+
+    // 1. Chỉ đưa các bài đăng ĐÃ ĐƯỢC DUYỆT (isApproved && !isPending) vào làm bài đăng công khai
+    // Bài đăng chờ duyệt TUYỆT ĐỐI KHÔNG ĐƯỢC HIỂN THỊ dưới dạng bài đăng!
     for (final post in posts) {
-      if (post.isDisplayable) listingsById[post.id] = post;
+      if (post.isDisplayable && post.isApproved && !post.isPending) {
+        listingsById[post.id] = post.copyWith(isUnposted: false);
+      }
     }
 
     if (includeUnpostedRooms) {
-      final postedRoomIds = <String>{};
+      // Tập hợp các ID phòng / mã phòng đã có bài đăng công khai được duyệt
+      final approvedPostedRoomIds = <String>{};
       for (final post in listingsById.values) {
-        if (post.id.isNotEmpty) postedRoomIds.add(post.id);
-        if (post.phongId.isNotEmpty) postedRoomIds.add(post.phongId);
-        if (post.roomCode.isNotEmpty) postedRoomIds.add(post.roomCode);
+        if (post.id.isNotEmpty) approvedPostedRoomIds.add(post.id);
+        if (post.phongId.isNotEmpty) approvedPostedRoomIds.add(post.phongId);
+        if (post.roomCode.isNotEmpty) approvedPostedRoomIds.add(post.roomCode);
       }
 
+      // 2. Với các phòng từ kho (roomMirrors):
+      // Nếu phòng chưa có bài đăng đã duyệt (không có bài HOẶC bài đang chờ duyệt):
+      // -> Đưa vào danh sách dưới dạng THÔNG TIN PHÒNG TRỌ (isUnposted = true)!
       for (final mirror in roomMirrors) {
         if (mirror.isDeleted) continue;
-        final alreadyPosted = postedRoomIds.contains(mirror.id) ||
-            postedRoomIds.contains(mirror.phongId) ||
-            (mirror.roomCode.isNotEmpty && postedRoomIds.contains(mirror.roomCode));
-        if (!alreadyPosted) {
-          listingsById[mirror.id] = mirror.copyWith(isUnposted: true);
+        final hasApprovedPost = approvedPostedRoomIds.contains(mirror.id) ||
+            approvedPostedRoomIds.contains(mirror.phongId) ||
+            (mirror.roomCode.isNotEmpty && approvedPostedRoomIds.contains(mirror.roomCode));
+        if (!hasApprovedPost) {
+          listingsById[mirror.id] = mirror.copyWith(
+            isUnposted: true,
+            title: mirror.roomCode.isNotEmpty
+                ? 'Phòng ${mirror.roomCode}'
+                : (mirror.maPhong.isNotEmpty ? 'Phòng ${mirror.maPhong}' : mirror.title),
+          );
+        }
+      }
+
+      // 3. Nếu có bài đăng trong posts đang chờ duyệt (isPending):
+      // Bài đăng chưa duyệt không được hiển thị bài, nhưng phòng của nó vẫn được hiển thị thông tin phòng!
+      for (final post in posts) {
+        if (post.isDisplayable && post.isPending) {
+          final roomId = post.phongId.isNotEmpty ? post.phongId : post.id;
+          final alreadyIncluded = listingsById.containsKey(post.id) ||
+              listingsById.containsKey(roomId) ||
+              (post.roomCode.isNotEmpty && approvedPostedRoomIds.contains(post.roomCode));
+          if (!alreadyIncluded) {
+            listingsById[post.id] = post.copyWith(
+              isUnposted: true,
+              title: post.roomCode.isNotEmpty
+                  ? 'Phòng ${post.roomCode}'
+                  : (post.maPhong.isNotEmpty ? 'Phòng ${post.maPhong}' : 'Phòng trọ'),
+            );
+          }
         }
       }
     }
