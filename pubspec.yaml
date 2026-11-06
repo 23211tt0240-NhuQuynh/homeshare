@@ -63,6 +63,7 @@ dependencies:
   printing: 5.14.3
   archive: 4.0.9
   share_plus: 10.1.4
+  geolocator: ^14.0.2
 
 dev_dependencies:
   flutter_test:

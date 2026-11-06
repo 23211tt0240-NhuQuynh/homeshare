@@ -1,6 +1,7 @@
 import '../../profile/widgets/host_reputation_stars.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/vietnam_locations.dart';
@@ -97,11 +98,12 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
   // 7. Vị trí người dùng & Bán kính khoảng cách
   double? _userLat = 10.7769; // Mặc định Quận 1, TP.HCM
   double? _userLng = 106.7009;
-  String _userLocationLabel = 'Quận 1 (Trung tâm TP.HCM)';
+  String _userLocationLabel = 'Đang định vị vị trí của bạn...';
   double? _selectedMaxDistanceKm; // null: Tất cả; 2, 5, 10, 15 km
+  bool _isLocating = false;
 
-  // 8. Tùy chọn tìm kiếm cả phòng chưa đăng bài
-  bool _includeUnpostedRooms = true;
+  // 8. Mặc định luôn hiển thị cả phòng chưa đăng bài từ kho
+  final bool _includeUnpostedRooms = true;
 
   // Sắp xếp
   String _selectedSort = 'newest';
@@ -126,6 +128,96 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
     if (widget.initialAdvanced) {
       _isAdvancedExpanded = true;
     }
+    _getCurrentLocation();
+  }
+
+  /// Lấy vị trí GPS thực tế hiện tại của người dùng
+  Future<void> _getCurrentLocation({bool showToast = false}) async {
+    if (_isLocating) return;
+    setState(() => _isLocating = true);
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (showToast && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Vui lòng bật định vị GPS trên thiết bị')),
+          );
+        }
+        if (mounted) {
+          setState(() {
+            _userLocationLabel = 'Quận 1 (Trung tâm TP.HCM)';
+            _isLocating = false;
+          });
+        }
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (showToast && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Chưa cấp quyền vị trí, sử dụng mốc mặc định')),
+            );
+          }
+          if (mounted) {
+            setState(() {
+              _userLocationLabel = 'Quận 1 (Trung tâm TP.HCM)';
+              _isLocating = false;
+            });
+          }
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (showToast && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Quyền vị trí bị chặn vĩnh viễn trong Cài đặt')),
+          );
+        }
+        if (mounted) {
+          setState(() {
+            _userLocationLabel = 'Quận 1 (Trung tâm TP.HCM)';
+            _isLocating = false;
+          });
+        }
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+
+      if (mounted) {
+        setState(() {
+          _userLat = position.latitude;
+          _userLng = position.longitude;
+          _userLocationLabel = 'Vị trí hiện tại của bạn 📍';
+          _isLocating = false;
+        });
+        if (showToast) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã cập nhật vị trí hiện tại của bạn thành công!'),
+              backgroundColor: Color(0xFF027A48),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting current location: $e');
+      if (mounted) {
+        setState(() {
+          _userLocationLabel = 'Quận 1 (Trung tâm TP.HCM)';
+          _isLocating = false;
+        });
+      }
+    }
   }
 
   @override
@@ -141,9 +233,8 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
     if (_priceRange.start > 0 || _priceRange.end < 20000000) count++;
     if (_areaRange.start > 10 || _areaRange.end < 200) count++;
     count += _selectedAmenities.length;
-    if (_selectedHost != null || _hostController.text.trim().isNotEmpty) count++;
+    if (_selectedHost != null) count++;
     if (_selectedMaxDistanceKm != null && _selectedMaxDistanceKm! > 0) count++;
-    if (_includeUnpostedRooms) count++;
     return count;
   }
 
@@ -263,7 +354,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                         return ListView.separated(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           itemCount: filtered.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          separatorBuilder: (context, index) => const Divider(height: 1),
                           itemBuilder: (context, index) {
                             final host = filtered[index];
                             final isSelected = _selectedHost?.id == host.id ||
@@ -576,7 +667,6 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
       _selectedHost = null;
       _hostController.clear();
       _selectedMaxDistanceKm = null;
-      _includeUnpostedRooms = true;
       _selectedSort = 'newest';
       _hasSearched = false;
     });
@@ -932,8 +1022,16 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
               ),
             ],
           ),
+          const Divider(height: 24),
 
-          // Nút + Nâng cao
+          // 4. LỌC THEO CHỦ TRỌ (HIỂN THỊ CỐ ĐỊNH Ở TRÊN - KHÔNG CẦN BẬT NÂNG CAO)
+          _buildHostFilterSection(),
+          const Divider(height: 24),
+
+          // 5. VỊ TRÍ & BÁN KÍNH KHOẢNG CÁCH (LẤY VỊ TRÍ HIỆN TẠI - CỐ ĐỊNH Ở TRÊN)
+          _buildDistanceLocationFilterSection(),
+
+          // Nút + Nâng cao (Khoảng giá, Diện tích, Tiện ích)
           if (!_isAdvancedExpanded)
             Padding(
               padding: const EdgeInsets.only(top: 14),
@@ -953,14 +1051,14 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.add, size: 18, color: _primaryBlue),
+                      Icon(Icons.tune, size: 18, color: _primaryBlue),
                       SizedBox(width: 6),
                       Text(
-                        'Nâng cao',
+                        'Bộ lọc nâng cao (Giá, Diện tích, Tiện ích)',
                         style: TextStyle(
                           color: _primaryBlue,
                           fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                          fontSize: 13.5,
                         ),
                       ),
                     ],
@@ -970,6 +1068,407 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
             ),
         ],
       ),
+    );
+  }
+
+  // WIDGET: Khối lọc theo chủ trọ hiển thị ở phần trên cùng
+  Widget _buildHostFilterSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Lọc theo chủ trọ',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
+              ),
+            ),
+            if (_selectedHost != null)
+              GestureDetector(
+                onTap: () => setState(() {
+                  _selectedHost = null;
+                  _hostController.clear();
+                }),
+                child: const Text(
+                  'Xóa lọc',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFFEF4444),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (_selectedHost != null) ...[
+          // ĐÃ CHỌN CHỦ TRỌ: Thẻ tóm tắt thông tin chủ trọ
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: _primaryBlue,
+                      backgroundImage: _selectedHost!.avatar.isNotEmpty
+                          ? NetworkImage(_selectedHost!.avatar)
+                          : null,
+                      child: _selectedHost!.avatar.isEmpty
+                          ? Text(
+                              _selectedHost!.name.isNotEmpty
+                                  ? _selectedHost!.name.characters.first.toUpperCase()
+                                  : 'H',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                fontSize: 15,
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _selectedHost!.name,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF166534),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _selectedHost!.phone.isNotEmpty
+                                ? 'SĐT: ${_selectedHost!.phone}'
+                                : 'Chủ trọ trên HomeShare',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF15803D),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_selectedHost!.roomCount > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF86EFAC)),
+                        ),
+                        child: Text(
+                          '${_selectedHost!.roomCount} phòng',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF166534),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                const Divider(height: 1, color: Color(0xFFBBF7D0)),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Expanded(
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF16A34A)),
+                          SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'Hiện phòng & bài đăng của chủ này',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF15803D),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        GestureDetector(
+                          onTap: _showHostPickerBottomSheet,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            child: Text(
+                              'Đổi chủ trọ',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: _primaryBlue,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () => setState(() {
+                            _selectedHost = null;
+                            _hostController.clear();
+                          }),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            child: Icon(Icons.close_rounded, size: 16, color: Color(0xFFDC2626)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ] else ...[
+          // CHƯA CHỌN CHỦ TRỌ: Nút mở danh sách chọn + Chip chọn nhanh (đã xóa ô tự nhập tên như ảnh)
+          InkWell(
+            onTap: _showHostPickerBottomSheet,
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF8FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFB2DDFF)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.person_search_rounded, size: 20, color: _primaryBlue),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Chọn từ danh sách chủ trọ...',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _primaryBlue,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.arrow_drop_down_circle_outlined, size: 18, color: _primaryBlue),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Chip chọn nhanh các chủ trọ có sẵn
+          Consumer(
+            builder: (context, ref, _) {
+              final hostsAsync = ref.watch(availableHostsProvider);
+              return hostsAsync.maybeWhen(
+                data: (hosts) {
+                  if (hosts.isEmpty) return const SizedBox.shrink();
+                  final topHosts = hosts.take(6).toList();
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: topHosts.map((h) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6, bottom: 2),
+                          child: ActionChip(
+                            avatar: CircleAvatar(
+                              radius: 10,
+                              backgroundColor: _primaryBlue,
+                              backgroundImage: h.avatar.isNotEmpty ? NetworkImage(h.avatar) : null,
+                              child: h.avatar.isEmpty
+                                  ? Text(
+                                      h.name.isNotEmpty ? h.name.characters.first.toUpperCase() : 'H',
+                                      style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                                    )
+                                  : null,
+                            ),
+                            label: Text(
+                              h.name,
+                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
+                            ),
+                            backgroundColor: const Color(0xFFF8FAFC),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: const BorderSide(color: Color(0xFFE2E8F0)),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                            onPressed: () {
+                              setState(() {
+                                _selectedHost = h;
+                                _hostController.text = h.name;
+                              });
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  );
+                },
+                orElse: () => const SizedBox.shrink(),
+              );
+            },
+          ),
+        ],
+      ],
+    );
+  }
+
+  // WIDGET: Khối vị trí mốc & bán kính khoảng cách hiển thị ở phần trên cùng
+  Widget _buildDistanceLocationFilterSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Vị trí & Bán kính khoảng cách',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
+            ),
+            Text(
+              _selectedMaxDistanceKm != null
+                  ? '< ${_selectedMaxDistanceKm!.toStringAsFixed(0)} km'
+                  : 'Tất cả khoảng cách',
+              style: const TextStyle(
+                fontSize: 12,
+                color: _primaryBlue,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        // Thẻ chọn điểm mốc vị trí kèm nút định vị hiện tại & đổi mốc
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  color: _primaryBlueLight,
+                  shape: BoxShape.circle,
+                ),
+                child: _isLocating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: _primaryBlue),
+                      )
+                    : const Icon(Icons.my_location_rounded, size: 16, color: _primaryBlue),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Vị trí mốc so sánh:',
+                      style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                    ),
+                    Text(
+                      _userLocationLabel,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textDark,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Nút lấy vị trí GPS hiện tại
+              IconButton(
+                icon: const Icon(Icons.gps_fixed_rounded, size: 18, color: _primaryBlue),
+                tooltip: 'Lấy vị trí hiện tại của tôi',
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                padding: EdgeInsets.zero,
+                onPressed: () => _getCurrentLocation(showToast: true),
+              ),
+              const SizedBox(width: 4),
+              OutlinedButton(
+                onPressed: _showUserLocationPicker,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  side: const BorderSide(color: _primaryBlueBorder),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text(
+                  'Đổi mốc',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: _primaryBlue),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // Chips bán kính
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: [
+            null,
+            2.0,
+            5.0,
+            10.0,
+            15.0,
+          ].map((dist) {
+            final isSelected = _selectedMaxDistanceKm == dist;
+            final label = dist == null ? 'Tất cả' : '< ${dist.toInt()} km';
+            return ChoiceChip(
+              label: Text(label),
+              selected: isSelected,
+              selectedColor: _primaryBlueLight,
+              backgroundColor: const Color(0xFFF1F5F9),
+              labelStyle: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? _primaryBlue : AppColors.textDark,
+              ),
+              side: BorderSide(
+                color: isSelected ? _primaryBlue : Colors.transparent,
+              ),
+              onSelected: (_) {
+                setState(() => _selectedMaxDistanceKm = dist);
+              },
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
@@ -1626,474 +2125,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 })
                 .toList(),
           ),
-          const Divider(height: 28),
-
-          // 4. LỌC THEO CHỦ TRỌ (CHO PHÉP CHỌN CHỦ TRỌ & HIỂN THỊ PHÒNG + BÀI ĐĂNG CỦA HỌ)
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Lọc theo chủ trọ',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
-                  ),
-                ),
-              ),
-              if (_selectedHost != null || _hostController.text.isNotEmpty)
-                GestureDetector(
-                  onTap: () => setState(() {
-                    _selectedHost = null;
-                    _hostController.clear();
-                  }),
-                  child: const Text(
-                    'Xóa lọc',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFFEF4444),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          if (_selectedHost != null) ...[
-            // ĐÃ CHỌN CHỦ TRỌ: Hiển thị Thẻ thông tin chủ trọ được chọn
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0FDF4),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor: _primaryBlue,
-                        backgroundImage: _selectedHost!.avatar.isNotEmpty
-                            ? NetworkImage(_selectedHost!.avatar)
-                            : null,
-                        child: _selectedHost!.avatar.isEmpty
-                            ? Text(
-                                _selectedHost!.name.isNotEmpty
-                                    ? _selectedHost!.name.characters.first.toUpperCase()
-                                    : 'H',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                ),
-                              )
-                            : null,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _selectedHost!.name,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF166534),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _selectedHost!.phone.isNotEmpty
-                                  ? 'SĐT: ${_selectedHost!.phone}'
-                                  : 'Chủ trọ trên HomeShare',
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                color: Color(0xFF15803D),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (_selectedHost!.roomCount > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF86EFAC)),
-                          ),
-                          child: Text(
-                            '${_selectedHost!.roomCount} phòng',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF166534),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  const Divider(height: 1, color: Color(0xFFBBF7D0)),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Expanded(
-                        child: Row(
-                          children: [
-                            Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF16A34A)),
-                            SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                'Hiện phòng & bài đăng của chủ này',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF15803D),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          GestureDetector(
-                            onTap: _showHostPickerBottomSheet,
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              child: Text(
-                                'Đổi chủ trọ',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: _primaryBlue,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          GestureDetector(
-                            onTap: () => setState(() {
-                              _selectedHost = null;
-                              _hostController.clear();
-                            }),
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                              child: Icon(Icons.close_rounded, size: 16, color: Color(0xFFDC2626)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ] else ...[
-            // CHƯA CHỌN CHỦ TRỌ: Nút mở danh sách chọn + Chip chọn nhanh + Ô tìm kiếm
-            InkWell(
-              onTap: _showHostPickerBottomSheet,
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF8FF),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFB2DDFF)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.person_search_rounded, size: 20, color: _primaryBlue),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Chọn từ danh sách chủ trọ...',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: _primaryBlue,
-                        ),
-                      ),
-                    ),
-                    Icon(Icons.arrow_drop_down_circle_outlined, size: 18, color: _primaryBlue),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // Chip chọn nhanh các chủ trọ có sẵn
-            Consumer(
-              builder: (context, ref, _) {
-                final hostsAsync = ref.watch(availableHostsProvider);
-                return hostsAsync.maybeWhen(
-                  data: (hosts) {
-                    if (hosts.isEmpty) return const SizedBox.shrink();
-                    final topHosts = hosts.take(6).toList();
-                    return SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: topHosts.map((h) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 6, bottom: 2),
-                            child: ActionChip(
-                              avatar: CircleAvatar(
-                                radius: 10,
-                                backgroundColor: _primaryBlue,
-                                backgroundImage: h.avatar.isNotEmpty ? NetworkImage(h.avatar) : null,
-                                child: h.avatar.isEmpty
-                                    ? Text(
-                                        h.name.isNotEmpty ? h.name.characters.first.toUpperCase() : 'H',
-                                        style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
-                                      )
-                                    : null,
-                              ),
-                              label: Text(
-                                h.name,
-                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
-                              ),
-                              backgroundColor: const Color(0xFFF8FAFC),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                side: const BorderSide(color: Color(0xFFE2E8F0)),
-                              ),
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-                              onPressed: () {
-                                setState(() {
-                                  _selectedHost = h;
-                                  _hostController.text = h.name;
-                                });
-                              },
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    );
-                  },
-                  orElse: () => const SizedBox.shrink(),
-                );
-              },
-            ),
-            const SizedBox(height: 6),
-
-            // Ô nhập tìm kiếm tự do nếu muốn gõ
-            TextField(
-              controller: _hostController,
-              decoration: InputDecoration(
-                hintText: 'Hoặc tự nhập tên, SĐT chủ trọ...',
-                hintStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                prefixIcon: const Icon(Icons.search_rounded, size: 18, color: AppColors.textMuted),
-                suffixIcon: _hostController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 16),
-                        onPressed: () => setState(() => _hostController.clear()),
-                      )
-                    : null,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                filled: true,
-                fillColor: const Color(0xFFF9FAFB),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: _primaryBlue, width: 1.5),
-                ),
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-          ],
-          const Divider(height: 28),
-
-          // 5. VỊ TRÍ & BÁN KÍNH KHOẢNG CÁCH (SO VỚI TRỌ)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Vị trí & Bán kính khoảng cách',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
-              ),
-              Text(
-                _selectedMaxDistanceKm != null
-                    ? '< ${_selectedMaxDistanceKm!.toStringAsFixed(0)} km'
-                    : 'Tất cả khoảng cách',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: _primaryBlue,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Thẻ chọn điểm mốc vị trí
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: const BoxDecoration(
-                    color: _primaryBlueLight,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.my_location_rounded, size: 16, color: _primaryBlue),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Vị trí mốc so sánh:',
-                        style: TextStyle(fontSize: 11, color: AppColors.textMuted),
-                      ),
-                      Text(
-                        _userLocationLabel,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                OutlinedButton(
-                  onPressed: _showUserLocationPicker,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    minimumSize: Size.zero,
-                    side: const BorderSide(color: _primaryBlueBorder),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text(
-                    'Đổi mốc',
-                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: _primaryBlue),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // Chips bán kính
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              null,
-              2.0,
-              5.0,
-              10.0,
-              15.0,
-            ].map((dist) {
-              final isSelected = _selectedMaxDistanceKm == dist;
-              final label = dist == null ? 'Tất cả' : '< ${dist.toInt()} km';
-              return ChoiceChip(
-                label: Text(label),
-                selected: isSelected,
-                selectedColor: _primaryBlueLight,
-                backgroundColor: const Color(0xFFF1F5F9),
-                labelStyle: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected ? _primaryBlue : AppColors.textDark,
-                ),
-                side: BorderSide(
-                  color: isSelected ? _primaryBlue : Colors.transparent,
-                ),
-                onSelected: (_) {
-                  setState(() => _selectedMaxDistanceKm = dist);
-                },
-              );
-            }).toList(),
-          ),
-          const Divider(height: 28),
-
-          // 6. PHÒNG CHƯA ĐĂNG BÀI
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: _includeUnpostedRooms ? const Color(0xFFFFF7ED) : const Color(0xFFF9FAFB),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: _includeUnpostedRooms ? const Color(0xFFFDBA74) : const Color(0xFFE5E7EB),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: _includeUnpostedRooms ? const Color(0xFFFFEDD5) : const Color(0xFFF1F5F9),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.inventory_2_outlined,
-                    size: 18,
-                    color: _includeUnpostedRooms ? const Color(0xFFEA580C) : const Color(0xFF64748B),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Hiển thị cả phòng chưa đăng bài',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Bao gồm phòng trống từ kho của chủ trọ',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: _includeUnpostedRooms ? const Color(0xFFC2410C) : AppColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Switch(
-                  value: _includeUnpostedRooms,
-                  activeTrackColor: const Color(0xFFFDBA74),
-                  activeThumbColor: const Color(0xFFEA580C),
-                  onChanged: (val) {
-                    setState(() => _includeUnpostedRooms = val);
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
           // Nút Thu gọn ˄
           Center(
@@ -2708,6 +2740,51 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                         ),
                       ),
                     ),
+                    // Badge trạng thái phòng trên ảnh: Còn trống hoặc Đã có người ở
+                    Positioned(
+                      bottom: 6,
+                      left: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: room.isRentedOrOccupied
+                              ? const Color(0xFFDC2626)
+                              : const Color(0xFF16A34A),
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 5,
+                              height: 5,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              room.isRentedOrOccupied ? 'Đã có người ở' : 'Còn trống',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -2740,14 +2817,59 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   ),
                   const SizedBox(height: 3),
 
-                  // Giá thuê dùng màu xanh thương hiệu HomeShare.
-                  Text(
-                    priceStr,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: _primaryBlue,
-                    ),
+                  // Giá thuê kèm Badge trạng thái phòng Còn trống / Đã có người ở
+                  Row(
+                    children: [
+                      Text(
+                        priceStr,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: _primaryBlue,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: room.isRentedOrOccupied
+                              ? const Color(0xFFFEF3F2)
+                              : const Color(0xFFECFDF3),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: room.isRentedOrOccupied
+                                ? const Color(0xFFFECDCA)
+                                : const Color(0xFFA6F4C5),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 5,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: room.isRentedOrOccupied
+                                    ? const Color(0xFFD92D20)
+                                    : const Color(0xFF12B76A),
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              room.isRentedOrOccupied ? 'Đã có người ở' : 'Còn trống',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: room.isRentedOrOccupied
+                                    ? const Color(0xFFB42318)
+                                    : const Color(0xFF027A48),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 3),
 

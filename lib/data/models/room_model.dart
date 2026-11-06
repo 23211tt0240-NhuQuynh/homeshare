@@ -199,24 +199,34 @@ class RoomModel {
     return false;
   }
 
-  /// Chỉ các bài ĐANG HIỂN THỊ (đã duyệt, còn mở, không bị ẩn/gỡ/từ chối/chờ duyệt, không phải bài mẫu hardcode)
-  /// Hoặc phòng chưa đăng bài nhưng còn trống và hợp lệ khi được bật tìm kiếm phòng chưa đăng
+  /// Phòng đã có người ở / đã thuê hoặc không còn nhận khách
+  bool get isRentedOrOccupied {
+    final s = status.toLowerCase().trim();
+    return isOccupied ||
+        !isAvailable ||
+        s == 'occupied' ||
+        s == 'dathue' ||
+        s == 'da_thue' ||
+        s == 'dang_o' ||
+        s == 'dango' ||
+        s == 'đang ở' ||
+        s == 'đã thuê';
+  }
+
+  /// Nhãn trạng thái phòng: 'Còn trống' hoặc 'Đã có người ở'
+  String get occupancyStatusLabel => isRentedOrOccupied ? 'Đã có người ở' : 'Còn trống';
+
+  /// Mặc định hiển thị tất cả các phòng dù chưa đăng hay đã đăng,
+  /// hiển thị cả phòng còn trống và phòng đã có người ở (chỉ trừ bài bị xóa, ẩn, hoặc bài mẫu hardcode).
   bool get isDisplayable {
-    if (isUnposted) {
-      return isAvailable && !isOccupied && !isSampleOrHardcode && !isDeleted;
-    }
-    return isApproved &&
-        !isPending &&
-        !isHiddenOrRejected &&
-        isAvailable &&
-        !isOccupied &&
-        !isSampleOrHardcode;
+    if (isSampleOrHardcode || isDeleted || isHiddenOrRejected) return false;
+    return true;
   }
 
   String get statusDisplayLabel {
     if (isPending) return 'Chờ duyệt';
     if (isHiddenOrRejected) return 'Đã ẩn';
-    if (isOccupied) return 'Đã thuê';
+    if (isOccupied) return 'Đã có người ở';
     return 'Đã duyệt';
   }
 

@@ -658,8 +658,8 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                         _buildSpecItem(Icons.home_work_outlined, _room.roomType, 'Loại phòng'),
                         _buildSpecDivider(),
                         _buildSpecItem(
-                          _room.isAvailable ? Icons.check_circle_outline : Icons.cancel_outlined,
-                          _room.isAvailable ? 'Còn phòng' : 'Hết phòng',
+                          _room.isRentedOrOccupied ? Icons.person_off_rounded : Icons.check_circle_outline,
+                          _room.isRentedOrOccupied ? 'Đã có người ở' : 'Còn trống',
                           'Tình trạng',
                         ),
                       ],

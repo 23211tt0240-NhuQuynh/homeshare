@@ -139,5 +139,31 @@ void main() {
       expect(h3.roomCount, equals(4));
       expect(h3.id, equals('host_1'));
     });
+
+    test('RoomModel occupancyStatusLabel and isRentedOrOccupied correctly report vacant vs occupied', () {
+      final vacantRoom = RoomModel.fromMap({
+        'title': 'Phòng còn trống',
+        'address': 'Quận 1',
+        'district': 'Quận 1',
+        'isAvailable': true,
+        'status': 'available',
+      }, 'room_vacant');
+
+      final occupiedRoom = RoomModel.fromMap({
+        'title': 'Phòng đã có người ở',
+        'address': 'Quận 1',
+        'district': 'Quận 1',
+        'isAvailable': false,
+        'status': 'occupied',
+      }, 'room_occupied');
+
+      expect(vacantRoom.isRentedOrOccupied, isFalse);
+      expect(vacantRoom.occupancyStatusLabel, equals('Còn trống'));
+      expect(vacantRoom.isDisplayable, isTrue);
+
+      expect(occupiedRoom.isRentedOrOccupied, isTrue);
+      expect(occupiedRoom.occupancyStatusLabel, equals('Đã có người ở'));
+      expect(occupiedRoom.isDisplayable, isTrue);
+    });
   });
 }

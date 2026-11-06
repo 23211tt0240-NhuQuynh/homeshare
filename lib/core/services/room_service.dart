@@ -85,7 +85,7 @@ class RoomFilterParams {
     this.userLat,
     this.userLng,
     this.maxDistanceKm,
-    this.includeUnpostedRooms = false,
+    this.includeUnpostedRooms = true,
   });
 
   @override
@@ -142,7 +142,7 @@ class RoomService {
   static List<RoomModel> mergeDashboardListings({
     required Iterable<RoomModel> roomMirrors,
     required Iterable<RoomModel> posts,
-    bool includeUnpostedRooms = false,
+    bool includeUnpostedRooms = true,
   }) {
     final listingsById = <String, RoomModel>{};
     for (final post in posts) {
@@ -162,7 +162,7 @@ class RoomService {
         final alreadyPosted = postedRoomIds.contains(mirror.id) ||
             postedRoomIds.contains(mirror.phongId) ||
             (mirror.roomCode.isNotEmpty && postedRoomIds.contains(mirror.roomCode));
-        if (!alreadyPosted && mirror.isAvailable) {
+        if (!alreadyPosted) {
           listingsById[mirror.id] = mirror.copyWith(isUnposted: true);
         }
       }
@@ -434,7 +434,7 @@ class RoomService {
     double? userLat,
     double? userLng,
     double? maxDistanceKm,
-    bool includeUnpostedRooms = false,
+    bool includeUnpostedRooms = true,
   }) {
     late StreamController<List<RoomModel>> controller;
     StreamSubscription? postsSub;
@@ -443,8 +443,8 @@ class RoomService {
     List<RoomModel> latestRoomMirrors = [];
 
     List<RoomModel> filterAndSort(List<RoomModel> rawList) {
-      // Chỉ giữ lại những bài đang hiển thị hợp lệ hoặc phòng chưa đăng bài được phép hiển thị
-      var list = rawList.where((r) => r.isDisplayable || (r.isUnposted && r.isAvailable && !r.isDeleted)).toList();
+      // Giữ lại tất cả các phòng hiển thị hợp lệ (cả phòng còn trống lẫn đã có người ở)
+      var list = rawList.where((r) => r.isDisplayable).toList();
 
       // 1. Lọc theo Thành phố
       if (city != null &&

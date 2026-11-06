@@ -375,10 +375,11 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
     final String label;
 
     if (room.isUnposted) {
-      bgColor = const Color(0xFFFFEDD5);
-      textColor = const Color(0xFFEA580C);
-      icon = Icons.inventory_2_outlined;
-      label = 'Chưa đăng';
+      final isRented = room.isRentedOrOccupied;
+      bgColor = isRented ? const Color(0xFFFEF3F2) : const Color(0xFFFFEDD5);
+      textColor = isRented ? const Color(0xFFD92D20) : const Color(0xFFEA580C);
+      icon = isRented ? Icons.person_off_rounded : Icons.inventory_2_outlined;
+      label = isRented ? 'Chưa đăng • Đã có người' : 'Chưa đăng • Còn trống';
     } else if (room.isPending) {
       bgColor = const Color(0xFFFEF0C7);
       textColor = const Color(0xFFB54708);
@@ -390,17 +391,16 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
       icon = Icons.visibility_off_rounded;
       label = 'Đã ẩn';
     } else {
-      final s = room.status.toLowerCase().trim();
-      if (s == 'occupied' || s == 'dathue') {
-        bgColor = const Color(0xFFF2F4F7);
-        textColor = const Color(0xFF344054);
-        icon = Icons.lock_outline_rounded;
-        label = 'Đã thuê';
+      if (room.isRentedOrOccupied) {
+        bgColor = const Color(0xFFFEF3F2);
+        textColor = const Color(0xFFD92D20);
+        icon = Icons.person_off_rounded;
+        label = 'Đã có người ở';
       } else {
         bgColor = const Color(0xFFECFDF3);
         textColor = const Color(0xFF027A48);
         icon = Icons.check_circle_rounded;
-        label = 'Đã duyệt';
+        label = 'Còn trống';
       }
     }
 
