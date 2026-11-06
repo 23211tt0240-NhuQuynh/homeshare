@@ -949,12 +949,6 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                 _buildBlueprintRow('Loại hình phòng', _room.roomType.isNotEmpty ? _room.roomType : 'Phòng trọ'),
                 const Divider(height: 16, color: Color(0xFFF1F5F9)),
                 _buildBlueprintRow('Sức chứa tối đa', '${_room.capacity > 0 ? _room.capacity : 2} người'),
-                const Divider(height: 16, color: Color(0xFFF1F5F9)),
-                _buildBlueprintRow(
-                  'Tình trạng hiện tại',
-                  _room.isRentedOrOccupied ? 'Đã có người ở' : 'Còn trống',
-                  valueColor: _room.isRentedOrOccupied ? const Color(0xFFB42318) : const Color(0xFF027A48),
-                ),
               ],
             ),
           ),
