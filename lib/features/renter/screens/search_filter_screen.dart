@@ -2455,25 +2455,142 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
       data: (rawRooms) {
         final rooms = rawRooms.where((room) => room.isDisplayable).toList();
         if (rooms.isEmpty) return _buildEmptySearchMessage('phòng cho thuê');
+
+        // PHƯƠNG ÁN 2: Chia 2 khu vực (Section) rõ ràng trong cùng một màn hình:
+        // 1. Bài đăng cho thuê (đã kiểm duyệt công khai)
+        final publishedPosts =
+            rooms.where((r) => !r.isUnposted && !r.isPending).toList();
+        // 2. Kho phòng từ chủ trọ (phòng trống trong kho / bài đang chờ duyệt)
+        final inventoryRooms =
+            rooms.where((r) => r.isUnposted || r.isPending).toList();
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (showSectionTitle) ...[
-              Text(
-                'Phòng cho thuê (${rooms.length})',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
+            // KHU VỰC 1: BÀI ĐĂNG CHO THUÊ (ĐÃ KIỂM DUYỆT)
+            if (publishedPosts.isNotEmpty) ...[
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF8FF),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(
+                      Icons.article_outlined,
+                      size: 16,
+                      color: _primaryBlue,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Bài đăng cho thuê (${publishedPosts.length})',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF8FF),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: const Color(0xFFB2DDFF)),
+                    ),
+                    child: const Text(
+                      'Đã kiểm duyệt',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: _primaryBlue,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              for (final post in publishedPosts)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _buildPublishedPostCard(post),
+                ),
+            ],
+
+            // Phân cách thẩm mỹ nếu cả 2 khu vực đều có kết quả
+            if (publishedPosts.isNotEmpty && inventoryRooms.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+              const SizedBox(height: 10),
+            ],
+
+            // KHU VỰC 2: KHO PHÒNG TỪ CHỦ TRỌ (CHƯA ĐĂNG BÀI / CHỜ DUYỆT)
+            if (inventoryRooms.isNotEmpty) ...[
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(
+                      Icons.inventory_2_outlined,
+                      size: 16,
+                      color: Color(0xFFEA580C),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Kho phòng từ chủ trọ (${inventoryRooms.length})',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: const Color(0xFFFFD6A4)),
+                    ),
+                    child: const Text(
+                      'Thông tin phòng',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFC2410C),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Phòng trống thực tế trong kho của chủ trọ, liên hệ hỏi thuê trực tiếp',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFF64748B),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
+              for (final room in inventoryRooms)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _buildInventoryRoomCard(room),
+                ),
             ],
-            for (final room in rooms)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildHorizontalRoomCard(room),
-              ),
           ],
         );
       },
@@ -2661,15 +2778,6 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
     );
   }
 
-  // WIDGET: Điều phối hiển thị Thẻ kết quả tìm kiếm:
-  // - Nếu là bài đăng chưa duyệt hoặc phòng trong kho: hiển thị dạng THẺ THÔNG TIN PHÒNG TRỌ (_buildInventoryRoomCard)
-  // - Nếu là bài đăng đã được duyệt công khai: hiển thị dạng THẺ BÀI ĐĂNG TIẾP THỊ (_buildPublishedPostCard)
-  Widget _buildHorizontalRoomCard(RoomModel room) {
-    if (room.isUnposted || room.isPending) {
-      return _buildInventoryRoomCard(room);
-    }
-    return _buildPublishedPostCard(room);
-  }
 
   // WIDGET 1: Thẻ Thông tin phòng trọ (Kho phòng / Thông số kỹ thuật)
   // Bố cục phân biệt hoàn toàn với bài đăng: Header banner hồ sơ phòng, tên phòng kỹ thuật (mã phòng), thông số blueprint
@@ -2897,17 +3005,6 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                                 color: Color(0xFF0F172A),
                               ),
                             ),
-                            const SizedBox(width: 4),
-                            const Text(
-                              '(Niêm yết)',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                color: Color(0xFF64748B),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
                             const SizedBox(width: 4),
                             const Text(
                               '(Niêm yết)',
