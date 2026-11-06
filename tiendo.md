@@ -39,6 +39,7 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
          - Khắc phục hoàn toàn lỗi cú pháp lặp thẻ hiển thị giá niêm yết.
          - Cập nhật `_buildRoomResults` chỉ hiển thị danh sách phòng cho thuê với tiêu đề `Danh sách phòng cho thuê (${rooms.length})`.
          - Chuyển `_buildHorizontalRoomCard` trả về `_buildInventoryRoomCard(room)`.
+         - Xóa hàng Chip cuộn ngang chọn nhanh chủ trọ theo yêu cầu người dùng, giữ lại nút "Chọn từ danh sách chủ trọ..." để mở bottom sheet chọn chuẩn.
       3. **Kiểm thử & Biên dịch APK:**
          - Unit tests: `flutter test test/search_filter_distance_host_test.dart` -> 10/10 test cases PASSED.
          - Static analysis: `flutter analyze` -> 0 errors, 0 warnings.
