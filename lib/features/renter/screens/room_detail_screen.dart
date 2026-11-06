@@ -336,7 +336,6 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
     final currencyFormatter = NumberFormat('#,###', 'vi_VN');
     final priceStr = '${currencyFormatter.format(_room.price)} đ/tháng';
     final depositStr = '${currencyFormatter.format(_room.deposit)} đ';
-    final isInventoryRoom = _room.isPending || _room.isUnposted;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -504,55 +503,14 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                         ),
                       ),
                     ),
-                  // Badge nhận diện Hồ sơ thông tin phòng nếu chưa đăng hoặc đang chờ duyệt
-                  if (isInventoryRoom)
-                    Positioned(
-                      top: 48,
-                      left: 64,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEA580C),
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.25),
-                              blurRadius: 6,
-                            ),
-                          ],
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.meeting_room_outlined,
-                              color: Colors.white,
-                              size: 13,
-                            ),
-                            SizedBox(width: 5),
-                            Text(
-                              'THÔNG TIN PHÒNG TRỌ • KHO CHỦ TRỌ',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
           ),
 
-          // 2. Nội dung chi tiết: Phân tách rõ ràng giữa Hồ sơ phòng trọ và Bài đăng
+          // 2. Nội dung chi tiết: Đổi toàn bộ giao diện Hình 1 thành Hình 2 (Hồ sơ thông số phòng trọ)
           SliverToBoxAdapter(
-            child: isInventoryRoom
-                ? _buildRoomInventoryDetailView(currencyFormatter, priceStr, depositStr)
-                : _buildPublishedPostDetailView(currencyFormatter, priceStr, depositStr),
+            child: _buildRoomInventoryDetailView(currencyFormatter, priceStr, depositStr),
           ),
             ],
           ),
@@ -573,6 +531,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
 
   /// GIAO DIỆN 1: BÀI ĐĂNG CHO THUÊ (PUBLISHED POST VIEW)
   /// Hiển thị phong cách thương mại, tiếp thị phòng, nút Đặt phòng nhanh
+  // ignore: unused_element
   Widget _buildPublishedPostDetailView(
     NumberFormat currencyFormatter,
     String priceStr,
