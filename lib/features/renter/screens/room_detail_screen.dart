@@ -1136,7 +1136,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                           ),
                           const SizedBox(height: 2),
                           const Text(
-                            'Chủ quản lý kho phòng • Nhấn để xem hồ sơ',
+                            'Chủ nhà đã xác minh • Nhấn để xem hồ sơ',
                             style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                           ),
                         ],
