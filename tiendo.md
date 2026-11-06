@@ -40,6 +40,8 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
          - Cập nhật `_buildRoomResults` chỉ hiển thị danh sách phòng cho thuê với tiêu đề `Danh sách phòng cho thuê (${rooms.length})`.
          - Chuyển `_buildHorizontalRoomCard` trả về `_buildInventoryRoomCard(room)`.
          - Xóa hàng Chip cuộn ngang chọn nhanh chủ trọ theo yêu cầu người dùng, giữ lại nút "Chọn từ danh sách chủ trọ..." để mở bottom sheet chọn chuẩn.
+      3. [renter_dashboard_screen.dart](file:///d:/App/homeshare-dev-TOAN/lib/features/renter/screens/renter_dashboard_screen.dart):
+         - Xóa thanh tìm kiếm và nút "Nâng cao" nằm giữa phần chào mừng và danh sách bài viết trên trang chủ theo yêu cầu của người dùng. Người dùng vẫn có thể tìm kiếm thông qua icon kính lúp trên thanh AppBar hoặc nút tìm kiếm ở tiêu đề danh sách.
       3. **Kiểm thử & Biên dịch APK:**
          - Unit tests: `flutter test test/search_filter_distance_host_test.dart` -> 10/10 test cases PASSED.
          - Static analysis: `flutter analyze` -> 0 errors, 0 warnings.
