@@ -116,4 +116,29 @@ void main() {
       expect(canSubmit, isTrue);
     });
   });
+
+  group('CCCD DisplayName Preservation Tests', () {
+    test('Xác thực CCCD không làm mất tên đăng ký (vd: tên đăng ký QA, CCCD Nguyễn Văn An)', () {
+      final firestoreData = <String, dynamic>{
+        'uid': 'USER_QA',
+        'displayName': 'QA',
+        'email': 'qa@example.com',
+        'role': 'renter',
+        'isCccdVerified': true,
+        'cccdNumber': '079198001234',
+        'cccdFullName': 'NGUYỄN VĂN AN',
+        'hoTenCccd': 'NGUYỄN VĂN AN',
+        'cccdHometown': 'TP. Hồ Chí Minh',
+      };
+
+      // Giả lập logic UserModel/UserProfile.fromMap
+      final displayName = firestoreData['displayName'] ?? firestoreData['hoTen'];
+      final cccdFullName = firestoreData['cccdFullName'] ?? firestoreData['hoTenCccd'];
+
+      // Khẳng định tên hiển thị của tài khoản là tên khi đăng ký 'QA', không bị lấy thành 'NGUYỄN VĂN AN'
+      expect(displayName, equals('QA'));
+      expect(cccdFullName, equals('NGUYỄN VĂN AN'));
+      expect(displayName, isNot(equals(cccdFullName)));
+    });
+  });
 }

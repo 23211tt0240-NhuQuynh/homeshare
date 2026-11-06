@@ -288,7 +288,6 @@ Future<void> saveCccdVerificationToBackend({
     'soGiayTo': cccdNumber,
     'cccdFullName': cccdFullName,
     'hoTenCccd': cccdFullName,
-    'displayName': cccdFullName,
     'cccdIssueDate': cccdIssueDate,
     'ngayCap': cccdIssueDate,
     'cccdHometown': cccdHometown,
@@ -503,6 +502,18 @@ final userProfileProvider = StreamProvider<UserProfile?>((ref) {
     final patch = englishUserFieldPatch(data);
     if (data['userCode'] == null && data['maNguoiDung'] == null && data['idNguoiDung'] == null) {
       patch['userCode'] = UserProfile.generateUserCode(seed: user.uid, role: resolvedRole);
+    }
+    // Tự động khôi phục displayName khi bị lỗi ghi đè bởi cccdFullName:
+    // Nếu displayName trong Firestore đang trùng với cccdFullName nhưng user.displayName từ FirebaseAuth khác rỗng và khác cccdFullName:
+    final authName = user.displayName?.trim() ?? '';
+    final firestoreName = (data['displayName'] ?? data['hoTen'])?.toString().trim() ?? '';
+    final cccdName = (data['cccdFullName'] ?? data['hoTenCccd'])?.toString().trim() ?? '';
+    if (authName.isNotEmpty &&
+        cccdName.isNotEmpty &&
+        firestoreName.toLowerCase() == cccdName.toLowerCase() &&
+        authName.toLowerCase() != cccdName.toLowerCase()) {
+      patch['displayName'] = authName;
+      data['displayName'] = authName;
     }
     if (patch.isNotEmpty) {
       FirebaseFirestore.instance.collection('users').doc(user.uid).set(patch, SetOptions(merge: true));
