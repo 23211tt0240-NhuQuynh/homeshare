@@ -2661,10 +2661,455 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
     );
   }
 
-  // WIDGET: Thẻ phòng trọ dạng ngang chuẩn 100% Figma & tiendo.md
-  // Bên trái: Ảnh 95x95dp + Huy hiệu Chính chủ/Mới
-  // Bên phải: Tiêu đề, Giá to xanh, Diện tích • Loại phòng • Quận huyện, Chip tiện ích, Nút gọi & chat
+  // WIDGET: Điều phối hiển thị Thẻ kết quả tìm kiếm:
+  // - Nếu là bài đăng chưa duyệt hoặc phòng trong kho: hiển thị dạng THẺ THÔNG TIN PHÒNG TRỌ (_buildInventoryRoomCard)
+  // - Nếu là bài đăng đã được duyệt công khai: hiển thị dạng THẺ BÀI ĐĂNG TIẾP THỊ (_buildPublishedPostCard)
   Widget _buildHorizontalRoomCard(RoomModel room) {
+    if (room.isUnposted || room.isPending) {
+      return _buildInventoryRoomCard(room);
+    }
+    return _buildPublishedPostCard(room);
+  }
+
+  // WIDGET 1: Thẻ Thông tin phòng trọ (Kho phòng / Bài chờ duyệt)
+  // Bố cục phân biệt hoàn toàn với bài đăng: Header banner hồ sơ phòng, tên phòng kỹ thuật (mã phòng), thông số blueprint
+  Widget _buildInventoryRoomCard(RoomModel room) {
+    final priceStr = '${currencyFormatter.format(room.price)} đ/tháng';
+    final imageUrl = room.images.isNotEmpty
+        ? room.images.first
+        : 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';
+
+    final isPending = room.isPending;
+    final bannerBg = isPending ? const Color(0xFFFEF0C7) : const Color(0xFFFFF7ED);
+    final bannerBorder = isPending ? const Color(0xFFFEDF89) : const Color(0xFFFFD6A4);
+    final bannerText = isPending ? '⏳ THÔNG TIN PHÒNG (BÀI ĐĂNG CHỜ DUYỆT)' : '📦 THÔNG TIN PHÒNG TRỌ (KHO CHỦ TRỌ)';
+    final bannerColor = isPending ? const Color(0xFF93370D) : const Color(0xFF9A3412);
+    final badgeLabel = isPending ? 'Chờ duyệt' : 'Kho phòng';
+    final badgeColor = isPending ? const Color(0xFFD97706) : const Color(0xFFEA580C);
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => RoomDetailScreen(room: room)),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFFCFDFE),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: bannerBorder, width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Dải Banner nhận diện Hồ sơ thông tin phòng
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: bannerBg,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(15),
+                  topRight: Radius.circular(15),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isPending ? Icons.pending_actions_rounded : Icons.inventory_2_outlined,
+                    size: 13,
+                    color: bannerColor,
+                  ),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      bannerText,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: bannerColor,
+                        letterSpacing: 0.3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    'Xem hồ sơ ➔',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: bannerColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Phần nội dung thông tin phòng
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // BÊN TRÁI: Ảnh phòng 95x95dp bo góc 12dp
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                      width: 95,
+                      height: 95,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.network(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              color: const Color(0xFFF3F4F6),
+                              child: const Icon(
+                                Icons.meeting_room_outlined,
+                                size: 36,
+                                color: Color(0xFF9CA3AF),
+                              ),
+                            ),
+                          ),
+                          // Badge loại hồ sơ
+                          Positioned(
+                            top: 6,
+                            left: 6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: badgeColor,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                badgeLabel,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Badge trạng thái phòng trên ảnh
+                          Positioned(
+                            bottom: 6,
+                            left: 6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: room.isRentedOrOccupied ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+                                borderRadius: BorderRadius.circular(4),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.25),
+                                    blurRadius: 4,
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 5,
+                                    height: 5,
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    room.isRentedOrOccupied ? 'Đã có người ở' : 'Còn trống',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // BÊN PHẢI: Thông tin định danh kỹ thuật phòng
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Tên phòng kỹ thuật (Mã phòng)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Phòng ${room.roomCode.isNotEmpty ? room.roomCode : room.maPhong}',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E293B),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'Mã: ${room.maPhong}',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (room.title.isNotEmpty &&
+                            room.title.trim().toUpperCase() != room.maPhong &&
+                            room.title.trim().toUpperCase() != room.roomCode.toUpperCase()) ...[
+                          const SizedBox(height: 1),
+                          Text(
+                            'Dự thảo: ${room.title}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontStyle: FontStyle.italic,
+                              color: Color(0xFF64748B),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        const SizedBox(height: 3),
+
+                        // Giá niêm yết
+                        Row(
+                          children: [
+                            Text(
+                              priceStr,
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              '(Niêm yết)',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+
+                        // Chủ trọ & Khoảng cách
+                        () {
+                          final distance = room.distanceTo(_userLat, _userLng);
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 3),
+                            child: Row(
+                              children: [
+                                if (room.hostName.isNotEmpty) ...[
+                                  const Icon(
+                                    Icons.person_pin_circle_outlined,
+                                    size: 13,
+                                    color: AppColors.textMuted,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Flexible(
+                                    child: Text(
+                                      room.hostName,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF475467),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                ],
+                                if (distance != null) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFF8FF),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: const Color(0xFFB2DDFF)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.near_me_rounded,
+                                          size: 10,
+                                          color: Color(0xFF175CD3),
+                                        ),
+                                        const SizedBox(width: 2),
+                                        Text(
+                                          '${distance.toStringAsFixed(1)} km',
+                                          style: const TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF175CD3),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        }(),
+
+                        // Thông số kỹ thuật
+                        Text(
+                          '${room.floor > 0 ? "Tầng ${room.floor} • " : ""}${room.area.toInt()} m² • ${room.roomType} • ${room.district}',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF6B7280),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Hàng chip tiện ích nhỏ + nút gọi, chat, yêu thích
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Wrap(
+                                spacing: 4,
+                                runSpacing: 4,
+                                children: room.amenities.take(2).map((a) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      a,
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFF475467),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            // Nút Gọi điện
+                            Material(
+                              color: const Color(0xFFEFF8FF),
+                              shape: const CircleBorder(),
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: () => _showCallHostDialog(room),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(7),
+                                  child: Icon(Icons.phone, size: 16, color: _primaryBlue),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            // Nút Chat
+                            Material(
+                              color: const Color(0xFFEFF8FF),
+                              shape: const CircleBorder(),
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: () => _openChatWithHost(room),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(7),
+                                  child: Icon(Icons.chat_bubble, size: 16, color: _primaryBlue),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            // Nút Yêu thích
+                            Consumer(
+                              builder: (context, ref, _) {
+                                final isFav = ref.watch(favoritesProvider).favoriteRoomIds.contains(room.id);
+                                return Material(
+                                  color: isFav ? const Color(0xFFFEE2E2) : const Color(0xFFF1F5F9),
+                                  shape: const CircleBorder(),
+                                  child: InkWell(
+                                    customBorder: const CircleBorder(),
+                                    onTap: () async {
+                                      final added = await ref.read(favoritesProvider.notifier).toggleFavoriteRoom(room);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              added
+                                                  ? 'Đã lưu phòng vào danh sách yêu thích ❤️'
+                                                  : 'Đã bỏ lưu phòng khỏi danh sách yêu thích',
+                                            ),
+                                            duration: const Duration(seconds: 1),
+                                            backgroundColor: added ? AppColors.primary : const Color(0xFF334155),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(7),
+                                      child: Icon(
+                                        isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                        size: 16,
+                                        color: isFav ? const Color(0xFFEF4444) : const Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // WIDGET 2: Thẻ Bài đăng cho thuê (Published Post Card)
+  // Dành riêng cho bài đăng đã được duyệt công khai
+  Widget _buildPublishedPostCard(RoomModel room) {
     final priceStr = '${currencyFormatter.format(room.price)} đ/tháng';
     final imageUrl = room.images.isNotEmpty
         ? room.images.first
@@ -2695,7 +3140,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // BÊN TRÁI: Ảnh phòng 95x95dp bo góc 12dp + Badge Chính chủ
+            // BÊN TRÁI: Ảnh phòng 95x95dp bo góc 12dp + Badge Bài đăng
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: SizedBox(
@@ -2725,14 +3170,12 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: room.isUnposted
-                              ? const Color(0xFFEA580C)
-                              : AppColors.primary,
+                          color: AppColors.primary,
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Text(
-                          room.isUnposted ? 'Chưa đăng' : 'Chính chủ',
-                          style: const TextStyle(
+                        child: const Text(
+                          'Bài đăng',
+                          style: TextStyle(
                             color: Colors.white,
                             fontSize: 9.5,
                             fontWeight: FontWeight.bold,
