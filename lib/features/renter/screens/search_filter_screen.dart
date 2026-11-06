@@ -1243,7 +1243,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
             ),
           ),
         ] else ...[
-          // CHƯA CHỌN CHỦ TRỌ: Nút mở danh sách chọn + Chip chọn nhanh (đã xóa ô tự nhập tên như ảnh)
+          // CHƯA CHỌN CHỦ TRỌ: Nút mở danh sách chọn
           InkWell(
             onTap: _showHostPickerBottomSheet,
             borderRadius: BorderRadius.circular(10),
@@ -1272,60 +1272,6 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-
-          // Chip chọn nhanh các chủ trọ có sẵn
-          Consumer(
-            builder: (context, ref, _) {
-              final hostsAsync = ref.watch(availableHostsProvider);
-              return hostsAsync.maybeWhen(
-                data: (hosts) {
-                  if (hosts.isEmpty) return const SizedBox.shrink();
-                  final topHosts = hosts.take(6).toList();
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: topHosts.map((h) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 6, bottom: 2),
-                          child: ActionChip(
-                            avatar: CircleAvatar(
-                              radius: 10,
-                              backgroundColor: _primaryBlue,
-                              backgroundImage: h.avatar.isNotEmpty ? NetworkImage(h.avatar) : null,
-                              child: h.avatar.isEmpty
-                                  ? Text(
-                                      h.name.isNotEmpty ? h.name.characters.first.toUpperCase() : 'H',
-                                      style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
-                                    )
-                                  : null,
-                            ),
-                            label: Text(
-                              h.name,
-                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
-                            ),
-                            backgroundColor: const Color(0xFFF8FAFC),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              side: const BorderSide(color: Color(0xFFE2E8F0)),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-                            onPressed: () {
-                              setState(() {
-                                _selectedHost = h;
-                                _hostController.text = h.name;
-                              });
-                            },
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  );
-                },
-                orElse: () => const SizedBox.shrink(),
-              );
-            },
           ),
         ],
       ],
