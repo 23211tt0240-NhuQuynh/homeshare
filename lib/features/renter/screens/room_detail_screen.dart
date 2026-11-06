@@ -892,56 +892,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. Alert Banner nhận diện: Hồ sơ thông tin phòng trọ
-          Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF7ED),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0xFFFFD6A4),
-                width: 1.2,
-              ),
-            ),
-            child: const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.meeting_room_outlined,
-                  color: Color(0xFFC2410C),
-                  size: 24,
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'THÔNG TIN PHÒNG TRỌ (KHO QUẢN LÝ CỦA CHỦ TRỌ)',
-                        style: TextStyle(
-                          color: Color(0xFF9A3412),
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Phòng này hiện hiển thị hồ sơ thông số kỹ thuật từ kho quản lý của chủ trọ. Bạn có thể xem diện tích, tiện ích và liên hệ trực tiếp chủ trọ qua số điện thoại hoặc tin nhắn để hỏi thuê phòng.',
-                        style: TextStyle(
-                          color: Color(0xFF7C2D12),
-                          fontSize: 12.5,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // 2. Header Tên & Mã phòng kỹ thuật
+          // 1. Header Tên & Mã phòng kỹ thuật
           Row(
             children: [
               Container(
