@@ -321,11 +321,16 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
       return _buildLoadError();
     }
     final livePost = postAsync.value;
-    if (postAsync.hasValue && livePost == null) {
-      return _buildMissingPost();
-    }
     if (livePost != null) {
       _room = livePost;
+    } else if (postAsync.hasValue && livePost == null) {
+      // Nếu không tìm thấy bài đăng trong collection posts (phòng trong kho hoặc bài chờ duyệt):
+      // Vẫn hiển thị đầy đủ thông tin phòng trọ từ widget.room, không chặn người dùng!
+      if (widget.room.id.isNotEmpty && !widget.room.isDeleted) {
+        _room = widget.room.copyWith(isUnposted: true);
+      } else {
+        return _buildMissingPost();
+      }
     }
 
     final currencyFormatter = NumberFormat('#,###', 'vi_VN');
@@ -1493,16 +1498,16 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
 
   Widget _buildMissingPost() {
     return _buildPostState(
-      icon: Icons.article_outlined,
-      title: 'Bài đăng không còn tồn tại',
-      message: 'Bài đăng này có thể đã bị chủ trọ xóa hoặc ẩn khỏi Firebase.',
+      icon: Icons.meeting_room_outlined,
+      title: 'Phòng không còn khả dụng',
+      message: 'Thông tin phòng trọ này có thể đã bị xóa hoặc ngừng cho thuê.',
     );
   }
 
   Widget _buildLoadError() {
     return _buildPostState(
       icon: Icons.cloud_off_outlined,
-      title: 'Không thể tải bài đăng',
+      title: 'Không thể tải thông tin phòng',
       message: 'Vui lòng kiểm tra kết nối mạng rồi thử lại.',
       action: FilledButton.icon(
         onPressed: () => ref.invalidate(roomPostDetailProvider(widget.room.id)),
@@ -1524,7 +1529,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textDark,
         elevation: 0,
-        title: const Text('Chi tiết bài đăng'),
+        title: const Text('Thông tin phòng trọ'),
       ),
       body: Center(
         child: Padding(

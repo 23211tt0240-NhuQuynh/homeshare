@@ -395,15 +395,34 @@ class RoomService {
   }
 
   /// Theo dõi trực tiếp một bài đăng trong collection `posts`.
-  ///
-  /// Màn chi tiết dùng stream này để luôn phản ánh dữ liệu mới nhất trên
-  /// Firestore thay vì tiếp tục hiển thị snapshot được truyền từ danh sách.
+  /// Nếu không tìm thấy bài đăng (phòng trong kho hoặc chưa có bài đăng),
+  /// tự động fallback sang theo dõi thông tin phòng trong collection `host_rooms`.
   Stream<RoomModel?> watchPostById(String postOrRoomId) {
     if (postOrRoomId.trim().isEmpty) return Stream.value(null);
 
     late StreamController<RoomModel?> controller;
     StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? directSub;
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? roomIdSub;
+    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? hostRoomSub;
+
+    void startHostRoomFallback() {
+      if (hostRoomSub != null) return;
+      hostRoomSub = _firestore
+          .collection(FirestoreCollections.hostRooms)
+          .doc(postOrRoomId)
+          .snapshots()
+          .listen((doc) {
+            if (controller.isClosed) return;
+            if (doc.exists && doc.data() != null) {
+              final room = RoomModel.fromFirestore(doc).copyWith(isUnposted: true);
+              controller.add(room);
+            } else {
+              controller.add(null);
+            }
+          }, onError: (err) {
+            if (!controller.isClosed) controller.add(null);
+          });
+    }
 
     void startRoomIdFallback() {
       if (roomIdSub != null) return;
@@ -415,12 +434,20 @@ class RoomService {
           .listen((snapshot) async {
             if (controller.isClosed) return;
             if (snapshot.docs.isEmpty) {
-              controller.add(null);
+              startHostRoomFallback();
               return;
             }
             final post = await _readListingDocument(snapshot.docs.first);
-            if (!controller.isClosed) controller.add(post);
-          }, onError: controller.addError);
+            if (!controller.isClosed) {
+              if (post != null) {
+                controller.add(post);
+              } else {
+                startHostRoomFallback();
+              }
+            }
+          }, onError: (err) {
+            startHostRoomFallback();
+          });
     }
 
     controller = StreamController<RoomModel?>(
@@ -433,6 +460,8 @@ class RoomService {
               if (doc.exists) {
                 await roomIdSub?.cancel();
                 roomIdSub = null;
+                await hostRoomSub?.cancel();
+                hostRoomSub = null;
                 if (!controller.isClosed) {
                   final post = await _readListingDocument(doc);
                   if (!controller.isClosed) controller.add(post);
@@ -445,6 +474,7 @@ class RoomService {
       onCancel: () async {
         await directSub?.cancel();
         await roomIdSub?.cancel();
+        await hostRoomSub?.cancel();
       },
     );
     return controller.stream;

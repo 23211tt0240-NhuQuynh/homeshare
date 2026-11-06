@@ -2908,6 +2908,17 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                             ),
                           ],
                         ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              '(Niêm yết)',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 3),
 
                         // Chủ trọ & Khoảng cách
