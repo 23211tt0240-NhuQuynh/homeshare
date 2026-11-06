@@ -34,6 +34,7 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
       1. [room_detail_screen.dart](file:///d:/App/homeshare-dev-TOAN/lib/features/renter/screens/room_detail_screen.dart):
          - Xóa badge cam `THÔNG TIN PHÒNG TRỌ • KHO CHỦ TRỌ` đè trên slider ảnh.
          - Thống nhất `SliverToBoxAdapter` chỉ gọi `_buildRoomInventoryDetailView` (Giao diện Hình 2 - Bảng thông số kỹ thuật phòng trọ, biểu phí định mức, checklist tiện ích bàn giao, liên hệ chủ trọ).
+         - Xóa dòng `Tình trạng hiện tại (Còn trống)` khỏi Bảng thông số kỹ thuật phòng để tránh trùng lặp với badge trạng thái xanh/đỏ ở tiêu đề đầu trang.
          - Loại bỏ các biến thừa `isInventoryRoom`, đánh dấu `// ignore: unused_element` cho hàm giao diện cũ `_buildPublishedPostDetailView`.
       2. [search_filter_screen.dart](file:///d:/App/homeshare-dev-TOAN/lib/features/renter/screens/search_filter_screen.dart):
          - Khắc phục hoàn toàn lỗi cú pháp lặp thẻ hiển thị giá niêm yết.
