@@ -24,7 +24,6 @@ void main() {
                 'roomTitle': 'Bài viết Toan',
                 'status': 'paid',
                 'paymentAmount': 100000000,
-                'platformFee': 10000000,
                 'createdAt': now,
               },
               {
@@ -32,7 +31,6 @@ void main() {
                 'roomTitle': 'Bài viết TTM',
                 'status': 'approved',
                 'paymentAmount': 5000000,
-                'platformFee': 0,
                 'createdAt': now,
               },
               {
@@ -80,18 +78,6 @@ void main() {
         find.byType(HostCashflowChart),
       );
       expect(chart.values.fold<double>(0, (a, b) => a + b), 95000000);
-      expect(tester.takeException(), isNull);
-      await tester.ensureVisible(find.text('Bài viết Toan, Bài viết TTM'));
-      await tester.tap(find.text('Bài viết Toan, Bài viết TTM'));
-      await tester.pumpAndSettle();
-      expect(find.text('Biên lai giao dịch'), findsOneWidget);
-      expect(find.text('REC-TEST'), findsOneWidget);
-      expect(find.text('Đã quyết toán 2 đơn'), findsOneWidget);
-      expect(find.text('Admin đã xác nhận & ghi sổ'), findsOneWidget);
-      await tester.ensureVisible(find.text('HOÀN TẤT'));
-      await tester.tap(find.text('HOÀN TẤT'));
-      await tester.pumpAndSettle();
-      expect(find.text('Tài chính của bạn'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

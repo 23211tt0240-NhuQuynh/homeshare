@@ -89,9 +89,6 @@ class HostNotificationModel {
       title.contains('ở ghép') ||
       message.contains('ở ghép');
 
-  // Chủ trọ - Nhận thông báo giải ngân - Admin quyết toán thành công tạo phiếu này.
-  bool get isDisbursementNotification => actionType == 'disbursement';
-
   // Vietnamese Database.docx Alias Getters
   String get notificationId => id;
   String get thongBaoId => id;
@@ -279,8 +276,7 @@ class HostNotificationModel {
     final paymentOption = (data['paymentOption'] ?? data['paymentType'] ?? '')
         .toString()
         .toLowerCase();
-    final isFullPayment =
-        paymentOption == 'full' ||
+    final isFullPayment = paymentOption == 'full' ||
         paymentOption == 'toanbo' ||
         paymentOption == 'trahet' ||
         data['isFullPayment'] == true;
@@ -299,15 +295,13 @@ class HostNotificationModel {
       }
     } else {
       // Thông báo đặt phòng / đặt cọc thông thường:
-      final isStaying =
-          statusId == 'dango' ||
+      final isStaying = statusId == 'dango' ||
           statusId == 'active' ||
           statusId == 'danhanphong' ||
           statusId == 'living' ||
           baseType == HostNotificationType.staying;
 
-      final isApproved =
-          statusId == 'approved' ||
+      final isApproved = statusId == 'approved' ||
           statusId == 'accepted' ||
           statusId == 'deposited' ||
           statusId == 'dacoc' ||

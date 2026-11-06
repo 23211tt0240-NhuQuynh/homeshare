@@ -540,7 +540,6 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
     try {
       final db = FirebaseFirestore.instance;
       final disbursementRef = db.collection('disbursements').doc();
-      final hostNotificationRef = db.collection('notifications').doc();
       final auditLogRef = db.collection('audit_logs').doc();
       final now = DateTime.now();
       final receiptCode =
@@ -589,26 +588,6 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
           'totalAmount': netSettlement,
           'itemCount': items.length,
           'bookingIds': items.map((e) => e['docId']).toList(),
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-
-        // Chủ trọ - Thông báo đã giải ngân - Admin giải ngân thành công tạo thông báo trong chuông chủ trọ.
-        tx.set(hostNotificationRef, {
-          'notificationId': hostNotificationRef.id,
-          'receiverId': hostId,
-          'senderId': 'admin',
-          'recipientRole': 'host',
-          'notificationType': 'paymentCompleted',
-          'actionType': 'disbursement',
-          'paymentId': disbursementRef.id,
-          'disbursementId': disbursementRef.id,
-          'receiptCode': receiptCode,
-          'title': 'Admin đã giải ngân',
-          'message':
-              'Admin đã giải ngân ${currencyFormatter.format(netSettlement)} đ cho $hostName (${items.length} đơn).',
-          'amount': netSettlement,
-          'statusId': 'disbursed',
-          'isRead': false,
           'createdAt': FieldValue.serverTimestamp(),
         });
 

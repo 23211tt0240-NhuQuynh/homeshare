@@ -70,21 +70,16 @@ class HostFinanceWallet extends StatelessWidget {
     required this.amount,
     required this.footer,
     this.deposit = false,
-    this.backgroundColor,
-    this.amountColor,
   });
   final String label, amount;
   final Widget footer;
   final bool deposit;
-  final Color? backgroundColor, amountColor;
 
   @override
   Widget build(BuildContext context) => Container(
     clipBehavior: Clip.antiAlias,
     decoration: BoxDecoration(
-      color:
-          backgroundColor ??
-          (deposit ? const Color(0xFF3F342E) : HostFinanceStyle.ink),
+      color: deposit ? const Color(0xFF3F342E) : HostFinanceStyle.ink,
       borderRadius: BorderRadius.circular(28),
     ),
     child: Stack(
@@ -139,11 +134,9 @@ class HostFinanceWallet extends StatelessWidget {
                     deposit
                         ? Icons.shield_outlined
                         : Icons.account_balance_wallet_outlined,
-                    color:
-                        amountColor ??
-                        (deposit
-                            ? const Color(0xFFF4D1AC)
-                            : HostFinanceStyle.lime),
+                    color: deposit
+                        ? const Color(0xFFF4D1AC)
+                        : HostFinanceStyle.lime,
                     size: 24,
                   ),
                 ],
@@ -155,11 +148,9 @@ class HostFinanceWallet extends StatelessWidget {
                 child: Text(
                   amount,
                   style: TextStyle(
-                    color:
-                        amountColor ??
-                        (deposit
-                            ? const Color(0xFFF4D1AC)
-                            : HostFinanceStyle.lime),
+                    color: deposit
+                        ? const Color(0xFFF4D1AC)
+                        : HostFinanceStyle.lime,
                     fontSize: 36,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -.8,

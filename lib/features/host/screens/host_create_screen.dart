@@ -9,7 +9,6 @@ import '../../../core/utils/vnd_input.dart';
 import '../../../core/utils/room_deposit.dart';
 import '../widgets/host_deposit_input.dart';
 import '../../../core/utils/room_identity.dart';
-import '../../../core/utils/default_room_name.dart';
 import '../../../core/constants/vietnam_locations.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/user_provider.dart';
@@ -231,12 +230,7 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
         final inputTitle = _fields['title']!.text.trim();
         final finalTitle = inputTitle.isNotEmpty
             ? inputTitle
-            : defaultRoomName(
-                propertyId: parent.id,
-                propertyName: parent.name,
-                floor: int.parse(_fields['floor']!.text),
-                rooms: await ref.read(hostRoomsProvider.future),
-              );
+            : 'Phòng $finalRoomCode';
         await repository.createRoom(
           RoomModel(
             id: _roomId,
@@ -644,7 +638,6 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
   // Chủ trọ - Form phòng - Luồng đi: Chọn nhà và tầng để sinh mã, nhập tên,
   // giá và diện tích, chọn tiện ích rồi lưu phòng trống thuộc cơ sở đó.
   Widget _buildRoomForm(List<HostProperty> properties) {
-    final rooms = ref.watch(hostRoomsProvider);
     final selected = properties
         .where((p) => p.id == _selectedPropertyId)
         .firstOrNull;
@@ -735,10 +728,8 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
             _field(
               'title',
               'Tên phòng (tùy chọn)',
-              hint: selected != null && selectedFloor != null && rooms.hasValue
-                  ? '${defaultRoomName(propertyId: selected.id, propertyName: selected.name, floor: selectedFloor, rooms: rooms.value!)} (mặc định)'
-                  : 'Chọn nhà và tầng để gợi ý tên mặc định',
-              floatLabel: true,
+              hint:
+                  'Ví dụ: Phòng ${_fields['code']!.text.isNotEmpty ? _fields['code']!.text : _roomId}',
               optional: true,
               maxLength: 100,
             ),
@@ -1121,7 +1112,6 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
     String name,
     String label, {
     String? hint,
-    bool floatLabel = false,
     bool number = false,
     bool allowZero = false,
     bool optional = false,
@@ -1151,10 +1141,6 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        floatingLabelBehavior: floatLabel ? FloatingLabelBehavior.always : null,
-        hintStyle: floatLabel
-            ? const TextStyle(color: AppColors.textSecondary)
-            : null,
         counterText: '',
       ),
       validator: (text) {
