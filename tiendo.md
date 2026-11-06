@@ -23,6 +23,27 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.107 - Thống Nhất Giao Diện Chi Tiết Phòng Thành Hình 2 (Blueprint Sheet), Lọc Chỉ Ra Phòng Cho Thuê & Build APK Debug Thành Công:**
+    - **Yêu cầu & Nghiệp vụ:**
+      1. Đổi giao diện chi tiết phòng từ Hình 1 (bài đăng thương mại cũ) thành Hình 2 (Hồ sơ thông số kỹ thuật phòng trọ Blueprint Sheet).
+      2. Trong màn hình Tìm kiếm & Lọc (SearchFilterScreen): Bỏ hoàn toàn phần bài đăng cho thuê, chỉ lọc ra danh sách phòng cho thuê với đầy đủ thẻ thông số.
+      3. Sửa dứt điểm lỗi cú pháp duplicate phát sinh trong quá trình code.
+      4. Chạy unit test kiểm tra và biên dịch bộ cài Android (APK debug) phục vụ cài đặt thử nghiệm.
+      5. Quy định Git: Tuyệt đối KHÔNG push git lên remote GitHub (k push git), chỉ commit local trên branch `dev-TOAN`.
+    - **Triển khai kỹ thuật:**
+      1. [room_detail_screen.dart](file:///d:/App/homeshare-dev-TOAN/lib/features/renter/screens/room_detail_screen.dart):
+         - Xóa badge cam `THÔNG TIN PHÒNG TRỌ • KHO CHỦ TRỌ` đè trên slider ảnh.
+         - Thống nhất `SliverToBoxAdapter` chỉ gọi `_buildRoomInventoryDetailView` (Giao diện Hình 2 - Bảng thông số kỹ thuật phòng trọ, biểu phí định mức, checklist tiện ích bàn giao, liên hệ chủ trọ).
+         - Loại bỏ các biến thừa `isInventoryRoom`, đánh dấu `// ignore: unused_element` cho hàm giao diện cũ `_buildPublishedPostDetailView`.
+      2. [search_filter_screen.dart](file:///d:/App/homeshare-dev-TOAN/lib/features/renter/screens/search_filter_screen.dart):
+         - Khắc phục hoàn toàn lỗi cú pháp lặp thẻ hiển thị giá niêm yết.
+         - Cập nhật `_buildRoomResults` chỉ hiển thị danh sách phòng cho thuê với tiêu đề `Danh sách phòng cho thuê (${rooms.length})`.
+         - Chuyển `_buildHorizontalRoomCard` trả về `_buildInventoryRoomCard(room)`.
+      3. **Kiểm thử & Biên dịch APK:**
+         - Unit tests: `flutter test test/search_filter_distance_host_test.dart` -> 10/10 test cases PASSED.
+         - Static analysis: `flutter analyze` -> 0 errors, 0 warnings.
+         - Commit local: `d67d6b3` trên branch `dev-TOAN`.
+         - Build APK: `flutter build apk --debug` hoàn thành thành công trong 434.1s. File APK tạo ra tại `build/app/outputs/flutter-apk/app-debug.apk` (dung lượng 453 MB).
   * **Phase 2.106 - Hoàn Thiện Bước 3 Đăng Bài Ở Ghép (Check List) & Nâng Cấp Bộ Lọc Tìm Kiếm (Chủ Trọ, So Khoảng Cách Vị Trí, Phòng Chưa Đăng Bài):**
     - **Yêu cầu & Nghiệp vụ người dùng:**
       1. Đăng bài ở ghép Bước 3: Đổi toàn bộ các nút chọn sở thích thành danh sách kiểm tra (Check List với Checkbox).
