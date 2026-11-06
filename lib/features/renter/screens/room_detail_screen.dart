@@ -97,21 +97,21 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
       return;
     }
 
-    if (_room.isHiddenOrRejected) {
+    if (_room.isRentedOrOccupied) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Bài đăng này hiện đang bị ẩn hoặc từ chối duyệt, không thể đặt phòng.'),
+          content: Text('Phòng này đã có người thuê hoặc đang được ở.'),
           backgroundColor: Color(0xFFD92D20),
         ),
       );
       return;
     }
 
-    if (_room.isPending) {
+    if (_room.isHiddenOrRejected) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Bài đăng này đang chờ admin phê duyệt, tạm thời chưa mở đặt phòng.'),
-          backgroundColor: Color(0xFFB54708),
+          content: Text('Bài đăng này hiện đang bị ẩn hoặc từ chối duyệt, không thể đặt phòng.'),
+          backgroundColor: Color(0xFFD92D20),
         ),
       );
       return;
@@ -566,10 +566,8 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
         ],
       ),
 
-      // 3. Bottom Action Bar: Nút bấm phù hợp với loại hình (Hồ sơ phòng vs Bài đăng)
-      bottomSheet: isInventoryRoom
-          ? _buildRoomInventoryBottomBar()
-          : _buildPublishedPostBottomBar(),
+      // 3. Bottom Action Bar: Thống nhất cả phòng trọ và bài đăng đều có chức năng như nhau, được đặt phòng như nhau
+      bottomSheet: _buildUnifiedBottomBar(),
     );
   }
 
@@ -987,7 +985,9 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
           const SizedBox(height: 10),
 
           Text(
-            'Phòng ${_room.roomCode.isNotEmpty ? _room.roomCode : _room.maPhong}',
+            _room.roomCode.isNotEmpty
+                ? 'Phòng ${_room.roomCode}'
+                : (_room.maPhong.isNotEmpty ? 'Phòng ${_room.maPhong}' : (_room.title.isNotEmpty ? _room.title : 'Phòng cho thuê')),
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -1032,10 +1032,6 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
             ),
             child: Column(
               children: [
-                _buildBlueprintRow('Mã định danh phòng', _room.maPhong.isNotEmpty ? _room.maPhong : _room.id, isHighlight: true),
-                const Divider(height: 16, color: Color(0xFFF1F5F9)),
-                _buildBlueprintRow('Mã nhà trọ / Cơ sở', _room.propertyId.isNotEmpty ? _room.propertyId : 'Nhà trọ riêng'),
-                const Divider(height: 16, color: Color(0xFFF1F5F9)),
                 _buildBlueprintRow('Vị trí tầng', _room.floor > 0 ? 'Tầng ${_room.floor}' : 'Tầng trệt'),
                 const Divider(height: 16, color: Color(0xFFF1F5F9)),
                 _buildBlueprintRow('Diện tích sử dụng', '${_room.area} m²'),
@@ -1291,8 +1287,12 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
     );
   }
 
-  /// BOTTOM BAR CHO BÀI ĐĂNG THƯƠNG MẠI: Nhắn tin + Đặt phòng nhanh
-  Widget _buildPublishedPostBottomBar() {
+  /// BOTTOM BAR DÙNG CHUNG CHO CẢ PHÒNG VÀ BÀI ĐĂNG:
+  /// Cả phòng trọ và bài đăng đều có đầy đủ chức năng như nhau (Nhắn tin, Gọi điện, Đặt phòng nhanh)
+  Widget _buildUnifiedBottomBar() {
+    final currentUser = ref.read(currentUserProvider);
+    final isOwner = widget.isHostView || (currentUser != null && currentUser.uid == _room.hostId);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -1318,36 +1318,52 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                 icon: const Icon(Icons.chat_outlined, color: AppColors.primary, size: 18),
                 label: const Text(
                   'Nhắn tin',
-                  style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 14),
+                  style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13.5),
                 ),
                 style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(120, 50),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  minimumSize: const Size(100, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   side: const BorderSide(color: AppColors.primary, width: 1.5),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
 
-            // 2. Nút Đặt phòng nhanh (Ẩn nếu là Chủ trọ xem bài của chính mình)
-            if (!widget.isHostView)
+            // 2. Nút Gọi điện thoại
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: IconButton(
+                onPressed: _onCallHostPressed,
+                icon: const Icon(Icons.phone_in_talk_outlined, color: AppColors.primary, size: 20),
+                tooltip: 'Gọi điện cho chủ trọ',
+                constraints: const BoxConstraints(minWidth: 46, minHeight: 46),
+                padding: EdgeInsets.zero,
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // 3. Nút Đặt phòng nhanh (Ẩn nếu là Chủ trọ xem phòng của chính mình)
+            if (!isOwner)
               Expanded(
                 child: Semantics(
-                  label: _room.isHiddenOrRejected
-                      ? 'Bài đăng đã bị ẩn'
-                      : _room.isPending
-                          ? 'Đang chờ duyệt'
+                  label: _room.isRentedOrOccupied
+                      ? 'Phòng đã có người ở'
+                      : _room.isHiddenOrRejected
+                          ? 'Phòng/Bài viết đã bị ẩn'
                           : 'Đặt phòng nhanh',
                   button: true,
                   excludeSemantics: true,
                   child: ElevatedButton.icon(
                     onPressed: _onQuickBookingPressed,
                     icon: Icon(
-                      _room.isHiddenOrRejected
-                          ? Icons.visibility_off_outlined
-                          : _room.isPending
-                              ? Icons.schedule_outlined
+                      _room.isRentedOrOccupied
+                          ? Icons.lock_outline
+                          : _room.isHiddenOrRejected
+                              ? Icons.visibility_off_outlined
                               : Icons.bolt,
                       color: Colors.white,
                       size: 18,
@@ -1355,21 +1371,19 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                     label: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        _room.isHiddenOrRejected
-                            ? 'Bài đăng đã bị ẩn'
-                            : _room.isPending
-                                ? 'Đang chờ duyệt'
+                        _room.isRentedOrOccupied
+                            ? 'Đã có người ở'
+                            : _room.isHiddenOrRejected
+                                ? 'Đã bị ẩn'
                                 : 'Đặt phòng nhanh',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                         maxLines: 1,
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _room.isHiddenOrRejected
+                      backgroundColor: (_room.isRentedOrOccupied || _room.isHiddenOrRejected)
                           ? const Color(0xFF98A2B3)
-                          : _room.isPending
-                              ? const Color(0xFFF79009)
-                              : AppColors.primary,
+                          : AppColors.primary,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(120, 48),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
@@ -1394,7 +1408,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                       Icon(Icons.check_circle_outline, size: 18, color: Color(0xFF1E60F2)),
                       SizedBox(width: 8),
                       Text(
-                        'Bài đăng của bạn',
+                        'Phòng của bạn',
                         style: TextStyle(
                           color: Color(0xFF1E60F2),
                           fontWeight: FontWeight.bold,
@@ -1405,91 +1419,6 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                   ),
                 ),
               ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// BOTTOM BAR CHO HỒ SƠ THÔNG TIN PHÒNG TRỌ (CHƯA ĐĂNG BÀI / CHỜ DUYỆT)
-  /// Thay nút đặt phòng bằng 2 nút: Gọi điện hỏi phòng + Nhắn tin hỏi phòng
-  Widget _buildRoomInventoryBottomBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    size: 14,
-                    color: Color(0xFFC2410C),
-                  ),
-                  SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Thông tin phòng trọ. Liên hệ trực tiếp chủ trọ qua số điện thoại hoặc tin nhắn để hỏi thuê phòng.',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFFC2410C),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Row(
-              children: [
-                // 1. Nút Nhắn tin hỏi phòng
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _onChatPressed,
-                    icon: const Icon(Icons.chat_outlined, color: AppColors.primary, size: 18),
-                    label: const Text(
-                      'Nhắn tin hỏi phòng',
-                      style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 46),
-                      side: const BorderSide(color: AppColors.primary, width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                // 2. Nút Gọi điện hỏi phòng
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _onCallHostPressed,
-                    icon: const Icon(Icons.phone_in_talk, color: Colors.white, size: 18),
-                    label: const Text(
-                      'Gọi hỏi phòng',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      minimumSize: const Size(0, 46),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
