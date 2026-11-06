@@ -312,8 +312,15 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
               ),
               roomsAsync.when(
                 data: (rawRooms) {
+                  // Chỉ hiển thị bài đã duyệt, đã đăng công khai và phòng còn trống
                   final rooms = rawRooms
-                      .where((r) => r.isDisplayable && !r.isUnposted)
+                      .where((r) =>
+                          r.isDisplayable &&
+                          !r.isUnposted &&
+                          r.isApproved &&
+                          !r.isPending &&
+                          !r.isHiddenOrRejected &&
+                          !r.isRentedOrOccupied)
                       .toList();
                   if (rooms.isEmpty) {
                     return Container(

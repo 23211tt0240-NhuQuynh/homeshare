@@ -194,5 +194,55 @@ void main() {
       expect(qrData['hostName'], equals('Chủ Trọ A'));
       expect(qrData['bookingId'], equals('bk_123'));
     });
+
+    test('Dashboard listing filter includes only approved and vacant posts', () {
+      final approvedVacantPost = RoomModel.fromMap({
+        'title': 'Bài đăng đã duyệt còn trống',
+        'address': 'Quận 1',
+        'district': 'Quận 1',
+        'isAvailable': true,
+        'status': 'active',
+      }, 'post_approved_vacant');
+
+      final occupiedPost = RoomModel.fromMap({
+        'title': 'Bài đăng đã có người ở',
+        'address': 'Quận 1',
+        'district': 'Quận 1',
+        'isAvailable': false,
+        'status': 'occupied',
+      }, 'post_occupied');
+
+      final pendingPost = RoomModel.fromMap({
+        'title': 'Bài đăng chờ duyệt',
+        'address': 'Quận 1',
+        'district': 'Quận 1',
+        'isAvailable': true,
+        'status': 'pending',
+      }, 'post_pending');
+
+      final unpostedRoom = RoomModel.fromMap({
+        'title': 'Phòng chưa đăng',
+        'address': 'Quận 1',
+        'district': 'Quận 1',
+        'isAvailable': true,
+        'status': 'available',
+      }, 'unposted_room').copyWith(isUnposted: true);
+
+      final list = [approvedVacantPost, occupiedPost, pendingPost, unpostedRoom];
+
+      // Logic lọc trên User Dashboard: Chỉ hiển thị bài đã duyệt, còn trống và không phải unposted
+      final dashboardRooms = list
+          .where((r) =>
+              r.isDisplayable &&
+              !r.isUnposted &&
+              r.isApproved &&
+              !r.isPending &&
+              !r.isHiddenOrRejected &&
+              !r.isRentedOrOccupied)
+          .toList();
+
+      expect(dashboardRooms.length, equals(1));
+      expect(dashboardRooms.first.id, equals('post_approved_vacant'));
+    });
   });
 }
