@@ -20,8 +20,8 @@ import 'host_create_screen.dart';
 /// - Dropdown chọn Khu nhà & Phòng trước thông tin cơ bản
 /// - Tự động điền dữ liệu phòng đã lưu (tiêu đề, giá thuê, tiền cọc, diện tích, ảnh, tiện ích...)
 /// - Giá thuê digitsOnly, bố cục [ Giá thuê ] [ Tiền cọc ]
-/// - Tiện ích đọc từ Firestore, tiện ích tùy chọn local-only trước khi submit
-/// - Bảng liên kết TienIch_Phong, lưu bài đăng posts và rollback handling
+/// - Gợi ý tiện ích từ phòng và danh sách mặc định; lưu vào host_rooms khi submit
+/// - Lưu tiện ích phòng và bài đăng posts trong cùng giao dịch
 class HostCreatePostScreen extends ConsumerStatefulWidget {
   const HostCreatePostScreen({
     super.key,
@@ -522,12 +522,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
         status: 'pending',
       );
 
-      final catalogItems = ref.read(hostAmenitiesProvider).value ?? [];
-      final catalogMap = {
-        for (final item in catalogItems)
-          item['name']!.trim().toLowerCase(): item['id']!,
-      };
-
       final opId = 'post_${DateTime.now().millisecondsSinceEpoch}';
 
       await ref
@@ -537,8 +531,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             images: List.of(_images),
             operationId: opId,
             selectedAmenities: _selectedAmenities,
-            customAmenities: _customAmenities,
-            catalogAmenitiesMap: catalogMap,
             chuNhaId: uid,
             diaDiemId: _property!.ward.isNotEmpty
                 ? _property!.ward

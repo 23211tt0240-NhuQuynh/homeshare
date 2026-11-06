@@ -89,7 +89,9 @@ class PostReviewService {
       }
     }
 
-    final currentStatus = (data['status'] ?? 'pending').toString().toLowerCase();
+    final currentStatus = (data['status'] ?? 'pending')
+        .toString()
+        .toLowerCase();
     if (approved &&
         (currentStatus == 'rejected' || currentStatus == 'tuchoi') &&
         data['hostResubmittedAt'] == null) {
@@ -109,20 +111,8 @@ class PostReviewService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    // 1b) Cập nhật đồng bộ document phòng nếu có liên kết roomId
-    if (roomId.isNotEmpty) {
-      for (final col in const ['rooms', 'host_rooms']) {
-        batch.set(
-          _db.collection(col).doc(roomId),
-          {
-            'status': statusValue,
-            'isAvailable': approved,
-            'updatedAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        );
-      }
-    }
+    // Kiểm duyệt chỉ thay đổi bài đăng; trạng thái thuê thuộc host_rooms.
+    // Không tạo document phòng khi duyệt hoặc từ chối bài.
 
     // 2) Thông báo cho chủ trọ
     if (hostId.isNotEmpty) {

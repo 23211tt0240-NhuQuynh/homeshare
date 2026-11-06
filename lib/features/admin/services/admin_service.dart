@@ -602,7 +602,7 @@ class AdminService {
     }
 
     try {
-      await firestore.collection('rooms').doc(roomId).update({
+      await firestore.collection('host_rooms').doc(roomId).update({
         'status': 'active',
         'trangThai': 'daDuyet',
         'isAvailable': true,
@@ -627,7 +627,7 @@ class AdminService {
     }
 
     try {
-      await firestore.collection('rooms').doc(roomId).update({
+      await firestore.collection('host_rooms').doc(roomId).update({
         'status': 'rejected',
         'trangThai': 'tuChoi',
         'rejectReason': reason,
@@ -648,7 +648,7 @@ class AdminService {
     }
 
     try {
-      await firestore.collection('rooms').doc(roomId).update({
+      await firestore.collection('host_rooms').doc(roomId).update({
         'status': 'locked',
         'trangThai': 'daKhoa',
         'isAvailable': false,

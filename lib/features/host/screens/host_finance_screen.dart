@@ -5,6 +5,7 @@ import '../../admin/utils/booking_utils.dart';
 import '../widgets/host_finance_style.dart';
 import '../providers/host_management_provider.dart';
 import 'host_finance_invoices.dart';
+import 'host_transaction_receipt_screen.dart';
 
 // Chủ trọ - Theo dõi đơn thuê của tài khoản đang đăng nhập từ Firebase.
 final hostFinanceBookingsProvider = StreamProvider<List<Map<String, dynamic>>>((
@@ -492,66 +493,83 @@ class _HostFinanceScreenState extends ConsumerState<HostFinanceScreen> {
                     .toSet();
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
-                  child: HostFinanceStyle.surface(
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
+                  // Chủ trọ - Xem giao dịch - Chạm thẻ mở biên lai và bảng kê
+                  // các đơn thuộc đúng phiếu giải ngân đang chọn.
+                  child: Semantics(
+                    button: true,
+                    label: 'Xem biên lai giao dịch',
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(24),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => HostTransactionReceiptScreen(
+                            settlement: b,
+                            bookings: all,
+                          ),
+                        ),
+                      ),
+                      child: HostFinanceStyle.surface(
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEEF4E7),
-                                borderRadius: BorderRadius.circular(13),
-                              ),
-                              child: const Icon(
-                                Icons.south_west,
-                                color: Color(0xFF668244),
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                titles.isEmpty
-                                    ? 'Bài viết không còn thông tin'
-                                    : titles.join(', '),
-                                style: const TextStyle(
-                                  color: _ink,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEEF4E7),
+                                    borderRadius: BorderRadius.circular(13),
+                                  ),
+                                  child: const Icon(
+                                    Icons.south_west,
+                                    color: Color(0xFF668244),
+                                    size: 20,
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    titles.isEmpty
+                                        ? 'Bài viết không còn thông tin'
+                                        : titles.join(', '),
+                                    style: const TextStyle(
+                                      color: _ink,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 10,
+                              runSpacing: 6,
+                              children: [
+                                Text(
+                                  '${date.day}/${date.month}/${date.year} · Admin đã giải ngân',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: HostFinanceStyle.muted,
+                                  ),
+                                ),
+                                Text(
+                                  _money(_amount(b)),
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: _ink,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                        const SizedBox(height: 14),
-                        Wrap(
-                          alignment: WrapAlignment.spaceBetween,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 10,
-                          runSpacing: 6,
-                          children: [
-                            Text(
-                              '${date.day}/${date.month}/${date.year} · Admin đã giải ngân',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: HostFinanceStyle.muted,
-                              ),
-                            ),
-                            Text(
-                              _money(_amount(b)),
-                              style: const TextStyle(
-                                fontSize: 16,
-                                color: _ink,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                        padding: const EdgeInsets.all(16),
+                      ),
                     ),
-                    padding: const EdgeInsets.all(16),
                   ),
                 );
               }),

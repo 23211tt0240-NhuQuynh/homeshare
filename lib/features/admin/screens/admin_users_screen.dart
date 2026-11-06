@@ -2097,16 +2097,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         }, SetOptions(merge: true));
       }
 
-      final roomId = (item['roomId'] ?? '').toString();
-      if (roomId.isNotEmpty) {
-        for (final col in const ['rooms', 'host_rooms']) {
-          batch.set(db.collection(col).doc(roomId), {
-            'status': 'available',
-            'isAvailable': true,
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-        }
-      }
+      // Duyệt repost chỉ cập nhật bài đăng, giữ trạng thái thuê trong host_rooms.
 
       final userId = (item['userId'] ?? '').toString();
       if (userId.isNotEmpty) {

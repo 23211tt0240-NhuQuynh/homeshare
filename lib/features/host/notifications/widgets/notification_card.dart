@@ -69,6 +69,9 @@ class NotificationCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notif = notification;
+    if (notif.isDisbursementNotification) {
+      return _buildDisbursementCard(context, ref, notif);
+    }
     final dateFmt = DateFormat('dd/MM/yyyy');
     final checkInStr = dateFmt.format(notif.checkInDate ?? notif.createdAt);
     final relativeTimeStr = _formatRelativeTime(notif.createdAt);
@@ -318,6 +321,138 @@ class NotificationCard extends ConsumerWidget {
 
                 // 4. Khối trạng thái hoặc Nút hành động tương ứng với từng Tab
                 _buildBottomAction(context, ref, notif),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Chủ trọ - Xem thông báo giải ngân - Chạm thẻ để đánh dấu đã đọc, không yêu cầu xác nhận nhận tiền.
+  Widget _buildDisbursementCard(
+    BuildContext context,
+    WidgetRef ref,
+    HostNotificationModel notif,
+  ) {
+    final relativeTime = _formatRelativeTime(notif.createdAt);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: notif.isRead
+              ? const Color(0xFFEAECF0)
+              : const Color(0xFF86EFAC),
+          width: notif.isRead ? 1 : 1.5,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () =>
+              ref.read(hostNotificationRepositoryProvider).markAsRead(notif.id),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFECFDF3),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.account_balance_rounded,
+                        color: Color(0xFF039855),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            notif.title,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF101828),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            relativeTime,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF667085),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      size: 22,
+                      color: Color(0xFF12B76A),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  notif.message,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.45,
+                    color: Color(0xFF475467),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF3),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Thực nhận sau phí hoa hồng',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF027A48),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        _formatCurrency(notif.amount),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF027A48),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

@@ -223,8 +223,10 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
       Navigator.pop(context);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Đã xác nhận nhận phòng thành công cho khách $_renterName! Trạng thái đơn đã chuyển sang "Đang ở".'),
+        const SnackBar(
+          content: Text(
+            'Đã check-in thành công, vui lòng kiểm tra Quản lý người thuê',
+          ),
           backgroundColor: const Color(0xFF12B76A),
           duration: const Duration(seconds: 3),
         ),

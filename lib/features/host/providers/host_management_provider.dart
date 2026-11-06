@@ -89,8 +89,8 @@ class HostRepository {
         }
       }
 
-      // N-N: Tách bảng riêng biệt - Lấy danh sách tiện ích từ bảng liên kết (100% tiếng Anh: amenities)
-      if (room.amenities.isEmpty) {
+      // Chỉ nhập tiện ích dữ liệu cũ khi phòng chưa có trường amenities.
+      if (!data.containsKey('amenities')) {
         final fallbackAmenities = await getRoomAmenitiesFromTienIchPhong(
           room.id,
         );
@@ -583,25 +583,6 @@ class HostRepository {
         await imgDoc.set(imgData);
       } catch (_) {}
     }
-
-    // Bảng liên kết tiện ích phòng riêng biệt (room_amenities - tiếng Anh chuẩn)
-    for (final amName in room.amenities) {
-      final name = amName.trim();
-      if (name.isEmpty) continue;
-      try {
-        final linkDoc = _db
-            .collection(FirestoreCollections.roomAmenities)
-            .doc();
-        final linkData = {
-          'id': linkDoc.id,
-          'roomId': roomRef.id,
-          'amenityId': name,
-          'amenityName': name,
-          'createdAt': FieldValue.serverTimestamp(),
-        };
-        await linkDoc.set(linkData);
-      } catch (_) {}
-    }
   }
 
   // Chủ trọ - Lưu chỉnh sửa phòng - Luồng đi: Upload ảnh mới, kiểm
@@ -759,26 +740,6 @@ class HostRepository {
         'sortOrder': i,
         'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-    }
-
-    // Cập nhật bảng tiện ích phòng riêng biệt (room_amenities - tiếng Anh chuẩn)
-    final rawAmenities = patch['amenities'];
-    if (rawAmenities is Iterable) {
-      for (final am in rawAmenities) {
-        final amName = am.toString().trim();
-        if (amName.isEmpty) continue;
-        final amDocId = '${base.id}_${amName.replaceAll(RegExp(r'\s+'), '_')}';
-        await _db
-            .collection(FirestoreCollections.roomAmenities)
-            .doc(amDocId)
-            .set({
-              'id': amDocId,
-              'roomId': base.id,
-              'amenityId': amDocId,
-              'amenityName': amName,
-              'createdAt': FieldValue.serverTimestamp(),
-            }, SetOptions(merge: true));
-      }
     }
   }
 
@@ -1037,14 +998,12 @@ class HostRepository {
     }
   }
 
-  // Chủ trọ - Đăng bài trong posts; giữ nguyên dữ liệu phòng và dữ liệu con.
+  // Chủ trọ - Đăng bài trong posts và lưu tiện ích trực tiếp vào host_rooms.
   Future<String> createPostWithAmenities({
     required RoomModel room,
     required List<HostUpload> images,
     required String operationId,
     required Set<String> selectedAmenities,
-    required List<String> customAmenities,
-    required Map<String, String> catalogAmenitiesMap,
     required String chuNhaId,
     required String diaDiemId,
     required String loaiThueId,
@@ -1097,27 +1056,16 @@ class HostRepository {
       finalUrls.addAll(uploaded);
     }
 
-    final batch = _db.batch();
-
-    // 1. Lưu danh mục tiện ích vào collection amenities
-    for (final name in selectedAmenities) {
-      final key = name.trim().toLowerCase();
-      if (catalogAmenitiesMap.containsKey(key)) {
-        continue;
-      } else {
-        final amRef = _db.collection(FirestoreCollections.amenities).doc();
-        final amData = {
-          'id': amRef.id,
-          'name': name,
-          'icon': '',
-          'source': 'host_custom',
-          'createdAt': FieldValue.serverTimestamp(),
-        };
-        batch.set(amRef, amData);
+    // Tiện ích thuộc phòng; lưu cùng giao dịch tạo bài đăng.
+    final amenities = <String>[];
+    final seenAmenities = <String>{};
+    for (final value in selectedAmenities) {
+      final name = value.trim();
+      if (name.isNotEmpty && seenAmenities.add(name.toLowerCase())) {
+        amenities.add(name);
       }
     }
 
-    // 4. Lưu bài đăng vào collection posts (100% tiếng Anh, không lặp key)
     final postRef = _db.collection(FirestoreCollections.posts).doc();
     final postPayload = {
       'id': postRef.id,
@@ -1132,13 +1080,12 @@ class HostRepository {
       'depositAmount': calculatedDeposit,
       'depositPercentage': phanTramTienCoc,
       'images': finalUrls,
-      'amenities': selectedAmenities.toList(),
+      'amenities': amenities,
       'status': status.isNotEmpty ? status : 'pending',
       'isAvailable': status == 'active' || status == 'approved',
       'isPinned': false,
       'createdAt': FieldValue.serverTimestamp(),
     };
-    await batch.commit();
     // Recheck after uploads; touching the room serializes against deposit approval.
     await _db.runTransaction((transaction) async {
       final latestRoom = await transaction.get(sourceRoom.reference);
@@ -1147,6 +1094,7 @@ class HostRepository {
         throw StateError('Phòng đã được đặt cọc hoặc không còn trống.');
       }
       transaction.update(sourceRoom.reference, {
+        'amenities': amenities,
         'updatedAt': FieldValue.serverTimestamp(),
       });
       transaction.set(postRef, postPayload);
