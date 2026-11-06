@@ -159,6 +159,8 @@ class _HostCheckinCheckoutScreenState
           if (doc.exists && doc.data() != null) {
             final data = doc.data()!;
             qrPayload['bookingId'] = parsedBookingId;
+            qrPayload['hostId'] ??= data['hostId'] ?? data['chuNhaId'] ?? data['chuTroId'];
+            qrPayload['hostName'] ??= data['hostName'] ?? data['tenChuNha'] ?? data['tenChuTro'];
             qrPayload['roomId'] ??= data['roomId'] ?? data['phongId'];
             qrPayload['roomCode'] ??= data['roomCode'] ?? data['maPhong'];
             qrPayload['roomTitle'] ??= data['roomTitle'] ?? data['tieuDePhong'];
@@ -254,6 +256,10 @@ class _HostCheckinCheckoutScreenState
             qrPayload['deposit'] ??= rData['deposit'] ?? rData['tienCoc'];
             qrPayload['roomTitle'] ??= rData['title'] ?? rData['tieuDe'];
             qrPayload['roomAddress'] ??= rData['address'] ?? rData['diaChi'];
+            qrPayload['hostId'] ??=
+                rData['hostId'] ?? rData['chuNhaId'] ?? rData['chuTroId'];
+            qrPayload['hostName'] ??=
+                rData['hostName'] ?? rData['tenChuNha'] ?? rData['tenChuTro'];
           }
         } catch (_) {}
       }
@@ -270,7 +276,24 @@ class _HostCheckinCheckoutScreenState
           ? parsedRenterName
           : 'Khách thuê';
 
-      final hostId = ref.read(hostSessionProvider).value ?? '';
+      final hostId = (ref.read(hostSessionProvider).value ?? '').trim();
+      final bookingHostId = (qrPayload['hostId'] ?? '').toString().trim();
+      final bookingHostName = (qrPayload['hostName'] ?? '').toString().trim();
+
+      // KIỂM TRA ĐỐI CHIẾU CHỦ TRỌ: Tránh trường hợp check-in nhầm chủ trọ
+      if (hostId.isNotEmpty &&
+          bookingHostId.isNotEmpty &&
+          bookingHostId != hostId) {
+        if (!mounted) return;
+        _showWrongHostDialog(
+          expectedHostName:
+              bookingHostName.isNotEmpty ? bookingHostName : 'Chủ trọ khác',
+          roomTitle: (qrPayload['roomTitle'] ?? 'Phòng trọ').toString(),
+          renterName: (qrPayload['renterName'] ?? 'Khách thuê').toString(),
+        );
+        return;
+      }
+
       if (!mounted) return;
 
       // Hiển thị Sheet thông tin phòng & khách thuê cho chủ trọ
@@ -328,6 +351,145 @@ class _HostCheckinCheckoutScreenState
         );
       }
     }
+  }
+
+  Widget _dialogDetailRow(
+    String label,
+    String value, {
+    bool isHighlight = false,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 120,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.bold,
+              color: isHighlight
+                  ? const Color(0xFFDC2626)
+                  : const Color(0xFF1E293B),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showWrongHostDialog({
+    required String expectedHostName,
+    required String roomTitle,
+    required String renterName,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 10,
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFEE4E2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: Color(0xFFD92D20),
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Sai chủ trọ nhận phòng',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF991B1B),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Mã QR nhận phòng này thuộc về phòng do chủ trọ khác quản lý. Vui lòng kiểm tra lại để tránh check-in nhầm chủ trọ!',
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFF475467),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _dialogDetailRow(
+                    'Chủ trọ quản lý:',
+                    expectedHostName,
+                    isHighlight: true,
+                  ),
+                  const SizedBox(height: 6),
+                  _dialogDetailRow('Phòng:', roomTitle),
+                  const SizedBox(height: 6),
+                  _dialogDetailRow('Khách thuê:', renterName),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD92D20),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: const Text(
+                'Đã hiểu, hủy thao tác',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showCheckoutDialog(CheckinCheckoutItem item) {

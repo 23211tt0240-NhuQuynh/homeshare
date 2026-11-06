@@ -127,6 +127,8 @@ class BookingRequestModel {
       'type': 'checkin',
       'bookingId': id,
       'bookingCode': id,
+      'hostId': hostId,
+      'hostName': hostName,
       'roomId': roomId,
       'roomCode': roomCode.isNotEmpty ? roomCode : roomTitle,
       'roomTitle': roomTitle,

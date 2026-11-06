@@ -193,6 +193,20 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
 
   // 1. Chuyển sang màn hình Bàn giao thiết bị & Chốt điện nước
   void _openHandoverScreen() {
+    final bookingHostId = (widget.qrData['hostId'] ?? '').toString().trim();
+    if (bookingHostId.isNotEmpty &&
+        widget.hostId.isNotEmpty &&
+        bookingHostId != widget.hostId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Không thể bàn giao: Bạn không phải là chủ trọ quản lý phòng này!',
+          ),
+          backgroundColor: Color(0xFFD92D20),
+        ),
+      );
+      return;
+    }
     Navigator.pop(context);
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -209,6 +223,20 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
 
   // 2. Xác nhận nhận phòng nhanh (Chuyển đơn sang Đang ở ngay)
   Future<void> _quickConfirmCheckin() async {
+    final bookingHostId = (widget.qrData['hostId'] ?? '').toString().trim();
+    if (bookingHostId.isNotEmpty &&
+        widget.hostId.isNotEmpty &&
+        bookingHostId != widget.hostId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Không thể xác nhận: Bạn không phải là chủ trọ quản lý phòng này!',
+          ),
+          backgroundColor: Color(0xFFD92D20),
+        ),
+      );
+      return;
+    }
     setState(() => _isLoading = true);
     try {
       final service = BookingService();

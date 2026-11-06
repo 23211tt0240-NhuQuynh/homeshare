@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:home_share/core/services/room_service.dart';
+import 'package:home_share/data/models/booking_model.dart';
 import 'package:home_share/data/models/room_model.dart';
 
 void main() {
@@ -164,6 +165,34 @@ void main() {
       expect(occupiedRoom.isRentedOrOccupied, isTrue);
       expect(occupiedRoom.occupancyStatusLabel, equals('Đã có người ở'));
       expect(occupiedRoom.isDisplayable, isTrue);
+    });
+
+    test('BookingRequestModel.toQrData includes hostId and hostName to prevent checkin to wrong host', () {
+      final booking = BookingRequestModel(
+        id: 'bk_123',
+        renterId: 'renter_1',
+        renterName: 'Nguyễn Văn Thuê',
+        renterPhone: '0912345678',
+        renterGender: 'Nam',
+        roomId: 'room_1',
+        roomTitle: 'Phòng 101',
+        roomAddress: 'Quận 1',
+        roomPrice: 3000000,
+        deposit: 1000000,
+        totalAmount: 1000000,
+        rentalMonths: 6,
+        hostId: 'host_correct_456',
+        hostName: 'Chủ Trọ A',
+        status: 'daDuyet',
+        paymentOption: 'deposit',
+        moveInDate: DateTime.now(),
+        createdAt: DateTime.now(),
+      );
+
+      final qrData = booking.toQrData();
+      expect(qrData['hostId'], equals('host_correct_456'));
+      expect(qrData['hostName'], equals('Chủ Trọ A'));
+      expect(qrData['bookingId'], equals('bk_123'));
     });
   });
 }

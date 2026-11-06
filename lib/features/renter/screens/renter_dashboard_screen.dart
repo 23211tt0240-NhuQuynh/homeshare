@@ -52,7 +52,9 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
     final profile = ref.watch(userProfileProvider).value;
     final currencyFormatter = NumberFormat('#,###', 'vi_VN');
 
-    final roomsAsync = ref.watch(roomsStreamProvider(const RoomFilterParams()));
+    final roomsAsync = ref.watch(
+      roomsStreamProvider(const RoomFilterParams(includeUnpostedRooms: false)),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -139,8 +141,7 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      const SearchFilterScreen(initialAdvanced: true),
+                  builder: (_) => const SearchFilterScreen(),
                 ),
               );
             },
@@ -311,7 +312,9 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
               ),
               roomsAsync.when(
                 data: (rawRooms) {
-                  final rooms = rawRooms.where((r) => r.isDisplayable).toList();
+                  final rooms = rawRooms
+                      .where((r) => r.isDisplayable && !r.isUnposted)
+                      .toList();
                   if (rooms.isEmpty) {
                     return Container(
                       width: double.infinity,
