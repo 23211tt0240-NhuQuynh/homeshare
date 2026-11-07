@@ -23,26 +23,30 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
-  * **Phase 2.116 - Giải Phóng Phòng Tức Thì Khi Hủy Đơn Thanh Toán & Modal Cảnh Báo CCCD Dí Dỏm (Renter & Host):**
+  * **Phase 2.116 - Giải Phóng Phòng Tức Thì Khi Hủy Đơn Thanh Toán, Modal Cảnh Báo CCCD Dí Dỏm & Bảo Toàn Tên Tài Khoản "QA" Khi Xác Thực:**
     - **Yêu cầu & Nghiệp vụ đã hoàn thành:**
-      1. **Giải phóng phòng giữ chỗ khi hủy đơn (Không cần chờ 15 phút):**
+      1. **Bảo toàn tuyệt đối `displayName` (Chủ trọ "QA" giữ nguyên "QA" sau khi quét CCCD):**
+         - *Nguyên nhân:* Trước đây trong hàm `saveCccdVerificationToBackend` tại [user_provider.dart](lib/features/auth/providers/user_provider.dart) tự động gán cứng `'displayName': cccdFullName`. Điều này làm mất tên thương mại/biệt danh "QA" của chủ trọ và đổi thành họ tên thật trên thẻ căn cước.
+         - *Giải pháp:* Tách bạch danh tính pháp lý và tên hiển thị. `cccdFullName` và `hoTenCccd` lưu họ tên thật trên CCCD; `displayName` được giữ nguyên vẹn 100% nếu tài khoản đã có tên từ trước.
+         - *Cơ chế tự phục hồi (Auto-healing):* Trong Stream `_userProfileEvents`, nếu phát hiện Firestore từng bị ghi đè thành `cccdFullName` nhưng trong Firebase Auth vẫn lưu tên gốc (như "QA"), hệ thống tự động trả lại tên "QA" cho người dùng và patch lại Firestore.
+      2. **Giải phóng phòng giữ chỗ khi hủy đơn (Không cần chờ 15 phút):**
          - Khi khách hàng đang trong màn hình thanh toán mà bấm **Hủy đơn** hoặc xác nhận hủy khi back rời khỏi màn hình, hệ thống gọi `cancelBooking` trong [booking_service.dart](lib/core/services/booking_service.dart) giải phóng ngay `isHolding: false` và xóa toàn bộ thông tin giữ chỗ `holdingBookingId`, `holdingRenterId`, `holdingExpiresAt` trên cả `host_rooms` và `rooms`.
          - Bổ sung cơ chế tự động mở khóa phòng trong [room_detail_screen.dart](lib/features/renter/screens/room_detail_screen.dart) và [room_booking_detail_screen.dart](lib/features/renter/screens/room_booking_detail_screen.dart): Nếu phòng đang ghi nhận `isHolding == true` nhưng đơn giữ chỗ trước đó đã bị hủy (`daHuy == true` hoặc status `cancelled`), hệ thống tự động dọn sạch cờ giữ chỗ và cho phép khách hàng mới đặt phòng ngay lập tức mà không cần phải chờ hết 15 phút.
-      2. **Chặn Renter chưa xác thực CCCD khi đặt phòng:**
-         - Kiểm tra `profile?.isCccdVerified != true` tại [room_detail_screen.dart](lib/features/renter/screens/room_detail_screen.dart) và [room_booking_detail_screen.dart](lib/features/renter/screens/room_booking_detail_screen.dart).
+      3. **Chặn Renter chưa xác thực CCCD khi bấm "⚡ Đặt phòng nhanh":**
+         - Kiểm tra CCCD đa tầng (StreamProvider, Firestore, SharedPreferences) tại [room_detail_screen.dart](lib/features/renter/screens/room_detail_screen.dart) khi nhấn nút "⚡ Đặt phòng nhanh" và [room_booking_detail_screen.dart](lib/features/renter/screens/room_booking_detail_screen.dart).
          - Nếu chưa xác thực CCCD, hiển thị ngay `CccdRequiredDialog` và ngăn chặn tiếp tục đặt phòng.
-      3. **Chặn Host chưa xác thực CCCD khi Tạo cơ sở, Tạo phòng, Đăng bài:**
+      4. **Chặn Host chưa xác thực CCCD khi Tạo cơ sở, Tạo phòng, Đăng bài:**
          - *Tạo cơ sở:* Chặn tại [host_main_screen.dart](lib/features/host/screens/host_main_screen.dart), [host_property_management_screen.dart](lib/features/host/screens/host_property_management_screen.dart), [host_create_screen.dart](lib/features/host/screens/host_create_screen.dart).
          - *Tạo phòng:* Chặn tại [host_room_list_screen.dart](lib/features/host/screens/host_room_list_screen.dart), [host_create_screen.dart](lib/features/host/screens/host_create_screen.dart).
          - *Đăng bài:* Chặn tại [host_main_screen.dart](lib/features/host/screens/host_main_screen.dart), [host_post_management_screen.dart](lib/features/host/screens/host_post_management_screen.dart), [host_create_post_screen.dart](lib/features/host/screens/host_create_post_screen.dart).
-      4. **Modal cảnh báo dí dỏm chuẩn ảnh Mascot & Tương tác ([cccd_required_modal.dart](lib/features/profile/widgets/cccd_required_modal.dart)):**
+      5. **Modal cảnh báo dí dỏm chuẩn ảnh Mascot & Tương tác ([cccd_required_modal.dart](lib/features/profile/widgets/cccd_required_modal.dart)):**
          - Icon mascot ngôi nhà và tòa nhà hoảng hốt đáng yêu (`assets/images/cccd_mascot_warning.png`) trích xuất từ ảnh người dùng cung cấp, bo góc 22px với hiệu ứng đổ bóng xanh sang trọng.
          - Tiêu đề dí dỏm: *"Ủa ủa! Khoan đã chủ trọ ơi! 😱"* (Host) và *"Ối kìa! Chưa có vé thông hành sao? 😱"* (Renter).
          - Lời cảnh báo dí dỏm theo từng ngữ cảnh: "bảo mật level max", "ông trùm bất động sản", "lên sóng CCCD", "bài đăng duyệt vèo vèo".
          - Nút "Xác thực CCCD ngay" mở trực tiếp [CccdVerificationScreen](lib/features/profile/screens/cccd_verification_screen.dart).
     - **Kiểm định chất lượng & Test tự động:**
       - `flutter analyze lib/`: **No issues found! (0 errors, 0 warnings)** (100% clean).
-      - `flutter test test/cccd_required_modal_test.dart`: **5/5 tests passed (100%)**.
+      - `flutter test`: Đạt 100% test cases passed.
   * **Phase 2.115 - Đồng Bộ Toàn Diện Phase 2.77, 2.78, 2.79 Từ `homeshare-dev-T.ANH` Vào Dự Án:**
     - **Yêu cầu & Nghiệp vụ đã hoàn thành:**
       1. **Phase 2.79 - Khóa Cứng Tuyệt Đối Dữ Liệu Kỹ Thuật Từ Phòng Sang Bài Đăng & Cho Phép Đăng Bài Phòng Đang Ở:**

@@ -360,6 +360,29 @@ Future<void> saveCccdVerificationToBackend({
       ? uid
       : (FirebaseAuth.instance.currentUser?.uid ?? uid);
 
+  // Bảo toàn tên hiển thị (displayName) của tài khoản:
+  // CCCD chỉ ghi nhận họ tên pháp lý (cccdFullName / hoTenCccd).
+  // TUYỆT ĐỐI KHÔNG ghi đè displayName của chủ trọ/người dùng (ví dụ: QA vẫn là QA).
+  String? existingDisplayName;
+  if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
+    try {
+      final doc = await firestore.collection('users').doc(effectiveUid).get();
+      if (doc.exists && doc.data() != null) {
+        final dName = (doc.data()?['displayName'] ?? doc.data()?['hoTen'])?.toString().trim();
+        if (dName != null && dName.isNotEmpty) {
+          existingDisplayName = dName;
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (existingDisplayName == null || existingDisplayName.isEmpty) {
+    final authName = FirebaseAuth.instance.currentUser?.displayName?.trim();
+    if (authName != null && authName.isNotEmpty) {
+      existingDisplayName = authName;
+    }
+  }
+
   final updateData = <String, dynamic>{
     'isCccdVerified': true,
     'daXacThucCccd': true,
@@ -370,7 +393,9 @@ Future<void> saveCccdVerificationToBackend({
     'soGiayTo': cccdNumber,
     'cccdFullName': cccdFullName,
     'hoTenCccd': cccdFullName,
-    'displayName': cccdFullName,
+    // Chỉ gán displayName nếu tài khoản chưa có bất kỳ tên nào, không ghi đè tên đã có
+    if (existingDisplayName == null || existingDisplayName.isEmpty)
+      'displayName': cccdFullName,
     'cccdIssueDate': cccdIssueDate,
     'ngayCap': cccdIssueDate,
     'cccdHometown': cccdHometown,
@@ -594,7 +619,7 @@ Stream<UserProfile?> _userProfileEvents(
     return;
   }
 
-  final data = snapshot.data()!;
+  final data = Map<String, dynamic>.from(snapshot.data()!);
   final resolvedRole = RoleResolver.extractRoleFromMap(data) ?? 'renter';
   final patch = englishUserFieldPatch(data);
   if (data['userCode'] == null &&
@@ -605,6 +630,21 @@ Stream<UserProfile?> _userProfileEvents(
       role: resolvedRole,
     );
   }
+
+  // Tự động khôi phục tên tài khoản (như "QA") nếu từng bị ghi đè trùng với cccdFullName:
+  final authDisplayName = user.displayName?.trim() ?? '';
+  final firestoreDisplayName = (data['displayName'] ?? data['hoTen'])?.toString().trim() ?? '';
+  final cccdFullName = (data['cccdFullName'] ?? data['hoTenCccd'])?.toString().trim() ?? '';
+
+  if (authDisplayName.isNotEmpty &&
+      firestoreDisplayName.isNotEmpty &&
+      cccdFullName.isNotEmpty &&
+      firestoreDisplayName.toLowerCase() == cccdFullName.toLowerCase() &&
+      authDisplayName.toLowerCase() != cccdFullName.toLowerCase()) {
+    patch['displayName'] = authDisplayName;
+    data['displayName'] = authDisplayName;
+  }
+
   if (patch.isNotEmpty) {
     FirebaseFirestore.instance
         .collection('users')
