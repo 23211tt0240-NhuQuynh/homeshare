@@ -23,6 +23,32 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.111 - Mở Rộng Hệ Thống Gợi Ý Tìm Kiếm Bản Đồ Cho Cao Đẳng, Đại Học & Điểm Mốc Trọng Điểm:**
+    - **Yêu cầu & Nghiệp vụ:**
+      1. Khách hàng yêu cầu: "phần seach của map có nhiều gợi ý vd cao đẳng là có gợi ý rồi".
+      2. Khi người dùng nhập từ khóa như `cao đẳng`, `cao dang`, `đại học`, `bến xe`, `bệnh viện` hoặc bấm vào các chip danh mục nhanh, màn hình bản đồ tương tác (`MapLocationPickerScreen`) phải trả về tức thì (zero-latency) danh sách gợi ý phong phú, chính xác, không phụ thuộc vào kết quả rải rác từ mạng nước ngoài.
+      3. Ràng buộc tối quan trọng: **TUYỆT ĐỐI KHÔNG PUSH GIT LÊN REMOTE GITHUB** (`k push git`), chỉ commit local trên branch `dev-TOAN`.
+    - **Triển khai kỹ thuật:**
+      1. **Cơ sở dữ liệu địa danh và trường học Việt Nam (`lib/core/constants/vietnam_map_landmarks.dart`):**
+         - Xây dựng lớp `VietnamMapLandmarks` chứa hơn 50+ địa điểm trọng điểm toàn quốc:
+           + Hệ thống các trường Cao đẳng: FPT Polytechnic (các cơ sở TP.HCM, Hà Nội, Đà Nẵng, Cần Thơ), Cao Thắng, Lý Tự Trọng, Kinh tế Đối ngoại, Công thương (HITC), Bách khoa Sài Gòn, Viễn Đông, Kỹ thuật Công nghệ Thủ Đức, v.v.
+           + Hệ thống các trường Đại học: ĐH Quốc Gia, ĐH Bách Khoa, ĐH Khoa học Tự nhiên, ĐH Tôn Đức Thắng, ĐH Kinh tế TP.HCM (UEH), ĐH Sư phạm Kỹ thuật (HCMUTE), ĐH Ngoại thương, ĐH FPT, v.v.
+           + Hệ thống Bến xe & Nhà ga: Bến xe Miền Đông mới/cũ, Bến xe Miền Tây, Bến xe An Sương, Bến xe Mỹ Đình, Bến xe Giáp Bát, Ga Sài Gòn, Ga Hà Nội.
+           + Hệ thống Bệnh viện lớn: Chợ Rẫy, Từ Dũ, Bạch Mai, Việt Đức, v.v.
+           + Các địa danh, trung tâm biểu tượng & quận huyện: Landmark 81, Chợ Bến Thành, Phố đi bộ Nguyễn Huệ, Hồ Hoàn Kiếm, Cầu Rồng, v.v.
+         - Thuật toán `search(query)` thông minh:
+           + Chuẩn hóa so sánh tiếng Việt (`normalizeVietnameseComparison`), hỗ trợ gõ có dấu lẫn không dấu (ví dụ: `cao dang` $\rightarrow$ ra đầy đủ Cao đẳng FPT, Cao Thắng, Lý Tự Trọng, v.v.).
+           + Chấm điểm độ ưu tiên (Prefix match $\rightarrow$ Name match $\rightarrow$ Aliases/Address match) và trả về kết quả mượt mà, tức thì.
+      2. **Tích hợp vào Bản đồ tương tác (`lib/features/renter/screens/map_location_picker_screen.dart`):**
+         - Bổ sung thanh Chip phân loại trực quan ngay dưới thanh tìm kiếm: `🎓 Cao đẳng`, `🏛️ Đại học`, `🚌 Bến xe & Ga`, `🏥 Bệnh viện`, `🏙️ Địa danh`, `📍 Khu vực`.
+         - Khi bấm chip danh mục hoặc người dùng gõ từ khóa (kể cả 2 ký tự), gợi ý lập tức xuất hiện ngay bên dưới ô tìm kiếm.
+         - Thẻ gợi ý hiển thị biểu tượng chuyên biệt theo từng danh mục (Icon & màu sắc phân loại: Cam cho Cao đẳng, Xanh dương cho Đại học, Xanh lá cho Bến xe, Đỏ cho Bệnh viện, Tím cho Địa danh).
+         - Hiển thị badge danh mục `[Cao đẳng]`, tên trường/địa danh in đậm, kèm phụ đề địa chỉ chi tiết.
+         - Tự động nhận diện trường học/địa danh gần nhất khi di chuyển ghim trên bản đồ để hiển thị địa chỉ thân thiện.
+    - **Kiểm thử chất lượng & Phân tích tĩnh:**
+      - `flutter analyze lib/`: **No issues found! (0 errors, 0 warnings)**.
+      - Test suite: `test/distance_map_filter_test.dart` $\rightarrow$ **12/12 tests passed (100%)**, bổ sung test cases kiểm tra tìm kiếm "cao đẳng", "cao dang", "đại học", "bến xe", "fpt".
+      - Toàn bộ các test suite liên quan: **21/21 tests passed (100%)**.
   * **Phase 2.110 - Tìm Kiếm Theo Khoảng Cách Cho Ở Ghép & Tích Hợp Bản Đồ Tương Tác Trong Ứng Dụng (In-App Map Location Picker) Cho Cả 2 Bên:**
     - **Yêu cầu & Nghiệp vụ:**
       1. Bổ sung tính năng tìm kiếm theo khoảng cách cho module Ở ghép (Roommate).

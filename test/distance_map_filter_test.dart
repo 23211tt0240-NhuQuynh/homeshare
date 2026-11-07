@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:home_share/core/constants/vietnam_map_landmarks.dart';
 import 'package:home_share/core/services/roommate_service.dart';
 import 'package:home_share/data/models/roommate_post_model.dart';
 import 'package:home_share/features/renter/screens/map_location_picker_screen.dart';
@@ -100,6 +101,51 @@ void main() {
     });
   });
 
+  group('VietnamMapLandmarks Suggestion Tests', () {
+    test('Searching "cao đẳng" returns rich college suggestions', () {
+      final results = VietnamMapLandmarks.search('cao đẳng', limit: 20);
+      expect(results, isNotEmpty);
+      expect(results.length, greaterThanOrEqualTo(5));
+
+      final names = results.map((e) => e.name).toList();
+      // Chứa các trường cao đẳng tiêu biểu
+      expect(names.any((n) => n.contains('FPT Polytechnic')), isTrue);
+      expect(names.any((n) => n.contains('Cao Thắng')), isTrue);
+      expect(names.any((n) => n.contains('Lý Tự Trọng')), isTrue);
+      expect(results.every((e) => e.category == 'Cao đẳng'), isTrue);
+    });
+
+    test('Searching "cao dang" without diacritics returns matching colleges', () {
+      final results = VietnamMapLandmarks.search('cao dang', limit: 20);
+      expect(results, isNotEmpty);
+      expect(results.length, greaterThanOrEqualTo(5));
+      expect(results.any((e) => e.name.contains('FPT Polytechnic')), isTrue);
+    });
+
+    test('Searching "đại học" or "dai hoc" returns university landmarks', () {
+      final results = VietnamMapLandmarks.search('dai hoc', limit: 20);
+      expect(results, isNotEmpty);
+      expect(results.every((e) => e.category == 'Đại học'), isTrue);
+      final names = results.map((e) => e.name).toList();
+      expect(names.any((n) => n.contains('Bách Khoa')), isTrue);
+    });
+
+    test('Searching "bến xe" returns bus stations', () {
+      final results = VietnamMapLandmarks.search('bến xe', limit: 10);
+      expect(results, isNotEmpty);
+      expect(results.any((e) => e.name.contains('Bến xe Miền Đông')), isTrue);
+      expect(results.any((e) => e.name.contains('Bến xe Miền Tây')), isTrue);
+    });
+
+    test('Searching "fpt" returns both FPT Polytechnic and FPT University', () {
+      final results = VietnamMapLandmarks.search('fpt', limit: 10);
+      expect(results, isNotEmpty);
+      final names = results.map((e) => e.name).toList();
+      expect(names.any((n) => n.contains('FPT Polytechnic')), isTrue);
+      expect(names.any((n) => n.contains('Đại học FPT')), isTrue);
+    });
+  });
+
   group('RoommateFilterParams Distance Tests', () {
     test('Equality and hashcode include distance parameters', () {
       const params1 = RoommateFilterParams(
@@ -148,16 +194,20 @@ void main() {
   });
 
   group('MapPickedLocation Tests', () {
-    test('Holds coordinates, address, and provides LatLng', () {
+    test('Holds coordinates, address, category, subtitle and provides LatLng', () {
       const loc = MapPickedLocation(
         latitude: 10.7769,
         longitude: 106.7009,
         address: 'Bến Thành, Quận 1',
+        category: 'Địa danh',
+        subtitle: 'Quận 1, TP.HCM',
       );
 
       expect(loc.latitude, equals(10.7769));
       expect(loc.longitude, equals(106.7009));
       expect(loc.address, equals('Bến Thành, Quận 1'));
+      expect(loc.category, equals('Địa danh'));
+      expect(loc.subtitle, equals('Quận 1, TP.HCM'));
       expect(loc.latLng.latitude, equals(10.7769));
       expect(loc.latLng.longitude, equals(106.7009));
       expect(loc.toString(), contains('Bến Thành, Quận 1'));
@@ -181,7 +231,11 @@ void main() {
 
       // Verify search text field
       expect(find.byType(TextField), findsOneWidget);
-      expect(find.text('Tìm địa điểm, đường phố, trường học...'), findsOneWidget);
+      expect(find.text('Tìm trường cao đẳng, đại học, địa điểm...'), findsOneWidget);
+
+      // Verify category quick chips
+      expect(find.text('🎓 Cao đẳng'), findsOneWidget);
+      expect(find.text('🏛️ Đại học'), findsOneWidget);
 
       // Verify action button in app bar
       expect(find.text('Chọn điểm'), findsOneWidget);

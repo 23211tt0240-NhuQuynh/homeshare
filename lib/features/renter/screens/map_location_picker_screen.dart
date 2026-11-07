@@ -7,6 +7,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/vietnam_map_landmarks.dart';
 import '../../../core/utils/map_address_locator.dart';
 
 /// Kết quả người dùng chọn vị trí trên bản đồ
@@ -14,17 +15,21 @@ class MapPickedLocation {
   final double latitude;
   final double longitude;
   final String address;
+  final String? category;
+  final String? subtitle;
 
   const MapPickedLocation({
     required this.latitude,
     required this.longitude,
     required this.address,
+    this.category,
+    this.subtitle,
   });
 
   LatLng get latLng => LatLng(latitude, longitude);
 
   @override
-  String toString() => 'MapPickedLocation($latitude, $longitude, "$address")';
+  String toString() => 'MapPickedLocation($latitude, $longitude, "$address", category: $category)';
 }
 
 /// Màn hình chọn địa điểm trực tiếp trên bản đồ tương tác trong ứng dụng
@@ -58,6 +63,16 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
   List<MapPickedLocation> _searchResults = [];
   bool _isSearching = false;
 
+  // Danh mục chọn nhanh các nhóm địa danh
+  static const List<Map<String, String>> _categoryChips = [
+    {'label': '🎓 Cao đẳng', 'query': 'Cao đẳng'},
+    {'label': '🏛️ Đại học', 'query': 'Đại học'},
+    {'label': '🚌 Bến xe & Ga', 'query': 'Bến xe'},
+    {'label': '🏥 Bệnh viện', 'query': 'Bệnh viện'},
+    {'label': '🏙️ Địa danh', 'query': 'Địa danh'},
+    {'label': '📍 Khu vực', 'query': 'Quận'},
+  ];
+
   // Danh sách các địa điểm phổ biến để chọn nhanh
   static const List<Map<String, dynamic>> _presetLandmarks = [
     {'name': 'Quận 1 (Trung tâm TP.HCM)', 'lat': 10.7769, 'lng': 106.7009},
@@ -69,6 +84,44 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
     {'name': 'Hồ Hoàn Kiếm (Hà Nội)', 'lat': 21.0285, 'lng': 105.8542},
     {'name': 'Cầu Rồng (Đà Nẵng)', 'lat': 16.0610, 'lng': 108.2274},
   ];
+
+  IconData _getCategoryIcon(String? category) {
+    switch (category) {
+      case 'Cao đẳng':
+        return Icons.school_rounded;
+      case 'Đại học':
+        return Icons.account_balance_rounded;
+      case 'Bến xe & Ga':
+        return Icons.directions_bus_rounded;
+      case 'Bệnh viện':
+        return Icons.local_hospital_rounded;
+      case 'Địa danh':
+        return Icons.apartment_rounded;
+      case 'Khu vực':
+        return Icons.explore_rounded;
+      default:
+        return Icons.place_rounded;
+    }
+  }
+
+  Color _getCategoryColor(String? category) {
+    switch (category) {
+      case 'Cao đẳng':
+        return const Color(0xFFF57C00);
+      case 'Đại học':
+        return const Color(0xFF1976D2);
+      case 'Bến xe & Ga':
+        return const Color(0xFF00897B);
+      case 'Bệnh viện':
+        return const Color(0xFFE53935);
+      case 'Địa danh':
+        return const Color(0xFF8E24AA);
+      case 'Khu vực':
+        return const Color(0xFF3949AB);
+      default:
+        return AppColors.primary;
+    }
+  }
 
   @override
   void initState() {
@@ -149,6 +202,13 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
   }
 
   String? _findNearestPresetName(LatLng point) {
+    for (final p in VietnamMapLandmarks.allLandmarks) {
+      final dLat = (p.latitude - point.latitude).abs();
+      final dLng = (p.longitude - point.longitude).abs();
+      if (dLat < 0.005 && dLng < 0.005) {
+        return p.name;
+      }
+    }
     for (final p in _presetLandmarks) {
       final lat = p['lat'] as double;
       final lng = p['lng'] as double;
@@ -226,7 +286,7 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
     }
   }
 
-  /// Tìm kiếm địa điểm theo từ khóa
+  /// Tìm kiếm địa điểm theo từ khóa (hỗ trợ Cao đẳng, Đại học, Bến xe, Bệnh viện...)
   Future<void> _performSearch(String query) async {
     final q = query.trim();
     if (q.isEmpty) {
@@ -240,19 +300,19 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
     setState(() => _isSearching = true);
     final results = <MapPickedLocation>[];
 
-    // 1. Tìm trong preset landmarks
-    for (final p in _presetLandmarks) {
-      final name = p['name'] as String;
-      if (name.toLowerCase().contains(q.toLowerCase())) {
-        results.add(MapPickedLocation(
-          latitude: p['lat'] as double,
-          longitude: p['lng'] as double,
-          address: name,
-        ));
-      }
+    // 1. Tìm trong danh mục các điểm mốc, Cao đẳng, Đại học, Bến xe toàn quốc (Zero-latency)
+    final landmarkHits = VietnamMapLandmarks.search(q, limit: 30);
+    for (final item in landmarkHits) {
+      results.add(MapPickedLocation(
+        latitude: item.latitude,
+        longitude: item.longitude,
+        address: item.name,
+        category: item.category,
+        subtitle: item.address,
+      ));
     }
 
-    // 2. Tra cứu online qua Photon Geocoding
+    // 2. Tra cứu online qua Photon Geocoding nếu người dùng gõ tên đường/địa chỉ riêng
     try {
       final hit = await photonSearch(q, bias: _currentCenter);
       if (hit != null && isInVietnam(hit.point.latitude, hit.point.longitude)) {
@@ -263,12 +323,17 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
             (r.latitude - hit.point.latitude).abs() < 0.001 &&
             (r.longitude - hit.point.longitude).abs() < 0.001);
         if (!exists) {
+          final subtitleStr = hit.street.isNotEmpty
+              ? (hit.houseNumber.isNotEmpty ? '${hit.houseNumber} ${hit.street}' : hit.street)
+              : null;
           results.insert(
             0,
             MapPickedLocation(
               latitude: hit.point.latitude,
               longitude: hit.point.longitude,
               address: label,
+              category: 'Địa chỉ',
+              subtitle: subtitleStr,
             ),
           );
         }
@@ -277,11 +342,15 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
 
     // 3. Tra cứu từ knownPlaceBias
     final bias = knownPlaceBias(q);
-    if (bias != null && !results.any((r) => r.latitude == bias.latitude && r.longitude == bias.longitude)) {
+    if (bias != null &&
+        !results.any((r) =>
+            (r.latitude - bias.latitude).abs() < 0.001 &&
+            (r.longitude - bias.longitude).abs() < 0.001)) {
       results.add(MapPickedLocation(
         latitude: bias.latitude,
         longitude: bias.longitude,
         address: q,
+        category: 'Khu vực',
       ));
     }
 
@@ -441,7 +510,7 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
                     controller: _searchController,
                     textInputAction: TextInputAction.search,
                     decoration: InputDecoration(
-                      hintText: 'Tìm địa điểm, đường phố, trường học...',
+                      hintText: 'Tìm trường cao đẳng, đại học, địa điểm...',
                       hintStyle: const TextStyle(fontSize: 13.5, color: AppColors.textMuted),
                       prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary, size: 22),
                       suffixIcon: _isSearching
@@ -466,7 +535,7 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     ),
                     onChanged: (val) {
-                      if (val.length >= 2) {
+                      if (val.trim().isNotEmpty) {
                         _performSearch(val);
                       } else {
                         setState(() => _searchResults = []);
@@ -476,48 +545,174 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
                   ),
                 ),
 
+                // Thanh chip danh mục nhanh (Cao đẳng, Đại học, Bến xe, Bệnh viện...)
+                Container(
+                  height: 38,
+                  margin: const EdgeInsets.only(top: 8),
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _categoryChips.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
+                    itemBuilder: (ctx, idx) {
+                      final chip = _categoryChips[idx];
+                      final isSelected = _searchController.text.trim().toLowerCase() ==
+                          chip['query']!.toLowerCase();
+                      return ActionChip(
+                        backgroundColor: isSelected ? AppColors.primary : Colors.white,
+                        elevation: isSelected ? 3 : 2,
+                        shadowColor: Colors.black26,
+                        side: BorderSide(
+                          color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                          width: 1,
+                        ),
+                        label: Text(
+                          chip['label']!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isSelected ? Colors.white : AppColors.textDark,
+                          ),
+                        ),
+                        onPressed: () {
+                          if (isSelected) {
+                            _searchController.clear();
+                            setState(() => _searchResults = []);
+                          } else {
+                            _searchController.text = chip['query']!;
+                            _performSearch(chip['query']!);
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+
                 // Danh sách gợi ý tìm kiếm
                 if (_searchResults.isNotEmpty)
                   Container(
-                    margin: const EdgeInsets.only(top: 6),
-                    constraints: const BoxConstraints(maxHeight: 220),
+                    margin: const EdgeInsets.only(top: 8),
+                    constraints: const BoxConstraints(maxHeight: 280),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.15),
-                          blurRadius: 12,
+                          color: Colors.black.withValues(alpha: 0.16),
+                          blurRadius: 14,
                           offset: const Offset(0, 4),
                         ),
                       ],
                     ),
-                    child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      shrinkWrap: true,
-                      itemCount: _searchResults.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1, indent: 46),
-                      itemBuilder: (ctx, idx) {
-                        final item = _searchResults[idx];
-                        return ListTile(
-                          dense: true,
-                          leading: const Icon(Icons.place_rounded, color: AppColors.primary, size: 20),
-                          title: Text(
-                            item.address,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
                           ),
-                          onTap: () => _selectSearchResult(item),
-                        );
-                      },
+                          child: Row(
+                            children: [
+                              Text(
+                                'Tìm thấy ${_searchResults.length} gợi ý',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const Spacer(),
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() => _searchResults = []);
+                                },
+                                child: const Text(
+                                  'Đóng',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        Flexible(
+                          child: ListView.separated(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            shrinkWrap: true,
+                            itemCount: _searchResults.length,
+                            separatorBuilder: (_, _) => const Divider(height: 1, indent: 48),
+                            itemBuilder: (ctx, idx) {
+                              final item = _searchResults[idx];
+                              final icon = _getCategoryIcon(item.category);
+                              final color = _getCategoryColor(item.category);
+
+                              return ListTile(
+                                dense: true,
+                                leading: Container(
+                                  padding: const EdgeInsets.all(7),
+                                  decoration: BoxDecoration(
+                                    color: color.withValues(alpha: 0.12),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(icon, color: color, size: 18),
+                                ),
+                                title: Row(
+                                  children: [
+                                    if (item.category != null && item.category!.isNotEmpty) ...[
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        margin: const EdgeInsets.only(right: 6),
+                                        decoration: BoxDecoration(
+                                          color: color.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          item.category!,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: color,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                    Expanded(
+                                      child: Text(
+                                        item.address,
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                subtitle: item.subtitle != null && item.subtitle!.isNotEmpty
+                                    ? Text(
+                                        item.subtitle!,
+                                        style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      )
+                                    : null,
+                                onTap: () => _selectSearchResult(item),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
-                // Preset Chips cuộn ngang
-                if (_searchResults.isEmpty)
+                // Khi chưa tìm kiếm: gợi ý các điểm mốc phổ biến
+                if (_searchResults.isEmpty && _searchController.text.isEmpty)
                   Container(
-                    height: 38,
+                    height: 36,
                     margin: const EdgeInsets.only(top: 8),
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
@@ -528,18 +723,20 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
                         final name = p['name'] as String;
                         return ActionChip(
                           backgroundColor: Colors.white,
-                          elevation: 2,
-                          shadowColor: Colors.black26,
+                          elevation: 1.5,
+                          shadowColor: Colors.black12,
+                          side: BorderSide(color: Colors.grey.shade200, width: 1),
                           label: Text(
                             name.split('(').first.trim(),
-                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
                           ),
-                          avatar: const Icon(Icons.near_me_rounded, size: 14, color: AppColors.primary),
+                          avatar: const Icon(Icons.near_me_rounded, size: 13, color: AppColors.textSecondary),
                           onPressed: () {
                             _selectSearchResult(MapPickedLocation(
                               latitude: p['lat'] as double,
                               longitude: p['lng'] as double,
                               address: name,
+                              category: 'Điểm mốc',
                             ));
                           },
                         );
