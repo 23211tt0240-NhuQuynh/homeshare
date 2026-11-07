@@ -11,9 +11,9 @@ class SettlementReceiptScreen extends StatelessWidget {
   final String hostAccountNumber;
   final String hostBankName;
   final List<Map<String, dynamic>> settlementItems;
-  final String
-  receiptCode; // mã biên lai đã lưu trong Firestore (collection disbursements)
+  final String receiptCode; // mã biên lai đã lưu trong Firestore (collection disbursements)
   final DateTime? executedAt; // thời điểm admin xác nhận
+  final String? reconciliationNotice;
 
   const SettlementReceiptScreen({
     super.key,
@@ -24,6 +24,7 @@ class SettlementReceiptScreen extends StatelessWidget {
     this.settlementItems = const [],
     this.receiptCode = '',
     this.executedAt,
+    this.reconciliationNotice,
   });
 
   @override
@@ -161,7 +162,17 @@ class SettlementReceiptScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-
+                    if (reconciliationNotice != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          reconciliationNotice!,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF9A6700),
+                          ),
+                        ),
+                      ),
                     Table(
                       columnWidths: const {
                         0: FlexColumnWidth(2.2),
@@ -443,18 +454,26 @@ class SettlementReceiptScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3.5),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11.5, color: Color(0xFF667085)),
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 11.5, color: Color(0xFF667085)),
+            ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.bold,
-              color: valueColor,
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.bold,
+                color: valueColor,
+              ),
             ),
           ),
         ],

@@ -23,6 +23,32 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.109 - Tích Hợp 2 Tính Năng Tiện Ích Từ `homeshare-dev-MAN-on-dev` (Sinh Tên Phòng Mặc Định & Xem Biên Lai Quyết Toán Giao Dịch Chủ Trọ):**
+    - **Yêu cầu & Nghiệp vụ:**
+      1. Khảo sát nhánh `D:\homeshare-dev-MAN-on-dev` phát hiện 2 chức năng tiện ích độc lập có giá trị cao:
+         + Tự động sinh tên phòng mặc định theo cơ sở và tầng (`default_room_name.dart`).
+         + Màn hình xem chi tiết biên lai & bảng kê quyết toán giao dịch của chủ trọ (`host_transaction_receipt_screen.dart`).
+      2. Tích hợp 2 tính năng trên vào project hiện tại `D:\App\homeshare-dev-TOAN` mà không làm ảnh hưởng đến các màn hình người dùng, giao diện Blueprint Sheet và bộ lọc phòng đã duyệt.
+      3. Ràng buộc tối quan trọng: **TUYỆT ĐỐI KHÔNG PUSH GIT LÊN REMOTE GITHUB** (`k push git`), chỉ commit local trên branch `dev-TOAN`.
+    - **Triển khai kỹ thuật:**
+      1. **Chức năng 1: Sinh tên phòng mặc định theo cơ sở & tầng (`lib/core/utils/default_room_name.dart`):**
+         - Phân tích tên cơ sở để lấy chữ cái viết tắt, ghép với số tầng (2 chữ số: 01, 02...) và số thứ tự phòng tiếp theo trên tầng đó (AP01-01, NT02-03...).
+         - Đếm chính xác cả phòng có tên tùy biến và bỏ qua các khoảng trống số hiệu đã tồn tại.
+         - Tích hợp vào `lib/features/host/screens/host_create_screen.dart`: Tự động sinh tên phòng khi chủ trọ để trống trường tên phòng; hiển thị gợi ý (hint) động `[Tên mặc định] (mặc định)` khi đã chọn cơ sở và tầng kèm `FloatingLabelBehavior.always`.
+         - Unit test độc lập: `test/default_room_name_test.dart` (3/3 test cases passed).
+      2. **Chức năng 2: Màn hình Biên lai & Bảng kê Quyết toán Giao dịch Chủ trọ (`lib/features/host/screens/host_transaction_receipt_screen.dart`):**
+         - Cho phép chủ trọ bấm trực tiếp vào thẻ quyết toán/giải ngân trong `lib/features/host/screens/host_finance_screen.dart` để mở màn hình xem chi tiết biên lai, bảng kê cấn trừ phí dịch vụ nền tảng (Platform fee) và tiền thực nhận.
+         - Chuẩn hóa màn hình `SettlementReceiptScreen` (`lib/features/admin/screens/settlement_receipt_screen.dart`): Bổ sung tham số `reconciliationNotice` và căn chỉnh layout co giãn chống tràn viền RenderFlex overflow trên thiết bị màn hình hẹp (320px).
+         - Widget & Unit test: `test/host_transaction_receipt_test.dart` (3/3 test cases passed).
+    - **Kiểm thử chất lượng & Phân tích tĩnh:**
+      - `flutter analyze lib/`: **No issues found! (0 errors, 0 warnings)**.
+      - Bộ test suites: **45/45 tests passed (100%)**:
+        + `default_room_name_test.dart`: 3/3 passed.
+        + `host_transaction_receipt_test.dart`: 3/3 passed.
+        + `transfer_order_code_test.dart`: 3/3 passed.
+        + `renter_resident_stay_test.dart`: 10/10 passed.
+        + `roommate_invitation_eligibility_test.dart` & `roommate_invitation_policy_test.dart`: 17/17 passed.
+        + `search_filter_distance_host_test.dart`: 9/9 passed.
   * **Phase 2.108 - Hợp Nhất Toàn Bộ Tính Năng Từ Project `homeshare-dev-THE-on-dev` Vào `dev-TOAN` (Bảo Toàn 100% Giao Diện & Bộ Lọc Phòng TOAN):**
     - **Yêu cầu & Nghiệp vụ:**
       1. Đọc `tiendo.md` và khảo sát đối chiếu toàn bộ các tính năng từ `D:\homeshare-dev-THE-on-dev` để hợp nhất vào project hiện tại `D:\App\homeshare-dev-TOAN`.
