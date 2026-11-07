@@ -23,6 +23,33 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.110 - Tìm Kiếm Theo Khoảng Cách Cho Ở Ghép & Tích Hợp Bản Đồ Tương Tác Trong Ứng Dụng (In-App Map Location Picker) Cho Cả 2 Bên:**
+    - **Yêu cầu & Nghiệp vụ:**
+      1. Bổ sung tính năng tìm kiếm theo khoảng cách cho module Ở ghép (Roommate).
+      2. Nâng cấp tính năng tìm kiếm theo khoảng cách cho CẢ 2 BÊN (Tìm phòng cho thuê & Tìm ở ghép): Cho phép người dùng:
+         + Lấy vị trí GPS hiện tại của thiết bị (`Geolocator`).
+         + Chọn địa điểm trực tiếp trên bản đồ tương tác mở ngay TRONG ỨNG DỤNG ("map mở trong ứng dụng nha", không mở app ngoài), hỗ trợ kéo thả ghim, tìm kiếm địa chỉ/trường học/địa danh, gợi ý nhanh các mốc phổ biến.
+      3. Ràng buộc tối quan trọng: **TUYỆT ĐỐI KHÔNG PUSH GIT LÊN REMOTE GITHUB** (`k push git`), chỉ commit local trên branch `dev-TOAN`.
+    - **Triển khai kỹ thuật:**
+      1. **Màn hình Bản đồ tương tác chọn điểm mốc (`lib/features/renter/screens/map_location_picker_screen.dart`):**
+         - Xây dựng `MapLocationPickerScreen` sử dụng `flutter_map` và `latlong2`, tile bản đồ đường phố tiếng Việt sắc nét.
+         - Ghim vị trí ở tâm bản đồ với hiệu ứng đổ bóng, tự động tra cứu ngược địa chỉ (Reverse Geocode qua Photon API) khi người dùng di chuyển bản đồ hoặc chạm vào bất kỳ điểm nào.
+         - Thanh tìm kiếm địa điểm trên đầu bản đồ hỗ trợ gõ từ khóa, tìm kiếm trực tuyến và gợi ý danh sách địa điểm/đường phố.
+         - Thanh chip cuộn ngang các địa danh, trường đại học trọng điểm (ĐH Quốc Gia, ĐH Bách Khoa, Landmark 81, Bến Thành, v.v.).
+         - Nút GPS nổi (`FloatingActionButton`) để di chuyển tâm bản đồ về đúng vị trí thực tế của thiết bị.
+         - Nút "Xác nhận điểm mốc này" trả về đối tượng `MapPickedLocation(latitude, longitude, address)`.
+      2. **Nâng cấp Tìm phòng cho thuê (`lib/features/renter/screens/search_filter_screen.dart`):**
+         - Bổ sung nút bấm trực tiếp "Map" cạnh "Đổi mốc" và "GPS" trong khối Vị trí & Bán kính khoảng cách.
+         - Tích hợp tùy chọn mở bản đồ vào danh sách chọn điểm mốc vị trí của bộ lọc phòng.
+      3. **Nâng cấp Tìm ở ghép (`lib/features/renter/screens/roommate_search_screen.dart` & `roommate_community_screen.dart`):**
+         - Mở rộng model `RoommatePostModel` (`lib/data/models/roommate_post_model.dart`): Bổ sung phương thức `distanceTo(userLat, userLng)` sử dụng công thức Haversine và tự động dự phòng qua `knownPlaceBias`.
+         - Nâng cấp `RoommateFilterParams` & `RoommateService`: Thêm các trường `userLat`, `userLng`, `maxDistanceKm`, `sortBy`, lọc bài đăng trong bán kính tối đa và hỗ trợ sắp xếp theo khoảng cách gần nhất.
+         - Giao diện `RoommateSearchScreen`: Bổ sung khối "Vị trí & Bán kính khoảng cách" với đầy đủ nút GPS hiện tại, nút chọn trên Map, danh sách mốc và các chip bán kính (< 2km, < 5km, < 10km, < 15km). Thẻ kết quả hiển thị nhãn khoảng cách tương đối (ví dụ: `📍 Cách bạn 1.5 km`).
+         - Giao diện `RoommateCommunityScreen`: Bổ sung tùy chọn sắp xếp "Gần vị trí tôi nhất" trong menu điều chỉnh.
+    - **Kiểm thử chất lượng & Phân tích tĩnh:**
+      - `flutter analyze lib/`: **No issues found! (0 errors, 0 warnings)**.
+      - Test suite: `test/distance_map_filter_test.dart` $\rightarrow$ **7/7 tests passed (100%)**.
+      - Toàn bộ các test suite liên quan: **52/52 tests passed (100%)**.
   * **Phase 2.109 - Tích Hợp 2 Tính Năng Tiện Ích Từ `homeshare-dev-MAN-on-dev` (Sinh Tên Phòng Mặc Định & Xem Biên Lai Quyết Toán Giao Dịch Chủ Trọ):**
     - **Yêu cầu & Nghiệp vụ:**
       1. Khảo sát nhánh `D:\homeshare-dev-MAN-on-dev` phát hiện 2 chức năng tiện ích độc lập có giá trị cao:

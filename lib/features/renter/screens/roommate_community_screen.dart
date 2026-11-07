@@ -24,7 +24,7 @@ class RoommateCommunityScreen extends ConsumerStatefulWidget {
   ConsumerState<RoommateCommunityScreen> createState() => _RoommateCommunityScreenState();
 }
 
-enum _RoommateSort { newest, hobby, priceLow }
+enum _RoommateSort { newest, hobby, priceLow, distance }
 
 class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScreen> {
   _RoommateSort _sort = _RoommateSort.newest;
@@ -278,6 +278,7 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
                 onSelected: (value) => setState(() => _sort = value),
                 itemBuilder: (context) => [
                   _sortMenuItem(_RoommateSort.newest, Icons.article_outlined, 'Bài đăng mới nhất'),
+                  _sortMenuItem(_RoommateSort.distance, Icons.near_me_outlined, 'Gần vị trí tôi nhất'),
                   _sortMenuItem(_RoommateSort.hobby, Icons.favorite_border, 'Sở thích phù hợp'),
                   _sortMenuItem(_RoommateSort.priceLow, Icons.payments_outlined, 'Giá thấp đến cao'),
                 ],
@@ -422,6 +423,14 @@ class _RoommateCommunityScreenState extends ConsumerState<RoommateCommunityScree
     switch (_sort) {
       case _RoommateSort.newest:
         list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      case _RoommateSort.distance:
+        list.sort((a, b) {
+          final da = a.distanceTo(10.7769, 106.7009) ?? 999999.0;
+          final db = b.distanceTo(10.7769, 106.7009) ?? 999999.0;
+          final byDist = da.compareTo(db);
+          if (byDist != 0) return byDist;
+          return b.createdAt.compareTo(a.createdAt);
+        });
       case _RoommateSort.hobby:
         list.sort((a, b) {
           final left = a.matchRate < 0 ? -1 : a.matchRate;

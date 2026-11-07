@@ -1,5 +1,7 @@
+import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../core/utils/map_address_locator.dart';
 import 'room_model.dart';
 
 /// Phí phát sinh lấy từ phòng trên Firebase, dùng để ước tính chia đều.
@@ -387,6 +389,39 @@ class RoommatePostModel {
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
+  }
+
+  /// Tính khoảng cách (km) giữa vị trí người dùng và bài đăng ở ghép (Haversine formula).
+  /// Tự động lấy tọa độ đã lưu hoặc dự phòng theo địa bàn (quận/huyện/thành phố).
+  double? distanceTo(double? userLat, double? userLng) {
+    if (userLat == null || userLng == null) return null;
+    final pLat = latitude ?? _approximateLat();
+    final pLng = longitude ?? _approximateLng();
+    if (pLat == null || pLng == null) return null;
+    return _haversineDistanceKm(userLat, userLng, pLat, pLng);
+  }
+
+  double? _approximateLat() {
+    final bias = knownPlaceBias('$address $district');
+    return bias?.latitude;
+  }
+
+  double? _approximateLng() {
+    final bias = knownPlaceBias('$address $district');
+    return bias?.longitude;
+  }
+
+  static double _haversineDistanceKm(double lat1, double lon1, double lat2, double lon2) {
+    const double r = 6371.0;
+    final dLat = (lat2 - lat1) * math.pi / 180.0;
+    final dLon = (lon2 - lon1) * math.pi / 180.0;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180.0) *
+            math.cos(lat2 * math.pi / 180.0) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return r * c;
   }
 }
 

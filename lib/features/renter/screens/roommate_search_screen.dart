@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/vietnam_locations.dart';
 import '../../../data/models/roommate_post_model.dart';
 import '../../../core/theme/phong_sang_theme.dart';
 import '../../../core/services/roommate_service.dart';
+import 'map_location_picker_screen.dart';
 import 'roommate_lifestyle_filter_sheet.dart';
 import 'roommate_room_detail_screen.dart';
 import 'search_filter_screen.dart';
@@ -65,6 +68,13 @@ class _RoommateSearchScreenState extends ConsumerState<RoommateSearchScreen> {
   bool _advancedExpanded = false;
   bool _hasSearched = false;
   RoommateFilterParams _activeQuery = const RoommateFilterParams();
+
+  // Vị trí mốc & Bán kính khoảng cách
+  double? _userLat = 10.7769; // Mặc định Quận 1, TP.HCM
+  double? _userLng = 106.7009;
+  String _userLocationLabel = 'Quận 1 (Trung tâm TP.HCM)';
+  double? _selectedMaxDistanceKm; // null: Tất cả, 2.0, 5.0, 10.0, 15.0 km
+  bool _isLocating = false;
 
   List<String> get _districts {
     if (_selectedCity == 'Tất cả') return const ['Tất cả'];
@@ -163,6 +173,250 @@ class _RoommateSearchScreenState extends ConsumerState<RoommateSearchScreen> {
     );
   }
 
+  /// Lấy vị trí GPS thực tế hiện tại của người dùng
+  Future<void> _getCurrentLocation({bool showToast = false}) async {
+    if (_isLocating) return;
+    setState(() => _isLocating = true);
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (showToast && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Vui lòng bật định vị GPS trên thiết bị')),
+          );
+        }
+        if (mounted) {
+          setState(() {
+            _userLocationLabel = 'Quận 1 (Trung tâm TP.HCM)';
+            _isLocating = false;
+          });
+        }
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (showToast && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Chưa cấp quyền vị trí, sử dụng mốc mặc định')),
+            );
+          }
+          if (mounted) {
+            setState(() {
+              _userLocationLabel = 'Quận 1 (Trung tâm TP.HCM)';
+              _isLocating = false;
+            });
+          }
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (showToast && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Quyền vị trí bị chặn vĩnh viễn trong Cài đặt')),
+          );
+        }
+        if (mounted) {
+          setState(() {
+            _userLocationLabel = 'Quận 1 (Trung tâm TP.HCM)';
+            _isLocating = false;
+          });
+        }
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+
+      if (mounted) {
+        setState(() {
+          _userLat = position.latitude;
+          _userLng = position.longitude;
+          _userLocationLabel = 'Vị trí hiện tại của bạn 📍';
+          _isLocating = false;
+        });
+        if (showToast) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã cập nhật vị trí hiện tại của bạn thành công!'),
+              backgroundColor: Color(0xFF027A48),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _userLocationLabel = 'Quận 1 (Trung tâm TP.HCM)';
+          _isLocating = false;
+        });
+      }
+    }
+  }
+
+  /// Mở bản đồ tương tác trực tiếp trong ứng dụng để chọn điểm mốc
+  Future<void> _openMapLocationPicker() async {
+    final result = await Navigator.push<MapPickedLocation>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MapLocationPickerScreen(
+          initialLat: _userLat,
+          initialLng: _userLng,
+          initialLabel: _userLocationLabel,
+          title: 'Chọn điểm mốc tìm ở ghép trên Map',
+        ),
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _userLat = result.latitude;
+        _userLng = result.longitude;
+        _userLocationLabel = result.address;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã chọn điểm mốc: ${result.address}'),
+          backgroundColor: const Color(0xFF027A48),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _showUserLocationPicker() {
+    final popularLocations = [
+      {'name': 'Quận 1 (Trung tâm TP.HCM)', 'lat': 10.7769, 'lng': 106.7009},
+      {'name': 'TP. Thủ Đức (ĐH Quốc Gia / Khu CN)', 'lat': 10.8500, 'lng': 106.7720},
+      {'name': 'Quận 7 (Phú Mỹ Hưng / ĐH Tôn Đức Thắng)', 'lat': 10.7324, 'lng': 106.7157},
+      {'name': 'Quận Bình Thạnh (Hàng Xanh / Landmark 81)', 'lat': 10.8016, 'lng': 106.7114},
+      {'name': 'Quận 10 / Quận 5 (ĐH Bách Khoa / ĐH Y Dược)', 'lat': 10.7674, 'lng': 106.6664},
+      {'name': 'Quận Gò Vấp / Quận 12 (Sân bay Tân Sơn Nhất)', 'lat': 10.8388, 'lng': 106.6653},
+      {'name': 'Quận Hoàn Kiếm (Hà Nội)', 'lat': 21.0285, 'lng': 105.8542},
+      {'name': 'Quận Cầu Giấy (Hà Nội - Cụm ĐH)', 'lat': 21.0362, 'lng': 105.7906},
+      {'name': 'Quận Đống Đa (Hà Nội)', 'lat': 21.0180, 'lng': 105.8290},
+      {'name': 'Quận Hải Châu (Đà Nẵng)', 'lat': 16.0544, 'lng': 108.2022},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.my_location_rounded, size: 20, color: _accent),
+                        SizedBox(width: 8),
+                        Text(
+                          'Chọn điểm mốc vị trí của bạn',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20, color: AppColors.textMuted),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              // Nút mở Bản đồ
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: _accentSoft,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.map_rounded, size: 20, color: _accent),
+                ),
+                title: const Text(
+                  'Chọn trực tiếp trên Bản đồ (Map)',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _accent),
+                ),
+                subtitle: const Text(
+                  'Kéo ghim hoặc tìm kiếm địa điểm trên bản đồ tương tác',
+                  style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 15, color: _accent),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openMapLocationPicker();
+                },
+              ),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: popularLocations.length,
+                  separatorBuilder: (context, index) => const Divider(height: 1, indent: 56),
+                  itemBuilder: (context, index) {
+                    final item = popularLocations[index];
+                    final isSelected = _userLocationLabel == item['name'];
+                    return ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? _accentSoft : const Color(0xFFF1F5F9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.location_on_rounded,
+                          size: 18,
+                          color: isSelected ? _accent : const Color(0xFF64748B),
+                        ),
+                      ),
+                      title: Text(
+                        item['name'] as String,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected ? _accent : AppColors.textDark,
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? const Icon(Icons.check_circle_rounded, color: _accent, size: 20)
+                          : null,
+                      onTap: () {
+                        setState(() {
+                          _userLocationLabel = item['name'] as String;
+                          _userLat = item['lat'] as double;
+                          _userLng = item['lng'] as double;
+                        });
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _submit() {
     setState(() {
       _hasSearched = true;
@@ -179,6 +433,9 @@ class _RoommateSearchScreenState extends ConsumerState<RoommateSearchScreen> {
         budgetMin: _advanced.budgetMin,
         budgetMax: _advanced.budgetMax,
         minMatchRate: _advanced.minMatchRate,
+        userLat: _userLat,
+        userLng: _userLng,
+        maxDistanceKm: _selectedMaxDistanceKm,
       );
     });
   }
@@ -214,6 +471,8 @@ class _RoommateSearchScreenState extends ConsumerState<RoommateSearchScreen> {
               _buildResults(ref.watch(roommatePostsStreamProvider(_activeQuery))),
             ] else ...[
             _buildLocationCard(),
+            const SizedBox(height: 14),
+            _buildDistanceFilterSection(),
             if (_advancedExpanded) ...[
               const SizedBox(height: 14),
               Container(
@@ -276,6 +535,9 @@ class _RoommateSearchScreenState extends ConsumerState<RoommateSearchScreen> {
     final place = _selectedWard != 'Tất cả'
         ? '$_selectedWard, $_selectedCity'
         : (_selectedDistrict == 'Tất cả' ? _selectedCity : '$_selectedDistrict, $_selectedCity');
+    final distText = _selectedMaxDistanceKm != null
+        ? ' • < ${_selectedMaxDistanceKm!.toStringAsFixed(0)} km'
+        : '';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -289,7 +551,7 @@ class _RoommateSearchScreenState extends ConsumerState<RoommateSearchScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '$place • $status',
+              '$place • $status$distText',
               style: PhongSangText.label(color: PhongSangColors.ink, fontSize: 13),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -343,6 +605,8 @@ class _RoommateSearchScreenState extends ConsumerState<RoommateSearchScreen> {
   Widget _buildResultCard(RoommatePostModel post) {
     final millions = post.pricePerPerson / 1000000;
     final price = '${millions.toStringAsFixed(millions.truncateToDouble() == millions ? 0 : 1)} triệu/người';
+    final dist = post.distanceTo(_userLat, _userLng);
+    final distText = dist != null ? ' • Cách ${dist.toStringAsFixed(1)} km 📍' : '';
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
@@ -373,7 +637,7 @@ class _RoommateSearchScreenState extends ConsumerState<RoommateSearchScreen> {
                       const SizedBox(height: 2),
                       Text(post.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: PhongSangText.body.copyWith(color: PhongSangColors.ink)),
                       const SizedBox(height: 4),
-                      Text('${post.district} • $price', style: PhongSangText.caption),
+                      Text('${post.district} • $price$distText', style: PhongSangText.caption),
                     ],
                   ),
                 ),
@@ -381,6 +645,170 @@ class _RoommateSearchScreenState extends ConsumerState<RoommateSearchScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDistanceFilterSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: PhongSangColors.card,
+        borderRadius: BorderRadius.circular(PhongSangRadii.card),
+        border: Border.all(color: PhongSangColors.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.near_me_rounded, size: 18, color: _accent),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Vị trí & Bán kính khoảng cách',
+                    style: PhongSangText.label(color: PhongSangColors.ink, fontSize: 13.5),
+                  ),
+                ],
+              ),
+              Text(
+                _selectedMaxDistanceKm != null
+                    ? '< ${_selectedMaxDistanceKm!.toStringAsFixed(0)} km'
+                    : 'Tất cả khoảng cách',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: _accent,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Hộp mốc vị trí kèm nút GPS & Map
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: _accentSoft,
+                    shape: BoxShape.circle,
+                  ),
+                  child: _isLocating
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: _accent),
+                        )
+                      : const Icon(Icons.my_location_rounded, size: 16, color: _accent),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Điểm mốc so sánh:',
+                        style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                      ),
+                      Text(
+                        _userLocationLabel,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                IconButton(
+                  icon: const Icon(Icons.gps_fixed_rounded, size: 18, color: _accent),
+                  tooltip: 'Lấy vị trí GPS hiện tại',
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: EdgeInsets.zero,
+                  onPressed: () => _getCurrentLocation(showToast: true),
+                ),
+                const SizedBox(width: 4),
+                OutlinedButton(
+                  onPressed: _showUserLocationPicker,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    side: const BorderSide(color: Color(0xFFB2CCFF)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text(
+                    'Đổi mốc',
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: _accent),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                OutlinedButton.icon(
+                  onPressed: _openMapLocationPicker,
+                  icon: const Icon(Icons.map_rounded, size: 14, color: _accent),
+                  label: const Text(
+                    'Map',
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: _accent),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    side: const BorderSide(color: Color(0xFFB2CCFF)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Chips bán kính
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              null,
+              2.0,
+              5.0,
+              10.0,
+              15.0,
+            ].map((dist) {
+              final isSelected = _selectedMaxDistanceKm == dist;
+              final label = dist == null ? 'Tất cả' : '< ${dist.toInt()} km';
+              return ChoiceChip(
+                label: Text(label),
+                selected: isSelected,
+                selectedColor: _accentSoft,
+                backgroundColor: const Color(0xFFF1F5F9),
+                labelStyle: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? _accent : AppColors.textDark,
+                ),
+                side: BorderSide(
+                  color: isSelected ? _accent : Colors.transparent,
+                ),
+                onSelected: (_) {
+                  setState(() => _selectedMaxDistanceKm = dist);
+                },
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }

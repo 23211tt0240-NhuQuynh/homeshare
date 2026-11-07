@@ -15,6 +15,7 @@ import '../../auth/providers/user_provider.dart';
 import '../../chat/screens/chat_detail_screen.dart';
 import 'room_detail_screen.dart';
 import 'roommate_room_detail_screen.dart';
+import 'map_location_picker_screen.dart';
 
 /// Màn hình Tìm kiếm & Bộ lọc chuẩn 100% Figma HomeShare
 /// Hỗ trợ 3 trạng thái rõ ràng, không giật lag, không lỗi layout:
@@ -217,6 +218,35 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
           _isLocating = false;
         });
       }
+    }
+  }
+
+  /// Mở màn hình chọn điểm mốc trực tiếp trên bản đồ tương tác trong ứng dụng
+  Future<void> _openMapLocationPicker() async {
+    final result = await Navigator.push<MapPickedLocation>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MapLocationPickerScreen(
+          initialLat: _userLat,
+          initialLng: _userLng,
+          initialLabel: _userLocationLabel,
+          title: 'Chọn điểm mốc tìm phòng trên Map',
+        ),
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _userLat = result.latitude;
+        _userLng = result.longitude;
+        _userLocationLabel = result.address;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã chọn điểm mốc: ${result.address}'),
+          backgroundColor: const Color(0xFF027A48),
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -505,6 +535,31 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 ),
               ),
               const Divider(height: 1),
+              // Tùy chọn 1: Mở bản đồ tương tác trực tiếp trong ứng dụng
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: _primaryBlueLight,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.map_rounded, size: 20, color: _primaryBlue),
+                ),
+                title: const Text(
+                  'Chọn trực tiếp trên Bản đồ (Map)',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _primaryBlue),
+                ),
+                subtitle: const Text(
+                  'Kéo ghim hoặc tìm kiếm địa điểm trên bản đồ tương tác',
+                  style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 15, color: _primaryBlue),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openMapLocationPicker();
+                },
+              ),
+              const Divider(height: 1, indent: 16, endIndent: 16),
               Flexible(
                 child: ListView.separated(
                   shrinkWrap: true,
@@ -1375,6 +1430,21 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 child: const Text(
                   'Đổi mốc',
                   style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: _primaryBlue),
+                ),
+              ),
+              const SizedBox(width: 4),
+              OutlinedButton.icon(
+                onPressed: _openMapLocationPicker,
+                icon: const Icon(Icons.map_rounded, size: 14, color: _primaryBlue),
+                label: const Text(
+                  'Map',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: _primaryBlue),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  side: const BorderSide(color: _primaryBlueBorder),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ],

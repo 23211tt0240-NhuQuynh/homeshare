@@ -23,6 +23,10 @@ class RoommateFilterParams {
   final List<String> habits;
   final int minMatchRate;
   final String searchQuery;
+  final double? userLat;
+  final double? userLng;
+  final double? maxDistanceKm;
+  final String sortBy; // 'newest' | 'distance' | 'price_asc' | 'price_desc'
 
   const RoommateFilterParams({
     this.province = 'Tất cả',
@@ -37,6 +41,10 @@ class RoommateFilterParams {
     this.habits = const [],
     this.minMatchRate = 0,
     this.searchQuery = '',
+    this.userLat,
+    this.userLng,
+    this.maxDistanceKm,
+    this.sortBy = 'newest',
   });
 
   RoommateFilterParams copyWith({
@@ -54,6 +62,11 @@ class RoommateFilterParams {
     List<String>? habits,
     int? minMatchRate,
     String? searchQuery,
+    double? userLat,
+    double? userLng,
+    double? maxDistanceKm,
+    bool clearDistance = false,
+    String? sortBy,
   }) {
     return RoommateFilterParams(
       province: province ?? this.province,
@@ -68,6 +81,10 @@ class RoommateFilterParams {
       habits: habits ?? this.habits,
       minMatchRate: minMatchRate ?? this.minMatchRate,
       searchQuery: searchQuery ?? this.searchQuery,
+      userLat: userLat ?? this.userLat,
+      userLng: userLng ?? this.userLng,
+      maxDistanceKm: clearDistance ? null : (maxDistanceKm ?? this.maxDistanceKm),
+      sortBy: sortBy ?? this.sortBy,
     );
   }
 
@@ -86,7 +103,11 @@ class RoommateFilterParams {
           budgetMax == other.budgetMax &&
           listEquals(habits, other.habits) &&
           minMatchRate == other.minMatchRate &&
-          searchQuery == other.searchQuery;
+          searchQuery == other.searchQuery &&
+          userLat == other.userLat &&
+          userLng == other.userLng &&
+          maxDistanceKm == other.maxDistanceKm &&
+          sortBy == other.sortBy;
 
   @override
   int get hashCode => Object.hash(
@@ -102,6 +123,10 @@ class RoommateFilterParams {
         Object.hashAll(habits),
         minMatchRate,
         searchQuery,
+        userLat,
+        userLng,
+        maxDistanceKm,
+        sortBy,
       );
 }
 
@@ -269,10 +294,18 @@ class RoommateService {
           return false;
         }
 
+        // 8. Bán kính khoảng cách tối đa
+        if (filters?.maxDistanceKm != null && filters?.userLat != null && filters?.userLng != null) {
+          final dist = post.distanceTo(filters!.userLat, filters.userLng);
+          if (dist == null || dist > filters.maxDistanceKm!) {
+            return false;
+          }
+        }
+
         return true;
       }).toList();
 
-      return _rankByViewerHobbies(
+      final ranked = await _rankByViewerHobbies(
         filtered,
         viewerId: viewerId,
         minMatchRate: minMatchRate,
@@ -280,6 +313,16 @@ class RoommateService {
         viewerNeedsRoom: mine.any((post) => !post.hasRoom),
         viewerPostHabits: _uniqueHabits(mine),
       );
+
+      if (filters?.sortBy == 'distance' && filters?.userLat != null && filters?.userLng != null) {
+        ranked.sort((a, b) {
+          final da = a.distanceTo(filters!.userLat, filters.userLng) ?? 999999.0;
+          final db = b.distanceTo(filters.userLat, filters.userLng) ?? 999999.0;
+          return da.compareTo(db);
+        });
+      }
+
+      return ranked;
     });
   }
 
