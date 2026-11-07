@@ -23,7 +23,48 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
-  * **Phase 2.107 - Thống Nhất Giao Diện Chi Tiết Phòng Thành Hình 2 (Blueprint Sheet), Lọc Chỉ Ra Phòng Cho Thuê & Build APK Debug Thành Công:**
+  * **Phase 2.108 - Hợp Nhất Toàn Bộ Tính Năng Từ Project `homeshare-dev-THE-on-dev` Vào `dev-TOAN` (Bảo Toàn 100% Giao Diện & Bộ Lọc Phòng TOAN):**
+    - **Yêu cầu & Nghiệp vụ:**
+      1. Đọc `tiendo.md` và khảo sát đối chiếu toàn bộ các tính năng từ `D:\homeshare-dev-THE-on-dev` để hợp nhất vào project hiện tại `D:\App\homeshare-dev-TOAN`.
+      2. Ràng buộc tối quan trọng: **TUYỆT ĐỐI KHÔNG PUSH GIT LÊN REMOTE GITHUB** (`k push git`), mọi thay đổi commit local trên branch `dev-TOAN`.
+      3. Bảo tồn toàn bộ tính năng và giao diện đã được duyệt của TOAN: Giao diện chi tiết phòng Blueprint Sheet (Hình 2), bộ lọc chỉ ra phòng cho thuê (đã xóa banner kho chủ trọ, xóa badge kho phòng, xóa thanh tìm kiếm dashboard, xóa chip chọn nhanh chủ trọ, xóa dòng "Tình trạng hiện tại"), dữ liệu 34 tỉnh/thành theo Nghị quyết 202/2025/QH15, kiến trúc thông báo `notification_user`.
+    - **Triển khai kỹ thuật:**
+      1. **Bổ sung các file độc lập từ `dev-THE-on-dev`:**
+         - `docs/quy-uoc-firestore.md`: Tài liệu quy ước chuẩn hóa Firestore.
+         - `lib/core/services/host_index_service.dart`: Cấp phát số định danh chủ trọ (`hostIndex`) qua transaction Firestore `counters/hostIndex.next`.
+         - `lib/core/utils/transfer_order_code.dart`: Helper định dạng mã chuyển khoản ngắn gọn `{hostIndex}-{ABCD}`.
+         - `lib/features/host/widgets/host_finance_style.dart`: Hệ thống định kiểu UI quản lý tài chính chủ trọ.
+         - `lib/features/profile/screens/account_settings_screen.dart`: Màn hình cài đặt tài khoản.
+         - `test/transfer_order_code_test.dart` (3/3 tests passed).
+         - `test/renter_resident_stay_test.dart` (10/10 tests passed).
+      2. **Hợp nhất dịch vụ Đặt phòng (`BookingService`):**
+         - Tích hợp cấp mã chuyển khoản ngắn `{hostIndex}-{ABCD}` khi tạo đơn (`createBooking`).
+         - Bổ sung `_resolveRealRoomId` tra cứu và cập nhật trạng thái phòng thực tế chính xác qua các collection `host_rooms`, `rooms`, `posts`.
+         - Bổ sung các phương thức đồng bộ cư dân & kỳ ở: `stayStartedAt`, `checkoutAppliesToStay`, `applyCheckoutOverlayToStay`, `reconcileStayWithOccupancy`.
+         - Bổ sung `hidePostOnPendingBooking` và `unhidePostOnBookingCancelledOrRejected`.
+      3. **Hợp nhất Xác thực & Tài khoản (`AuthService`, `UserProfile`, `user_provider.dart`):**
+         - Bổ sung trường `hostIndex`, `statusId`, `isBanned`, `accountDeleted`, `suspendedUntil`, `suspensionType`.
+         - Tự động gỡ khóa khi hết hạn tạm ngưng (`_isSuspensionExpired`).
+         - Cấp phát `hostIndex` tự động cho chủ trọ khi đăng ký hoặc đăng nhập.
+         - Tối ưu `_userProfileEvents`: yield profile ngay lập tức khi nhận dữ liệu từ Firestore, không đợi avatar từ Storage giúp đăng nhập siêu nhanh.
+      4. **Nâng cấp Chat & Mời ở ghép (`chat_detail_screen.dart`, `roommate_invitation_eligibility_service.dart`, `roommate_invitation_policy.dart`):**
+         - Nhấn vào thông tin người chat để mở hồ sơ thật `RoleAwareProfileScreen(userId: receiverId)` (HostProfileScreen cho chủ trọ, PersonalProfileScreen cho người thuê), loại bỏ dialog điểm uy tín 100/100 giả lập.
+         - Khắc phục lỗi mời ở ghép hiện trùng 2 dòng cùng 1 phòng ("phòng trọ có gác") bằng bộ lọc `isCurrentOccupancyStatus` và gom trùng `collapseRoommateInviteRooms`.
+      5. **Nâng cấp Quản lý Chủ trọ (`lib/features/host/`):**
+         - `host_finance_screen.dart` & `host_finance_invoices.dart`: Áp dụng `HostFinanceStyle` hiện đại, rõ ràng.
+         - `host_create_violation_screen.dart`, `violation_form_provider.dart`, `violation_repository.dart`: Tích hợp bộ chọn cơ sở/nhà trọ (`_PropertyOption`) để lọc nhanh phòng có người ở khi lập biên bản vi phạm.
+         - `tenant_management_provider.dart`: Tích hợp `keepAlive` 2 phút tránh hủy luồng khi chuyển qua lại giữa các tab.
+      6. **Chuẩn hóa Mã Chuyển Khoản Ngắn:**
+         - `IdGenerator.transferContent`: Hỗ trợ cả định dạng ngắn `{hostIndex}-{ABCD}` và tương thích ngược.
+         - `booking_payment_screen.dart`: Hiển thị và sao chép mã chuyển khoản ngắn, cập nhật tự động `orderCode` & `transferNote` lên Firestore.
+         - `room_booking_detail_screen.dart`: Đọc mã ngắn từ Firestore.
+    - **Kiểm thử chất lượng & Phân tích tĩnh:**
+      - `flutter analyze lib/`: **No issues found! (0 errors, 0 warnings)**.
+      - Test suites: **39/39 tests passed (100%)**:
+        + `transfer_order_code_test.dart`: 3/3 passed.
+        + `renter_resident_stay_test.dart`: 10/10 passed.
+        + `roommate_invitation_eligibility_test.dart` & `roommate_invitation_policy_test.dart`: 17/17 passed.
+        + `search_filter_distance_host_test.dart`: 10/10 passed.
     - **Yêu cầu & Nghiệp vụ:**
       1. Đổi giao diện chi tiết phòng từ Hình 1 (bài đăng thương mại cũ) thành Hình 2 (Hồ sơ thông số kỹ thuật phòng trọ Blueprint Sheet).
       2. Trong màn hình Tìm kiếm & Lọc (SearchFilterScreen): Bỏ hoàn toàn phần bài đăng cho thuê, chỉ lọc ra danh sách phòng cho thuê với đầy đủ thẻ thông số.

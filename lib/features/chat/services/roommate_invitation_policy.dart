@@ -41,6 +41,45 @@ abstract final class RoommateInvitationPolicy {
     return _activeResidentStatuses.contains(_normalizeStatus(status));
   }
 
+  /// Đúng phòng người thuê đang ở, cùng điều kiện tab "Nhà đang ở".
+  /// Đơn chỉ mới duyệt, đã cọc hoặc đã trả phòng không được mời ở ghép.
+  static bool isCurrentOccupancyStatus(dynamic status) {
+    final normalized = _normalizeStatus(status);
+    if (normalized.isEmpty) return false;
+    const left = {
+      'completed',
+      'checkedout',
+      'checkout',
+      'movedout',
+      'daroi',
+      'daketthuc',
+      'traphong',
+      'dacheckout',
+      'ended',
+    };
+    const cancelled = {
+      'cancelled',
+      'dahuy',
+      'rejected',
+      'tuchoi',
+      'bituchoi',
+    };
+    if (left.contains(normalized) || cancelled.contains(normalized)) {
+      return false;
+    }
+    const staying = {
+      'active',
+      'dango',
+      'danhanphong',
+      'checkin',
+      'checkedin',
+      'dacheckin',
+      'staying',
+      'occupied',
+    };
+    return staying.contains(normalized);
+  }
+
   static String _normalizeStatus(dynamic raw) {
     return raw.toString().trim().toLowerCase().replaceAll(
       RegExp(r'[\s_-]+'),

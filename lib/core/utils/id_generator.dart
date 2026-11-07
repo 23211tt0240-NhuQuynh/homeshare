@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'transfer_order_code.dart';
 import 'vietnamese_utils.dart';
 
 /// Bộ sinh mã định danh và Document ID chuẩn hóa cho hệ thống HomeShare
@@ -98,16 +99,25 @@ class IdGenerator {
     return pCode.isNotEmpty ? 'DP_${dateStr}_${pCode}_$rCode' : 'DP_${dateStr}_$rCode';
   }
 
-  /// Sinh Nội dung chuyển khoản ngân hàng:
-  /// Chỉ gồm [MÃ_NGƯỜI_DÙNG] [MÃ_PHÒNG] (theo yêu cầu)
-  /// Ví dụ: "NT001 P001"
+  /// Sinh nội dung chuyển khoản ngắn: `{hostIndex}-{ABCD}`.
+  /// ABCD = 4 ký tự cuối `orderCode` (hoặc bookingId).
   static String transferContent({
-    required String renterCode,
+    int hostIndex = 1,
+    String? orderCode,
+    String bookingId = '',
+    String? renterCode,
     String? hostCode,
-    required String roomCode,
+    String? roomCode,
   }) {
-    final r = renterCode.trim().toUpperCase();
-    final p = roomCode.trim().toUpperCase();
+    if (orderCode != null || bookingId.isNotEmpty || (renterCode == null && roomCode == null)) {
+      return TransferOrderCode.build(
+        hostIndex: hostIndex,
+        orderCode: orderCode,
+        bookingId: bookingId,
+      );
+    }
+    final r = (renterCode ?? '').trim().toUpperCase();
+    final p = (roomCode ?? '').trim().toUpperCase();
     final parts = <String>[];
     if (r.isNotEmpty) parts.add(r);
     if (p.isNotEmpty) parts.add(p);

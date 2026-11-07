@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/booking_service.dart';
-import '../../../core/utils/id_generator.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -336,13 +335,7 @@ class _RoomBookingDetailScreenState
               ? '[Đặt hộ người thân bởi: $accountHolderName - SĐT: $accountPhone]'
               : '[Đặt hộ người thân bởi: $accountHolderName - SĐT: $accountPhone] - $rawNote');
 
-      // Nội dung chuyển khoản chỉ cần lấy ID của phòng
-      final roomId = widget.room.id;
-      final transferContent = IdGenerator.transferContent(
-        renterCode: renterCode,
-        roomCode: roomId,
-      );
-
+      // transferNote / orderCode dạng hostIndex-ABCD được createBooking ghi lên Firestore.
       final booking = BookingRequestModel(
         id: '',
         renterId: user?.uid ?? 'guest',
@@ -365,7 +358,6 @@ class _RoomBookingDetailScreenState
         hostName: widget.room.hostName,
         status: 'pending_payment',
         paymentOption: _paymentOption,
-        transferNote: transferContent,
         moveInDate: _moveInDate,
         moveOutDate: _calculatedMoveOutDate,
         note: fullNote,
@@ -376,7 +368,25 @@ class _RoomBookingDetailScreenState
       final createdBookingId = await ref
           .read(bookingServiceProvider)
           .createBooking(booking, propertyId: widget.room.propertyId);
-      final finalBooking = booking.copyWith(id: createdBookingId);
+
+      String? savedTransferNote;
+      try {
+        final saved = await FirebaseFirestore.instance
+            .collection('bookings')
+            .doc(createdBookingId)
+            .get();
+        savedTransferNote =
+            (saved.data()?['transferNote'] ?? saved.data()?['orderCode'])
+                ?.toString()
+                .trim();
+      } catch (_) {}
+
+      final finalBooking = booking.copyWith(
+        id: createdBookingId,
+        transferNote: (savedTransferNote != null && savedTransferNote.isNotEmpty)
+            ? savedTransferNote
+            : null,
+      );
 
       // Cập nhật trạng thái giữ chỗ 15 phút trên host_rooms
       try {

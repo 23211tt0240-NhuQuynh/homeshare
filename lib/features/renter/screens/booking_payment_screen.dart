@@ -7,11 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/host_index_service.dart';
 import '../../../core/utils/id_generator.dart';
+import '../../../core/utils/transfer_order_code.dart';
 import '../../../core/utils/vietqr_helper.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/room_model.dart';
-import '../../auth/providers/user_provider.dart';
 import 'renter_bookings_screen.dart';
 
 /// Màn hình Thanh toán đặt phòng / cọc phòng chuẩn Figma
@@ -49,36 +50,14 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
   @override
   void initState() {
     super.initState();
-    final profile = ref.read(userProfileProvider).value;
-    final rCode = (widget.booking.renterUserCode.isNotEmpty)
-        ? widget.booking.renterUserCode
-        : ((profile?.userCode.isNotEmpty == true)
-            ? profile!.userCode
-            : UserProfile.generateUserCode(seed: widget.booking.renterId, role: 'renter'));
-    // Nội dung chuyển khoản chỉ cần lấy ID của phòng
-    final roomId = widget.room.id.isNotEmpty
-        ? widget.room.id
-        : widget.booking.roomId;
-
-    _transferContent = IdGenerator.transferContent(
-      renterCode: rCode,
-      roomCode: roomId,
-    );
-
-    // Tạo link ảnh VietQR.io và chuỗi EMVCo Napas247 thật
-    _qrImageUrl = VietQRHelper.buildVietQrImageUrl(
-      amount: widget.paymentAmount,
-      addInfo: _transferContent,
-      accountNo: VietQRHelper.defaultAccountNo,
-      accountName: VietQRHelper.defaultAccountName,
-    );
-
-    _emvcoPayload = VietQRHelper.generateNapasEmvcoPayload(
-      amount: widget.paymentAmount,
-      addInfo: _transferContent,
-      accountNo: VietQRHelper.defaultAccountNo,
-      bankBin: VietQRHelper.defaultBankBin,
-    );
+    final existingNote = (widget.booking.transferNote ?? '').trim();
+    _transferContent = _looksLikeShortTransferCode(existingNote)
+        ? existingNote.toUpperCase()
+        : TransferOrderCode.build(
+            hostIndex: 1,
+            bookingId: widget.booking.id,
+          );
+    _applyTransferContentToQr(_transferContent);
 
     // Tính toán thời gian còn lại (15 phút tính từ lúc tạo đơn)
     final created = widget.booking.createdAt;
@@ -95,44 +74,78 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
       });
     }
 
-    // Nếu ID phòng còn trống thì mới truy vấn ID từ Firestore
-    if (roomId.isEmpty) {
-      _resolveRoomCodeFromFirestore(rCode);
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _resolveShortTransferContent();
+    });
   }
 
-  Future<void> _resolveRoomCodeFromFirestore(String renterCode) async {
+  bool _looksLikeShortTransferCode(String value) {
+    return RegExp(r'^\d+-[A-Z0-9]{3,8}$', caseSensitive: false).hasMatch(value.trim());
+  }
+
+  void _applyTransferContentToQr(String content) {
+    _qrImageUrl = VietQRHelper.buildVietQrImageUrl(
+      amount: widget.paymentAmount,
+      addInfo: content,
+      accountNo: VietQRHelper.defaultAccountNo,
+      accountName: VietQRHelper.defaultAccountName,
+    );
+    _emvcoPayload = VietQRHelper.generateNapasEmvcoPayload(
+      amount: widget.paymentAmount,
+      addInfo: content,
+      accountNo: VietQRHelper.defaultAccountNo,
+      bankBin: VietQRHelper.defaultBankBin,
+    );
+  }
+
+  /// Lấy hostIndex của chủ + 4 ký tự cuối orderCode → ghi transferNote lên booking.
+  Future<void> _resolveShortTransferContent() async {
+    final bookingId = widget.booking.id.trim();
+    if (bookingId.isEmpty) return;
+
     try {
-      final targetDocId = widget.room.id.isNotEmpty
-          ? widget.room.id
-          : widget.booking.roomId;
-      if (targetDocId.isNotEmpty) {
-        final roomDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(targetDocId).get();
-        if (roomDoc.exists) {
-          final newContent = IdGenerator.transferContent(
-            renterCode: renterCode,
-            roomCode: roomDoc.id,
-          );
-          if (mounted && _transferContent != newContent) {
-            setState(() {
-              _transferContent = newContent;
-              _qrImageUrl = VietQRHelper.buildVietQrImageUrl(
-                amount: widget.paymentAmount,
-                addInfo: _transferContent,
-                accountNo: VietQRHelper.defaultAccountNo,
-                accountName: VietQRHelper.defaultAccountName,
-              );
-              _emvcoPayload = VietQRHelper.generateNapasEmvcoPayload(
-                amount: widget.paymentAmount,
-                addInfo: _transferContent,
-                accountNo: VietQRHelper.defaultAccountNo,
-                bankBin: VietQRHelper.defaultBankBin,
-              );
-            });
-          }
-        }
+      final bookingRef =
+          FirebaseFirestore.instance.collection('bookings').doc(bookingId);
+      final bookingSnap = await bookingRef.get();
+      final data = bookingSnap.data() ?? {};
+
+      final orderCode = (data['orderCode'] ?? '').toString().trim();
+      final savedNote = (data['transferNote'] ?? '').toString().trim();
+      final hostId = (data['hostId'] ??
+              data['chuNhaId'] ??
+              widget.booking.hostId ??
+              widget.room.hostId)
+          .toString()
+          .trim();
+
+      var hostIndex = ((data['hostIndex'] as num?)?.toInt() ?? 0);
+      if (hostIndex <= 0 && hostId.isNotEmpty) {
+        hostIndex = await HostIndexService().ensureHostIndex(hostId);
       }
-    } catch (_) {}
+      if (hostIndex <= 0) hostIndex = 1;
+
+      final memo = TransferOrderCode.build(
+        hostIndex: hostIndex,
+        orderCode: orderCode.isNotEmpty ? orderCode : savedNote,
+        bookingId: bookingId,
+      );
+
+      await bookingRef.set({
+        'orderCode': memo,
+        'transferNote': memo,
+        'hostIndex': hostIndex,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (!mounted) return;
+      if (_transferContent == memo) return;
+      setState(() {
+        _transferContent = memo;
+        _applyTransferContentToQr(memo);
+      });
+    } catch (e) {
+      debugPrint('Không tạo được nội dung CK ngắn: $e');
+    }
   }
 
   void _startTimer() {
@@ -285,6 +298,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           'isPaid': false,
           'paymentType': widget.paymentType,
           'paymentAmount': widget.paymentAmount,
+          'orderCode': _transferContent,
           'transferNote': _transferContent,
           'userCode': _transferContent,
           'durationText': durationText,
@@ -759,13 +773,13 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
 
           // Nội dung chuyển khoản
           _buildCopyableTile(
-            label: 'Nội dung chuyển khoản (Mã người dùng & ID phòng)',
+            label: 'Nội dung chuyển khoản (Bắt buộc chính xác)',
             value: _transferContent,
             copyText: _transferContent,
             isBold: true,
             isHighlight: true,
             highlightColor: AppColors.primary,
-            subtitle: 'Chỉ gồm mã người dùng và ID phòng (Ví dụ: $_transferContent)',
+            subtitle: 'Ghi đúng mã ngắn này khi chuyển khoản (ví dụ: $_transferContent)',
           ),
         ],
       ),

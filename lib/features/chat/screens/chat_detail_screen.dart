@@ -17,6 +17,7 @@ import '../../../core/services/roommate_service.dart';
 import '../../renter/screens/room_detail_screen.dart';
 import '../../renter/screens/roommate_room_detail_screen.dart';
 import '../../renter/screens/report_host_screen.dart';
+import '../../profile/screens/role_aware_profile_screen.dart';
 import '../services/roommate_invitation_eligibility_service.dart';
 import '../services/roommate_invitation_policy.dart';
 import '../../renter/widgets/room_full_dialog.dart';
@@ -436,7 +437,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               title: const Text('Xem hồ sơ đối tác'),
               onTap: () {
                 Navigator.pop(ctx);
-                _showPartnerProfileDialog();
+                _openPartnerProfile();
               },
             ),
             ListTile(
@@ -482,67 +483,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
-  void _showPartnerProfileDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: AppColors.primaryContainer,
-              child: Text(
-                widget.receiverName.isNotEmpty ? widget.receiverName[0] : 'U',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(widget.receiverName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      if (widget.isLandlord) ...[
-                        const SizedBox(width: 4),
-                        const Icon(Icons.verified, color: AppColors.primary, size: 16),
-                      ],
-                    ],
-                  ),
-                  Text(
-                    widget.isLandlord ? 'Chủ nhà trọ đã xác thực' : 'Người thuê / Tìm ở ghép',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Divider(),
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.phone_outlined, size: 20),
-              title: Text(widget.receiverPhone, style: const TextStyle(fontSize: 14)),
-              subtitle: const Text('Số điện thoại liên hệ', style: TextStyle(fontSize: 11)),
-            ),
-            const ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.shield_outlined, size: 20, color: AppColors.primary),
-              title: Text('Điểm uy tín: 100/100', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              subtitle: Text('Đã xác thực CCCD & Căn cước công dân', style: TextStyle(fontSize: 11)),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
-        ],
+  void _openPartnerProfile() {
+    final partnerId = widget.receiverId.trim();
+    if (partnerId.isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RoleAwareProfileScreen(userId: partnerId),
       ),
     );
   }
@@ -1622,7 +1569,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           ),
         ),
         title: InkWell(
-          onTap: _showPartnerProfileDialog,
+          onTap: _openPartnerProfile,
           child: Row(
             children: [
               Stack(

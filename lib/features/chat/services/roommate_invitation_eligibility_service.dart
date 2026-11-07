@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../core/services/resident_service.dart';
+import '../../../data/models/resident_model.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/services/role_resolver.dart';
 import 'roommate_invitation_policy.dart';
@@ -368,11 +370,12 @@ class RoommateInvitationEligibilityService {
     }
   }
 
-  /// Tìm tất cả các phòng đang ở/thuê hợp lệ của người dùng.
+  /// Tìm phòng người dùng đang ở để mời ở ghép.
+  ///
+  /// Một phòng vật lý có thể nằm ở cả bài đăng và phòng chủ trọ, hoặc còn
+  /// một đơn cũ cùng tên. Những bản ghi đó được gom thành một lựa chọn,
+  /// ưu tiên đúng phòng đang ở.
   Future<List<RoomModel>> findActiveRooms(String userId) async {
-    final rooms = <RoomModel>[];
-    final seenRoomIds = <String>{};
-
     final bookingDocs = await _queryAliases(
       collection: 'bookings',
       fields: const [
@@ -385,69 +388,164 @@ class RoommateInvitationEligibilityService {
       value: userId,
     );
 
-    final activeBookings = bookingDocs.where((doc) {
-      final data = doc.data();
-      final status =
-          data['status'] ?? data['trangThai'] ?? data['trangThai_id'];
-      return RoommateInvitationPolicy.isActiveBookingStatus(status);
-    }).toList()
-      ..sort((a, b) {
-        final aTime = _bookingTime(a.data());
-        final bTime = _bookingTime(b.data());
-        return bTime.compareTo(aTime);
-      });
-
-    for (final doc in activeBookings) {
-      final data = doc.data();
-      final roomId = _firstNonEmpty(data, const [
-        'roomId',
-        'phongId',
-        'phongTroId',
-        'baiDangId',
-      ]);
-      final room = await _loadRoom(roomId) ?? roomFromActiveBooking(data, doc.id);
-      if (room != null && room.hostId.trim().isNotEmpty) {
-        if (!seenRoomIds.contains(room.id)) {
-          seenRoomIds.add(room.id);
-          rooms.add(room);
-        }
-      }
-    }
-
     final residentDocs = await _queryAliases(
       collection: 'residents',
       fields: const ['userId', 'nguoiDungId', 'nguoi_dung_id'],
       value: userId,
     );
 
+    final activeResidentRooms = <String>{};
+    final leftResidentRooms = <String>{};
     for (final doc in residentDocs) {
-      final data = doc.data();
-      final status =
-          data['statusId'] ??
-          data['status'] ??
-          data['trangThai_id'] ??
-          data['trang_thai'];
-      if (!RoommateInvitationPolicy.isActiveResidentStatus(status)) continue;
-
-      var roomId = _firstNonEmpty(data, const [
-        'roomId',
-        'phongId',
-        'phongTroId',
-        'phong_tro_id',
-      ]);
-      if (roomId.isEmpty) {
-        roomId = await _roomIdFromActivePeriod(
-          _firstNonEmpty(data, const ['periodId', 'kyThue_id', 'kyOId']),
-        );
+      final resident = ResidentModel.fromFirestore(doc);
+      if (resident.userId.trim().isNotEmpty &&
+          resident.userId.trim() != userId.trim()) {
+        continue;
       }
-      final room = await _loadRoom(roomId);
-      if (room != null && !seenRoomIds.contains(room.id)) {
-        seenRoomIds.add(room.id);
-        rooms.add(room);
+      final rawRoomId = resident.roomId.trim().isNotEmpty
+          ? resident.roomId.trim()
+          : await _roomIdFromActivePeriod(resident.periodId);
+      if (rawRoomId.isEmpty) continue;
+      final canonical = await _canonicalRoomId(rawRoomId);
+      final keys = {rawRoomId, if (canonical.isNotEmpty) canonical};
+      if (ResidentService.isActive(resident)) {
+        activeResidentRooms.addAll(keys);
+      } else if (resident.isMovedOut) {
+        leftResidentRooms.addAll(keys);
       }
     }
 
-    return rooms;
+    final bookings = bookingDocs.toList()
+      ..sort((a, b) {
+        final aTime = _bookingTime(a.data());
+        final bTime = _bookingTime(b.data());
+        return bTime.compareTo(aTime);
+      });
+
+    final candidates = <InviteRoomCandidate>[];
+    for (final doc in bookings) {
+      final data = doc.data();
+      final status =
+          data['status'] ?? data['trangThai'] ?? data['trangThai_id'];
+      final roomId = _firstNonEmpty(data, const [
+        'roomId',
+        'phongId',
+        'phongTroId',
+        'baiDangId',
+      ]);
+      final canonical = await _canonicalRoomId(roomId);
+      final keys = {
+        if (roomId.isNotEmpty) roomId,
+        if (canonical.isNotEmpty) canonical,
+      };
+      final residentStillThere = keys.any(activeResidentRooms.contains);
+      final residentLeft =
+          keys.any(leftResidentRooms.contains) && !residentStillThere;
+      if (residentLeft) continue;
+      final staying =
+          RoommateInvitationPolicy.isCurrentOccupancyStatus(status) ||
+          residentStillThere;
+      if (!staying) continue;
+
+      final loaded = await _loadInviteRoom(
+        preferredId: canonical.isNotEmpty ? canonical : roomId,
+        fallbackId: roomId,
+        booking: data,
+        bookingId: doc.id,
+      );
+      if (loaded == null || loaded.room.hostId.trim().isEmpty) continue;
+      candidates.add(
+        InviteRoomCandidate(
+          room: loaded.room,
+          canonicalId: canonical.isNotEmpty ? canonical : loaded.room.id,
+          sortTime: _bookingTime(data),
+          currentStay: true,
+          hostRoom: loaded.hostRoom,
+        ),
+      );
+    }
+
+    for (final doc in residentDocs) {
+      final resident = ResidentModel.fromFirestore(doc);
+      if (!ResidentService.isActive(resident)) continue;
+      if (resident.userId.trim().isNotEmpty &&
+          resident.userId.trim() != userId.trim()) {
+        continue;
+      }
+      var roomId = resident.roomId.trim();
+      if (roomId.isEmpty) {
+        roomId = await _roomIdFromActivePeriod(resident.periodId);
+      }
+      if (roomId.isEmpty) continue;
+      final canonical = await _canonicalRoomId(roomId);
+      final loaded = await _loadInviteRoom(
+        preferredId: canonical.isNotEmpty ? canonical : roomId,
+        fallbackId: roomId,
+      );
+      if (loaded == null || loaded.room.hostId.trim().isEmpty) continue;
+      candidates.add(
+        InviteRoomCandidate(
+          room: loaded.room,
+          canonicalId: canonical.isNotEmpty ? canonical : loaded.room.id,
+          sortTime: resident.moveInDate,
+          currentStay: true,
+          hostRoom: loaded.hostRoom,
+        ),
+      );
+    }
+
+    return collapseRoommateInviteRooms(candidates);
+  }
+
+  Future<String> _canonicalRoomId(String roomId) async {
+    final clean = roomId.trim();
+    if (clean.isEmpty) return '';
+    try {
+      final resolved = await ResidentService(_firestore).resolveRoomId(clean);
+      return resolved.trim().isEmpty ? clean : resolved.trim();
+    } catch (_) {
+      return clean;
+    }
+  }
+
+  Future<({RoomModel room, bool hostRoom})?> _loadInviteRoom({
+    required String preferredId,
+    required String fallbackId,
+    Map<String, dynamic>? booking,
+    String bookingId = '',
+  }) async {
+    for (final id in [preferredId, fallbackId]) {
+      final hostRoom = await _loadHostRoom(id);
+      if (hostRoom != null) return (room: hostRoom, hostRoom: true);
+    }
+    for (final id in [preferredId, fallbackId]) {
+      final room = await _loadRoom(id);
+      if (room != null) return (room: room, hostRoom: false);
+    }
+    if (booking != null) {
+      final fallback = roomFromActiveBooking(
+        booking,
+        bookingId.isNotEmpty ? bookingId : fallbackId,
+      );
+      if (fallback != null) return (room: fallback, hostRoom: false);
+    }
+    return null;
+  }
+
+  Future<RoomModel?> _loadHostRoom(String roomId) async {
+    final clean = roomId.trim();
+    if (clean.isEmpty) return null;
+    final doc = await _firestore.collection('host_rooms').doc(clean).get();
+    final data = doc.data();
+    if (!doc.exists || data == null) return null;
+    final status = (data['status'] ?? data['trangThai'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    if (status == 'deleted' || status == 'daxoa') return null;
+    final room = RoomModel.fromMap(data, doc.id);
+    if (room.hostId.trim().isEmpty) return null;
+    return room;
   }
 
   Future<String> _roomIdFromActivePeriod(String periodId) async {
@@ -539,6 +637,70 @@ class RoommateInvitationEligibilityService {
     }
     return '';
   }
+}
+
+class InviteRoomCandidate {
+  final RoomModel room;
+  final String canonicalId;
+  final DateTime sortTime;
+  final bool currentStay;
+  final bool hostRoom;
+
+  const InviteRoomCandidate({
+    required this.room,
+    required this.canonicalId,
+    required this.sortTime,
+    required this.currentStay,
+    this.hostRoom = false,
+  });
+}
+
+/// Gom các đơn/bài đăng của cùng một phòng thành một lựa chọn mời ở ghép.
+/// Giữ phòng chủ trọ đang ở, bỏ bản trùng tên và đơn không còn ở.
+List<RoomModel> collapseRoommateInviteRooms(List<InviteRoomCandidate> candidates) {
+  final staying = candidates.where((candidate) {
+    return candidate.currentStay && candidate.room.hostId.trim().isNotEmpty;
+  }).toList();
+
+  final groups = <String, List<InviteRoomCandidate>>{};
+  final order = <String>[];
+  for (final candidate in staying) {
+    final key = _inviteRoomIdentity(candidate);
+    if (!groups.containsKey(key)) order.add(key);
+    groups.putIfAbsent(key, () => []).add(candidate);
+  }
+
+  final rooms = <RoomModel>[];
+  final seenIds = <String>{};
+  for (final key in order) {
+    final group = groups[key]!;
+    group.sort((a, b) {
+      final byHost = (b.hostRoom ? 1 : 0).compareTo(a.hostRoom ? 1 : 0);
+      if (byHost != 0) return byHost;
+      final aCanonical = a.canonicalId.isNotEmpty && a.room.id == a.canonicalId;
+      final bCanonical = b.canonicalId.isNotEmpty && b.room.id == b.canonicalId;
+      final byCanonical = (bCanonical ? 1 : 0).compareTo(aCanonical ? 1 : 0);
+      if (byCanonical != 0) return byCanonical;
+      return b.sortTime.compareTo(a.sortTime);
+    });
+    final chosen = group.first.room;
+    if (chosen.id.isNotEmpty && !seenIds.add(chosen.id)) continue;
+    rooms.add(chosen);
+  }
+  return rooms;
+}
+
+String _inviteRoomIdentity(InviteRoomCandidate candidate) {
+  final room = candidate.room;
+  final title = room.title.trim().toLowerCase();
+  final address = room.address.trim().toLowerCase();
+  final host = room.hostId.trim();
+  final price = room.price.round();
+  if (title.isNotEmpty || address.isNotEmpty) {
+    return '$host|$title|$address|$price';
+  }
+  final canonical = candidate.canonicalId.trim();
+  return canonical.isNotEmpty ? 'id:$canonical' : 'id:${room.id}';
 }
 
 /// Phòng mời ở ghép lấy từ đơn đang ở khi document `rooms`/`posts` thiếu.

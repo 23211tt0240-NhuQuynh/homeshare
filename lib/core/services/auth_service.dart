@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../features/auth/providers/user_provider.dart';
+import '../utils/host_reputation.dart';
+import 'host_index_service.dart';
 import 'push_notification_service.dart';
 
 class AuthService {
@@ -34,11 +38,33 @@ class AuthService {
       );
       final user = credential.user;
       if (user != null) {
-        final snap = await _firestore.collection('users').doc(user.uid).get();
-        if (_isAccountLocked(snap.data())) {
-          pendingLockNotice = lockedAccountMessage;
+        final profileRef = _firestore.collection('users').doc(user.uid);
+        final snap = await profileRef.get();
+        final profile = snap.data();
+        if (_isAccountLocked(profile)) {
+          final until = _suspensionDate(profile?['suspendedUntil']);
+          pendingLockNotice = until == null
+              ? lockedAccountMessage
+              : 'Tài khoản tạm khóa đến ${until.toLocal()}.';
           await signOut();
           throw lockedAccountMessage;
+        }
+        if (_isSuspensionExpired(profile)) {
+          await profileRef.set({
+            'isBanned': false,
+            'statusId': profile?['statusIdBeforeSuspension'] ?? 1,
+            'banReason':
+                (profile?['banReasonBeforeSuspension'] as String?)
+                        ?.isNotEmpty ==
+                    true
+                ? profile!['banReasonBeforeSuspension']
+                : FieldValue.delete(),
+            'statusIdBeforeSuspension': FieldValue.delete(),
+            'banReasonBeforeSuspension': FieldValue.delete(),
+            'suspendedUntil': FieldValue.delete(),
+            'suspensionType': FieldValue.delete(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
         }
       }
       return credential;
@@ -50,11 +76,30 @@ class AuthService {
     }
   }
 
+  DateTime? _suspensionDate(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+
+  bool _isSuspensionExpired(Map<String, dynamic>? data) {
+    if (data == null ||
+        data['accountDeleted'] == true ||
+        data['suspensionType'] == null) {
+      return false;
+    }
+    final until = _suspensionDate(data['suspendedUntil']);
+    return until != null && !until.isAfter(DateTime.now());
+  }
+
   bool _isAccountLocked(Map<String, dynamic>? data) {
     if (data == null) return false;
+    if (data['accountDeleted'] == true) return true;
+    if (_isSuspensionExpired(data)) return false;
     final raw = data['statusId'];
     final statusId = raw is num ? raw.toInt() : int.tryParse('$raw');
-    return statusId == statusLockedId;
+    return data['isBanned'] == true || statusId == statusLockedId;
   }
 
   // Đăng ký tài khoản mới bằng Email & Mật khẩu
@@ -76,7 +121,7 @@ class AuthService {
         await user.updateDisplayName(displayName);
 
         // Sinh mã người dùng 5 ký tự (3 số đầu + 2 chữ sau)
-        final userCode = UserProfile.generateUserCode(seed: user.uid);
+        final userCode = UserProfile.generateUserCode(seed: user.uid, role: role);
 
         // Lưu thông tin người dùng vào Firestore collection 'users'
         await _firestore.collection('users').doc(user.uid).set({
@@ -89,6 +134,11 @@ class AuthService {
           'reputationScore': 100,
           'createdAt': FieldValue.serverTimestamp(),
         });
+
+        // Chủ trọ: cấp hostIndex cố định ngay khi đăng ký.
+        if (HostReputation.isHostRole(role)) {
+          await HostIndexService(firestore: _firestore).ensureHostIndex(user.uid);
+        }
       }
 
       return credential;
