@@ -135,7 +135,7 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
 
   // Chủ trọ - Bottom nav quản lý - Luồng đi: Thông tin chung mở danh
   // sách cơ sở; dấu cộng mở tạo nhà/phòng; nút cuối về Dashboard.
-  Widget _buildManagementNavigation(BuildContext context, String currentLang, bool isDark) {
+  Widget _buildManagementNavigation(BuildContext context, String currentLang) {
     final labels = [
       AppTranslations.tr('nav_general_info', currentLang),
       AppTranslations.tr('nav_tenant_mgmt', currentLang),
@@ -150,14 +150,11 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
       Icons.credit_card,
       Icons.arrow_back,
     ];
+    final colors = AppColors.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF151C28) : Colors.white,
-        border: Border(
-          top: BorderSide(
-            color: isDark ? const Color(0xFF243044) : const Color(0xFFE2E8F0),
-          ),
-        ),
+        color: colors.surface,
+        border: Border(top: BorderSide(color: colors.border)),
       ),
       child: SafeArea(
         top: false,
@@ -166,9 +163,7 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
           child: Row(
             children: List.generate(labels.length, (index) {
               final selected = index == _managementIndex;
-              final color = selected
-                  ? (isDark ? const Color(0xFF10B981) : const Color(0xFF2563EB))
-                  : (isDark ? const Color(0xFF64748B) : const Color(0xFF64748B));
+              final color = selected ? colors.primary : colors.textMuted;
               return Expanded(
                 child: Semantics(
                   selected: selected,
@@ -183,15 +178,15 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
                               width: 48,
                               height: 48,
                               decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF10B981) : const Color(0xFF2563EB),
+                                color: colors.primary,
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: isDark ? const Color(0xFF151C28) : Colors.white,
+                                  color: colors.surface,
                                   width: 2,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: (isDark ? const Color(0xFF10B981) : const Color(0xFF2563EB)).withValues(alpha: 0.4),
+                                    color: colors.primary.withValues(alpha: 0.4),
                                     blurRadius: 12,
                                     offset: const Offset(0, 4),
                                   ),
@@ -239,8 +234,9 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
   // IndexedStack giữ trạng thái giao diện khi chuyển qua lại giữa các tab.
   @override
   Widget build(BuildContext context) {
+    AppColors.bind();
     final currentLang = ref.watch(appLanguageProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = AppColors.of(context);
     final labels = [
       AppTranslations.tr('nav_home', currentLang),
       AppTranslations.tr('nav_messages', currentLang),
@@ -258,9 +254,9 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
         body: IndexedStack(
           index: _currentIndex,
           children: [
-            const HostDashboardScreen(),
-            const ChatListScreen(),
-            const HostCreatePostScreen(),
+            HostDashboardScreen(),
+            ChatListScreen(),
+            HostCreatePostScreen(),
             IndexedStack(
               index: _managementIndex,
               children: [
@@ -272,30 +268,26 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
                   title: 'Thêm mới',
                   icon: Icons.add_home_outlined,
                 ),
-                const HostFinanceScreen(),
+                HostFinanceScreen(),
               ],
             ),
-            const HomeScreen(),
+            HomeScreen(),
           ],
         ),
         bottomNavigationBar: _currentIndex == 3
-            ? _buildManagementNavigation(context, currentLang, isDark)
+            ? _buildManagementNavigation(context, currentLang)
             : Container(
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF151C28) : Colors.white,
-                  border: Border(
-                    top: BorderSide(
-                      color: isDark ? const Color(0xFF243044) : const Color(0xFFE5EBF1),
-                    ),
-                  ),
+                  color: colors.surface,
+                  border: Border(top: BorderSide(color: colors.border)),
                 ),
                 child: SafeArea(
                   top: false,
                   child: Row(
                     children: List.generate(labels.length, (index) {
                       final selected = _currentIndex == index;
-                      final primaryColor = isDark ? const Color(0xFF10B981) : AppColors.primary;
-                      final unselectedColor = isDark ? const Color(0xFF64748B) : const Color(0xFF92A4BE);
+                      final primaryColor = colors.primary;
+                      final unselectedColor = colors.textMuted;
 
                       return Expanded(
                         child: Semantics(
@@ -317,7 +309,7 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
                                         shape: BoxShape.circle,
                                         gradient: LinearGradient(
                                           colors: [
-                                            const Color(0xFF1673C8),
+                                            colors.primaryDark,
                                             primaryColor,
                                           ],
                                         ),

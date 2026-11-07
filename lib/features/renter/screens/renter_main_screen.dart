@@ -26,14 +26,6 @@ class RenterMainScreen extends ConsumerStatefulWidget {
 }
 
 class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
-  final List<Widget> _screens = const [
-    RenterDashboardScreen(),
-    ChatListScreen(),
-    CreateRoommatePostScreen(),
-    RoommateCommunityScreen(),
-    HomeScreen(),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -44,32 +36,38 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    AppColors.bind();
     final currentIndex = ref.watch(renterBottomNavIndexProvider);
     final currentLang = ref.watch(appLanguageProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = AppColors.of(context);
+    // Không const — IndexedStack bỏ qua widget identical khi đổi theme.
+    final screens = [
+      RenterDashboardScreen(),
+      ChatListScreen(),
+      CreateRoommatePostScreen(),
+      RoommateCommunityScreen(),
+      HomeScreen(),
+    ];
 
     return Scaffold(
       body: IndexedStack(
         index: currentIndex,
-        children: _screens,
+        children: screens,
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF151C28) : Colors.white,
+          color: colors.surface,
           border: Border(
-            top: BorderSide(
-              color: isDark ? const Color(0xFF243044) : const Color(0xFFE5EBF1),
-              width: 1,
-            ),
+            top: BorderSide(color: colors.border, width: 1),
           ),
         ),
         child: BottomNavigationBar(
           currentIndex: currentIndex,
           type: BottomNavigationBarType.fixed,
-          backgroundColor: isDark ? const Color(0xFF151C28) : Colors.white,
+          backgroundColor: colors.surface,
           elevation: 0,
-          selectedItemColor: isDark ? const Color(0xFF10B981) : AppColors.primary,
-          unselectedItemColor: isDark ? const Color(0xFF64748B) : AppColors.textMuted,
+          selectedItemColor: colors.primary,
+          unselectedItemColor: colors.textMuted,
           selectedFontSize: 11,
           unselectedFontSize: 11,
           onTap: (index) {
@@ -82,21 +80,21 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
               label: AppTranslations.tr('nav_home', currentLang),
             ),
             BottomNavigationBarItem(
-              icon: const Badge(
+              icon: Badge(
                 smallSize: 8,
                 backgroundColor: AppColors.danger,
-                child: Icon(Icons.chat_bubble_outline),
+                child: const Icon(Icons.chat_bubble_outline),
               ),
-              activeIcon: const Badge(
+              activeIcon: Badge(
                 smallSize: 8,
                 backgroundColor: AppColors.danger,
-                child: Icon(Icons.chat_bubble),
+                child: const Icon(Icons.chat_bubble),
               ),
               label: AppTranslations.tr('nav_messages', currentLang),
             ),
             BottomNavigationBarItem(
-              icon: const Icon(Icons.add_circle, color: Color(0xFF155EEF), size: 28),
-              activeIcon: const Icon(Icons.add_circle, color: Color(0xFF155EEF), size: 28),
+              icon: Icon(Icons.add_circle, color: colors.primary, size: 28),
+              activeIcon: Icon(Icons.add_circle, color: colors.primary, size: 28),
               label: AppTranslations.tr('nav_post', currentLang),
             ),
             BottomNavigationBarItem(

@@ -23,6 +23,32 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.113 - Chuẩn Hóa Cơ Chế Giao Diện Tối (Dark Theme) Đồng Bộ Hoàn Toàn Theo `homeshare-dev-THE-on-dev`:**
+    - **Yêu cầu & Thực trạng khảo sát:**
+      + Người dùng yêu cầu: *"giao diện tối phải như bên homeshare-dev-THE-on-dev"*.
+      + Khảo sát mã nguồn gốc bên `homeshare-dev-THE-on-dev`: Nhánh phát triển của THE đã tối ưu và cố định toàn diện giao diện ứng dụng theo chuẩn thiết kế "Phòng Sáng" (Moodboard `PhongSangTheme.light` - `#F3F6FB`, `#FFFFFF`, chữ mực `#101828`).
+      + Tại `homeshare-dev-THE-on-dev/lib/core/constants/app_colors.dart`, quy ước rõ ràng: `/// Palette giao diện sáng (Phòng Sáng). App không còn theme tối.` và `bind()` luôn giữ chuẩn `AppPalette.light`.
+      + Trong `homeshare-dev-THE-on-dev/lib/main.dart`, `themeMode` được đặt cố định `ThemeMode.light` và `DefaultTextStyle.merge(style: const TextStyle(color: Color(0xFF101828)))`. Nhờ đó, ngay cả khi điện thoại vật lý của người dùng đang bật chế độ Tối (System Dark Mode), ứng dụng vẫn hiển thị chuẩn mực 100%, không bị tình trạng vỡ layout, màu nền bị đảo lộn nửa đen nửa trắng hay chữ bị chìm vào nền.
+      + Trước đó tại `homeshare-dev-TOAN`, hệ thống vẫn còn lưu cấu hình `GraphiteTheme.dark` và `appThemeModeProvider`, đồng thời một số token màu bị biến thành `static const Color`, dẫn đến xung đột hiển thị khi máy ở dark mode.
+    - **Triển khai kỹ thuật đồng bộ chuẩn THE:**
+      1. `lib/core/constants/app_colors.dart`:
+         - Đồng bộ toàn diện cấu trúc từ `homeshare-dev-THE-on-dev`: Bảng màu chuẩn tĩnh `AppColors` với đầy đủ các token của Phòng Sáng (`primary`, `primaryLight`, `primaryDark`, `textDark`, `textPrimary`, `background`, `surface`, `border`, `hold`, `live`, `danger`, v.v.).
+         - Cung cấp `bind([Brightness? _])` an toàn, mặc định luôn gán `palette = AppPalette.light`.
+         - Bổ sung getter `isDark => false` tương thích ngược 100% với các component hiện hữu.
+      2. `lib/core/theme/app_theme.dart`:
+         - Chuẩn hóa `AppTheme.lightTheme` và `AppTheme.darkTheme` đều trả về `PhongSangTheme.light`.
+      3. `lib/main.dart`:
+         - Cấu hình `themeMode: ThemeMode.light` chuẩn hóa theo `dev-THE`.
+         - Khối `builder` gọi `AppColors.bind()` và ép chuẩn mực văn bản `DefaultTextStyle.merge(style: const TextStyle(color: Color(0xFF101828)))`.
+      4. `lib/features/renter/screens/renter_main_screen.dart` & `lib/features/host/screens/host_main_screen.dart`:
+         - Bỏ các logic rẽ nhánh `_resolvedBrightness()`, gọi `AppColors.bind()` chuẩn THE, dùng `colors.surface`, `colors.border`, `colors.primary`.
+      5. `lib/features/home/screens/home_screen.dart`:
+         - Tinh giản mục cài đặt, loại bỏ dialog tùy chỉnh theme rườm rà không đồng bộ, giữ nguyên danh mục chuẩn THE (Ngôn ngữ, FAQ, Hotline, Điều khoản).
+      6. `test/settings_and_localization_test.dart`:
+         - Đồng bộ bộ kiểm thử unit test chuẩn xác từ `homeshare-dev-THE-on-dev`.
+    - **Kiểm định chất lượng & Phân tích tĩnh:**
+      - `flutter analyze lib/`: **No issues found! (0 errors, 0 warnings)** (100% clean).
+      - `flutter test`: **243/243 unit tests passed (100%)**.
   * **Phase 2.112 - Đồng Bộ Giao Diện Thông Báo (Admin Đã Giải Ngân) & Quản Lý Check-out (Danh Sách Người Thuê) Từ `homeshare-dev-MAN-on-dev` (Đổi Giao Diện Hình 1 Thành Hình 2):**
     - **Yêu cầu & Nghiệp vụ:**
       1. Khách hàng yêu cầu: "đổi giao diện hình 1 thành hình 2 trong homeshare-dev-MAN-on-dev".
