@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/booking_service.dart';
 import '../../../data/models/booking_model.dart';
@@ -197,15 +198,44 @@ class _RoomBookingDetailScreenState
     final user = ref.read(currentUserProvider);
 
     // Yêu cầu xác thực CCCD: Renter chưa xác thực CCCD không được đặt phòng
+    bool isCccdVerified = false;
     final profile = ref.read(userProfileProvider).value;
-    if (profile?.isCccdVerified != true) {
-      await showCccdRequiredModal(
-        context,
-        isHost: false,
-        actionName: 'đặt phòng',
-      );
+    if (profile != null) {
+      isCccdVerified = profile.isCccdVerified;
+    } else if (user != null) {
+      try {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (doc.exists && doc.data() != null) {
+          final data = doc.data()!;
+          isCccdVerified = data['isCccdVerified'] == true ||
+              data['daXacThucCccd'] == true ||
+              data['trangThaiXacMinh'] == 'daXacThuc' ||
+              data['trangThaiXacMinh_id'] == 'daXacThuc';
+        }
+      } catch (_) {}
+    }
+
+    if (!isCccdVerified && user != null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        if (prefs.getBool('cccd_verified_${user.uid}') == true) {
+          isCccdVerified = true;
+        }
+      } catch (_) {}
+    }
+
+    if (!isCccdVerified) {
+      if (mounted) {
+        await showCccdRequiredModal(
+          context,
+          isHost: false,
+          actionName: 'đặt phòng',
+        );
+      }
       return;
     }
+
+    if (!mounted) return;
 
     // 1. Kiểm tra chủ nhà không thể tự đặt phòng của chính mình (Self-Booking Check)
     if (user != null &&

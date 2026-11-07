@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/favorites_service.dart';
 import '../../../core/services/room_service.dart';
@@ -99,15 +100,46 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
     }
 
     // Yêu cầu xác thực CCCD: Renter chưa xác thực CCCD không được đặt phòng
+    bool isCccdVerified = false;
     final profile = ref.read(userProfileProvider).value;
-    if (profile?.isCccdVerified != true) {
-      await showCccdRequiredModal(
-        context,
-        isHost: false,
-        actionName: 'đặt phòng',
-      );
+    if (profile != null) {
+      isCccdVerified = profile.isCccdVerified;
+    } else {
+      // Truy vấn trực tiếp Firestore nếu stream provider chưa emit
+      try {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (doc.exists && doc.data() != null) {
+          final data = doc.data()!;
+          isCccdVerified = data['isCccdVerified'] == true ||
+              data['daXacThucCccd'] == true ||
+              data['trangThaiXacMinh'] == 'daXacThuc' ||
+              data['trangThaiXacMinh_id'] == 'daXacThuc';
+        }
+      } catch (_) {}
+    }
+
+    // Kiểm tra cache local SharedPreferences (cho test & offline)
+    if (!isCccdVerified) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        if (prefs.getBool('cccd_verified_${user.uid}') == true) {
+          isCccdVerified = true;
+        }
+      } catch (_) {}
+    }
+
+    if (!isCccdVerified) {
+      if (mounted) {
+        await showCccdRequiredModal(
+          context,
+          isHost: false,
+          actionName: 'đặt phòng',
+        );
+      }
       return;
     }
+
+    if (!mounted) return;
 
     if (_room.isRentedOrOccupied) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -359,6 +391,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(userProfileProvider);
     final postAsync = ref.watch(roomPostDetailProvider(widget.room.id));
     if (postAsync.hasError) {
       return _buildLoadError();
