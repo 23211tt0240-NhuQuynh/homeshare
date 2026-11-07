@@ -9,6 +9,7 @@ import '../../../data/models/booking_model.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
+import '../../profile/widgets/cccd_required_modal.dart';
 import 'booking_payment_screen.dart';
 
 String _genderFromAccount(String? value) {
@@ -86,6 +87,17 @@ class _RoomBookingDetailScreenState
       now.month,
       now.day,
     ).add(const Duration(days: 1));
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final p = ref.read(userProfileProvider).value;
+      if (p != null && !p.isCccdVerified) {
+        showCccdRequiredModal(
+          context,
+          isHost: false,
+          actionName: 'đặt phòng',
+        );
+      }
+    });
   }
 
   @override
@@ -184,6 +196,17 @@ class _RoomBookingDetailScreenState
   Future<void> _onSubmitBooking() async {
     final user = ref.read(currentUserProvider);
 
+    // Yêu cầu xác thực CCCD: Renter chưa xác thực CCCD không được đặt phòng
+    final profile = ref.read(userProfileProvider).value;
+    if (profile?.isCccdVerified != true) {
+      await showCccdRequiredModal(
+        context,
+        isHost: false,
+        actionName: 'đặt phòng',
+      );
+      return;
+    }
+
     // 1. Kiểm tra chủ nhà không thể tự đặt phòng của chính mình (Self-Booking Check)
     if (user != null &&
         widget.room.hostId.isNotEmpty &&
@@ -268,11 +291,40 @@ class _RoomBookingDetailScreenState
         final isHolding = rData['isHolding'] == true;
         final holdingExpiresAt = (rData['holdingExpiresAt'] as Timestamp?)?.toDate();
         final holdingRenterId = (rData['holdingRenterId'] ?? '').toString();
+        final holdingBookingId = (rData['holdingBookingId'] ?? '').toString();
         final currentUid = user?.uid ?? '';
         final now = DateTime.now();
 
         if (isHolding && holdingExpiresAt != null && holdingExpiresAt.isAfter(now)) {
-          if (holdingRenterId.isNotEmpty && holdingRenterId != currentUid) {
+          // Kiểm tra xem đơn giữ chỗ trước đó đã bị hủy chưa:
+          // "khi đang thanh toán khách hàng đang chờ mà hủy đơn thì ng khác không cần chờ 15p"
+          bool isBookingCancelled = false;
+          if (holdingBookingId.isNotEmpty) {
+            try {
+              final bSnap = await FirebaseFirestore.instance.collection('bookings').doc(holdingBookingId).get();
+              if (bSnap.exists) {
+                final bData = bSnap.data() ?? {};
+                final bStatus = (bData['status'] ?? '').toString().toLowerCase();
+                if (bStatus == 'cancelled' || bStatus == 'rejected' || bData['daHuy'] == true) {
+                  isBookingCancelled = true;
+                }
+              } else {
+                isBookingCancelled = true;
+              }
+            } catch (_) {}
+          }
+
+          if (isBookingCancelled) {
+            // Đơn giữ chỗ đã hủy! Giải phóng phòng ngay lập tức cho người mới đặt
+            try {
+              await FirebaseFirestore.instance.collection('host_rooms').doc(widget.room.id).update({
+                'isHolding': false,
+                'holdingBookingId': FieldValue.delete(),
+                'holdingRenterId': FieldValue.delete(),
+                'holdingExpiresAt': FieldValue.delete(),
+              });
+            } catch (_) {}
+          } else if (holdingRenterId.isNotEmpty && holdingRenterId != currentUid) {
             final diffMinutes = holdingExpiresAt.difference(now).inMinutes + 1;
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(

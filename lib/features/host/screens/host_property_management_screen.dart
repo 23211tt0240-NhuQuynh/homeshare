@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../auth/providers/user_provider.dart';
+import '../../profile/widgets/cccd_required_modal.dart';
 import '../data/host_property.dart';
 import '../providers/host_management_provider.dart';
 import 'host_create_screen.dart';
@@ -100,7 +102,7 @@ class HostPropertyManagementScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   FilledButton(
-                    onPressed: () => _openCreate(context),
+                    onPressed: () => _openCreate(context, ref),
                     child: const Text('Tạo cơ sở đầu tiên'),
                   ),
                 ],
@@ -166,7 +168,16 @@ class HostPropertyManagementScreen extends ConsumerWidget {
 
   // Chủ trọ - Mở form tạo - Luồng đi: Dấu cộng hoặc thẻ nhà mở form;
   // sau khi lưu phòng quay lại danh sách và hiện phản hồi thành công.
-  Future<void> _openCreate(BuildContext context, {String? propertyId}) async {
+  Future<void> _openCreate(BuildContext context, WidgetRef ref, {String? propertyId}) async {
+    final profile = ref.read(userProfileProvider).value;
+    if (profile?.isCccdVerified != true) {
+      await showCccdRequiredModal(
+        context,
+        isHost: true,
+        actionName: propertyId != null ? 'tạo phòng' : 'tạo cơ sở',
+      );
+      return;
+    }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => HostCreateScreen(

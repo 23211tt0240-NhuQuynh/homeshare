@@ -8,6 +8,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../data/models/host_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
+import '../../profile/widgets/cccd_required_modal.dart';
 import '../data/host_post_repository.dart';
 import 'host_create_post_screen.dart';
 import 'host_post_detail_screen.dart';
@@ -150,6 +151,15 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
   }
 
   Future<void> _openCreatePost() async {
+    final profile = ref.read(userProfileProvider).value;
+    if (profile?.isCccdVerified != true) {
+      await showCccdRequiredModal(
+        context,
+        isHost: true,
+        actionName: 'đăng bài',
+      );
+      return;
+    }
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(

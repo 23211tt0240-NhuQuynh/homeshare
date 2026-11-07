@@ -15,6 +15,7 @@ import '../../../core/utils/host_report_policy.dart';
 import '../widgets/report_host_post_dialog.dart';
 import 'report_host_screen.dart';
 import 'room_booking_detail_screen.dart';
+import '../../profile/widgets/cccd_required_modal.dart';
 
 class RoomDetailScreen extends ConsumerStatefulWidget {
   final RoomModel room;
@@ -97,6 +98,17 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
       return;
     }
 
+    // Yêu cầu xác thực CCCD: Renter chưa xác thực CCCD không được đặt phòng
+    final profile = ref.read(userProfileProvider).value;
+    if (profile?.isCccdVerified != true) {
+      await showCccdRequiredModal(
+        context,
+        isHost: false,
+        actionName: 'đặt phòng',
+      );
+      return;
+    }
+
     if (_room.isRentedOrOccupied) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -146,8 +158,39 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
           final isHolding = rData['isHolding'] == true;
           final holdingExpiresAt = (rData['holdingExpiresAt'] as Timestamp?)?.toDate();
           final holdingRenterId = (rData['holdingRenterId'] ?? '').toString();
+          final holdingBookingId = (rData['holdingBookingId'] ?? '').toString();
+
           if (isHolding && holdingExpiresAt != null && holdingExpiresAt.isAfter(DateTime.now())) {
-            if (holdingRenterId.isNotEmpty && holdingRenterId != user.uid) {
+            // Kiểm tra xem đơn giữ chỗ trước đó đã bị hủy chưa:
+            // "khi đang thanh toán khách hàng đang chờ mà hủy đơn thì ng khác không cần chờ 15p"
+            bool isBookingCancelled = false;
+            if (holdingBookingId.isNotEmpty) {
+              try {
+                final bSnap = await FirebaseFirestore.instance.collection('bookings').doc(holdingBookingId).get();
+                if (bSnap.exists) {
+                  final bData = bSnap.data() ?? {};
+                  final bStatus = (bData['status'] ?? '').toString().toLowerCase();
+                  if (bStatus == 'cancelled' || bStatus == 'rejected' || bData['daHuy'] == true) {
+                    isBookingCancelled = true;
+                  }
+                } else {
+                  // Đơn không tồn tại nữa -> đã bị xóa/hủy
+                  isBookingCancelled = true;
+                }
+              } catch (_) {}
+            }
+
+            if (isBookingCancelled) {
+              // Giải phóng phòng ngay lập tức cho người mới đặt, không bắt chờ 15 phút!
+              try {
+                await FirebaseFirestore.instance.collection('host_rooms').doc(_room.id).update({
+                  'isHolding': false,
+                  'holdingBookingId': FieldValue.delete(),
+                  'holdingRenterId': FieldValue.delete(),
+                  'holdingExpiresAt': FieldValue.delete(),
+                });
+              } catch (_) {}
+            } else if (holdingRenterId.isNotEmpty && holdingRenterId != user.uid) {
               final diffMinutes = holdingExpiresAt.difference(DateTime.now()).inMinutes + 1;
               if (mounted) {
                 showDialog(

@@ -671,15 +671,21 @@ class BookingService {
       'description': 'Đã hủy yêu cầu',
       'cancelledAt': Timestamp.fromDate(now),
       'updatedAt': Timestamp.fromDate(now),
+      'daHuy': true,
       if (reason != null && reason.isNotEmpty) 'cancelReason': reason,
       'trangThai': FieldValue.delete(),
       'ngayCapNhat': FieldValue.delete(),
     }, SetOptions(merge: true));
 
-    // Giải phóng phòng về available nếu phòng đang bị lock và khôi phục bài đăng
+    // Giải phóng phòng về available ngay lập tức (không bắt người khác chờ 15 phút)
     final realRoomId = await _resolveRealRoomId(roomId);
-    if (realRoomId != null && realRoomId.isNotEmpty) {
-      await _firestore.collection('host_rooms').doc(realRoomId).set({
+    final targetRoomIds = <String>{
+      if (realRoomId != null && realRoomId.isNotEmpty) realRoomId,
+      if (roomId.isNotEmpty) roomId,
+    };
+
+    for (final rId in targetRoomIds) {
+      await _firestore.collection('host_rooms').doc(rId).set({
         'status': 'available',
         'isAvailable': true,
         'bookingStatus': 'available',
@@ -691,14 +697,38 @@ class BookingService {
       }, SetOptions(merge: true));
 
       try {
-        await _firestore.collection('rooms').doc(realRoomId).set({
+        await _firestore.collection('rooms').doc(rId).set({
           'status': 'available',
           'isAvailable': true,
           'bookingStatus': 'available',
+          'isHolding': false,
+          'holdingBookingId': FieldValue.delete(),
+          'holdingRenterId': FieldValue.delete(),
+          'holdingExpiresAt': FieldValue.delete(),
           'updatedAt': Timestamp.fromDate(now),
         }, SetOptions(merge: true));
       } catch (_) {}
     }
+
+    // Quét sạch bất kỳ phòng nào đang giữ chỗ bởi đơn bookingId này
+    try {
+      final holdingQuery = await _firestore
+          .collection('host_rooms')
+          .where('holdingBookingId', isEqualTo: bookingId)
+          .get();
+      for (final d in holdingQuery.docs) {
+        await d.reference.set({
+          'status': 'available',
+          'isAvailable': true,
+          'bookingStatus': 'available',
+          'isHolding': false,
+          'holdingBookingId': FieldValue.delete(),
+          'holdingRenterId': FieldValue.delete(),
+          'holdingExpiresAt': FieldValue.delete(),
+          'updatedAt': Timestamp.fromDate(now),
+        }, SetOptions(merge: true));
+      }
+    } catch (_) {}
     if (roomId.isNotEmpty) {
       await restorePostOnCancelledBooking(roomId);
     }

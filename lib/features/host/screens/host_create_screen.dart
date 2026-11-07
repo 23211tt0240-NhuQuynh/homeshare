@@ -13,6 +13,7 @@ import '../../../core/utils/room_identity.dart';
 import '../../../core/constants/vietnam_locations.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/user_provider.dart';
+import '../../profile/widgets/cccd_required_modal.dart';
 import '../data/host_property.dart';
 import '../providers/host_management_provider.dart';
 import '../widgets/host_room_widgets.dart';
@@ -117,6 +118,16 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
       _rent = RangeValues(minRent, maxRent);
       _keptHouseImages.addAll(property.images);
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final p = ref.read(userProfileProvider).value;
+      if (p != null && !p.isCccdVerified) {
+        showCccdRequiredModal(
+          context,
+          isHost: true,
+          actionName: widget.startWithRoom ? 'tạo phòng' : 'tạo cơ sở',
+        );
+      }
+    });
   }
 
   // Chủ trọ - Giải phóng form - Luồng đi: Đóng màn tạo nhà/phòng thì
@@ -170,6 +181,16 @@ class _HostCreateScreenState extends ConsumerState<HostCreateScreen> {
   // Chủ trọ - Lưu form - Luồng đi: Validate và upload ảnh; chỉ báo
   // thành công sau khi Firebase ghi xong, lỗi giữ nguyên dữ liệu để thử lại.
   Future<void> _save(List<HostProperty> properties) async {
+    final profile = ref.read(userProfileProvider).value;
+    if (profile?.isCccdVerified != true) {
+      await showCccdRequiredModal(
+        context,
+        isHost: true,
+        actionName: _roomTab ? 'tạo phòng' : 'tạo cơ sở',
+      );
+      return;
+    }
+
     final uid = ref.read(hostSessionProvider).value;
     if (uid == null) {
       _message('Vui lòng đăng nhập bằng tài khoản Chủ trọ.');

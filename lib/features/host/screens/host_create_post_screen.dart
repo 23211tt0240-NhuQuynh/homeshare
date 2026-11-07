@@ -10,6 +10,7 @@ import '../../../core/utils/vnd_input.dart';
 import '../../../data/models/room_model.dart';
 import '../../../data/models/host_post_model.dart';
 import '../../auth/providers/user_provider.dart';
+import '../../profile/widgets/cccd_required_modal.dart';
 import '../data/host_property.dart';
 import '../providers/host_dashboard_provider.dart';
 import '../providers/host_management_provider.dart';
@@ -173,6 +174,17 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
         _onRoomSelected(widget.initialRoom);
       });
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final p = ref.read(userProfileProvider).value;
+      if (p != null && !p.isCccdVerified) {
+        showCccdRequiredModal(
+          context,
+          isHost: true,
+          actionName: 'đăng bài',
+        );
+      }
+    });
   }
 
   Future<void> _loadPropertyAndRoomForEdit({
@@ -554,6 +566,15 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
   }
 
   Future<void> _save(String uid, UserProfile? profile) async {
+    if (profile?.isCccdVerified != true) {
+      await showCccdRequiredModal(
+        context,
+        isHost: true,
+        actionName: 'đăng bài',
+      );
+      return;
+    }
+
     if (_property == null) {
       _message('Vui lòng chọn khu nhà.');
       return;

@@ -8,6 +8,8 @@ import '../providers/host_management_provider.dart';
 import '../widgets/host_room_widgets.dart';
 import 'host_create_screen.dart';
 import 'host_room_detail_screen.dart';
+import '../../auth/providers/user_provider.dart';
+import '../../profile/widgets/cccd_required_modal.dart';
 
 // Chủ trọ - Danh sách phòng cơ sở - Luồng đi: Quản lý phòng từ thẻ
 // nhà mở route này; lọc trạng thái, chọn phòng để mở chi tiết trực tiếp.
@@ -29,6 +31,15 @@ class _HostRoomListScreenState extends ConsumerState<HostRoomListScreen> {
   // Chủ trọ - Tạo phòng tại cơ sở - Luồng đi: Dấu cộng mở form tạo
   // chọn sẵn nhà; lưu xong trở lại danh sách đang giữ bộ lọc.
   Future<void> _createRoom() async {
+    final profile = ref.read(userProfileProvider).value;
+    if (profile?.isCccdVerified != true) {
+      await showCccdRequiredModal(
+        context,
+        isHost: true,
+        actionName: 'tạo phòng',
+      );
+      return;
+    }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => HostCreateScreen(

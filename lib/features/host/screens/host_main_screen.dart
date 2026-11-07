@@ -9,6 +9,8 @@ import 'host_dashboard_screen.dart';
 import 'host_property_management_screen.dart';
 import 'host_create_screen.dart';
 import 'host_create_post_screen.dart';
+import '../../auth/providers/user_provider.dart';
+import '../../profile/widgets/cccd_required_modal.dart';
 import 'host_tenant_management_screen.dart';
 import 'host_checkin_checkout_screen.dart';
 import 'host_violation_management_screen.dart';
@@ -62,6 +64,15 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
 
   // Chủ trọ - Mở màn Tạo bài đăng
   Future<void> _openCreatePost() async {
+    final profile = ref.read(userProfileProvider).value;
+    if (profile?.isCccdVerified != true) {
+      await showCccdRequiredModal(
+        context,
+        isHost: true,
+        actionName: 'đăng bài',
+      );
+      return;
+    }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => const HostCreatePostScreen()),
     );
@@ -92,6 +103,15 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
   // Chủ trọ - Mở màn tạo nhà/phòng - Luồng đi: Dấu cộng trong bottom
   // nav quản lý mở route riêng; lưu xong trở về Thông tin chung.
   Future<void> _openCreate() async {
+    final profile = ref.read(userProfileProvider).value;
+    if (profile?.isCccdVerified != true) {
+      await showCccdRequiredModal(
+        context,
+        isHost: true,
+        actionName: 'tạo cơ sở hoặc phòng',
+      );
+      return;
+    }
     final saved = await Navigator.of(
       context,
     ).push<bool>(MaterialPageRoute(builder: (_) => const HostCreateScreen()));

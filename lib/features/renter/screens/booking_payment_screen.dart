@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/booking_service.dart';
 import '../../../core/services/host_index_service.dart';
 import '../../../core/utils/id_generator.dart';
 import '../../../core/utils/transfer_order_code.dart';
@@ -485,16 +486,137 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
     }
   }
 
+  /// Hủy đơn đặt phòng ngay lập tức và giải phóng phòng để người khác có thể đặt phòng ngay
+  Future<void> _cancelBookingImmediately() async {
+    _countdownTimer?.cancel();
+    try {
+      if (widget.booking.id.isNotEmpty) {
+        await ref.read(bookingServiceProvider).cancelBooking(
+              widget.booking.id,
+              reason: 'Khách hàng chủ động hủy khi đang chờ chuyển khoản',
+            );
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã hủy đơn đặt phòng và giải phóng phòng thành công.'),
+            backgroundColor: Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi hủy đơn: $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Hộp thoại xác nhận hủy đơn khi đang chờ thanh toán
+  Future<void> _confirmAndCancelBooking() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.cancel_outlined, color: Color(0xFFDC2626)),
+            SizedBox(width: 8),
+            Text('Hủy đơn đặt phòng?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: const Text(
+          'Nếu bạn hủy đơn này, phòng sẽ được giải phóng ngay lập tức để người khác có thể đặt phòng (không cần phải chờ 15 phút).\n\nBạn có chắc chắn muốn hủy đơn không?',
+          style: TextStyle(fontSize: 13.5, height: 1.45),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Giữ lại đơn', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xác nhận hủy đơn'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _cancelBookingImmediately();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currencyFmt = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('Thanh Toán Đặt Phòng'),
-        elevation: 0,
-      ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final action = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('Rời khỏi trang thanh toán?'),
+            content: const Text(
+              'Bạn có muốn hủy đơn đặt phòng này để giải phóng phòng cho người khác không?\n\n'
+              '• Hủy đơn: Phòng được giải phóng ngay lập tức (người khác không cần chờ 15 phút).\n'
+              '• Giữ đơn: Đơn vẫn giữ chỗ và tiếp tục đếm ngược thời gian.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, 'cancel_booking'),
+                child: const Text(
+                  'Hủy đơn đặt phòng',
+                  style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, 'leave_keep'),
+                child: const Text('Giữ đơn & Rời đi'),
+              ),
+            ],
+          ),
+        );
+        if (action == 'cancel_booking') {
+          await _cancelBookingImmediately();
+        } else if (action == 'leave_keep') {
+          if (context.mounted) Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          title: const Text('Thanh Toán Đặt Phòng'),
+          elevation: 0,
+          actions: [
+            TextButton.icon(
+              onPressed: _confirmAndCancelBooking,
+              icon: const Icon(Icons.close_rounded, size: 16, color: Color(0xFFDC2626)),
+              label: const Text(
+                'Hủy đơn',
+                style: TextStyle(
+                  color: Color(0xFFDC2626),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Column(
@@ -523,8 +645,9 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
         ),
       ),
       bottomNavigationBar: _buildBottomActionBar(),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildCountdownBanner() {
     final isExpiringSoon = _secondsRemaining < 300; // Dưới 5 phút
@@ -926,33 +1049,58 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
         ],
       ),
       child: SafeArea(
-        child: SizedBox(
-          height: 48,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isExpired ? Colors.grey : AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            onPressed: (_isConfirming || isExpired) ? null : _onConfirmPayment,
-            child: _isConfirming
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(isExpired ? Icons.timer_off : Icons.check_circle_outline, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        isExpired ? 'Hết Hạn Giữ Phòng (Đặt Lại)' : 'Tôi Đã Chuyển Khoản Thành Công',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 48,
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isExpired ? Colors.grey : AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: (_isConfirming || isExpired) ? null : _onConfirmPayment,
+                child: _isConfirming
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(isExpired ? Icons.timer_off : Icons.check_circle_outline, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            isExpired ? 'Hết Hạn Giữ Phòng (Đặt Lại)' : 'Tôi Đã Chuyển Khoản Thành Công',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-          ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 40,
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: const ValueKey('cancel_booking_payment_button'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFDC2626),
+                  side: const BorderSide(color: Color(0xFFFCA5A5)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: _isConfirming ? null : _confirmAndCancelBooking,
+                icon: const Icon(Icons.cancel_outlined, size: 16),
+                label: const Text(
+                  'Hủy đơn đặt phòng này (Giải phóng phòng ngay)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
