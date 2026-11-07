@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/violation_model.dart';
 import '../models/violation_record_model.dart';
@@ -113,6 +113,65 @@ class ViolationFormNotifier extends Notifier<ViolationFormState> {
     );
   }
 
+  void addCustomViolation(String title, {double defaultFine = 0.0}) {
+    final trimmed = title.trim();
+    if (trimmed.isEmpty) return;
+
+    if (state.selectedViolations
+        .any((v) => v.title.toLowerCase() == trimmed.toLowerCase())) {
+      return;
+    }
+
+    final customItem = ViolationModel(
+      id: 'custom__',
+      title: trimmed,
+      description: 'Hành vi vi phạm tự nhập',
+      defaultFine: defaultFine,
+      category: 'Tự nhập',
+      iconName: 'edit_note_rounded',
+      isActive: true,
+      createdAt: DateTime.now(),
+    );
+
+    final list = List<ViolationModel>.from(state.selectedViolations)..add(customItem);
+
+    double newFine = state.fineAmount;
+    if (defaultFine > 0) {
+      newFine += defaultFine;
+    }
+
+    state = state.copyWith(
+      selectedViolations: list,
+      fineAmount: newFine,
+      clearError: true,
+    );
+  }
+
+  void removeViolation(String id) {
+    final list = List<ViolationModel>.from(state.selectedViolations);
+    final itemToRemove = list.firstWhere(
+      (v) => v.id == id,
+      orElse: () => ViolationModel(
+        id: '',
+        title: '',
+        defaultFine: 0,
+        createdAt: DateTime.now(),
+      ),
+    );
+    list.removeWhere((v) => v.id == id);
+
+    double newFine = state.fineAmount;
+    if (itemToRemove.id.isNotEmpty && itemToRemove.defaultFine > 0) {
+      newFine = (newFine - itemToRemove.defaultFine).clamp(0.0, double.infinity);
+    }
+
+    state = state.copyWith(
+      selectedViolations: list,
+      fineAmount: newFine,
+      clearError: true,
+    );
+  }
+
   void setFineAmount(double amount) {
     state = state.copyWith(fineAmount: amount, clearError: true);
   }
@@ -158,10 +217,10 @@ class ViolationFormNotifier extends Notifier<ViolationFormState> {
       return 'Vui lòng chọn căn hộ / khách thuê vi phạm';
     }
     if (state.selectedViolations.isEmpty) {
-      return 'Vui lòng chọn ít nhất một hành vi vi phạm';
+      return 'Vui lòng chọn hoặc tự nhập ít nhất một hành vi vi phạm';
     }
     if (state.fineAmount <= 0) {
-      return 'Mức phạt phải lớn hơn 0 VNĐ';
+      return 'Vui lòng nhập mức phạt lớn hơn 0 VNĐ';
     }
     if (state.evidenceFiles.length > 5) {
       return 'Tối đa 5 tệp bằng chứng';

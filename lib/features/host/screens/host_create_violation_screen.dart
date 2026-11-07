@@ -1,3 +1,4 @@
+﻿import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/user_provider.dart';
@@ -7,6 +8,7 @@ import '../providers/violation_form_provider.dart';
 import '../providers/violation_provider.dart';
 import '../repositories/violation_repository.dart';
 import '../widgets/evidence_picker.dart';
+import '../models/violation_model.dart';
 import '../widgets/violation_type_selector.dart';
 
 class _PropertyOption {
@@ -32,13 +34,81 @@ class HostCreateViolationScreen extends ConsumerStatefulWidget {
 class _HostCreateViolationScreenState
     extends ConsumerState<HostCreateViolationScreen> {
   final _noteController = TextEditingController();
+  final _fineController = TextEditingController();
+  final _customViolationController = TextEditingController();
+  final _customFineController = TextEditingController();
   String? _selectedPropertyId;
   String? _selectedRoomId;
 
   @override
+  void initState() {
+    super.initState();
+    final initialFine = ref.read(violationFormNotifierProvider).fineAmount;
+    if (initialFine > 0) {
+      _fineController.text = _formatNumber(initialFine);
+    }
+  }
+
+  @override
   void dispose() {
     _noteController.dispose();
+    _fineController.dispose();
+    _customViolationController.dispose();
+    _customFineController.dispose();
     super.dispose();
+  }
+
+  void _onFineChanged(String value) {
+    final clean = value.replaceAll(RegExp(r'[^0-9]'), '');
+    if (clean.isEmpty) {
+      ref.read(violationFormNotifierProvider.notifier).setFineAmount(0.0);
+      return;
+    }
+    final amount = double.tryParse(clean) ?? 0.0;
+    ref.read(violationFormNotifierProvider.notifier).setFineAmount(amount);
+    final formatted = _formatNumber(amount);
+    if (_fineController.text != formatted) {
+      _fineController.value = TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+    }
+  }
+
+  void _setFineAmount(double amount) {
+    ref.read(violationFormNotifierProvider.notifier).setFineAmount(amount);
+    final formatted = amount > 0 ? _formatNumber(amount) : '';
+    _fineController.value = TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+
+  Widget _buildQuickFineChip(double amount, String label, double currentFine) {
+    final isSelected = (currentFine - amount).abs() < 1;
+    return InkWell(
+      onTap: () => _setFineAmount(amount),
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF1D4ED8) : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+            color: isSelected ? Colors.white : const Color(0xFF475569),
+          ),
+        ),
+      ),
+    );
   }
 
   String _formatNumber(double amount) {
@@ -63,6 +133,28 @@ class _HostCreateViolationScreenState
         const SnackBar(content: Text('Vui lòng đăng nhập tài khoản chủ trọ')),
       );
       return;
+    }
+
+    // Tự động thêm vi phạm tự nhập nếu người dùng đã gõ mà chưa bấm nút Thêm
+    final draftCustom = _customViolationController.text.trim();
+    if (draftCustom.isNotEmpty) {
+      final draftFine = double.tryParse(
+            _customFineController.text.replaceAll(RegExp(r'[^0-9]'), ''),
+          ) ??
+          0.0;
+      ref.read(violationFormNotifierProvider.notifier).addCustomViolation(
+            draftCustom,
+            defaultFine: draftFine,
+          );
+      _customViolationController.clear();
+      _customFineController.clear();
+    }
+
+    // Đảm bảo số tiền phạt từ ô nhập đã được đồng bộ vào provider
+    final cleanFine = _fineController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final typedFine = double.tryParse(cleanFine) ?? 0.0;
+    if (typedFine > 0) {
+      ref.read(violationFormNotifierProvider.notifier).setFineAmount(typedFine);
     }
 
     // Cập nhật note vào provider trước khi submit
@@ -670,65 +762,141 @@ class _HostCreateViolationScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
-                Icons.credit_card_outlined,
-                color: Color(0xFF2563EB),
-                size: 20,
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.payments_outlined,
+                  color: Color(0xFF2563EB),
+                  size: 20,
+                ),
               ),
-              SizedBox(width: 8),
-              Text(
-                'MỨC PHẠT & HÌNH THỨC NỘP',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                  color: Color(0xFF1E293B),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SỐ TIỀN PHẠT & HÌNH THỨC NỘP',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                    Text(
+                      'Tự do nhập mức phạt hoặc chọn nhanh',
+                      style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
+
           const Text(
-            'Số tiền phạt (VND)',
+            'Số tiền phạt (VNĐ) *',
             style: TextStyle(
               fontSize: 12.5,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF334155),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
+
+          // Ô nhập tiền phạt
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+              color: const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(
+                color: fineAmount > 0
+                    ? const Color(0xFF2563EB)
+                    : const Color(0xFFCBD5E1),
+                width: fineAmount > 0 ? 1.5 : 1,
+              ),
             ),
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    _formatNumber(fineAmount),
+                  child: TextField(
+                    controller: _fineController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w900,
                       color: Color(0xFFDC2626),
                     ),
+                    decoration: const InputDecoration(
+                      hintText: '0',
+                      hintStyle: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFFCBD5E1),
+                      ),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    onChanged: _onFineChanged,
                   ),
                 ),
-                const Text(
-                  'VNĐ',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF64748B),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEE2E2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'VNĐ',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFDC2626),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 10),
+
+          // Gợi ý mức phạt nhanh
+          const Text(
+            'Gợi ý nhanh mức phạt:',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildQuickFineChip(50000, '50.000 đ', fineAmount),
+              _buildQuickFineChip(100000, '100.000 đ', fineAmount),
+              _buildQuickFineChip(150000, '150.000 đ', fineAmount),
+              _buildQuickFineChip(200000, '200.000 đ', fineAmount),
+              _buildQuickFineChip(300000, '300.000 đ', fineAmount),
+              _buildQuickFineChip(500000, '500.000 đ', fineAmount),
+              _buildQuickFineChip(1000000, '1.000.000 đ', fineAmount),
+            ],
+          ),
+
           const SizedBox(height: 14),
           Container(
             padding: const EdgeInsets.all(12),
@@ -840,6 +1008,26 @@ class _HostCreateViolationScreenState
   @override
   Widget build(BuildContext context) {
     final formState = ref.watch(violationFormNotifierProvider);
+
+    // Đồng bộ số tiền phạt khi người dùng chọn/bỏ chọn lỗi mẫu
+    ref.listen<double>(
+      violationFormNotifierProvider.select((s) => s.fineAmount),
+      (previous, current) {
+        final currentParsed = double.tryParse(
+              _fineController.text.replaceAll('.', '').replaceAll(',', ''),
+            ) ??
+            0.0;
+        if ((currentParsed - current).abs() >= 1) {
+          final formatted = current > 0 ? _formatNumber(current) : '';
+          if (_fineController.text != formatted) {
+            _fineController.value = TextEditingValue(
+              text: formatted,
+              selection: TextSelection.collapsed(offset: formatted.length),
+            );
+          }
+        }
+      },
+    );
     final roomsAsync = ref.watch(hostOccupiedRoomsProvider);
     final violationsAsync = ref.watch(violationTypesProvider);
     final propertiesAsync = ref.watch(hostPropertiesProvider);
@@ -903,10 +1091,36 @@ class _HostCreateViolationScreenState
                   data: (types) => ViolationTypeSelector(
                     violations: types,
                     selectedViolations: formState.selectedViolations,
+                    customTitleController: _customViolationController,
+                    customFineController: _customFineController,
                     onToggle: (item) {
                       ref
                           .read(violationFormNotifierProvider.notifier)
                           .toggleViolation(item);
+                    },
+                    onAddCustomViolation: (title, fine, saveToCatalog) async {
+                      ref
+                          .read(violationFormNotifierProvider.notifier)
+                          .addCustomViolation(title, defaultFine: fine ?? 0.0);
+                      if (saveToCatalog) {
+                        try {
+                          final repo = ref.read(violationRepositoryProvider);
+                          await repo.addViolationType(
+                            ViolationModel(
+                              id: 'vp_',
+                              title: title,
+                              defaultFine: fine ?? 0.0,
+                              category: 'Nội quy chủ trọ',
+                              createdAt: DateTime.now(),
+                            ),
+                          );
+                        } catch (_) {}
+                      }
+                    },
+                    onRemoveViolation: (id) {
+                      ref
+                          .read(violationFormNotifierProvider.notifier)
+                          .removeViolation(id);
                     },
                   ),
                   loading: () => const Center(child: CircularProgressIndicator()),

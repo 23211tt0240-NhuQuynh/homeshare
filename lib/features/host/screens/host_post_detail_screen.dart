@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +13,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../profile/screens/host_profile_screen.dart';
 import '../../renter/screens/report_host_screen.dart';
-import '../../renter/screens/room_detail_screen.dart';
+import 'host_room_view_screen.dart';
 import '../data/host_post_repository.dart';
 import 'host_create_post_screen.dart';
 
@@ -166,7 +166,7 @@ class _HostPostDetailScreenState extends ConsumerState<HostPostDetailScreen> {
 
     final list = <String>[];
     for (final raw in rawImages) {
-      final cleaned = RoomDetailScreen.cleanImageUrl(raw);
+      final cleaned = HostRoomViewScreen.cleanImageUrl(raw);
       if (cleaned.isNotEmpty &&
           (cleaned.startsWith('http://') ||
               cleaned.startsWith('https://') ||
@@ -181,7 +181,7 @@ class _HostPostDetailScreenState extends ConsumerState<HostPostDetailScreen> {
   }
 
   Widget _buildPostImage(String rawUrl) {
-    final clean = RoomDetailScreen.cleanImageUrl(rawUrl);
+    final clean = HostRoomViewScreen.cleanImageUrl(rawUrl);
     if (clean.isEmpty) {
       return Container(
         color: Colors.grey.shade200,
@@ -338,7 +338,7 @@ class _HostPostDetailScreenState extends ConsumerState<HostPostDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUserId = ref.watch(currentUserProvider)?.uid ?? '';
+final currentUserId = ref.watch(currentUserProvider)?.uid ?? '';
     final post = _currentPost;
 
     if (post == null) {
@@ -588,24 +588,24 @@ class _HostPostDetailScreenState extends ConsumerState<HostPostDetailScreen> {
                             ],
                           ),
                         ),
-                      ] else if (!post.isActive) ...[
+                      ] else if (post.isPending) ...[
                         Container(
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFEE4E2),
+                            color: const Color(0xFFFFFBEB),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFFDA29B)),
+                            border: Border.all(color: const Color(0xFFFDE68A)),
                           ),
                           child: const Row(
                             children: [
-                              Icon(Icons.visibility_off_rounded, color: Color(0xFFD92D20), size: 20),
+                              Icon(Icons.schedule_rounded, color: Color(0xFFD97706), size: 20),
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Bài viết này hiện đang tạm ẩn hoặc đã kết thúc hợp tác.',
+                                  'Bài viết này đang chờ Ban quản trị phê duyệt trước khi hiển thị công khai.',
                                   style: TextStyle(
-                                    color: Color(0xFFD92D20),
+                                    color: Color(0xFF92400E),
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -755,9 +755,171 @@ class _HostPostDetailScreenState extends ConsumerState<HostPostDetailScreen> {
                             ),
                             _buildSpecDivider(),
                             _buildSpecItem(
-                              post.isActive ? Icons.check_circle_outline : Icons.cancel_outlined,
-                              post.isActive ? 'Còn phòng' : 'Hết phòng',
+                              (post.joinedRoom?.isOccupied == true)
+                                  ? Icons.lock_outline
+                                  : Icons.check_circle_outline,
+                              (post.joinedRoom?.isOccupied == true) ? 'Đang ở' : 'Còn phòng',
                               'Tình trạng',
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // KHỐI PHÒNG TRỌ GẮN KÈM VỚI BÀI ĐĂNG QUẢNG CÁO
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: (post.joinedRoom?.isOccupied == true)
+                                ? const Color(0xFFFCA5A5)
+                                : const Color(0xFF93C5FD),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: (post.joinedRoom?.isOccupied == true)
+                                        ? const Color(0xFFFEE2E2)
+                                        : const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    Icons.meeting_room_outlined,
+                                    color: (post.joinedRoom?.isOccupied == true)
+                                        ? const Color(0xFFDC2626)
+                                        : AppColors.primary,
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'PHÒNG TRỌ ĐƯỢC QUẢNG CÁO',
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.primary,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        post.joinedRoom?.title.isNotEmpty == true
+                                            ? '${post.joinedRoom!.roomCode} - ${post.joinedRoom!.title}'
+                                            : (post.roomId.isNotEmpty ? 'Mã phòng: ${post.roomId}' : 'Phòng trọ HomeShare'),
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textDark,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Badge trạng thái phòng
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: (post.joinedRoom?.isOccupied == true)
+                                        ? const Color(0xFFFEE2E2)
+                                        : const Color(0xFFD1FAE5),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: (post.joinedRoom?.isOccupied == true)
+                                          ? const Color(0xFFFCA5A5)
+                                          : const Color(0xFF6EE7B7),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        (post.joinedRoom?.isOccupied == true)
+                                            ? Icons.lock_outline
+                                            : Icons.check_circle_outline,
+                                        size: 13,
+                                        color: (post.joinedRoom?.isOccupied == true)
+                                            ? const Color(0xFFDC2626)
+                                            : const Color(0xFF047857),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        (post.joinedRoom?.isOccupied == true)
+                                            ? 'Đang có người ở'
+                                            : 'Phòng còn trống',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: (post.joinedRoom?.isOccupied == true)
+                                              ? const Color(0xFFDC2626)
+                                              : const Color(0xFF047857),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Bài đăng nhằm mục đích giới thiệu và quảng bá phòng trọ. Nhấn bên dưới để xem thông tin chi tiết phòng để tham khảo.',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: AppColors.textSecondary,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => HostRoomViewScreen(
+                                        room: post.resolvedRoom,
+                                        post: post,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.meeting_room_outlined, size: 16),
+                                label: const Text(
+                                  'Xem thông tin phòng này',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFF1E40AF),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  elevation: 0,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -899,7 +1061,7 @@ class _HostPostDetailScreenState extends ConsumerState<HostPostDetailScreen> {
         ],
       ),
 
-      // 3. Bottom Action Bar (ĐÃ XÓA TIM VÀ BÌNH LUẬN)
+      // 3. Bottom Action Bar (Cập nhật chuẩn 3 trạng thái & Liên kết phòng đặt cọc)
       bottomSheet: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -947,63 +1109,122 @@ class _HostPostDetailScreenState extends ConsumerState<HostPostDetailScreen> {
                         ),
                       ),
                     )
-                  : Container(
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFBFDBFE)),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.check_circle_outline, color: Color(0xFF1E40AF), size: 18),
-                          SizedBox(width: 8),
-                          Text(
-                            'Bài đăng của bạn',
-                            style: TextStyle(
-                              color: Color(0xFF1E40AF),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                  : Row(
+                      children: [
+                        if (post.canEdit) ...[
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => HostCreatePostScreen(
+                                      postToEdit: post,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.edit_outlined, size: 16),
+                              label: const Text('Chỉnh sửa bài', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                side: const BorderSide(color: AppColors.primary),
+                                minimumSize: const Size(0, 48),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
                             ),
                           ),
+                          const SizedBox(width: 8),
                         ],
-                      ),
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => HostRoomViewScreen(
+                                    room: post.resolvedRoom,
+                                    post: post,
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.meeting_room_outlined, size: 18),
+                            label: const Text(
+                              'Xem phòng gắn kèm',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF1E40AF),
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(0, 48),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 0,
+                            ),
+                          ),
+                        ),
+                      ],
                     ))
+              // ROLE CHỦ TRỌ XEM BÀI CỦA CHỦ TRỌ KHÁC -> KHÔNG ĐẶT PHÒNG!
               : Row(
                   children: [
                     // Nút Báo cáo
-                    OutlinedButton.icon(
+                    OutlinedButton(
                       onPressed: _onReportPressed,
-                      icon: const Icon(Icons.flag_outlined, color: Color(0xFFDC2626), size: 16),
-                      label: const Text(
-                        'Báo cáo',
-                        style: TextStyle(
-                          color: Color(0xFFDC2626),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
                       style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(78, 48),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        minimumSize: const Size(48, 48),
+                        padding: EdgeInsets.zero,
                         side: const BorderSide(color: Color(0xFFFCA5A5)),
                         backgroundColor: const Color(0xFFFEF2F2),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
+                      child: const Icon(Icons.flag_outlined, color: Color(0xFFDC2626), size: 18),
                     ),
                     const SizedBox(width: 8),
 
-                    // Nút Nhắn tin trao đổi
+                    // Nút Xem thông tin phòng đối tác
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => HostRoomViewScreen(
+                                room: post.resolvedRoom,
+                                post: post,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.meeting_room_outlined, size: 16, color: AppColors.primary),
+                        label: const Text(
+                          'Xem phòng',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppColors.primary),
+                          minimumSize: const Size(0, 48),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Nút Nhắn tin trao đổi hợp tác
                     Expanded(
                       child: FilledButton.icon(
                         onPressed: _onChatPressed,
-                        icon: const Icon(Icons.chat_bubble_outline, size: 17),
+                        icon: const Icon(Icons.chat_bubble_outline, size: 16),
                         label: const Text(
                           'Nhắn tin trao đổi',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                           maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.primary,

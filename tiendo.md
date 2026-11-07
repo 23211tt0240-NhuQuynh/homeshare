@@ -23,6 +23,26 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.115 - Đồng Bộ Toàn Diện Phase 2.77, 2.78, 2.79 Từ `homeshare-dev-T.ANH` Vào Dự Án:**
+    - **Yêu cầu & Nghiệp vụ đã hoàn thành:**
+      1. **Phase 2.79 - Khóa Cứng Tuyệt Đối Dữ Liệu Kỹ Thuật Từ Phòng Sang Bài Đăng & Cho Phép Đăng Bài Phòng Đang Ở:**
+         - *Khóa cứng dữ liệu kỹ thuật từ phòng ([host_create_post_screen.dart](lib/features/host/screens/host_create_post_screen.dart)):*
+           + Giá thuê & tiền cọc: `readOnly: true`, nền xám nhạt (`#F1F5F9`), icon ổ khóa `Icons.lock_outline`, nhãn `Giá thuê (Cố định từ phòng) *`, `Tiền cọc (Cố định từ phòng) *`, kèm banner thông báo: *"Giá thuê & tiền cọc được khóa cứng cố định theo dữ liệu phòng trọ."*
+           + Diện tích: `readOnly: true`, nhãn `Diện tích (m²) (Cố định từ phòng) *` kèm icon ổ khóa.
+           + Địa chỉ & Số điện thoại: Khóa cứng theo cơ sở/phòng và tài khoản chủ trọ.
+         - *Khóa cứng danh mục Tiện ích phòng:* Đồng bộ 100% từ cấu hình phòng trọ (`room.amenities`), gắn trạng thái `isLocked: true`, hiển thị nhãn `Cố định từ phòng` kèm icon ổ khóa, không thể bấm bỏ chọn và ẩn ô thêm tùy tiện.
+         - *Khóa cứng Hình ảnh gốc của phòng:* Ảnh thực tế lấy từ phòng được khóa cứng trong [host_form_theme.dart](lib/features/host/widgets/host_form_theme.dart), ẩn nút xóa `X`, có icon ổ khóa và nhãn `Ảnh từ phòng`.
+         - *Cho phép đăng bài phòng đang có người ở:* Bỏ chặn `_isRoomOccupied(room)`, cho phép chọn phòng đang có người ở để quảng bá trước kèm banner hổ phách giải thích khách chưa thể đặt cọc cho tới khi phòng trống.
+      2. **Phase 2.78 - Tách Biệt Màn Hình Xem Phòng Riêng Biệt Cho Chủ Trọ ([host_room_view_screen.dart](lib/features/host/screens/host_room_view_screen.dart)), Giữ Sạch 100% Code Renter & Gỡ Bỏ Huy Hiệu "Uy Tín" / "VIP":**
+         - *Màn hình HostRoomViewScreen:* Xây dựng màn hình xem phòng chuyên biệt cho Host trong `lib/features/host/screens/` để xem thông số, chi phí dịch vụ, nút gọi điện và nhắn tin trao đổi đối tác; không có nút "Đặt phòng", không có nút "Báo cáo chủ trọ", không bị nhầm nhãn "Bài đăng của bạn".
+         - *Giữ sạch nguyên bản 100% code Renter:* Tuyệt đối không can thiệp dù chỉ 1 dòng vào `lib/features/renter/screens/room_detail_screen.dart`. Điều hướng trong toàn bộ Module Host ([host_post_detail_screen.dart](lib/features/host/screens/host_post_detail_screen.dart), [host_post_management_screen.dart](lib/features/host/screens/host_post_management_screen.dart), [host_post_card.dart](lib/features/host/widgets/host_post_card.dart)) chuyển sang `HostRoomViewScreen`.
+         - *Gỡ bỏ huy hiệu "Uy tín" / "VIP":* Xóa huy hiệu "Đối tác uy tín" trên [host_post_card.dart](lib/features/host/widgets/host_post_card.dart), xóa "Chủ trọ VIP" trên [host_dashboard_screen.dart](lib/features/host/screens/host_dashboard_screen.dart), đổi text phụ đề [host_create_post_screen.dart](lib/features/host/screens/host_create_post_screen.dart) thành "Dành cho chủ nhà & đối tác".
+      3. **Phase 2.77 - Chuẩn Hóa Tuyệt Đối 3 Trạng Thái Bài Đăng (`pending`, `active`, `rejected`), 1 Phòng Nhiều Bài Đăng & Tự Do Nhập Tiền Phạt / Vi Phạm Mới:**
+         - *Chuẩn hóa 3 trạng thái bài đăng duy nhất qua PostStatus ([host_post_model.dart](lib/data/models/host_post_model.dart)):* Loại bỏ hoàn toàn `hidden`, chỉ dùng `pending`, `active`, `rejected`. Cho phép 1 phòng tạo nhiều bài đăng.
+         - *Tự do nhập tiền phạt & vi phạm mới ([host_create_violation_screen.dart](lib/features/host/screens/host_create_violation_screen.dart) & [violation_type_selector.dart](lib/features/host/widgets/violation_type_selector.dart)):* Cho phép nhập tiền phạt bằng TextField số (hỗ trợ phân cách hàng nghìn `100.000 đ`, quick chips 50k, 100k, 150k, 200k, 300k, 500k, 1 triệu) và tự nhập hành vi vi phạm mới tùy chỉnh kèm tùy chọn lưu vào Firestore.
+    - **Kiểm định chất lượng & Kiểm thử tự động:**
+      - `flutter analyze lib/`: **No issues found! (0 errors, 0 warnings)** (100% clean).
+      - `flutter test test/host_post_clean_status_test.dart test/settings_and_localization_test.dart`: **11/11 tests passed (100%)**.
   * **Phase 2.114 - Khôi Phục Mục Tùy Chỉnh Giao Diện (Appearance / Theme) & Chuẩn Hóa Theme Tối (Graphite Dark Mode) Theo `dev-THE`:**
     - **Yêu cầu & Nghiệp vụ:**
       1. Người dùng phản hồi: *"theme đâu"* sau khi tùy chọn Giao diện bị ẩn khỏi mục Cài đặt trang cá nhân.

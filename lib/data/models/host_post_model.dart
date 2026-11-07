@@ -3,6 +3,32 @@ import '../../core/constants/firestore_collections.dart';
 import '../../features/auth/providers/user_provider.dart';
 import 'room_model.dart';
 
+/// Trạng thái chuẩn của bài đăng: pending, active, rejected (đã loại bỏ hidden)
+abstract final class PostStatus {
+  static const pending = 'pending';
+  static const active = 'active';
+  static const rejected = 'rejected';
+  @Deprecated('Bài đăng không còn dùng hidden, chỉ còn pending, active, rejected')
+  static const hidden = 'hidden';
+
+  static const validStatuses = {pending, active, rejected};
+
+  static String normalize(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return pending;
+    final s = raw.toLowerCase().trim();
+    if (s == 'active' || s == 'approved' || s == 'daduyet' || s == 'da_duyet' || s == 'danghienthi' || s == 'published') {
+      return active;
+    }
+    if (s == 'rejected' || s == 'tuchoi' || s == 'tu_choi' || s == 'bituchoi') {
+      return rejected;
+    }
+    if (s == 'pending' || s == 'choduyet' || s == 'cho_duyet') {
+      return pending;
+    }
+    return pending;
+  }
+}
+
 /// Model Bài đăng Chủ trọ chuẩn hóa theo Database.docx & quy ước schema:
 /// - Code sử dụng biến tiếng Anh chuẩn (roomId, hostId, rentalPrice, depositAmount, ...)
 /// - Khi ghi Firestore: chỉ trả về các field trong [PostFields] bằng [toFirestore()]
@@ -15,7 +41,6 @@ class HostPostModel {
   final String hostId; // chuNhaId [FK -> users]
   final String locationId; // diaDiemId [FK -> locations]
   final String rentalTypeId; // loaiThue_id
-  final String statusId; // trangThai_id
   final String title; // tieuDe
   final String description; // moTa
   final double rentalPrice; // giaThue
@@ -26,7 +51,7 @@ class HostPostModel {
   final String address; // diaChi
   final String contactPhone; // soDienThoaiLienHe
   final DateTime createdAt; // ngayDang
-  final String status; // trangThai
+  final String status; // trangThai: active, pending, rejected, hidden
   final String rejectReason; // lyDoTuChoi (từ Firestore khi admin từ chối)
   final DateTime? hostResubmittedAt; // thời gian chủ trọ gửi duyệt lại
   final DateTime? reviewedAt; // thời gian admin duyệt / từ chối
@@ -67,7 +92,7 @@ class HostPostModel {
     this.address = '',
     String? contactPhone,
     DateTime? createdAt,
-    this.status = 'dangHienThi',
+    String? status,
     String? rejectReason,
     this.hostResubmittedAt,
     this.reviewedAt,
@@ -108,7 +133,11 @@ class HostPostModel {
        hostId = hostId ?? chuNhaId ?? '',
        locationId = locationId ?? diaDiemId ?? '',
        rentalTypeId = rentalTypeId ?? loaiThueId ?? 'thang',
-       statusId = statusId ?? trangThaiId ?? status,
+       status = PostStatus.normalize(
+           (status != null && status.isNotEmpty)
+               ? status
+               : (statusId ?? trangThaiId ?? 'pending'),
+       ),
        title = title ?? tieuDe ?? '',
        description = description ?? moTa ?? '',
        rentalPrice = rentalPrice ?? giaThue ?? 0.0,
@@ -126,7 +155,8 @@ class HostPostModel {
   String get chuNhaId => hostId;
   String get diaDiemId => locationId;
   String get loaiThueId => rentalTypeId;
-  String get trangThaiId => statusId;
+  String get statusId => status;
+  String get trangThaiId => status;
   String get tieuDe => title;
   String get moTa => description;
   double get giaThue => rentalPrice;
@@ -140,65 +170,38 @@ class HostPostModel {
   String get trangThai => status;
   String get lyDoTuChoi => rejectReason;
 
-  bool get isRejected {
-    final s = status.toLowerCase().trim();
-    final sId = statusId.toLowerCase().trim();
-    return s == 'rejected' ||
-        s == 'tuchoi' ||
-        s == 'tu_choi' ||
-        s == 'bituchoi' ||
-        s == 'bi_tu_choi' ||
-        sId == 'rejected' ||
-        sId == 'tuchoi' ||
-        sId == 'tu_choi' ||
-        sId == 'bituchoi' ||
-        sId == 'bi_tu_choi';
-  }
+  bool get isRejected => PostStatus.normalize(status) == PostStatus.rejected;
+  bool get isPending => PostStatus.normalize(status) == PostStatus.pending;
+  bool get isActive => PostStatus.normalize(status) == PostStatus.active;
+  bool get isApprovedOrActive => isActive;
+  @Deprecated('Bài đăng không còn trạng thái hidden, chỉ có pending, active, rejected')
+  bool get isHidden => false;
 
-  bool get isPending {
-    final s = status.toLowerCase().trim();
-    final sId = statusId.toLowerCase().trim();
-    return s == 'pending' ||
-        s == 'choduyet' ||
-        s == 'cho_duyet' ||
-        sId == 'pending' ||
-        sId == 'choduyet' ||
-        sId == 'cho_duyet';
-  }
+  /// Bài đăng có thể chỉnh sửa: chỉ cho phép khi bị từ chối hoặc đang chờ duyệt,
+  /// TUYỆT ĐỐI KHÔNG cho phép chỉnh sửa khi bài đã duyệt / đang hiển thị.
+  bool get canEdit => isRejected || isPending;
 
-  bool get isApprovedOrActive {
-    final s = status.toLowerCase().trim();
-    final sId = statusId.toLowerCase().trim();
-    return isActive ||
-        s == 'active' ||
-        s == 'approved' ||
-        s == 'daduyet' ||
-        s == 'da_duyet' ||
-        s == 'danghienthi' ||
-        s == 'dang_hien_thi' ||
-        s == 'published' ||
-        sId == 'active' ||
-        sId == 'approved' ||
-        sId == 'daduyet' ||
-        sId == 'da_duyet' ||
-        sId == 'danghienthi' ||
-        sId == 'dang_hien_thi' ||
-        sId == 'published';
-  }
-
-  bool get isActive {
-    final sId = statusId.toLowerCase().trim();
-    final s = status.toLowerCase().trim();
-    const activeStatuses = {
-      'active',
-      'danghienthi',
-      'published',
-      'approved',
-      'daduyet',
-      'da_duyet',
-    };
-    return activeStatuses.contains(sId) || activeStatuses.contains(s);
-  }
+  /// Phòng trọ gắn kèm đã được nối hoặc tạo đối tượng RoomModel an toàn từ bài đăng
+  RoomModel get resolvedRoom => joinedRoom ?? RoomModel(
+    id: roomId.isNotEmpty ? roomId : id,
+    title: title,
+    description: description,
+    price: rentalPrice,
+    deposit: depositAmount,
+    depositPercentage: depositPercentage,
+    address: address,
+    district: district,
+    city: city.isNotEmpty ? city : 'TP. Hồ Chí Minh',
+    area: roomArea > 0 ? roomArea : 25.0,
+    roomType: roomType.isNotEmpty ? roomType : 'Phòng trọ',
+    amenities: amenities,
+    images: images,
+    hostId: hostId,
+    hostName: authorName,
+    hostPhone: contactPhone,
+    hostAvatar: authorAvatar,
+    createdAt: createdAt,
+  );
 
   /// Đường dẫn Sub-collection trên Firestore theo quan hệ 1-N:
   /// Path: rooms/{roomId}/rental_posts
@@ -231,30 +234,10 @@ class HostPostModel {
       'description': description,
       'rentalPrice': rentalPrice,
       'depositAmount': depositAmount,
-      'status': status.isNotEmpty ? status : 'active',
+      'status': PostStatus.normalize(status),
       'isPinned': false,
       'createdAt': Timestamp.fromDate(createdAt),
     };
-  }
-
-  /// Mapper chuẩn bảng bai_dang_cho_thue theo SQL_NHOM4_CHUYENDEDIDONG.sql
-  Map<String, dynamic> toBaiDangChoThueSql() => {
-    BaiDangChoThueSqlFields.id: id,
-    BaiDangChoThueSqlFields.phongTroId: roomId,
-    BaiDangChoThueSqlFields.tieuDe: title,
-    BaiDangChoThueSqlFields.noiDung: description,
-    BaiDangChoThueSqlFields.trangThai: status,
-    BaiDangChoThueSqlFields.laBaiGhim: 0,
-    BaiDangChoThueSqlFields.ngayTao: Timestamp.fromDate(createdAt),
-    BaiDangChoThueSqlFields.chuTroId: hostId,
-  };
-
-  /// Factory đọc từ dữ liệu bảng bai_dang_cho_thue chuẩn SQL
-  factory HostPostModel.fromBaiDangChoThueSql(
-    Map<String, dynamic> data,
-    String id,
-  ) {
-    return HostPostModel.fromMap(data, id);
   }
 
   /// Alias kiểm soát: Không tự gom toàn bộ biến object, ủy thác về [toFirestore]
@@ -401,16 +384,6 @@ class HostPostModel {
                   'thang')
               .toString()
               .trim(),
-      statusId:
-          (data[BaiDangChoThueSqlFields.trangThai] ??
-                  data['trang_thai'] ??
-                  data[PostFields.statusId] ??
-                  data['statusId'] ??
-                  data['trangThai_id'] ??
-                  data['status'] ??
-                  'dangHienThi')
-              .toString()
-              .trim(),
       title:
           (data[BaiDangChoThueSqlFields.tieuDe] ??
                   data['tieu_de'] ??
@@ -447,13 +420,19 @@ class HostPostModel {
               .toString()
               .trim(),
       createdAt: postDate,
-      status:
-          (data[PostFields.status] ??
-                  data['status'] ??
-                  data['trangThai'] ??
-                  'dangHienThi')
-              .toString()
-              .trim(),
+      status: PostStatus.normalize(
+        (data['status'] ??
+                data[PostFields.status] ??
+                data['statusId'] ??
+                data[PostFields.statusId] ??
+                data['trang_thai'] ??
+                data['trangThai'] ??
+                data['trangThai_id'] ??
+                data[BaiDangChoThueSqlFields.trangThai] ??
+                'pending')
+            .toString()
+            .trim(),
+      ),
       // In-memory UI/Join properties
       authorName: (data['authorName'] ?? data['hostName'] ?? '')
           .toString()
@@ -596,7 +575,7 @@ class HostPostModel {
       hostId: hostId ?? chuNhaId ?? this.hostId,
       locationId: locationId ?? diaDiemId ?? this.locationId,
       rentalTypeId: rentalTypeId ?? loaiThueId ?? this.rentalTypeId,
-      statusId: statusId ?? trangThaiId ?? this.statusId,
+      status: status ?? statusId ?? trangThaiId ?? this.status,
       title: title ?? tieuDe ?? this.title,
       description: description ?? moTa ?? this.description,
       rentalPrice: rentalPrice ?? giaThue ?? this.rentalPrice,
@@ -608,7 +587,6 @@ class HostPostModel {
       address: address ?? this.address,
       contactPhone: contactPhone ?? soDienThoaiLienHe ?? this.contactPhone,
       createdAt: createdAt ?? ngayDang ?? this.createdAt,
-      status: status ?? this.status,
       rejectReason: rejectReason ?? lyDoTuChoi ?? this.rejectReason,
       hostResubmittedAt: hostResubmittedAt ?? this.hostResubmittedAt,
       reviewedAt: reviewedAt ?? this.reviewedAt,

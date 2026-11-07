@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/host_post_model.dart';
 import '../screens/host_post_detail_screen.dart';
+import '../screens/host_room_view_screen.dart';
 
 /// Thẻ hiển thị bài đăng của chủ trọ đối tác theo thiết kế Figma
 class HostPostCard extends StatefulWidget {
@@ -133,29 +134,6 @@ class _HostPostCardState extends State<HostPostCard> {
                                 Icons.verified,
                                 color: Color(0xFF1E60F2),
                                 size: 16,
-                              ),
-                            ),
-                          if (post.isVip)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEF3C7),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: const Color(0xFFF59E0B),
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: const Text(
-                                'Đối tác uy tín',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFFB45309),
-                                ),
                               ),
                             ),
                           if (isOwnPost)
@@ -432,13 +410,60 @@ class _HostPostCardState extends State<HostPostCard> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  _formatCurrency(post.giaThue),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFE11D48),
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _formatCurrency(post.giaThue),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFE11D48),
+                      ),
+                    ),
+                    // Badge trạng thái phòng gắn liền
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: (post.joinedRoom?.isOccupied == true)
+                            ? const Color(0xFFFEE2E2)
+                            : const Color(0xFFD1FAE5),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: (post.joinedRoom?.isOccupied == true)
+                              ? const Color(0xFFFCA5A5)
+                              : const Color(0xFF6EE7B7),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            (post.joinedRoom?.isOccupied == true)
+                                ? Icons.lock_outline
+                                : Icons.check_circle_outline,
+                            size: 12,
+                            color: (post.joinedRoom?.isOccupied == true)
+                                ? const Color(0xFFDC2626)
+                                : const Color(0xFF047857),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            (post.joinedRoom?.isOccupied == true)
+                                ? 'Phòng đang ở'
+                                : 'Phòng còn trống',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: (post.joinedRoom?.isOccupied == true)
+                                  ? const Color(0xFFDC2626)
+                                  : const Color(0xFF047857),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -446,64 +471,108 @@ class _HostPostCardState extends State<HostPostCard> {
 
           const Divider(height: 20, color: Color(0xFFF1F5F9)),
 
-          // 5. Nút Nhắn tin trao đổi / Bài của bạn (Đã xóa tim & bình luận)
+          // 5. Nút Nhắn tin & Chuyển sang phòng để đặt phòng
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: isOwnPost
-                  ? OutlinedButton.icon(
-                      onPressed: onChatPressed,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF1E60F2),
-                        side: const BorderSide(color: Color(0xFF1E60F2)),
-                        minimumSize: const Size(0, 40),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      icon: const Icon(Icons.person_outline, size: 16),
-                      label: const Text(
-                        'Bài của bạn',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    )
-                  : FilledButton.icon(
-                      onPressed: onChatPressed,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E60F2),
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(0, 40),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        elevation: 0,
-                      ),
-                      icon: const Icon(Icons.chat_bubble_outline, size: 16),
-                      label: const Text(
-                        'Nhắn tin trao đổi',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
+            child: isOwnPost
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => HostRoomViewScreen(
+                                  room: post.resolvedRoom,
+                                  post: post,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.meeting_room_outlined, size: 16),
+                          label: const Text('Xem phòng', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primaryLight),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
                         ),
                       ),
-                    ),
-            ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: onChatPressed,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF1E60F2),
+                            side: const BorderSide(color: Color(0xFF1E60F2)),
+                            minimumSize: const Size(0, 40),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: const Icon(Icons.person_outline, size: 16),
+                          label: const Text('Bài của bạn', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: onChatPressed,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF1E60F2),
+                          side: const BorderSide(color: Color(0xFF1E60F2)),
+                          minimumSize: const Size(0, 40),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                        label: const Text('Nhắn tin', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => HostRoomViewScreen(
+                                  room: post.resolvedRoom,
+                                  post: post,
+                                ),
+                              ),
+                            );
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: (post.joinedRoom?.isOccupied == true)
+                                ? const Color(0xFF64748B)
+                                : const Color(0xFF1E60F2),
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(0, 40),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 0,
+                          ),
+                          icon: Icon(
+                            (post.joinedRoom?.isOccupied == true)
+                                ? Icons.lock_outline
+                                : Icons.meeting_room_outlined,
+                            size: 16,
+                          ),
+                          label: Text(
+                            (post.joinedRoom?.isOccupied == true)
+                                ? 'Xem phòng (Đang ở)'
+                                : 'Xem thông tin phòng',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
           ),
         ],
       ),

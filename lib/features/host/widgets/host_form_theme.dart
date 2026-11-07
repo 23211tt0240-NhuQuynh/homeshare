@@ -50,8 +50,10 @@ class HostTheme {
     String? suffixText,
     TextStyle? suffixStyle,
     Widget? prefixIcon,
+    Widget? suffixIcon,
     Color? fillColor,
     bool isFilled = true,
+    bool filled = true,
     EdgeInsetsGeometry? contentPadding,
     Color borderColor = inputBorder,
     Color focusedBorderColor = inputFocusBorder,
@@ -72,7 +74,8 @@ class HostTheme {
             fontWeight: FontWeight.w600,
           ),
       prefixIcon: prefixIcon,
-      filled: isFilled,
+      suffixIcon: suffixIcon,
+      filled: isFilled && filled,
       fillColor: fillColor ?? Colors.white,
       contentPadding:
           contentPadding ??
@@ -153,8 +156,19 @@ class HostImageUtils {
         bytes[0] == 255 &&
         bytes[1] == 216 &&
         bytes[2] == 255;
+    final isWebp =
+        bytes.length >= 12 &&
+        bytes[0] == 82 &&
+        bytes[1] == 73 &&
+        bytes[2] == 70 &&
+        bytes[3] == 70 &&
+        bytes[8] == 87 &&
+        bytes[9] == 69 &&
+        bytes[10] == 66 &&
+        bytes[11] == 80;
     if (isPng) return 'image/png';
     if (isJpg) return 'image/jpeg';
+    if (isWebp) return 'image/webp';
     return null;
   }
 
@@ -321,6 +335,7 @@ class HostImageThumbnail extends StatelessWidget {
     this.rawUrl,
     this.upload,
     this.isCover = false,
+    this.isLocked = false,
     this.onRemove,
   });
 
@@ -328,6 +343,7 @@ class HostImageThumbnail extends StatelessWidget {
   final String? rawUrl;
   final HostUpload? upload;
   final bool isCover;
+  final bool isLocked;
   final VoidCallback? onRemove;
 
   @override
@@ -351,7 +367,7 @@ class HostImageThumbnail extends StatelessWidget {
               ? Image.memory(upload!.bytes, fit: BoxFit.cover)
               : _buildImage(rawUrl ?? ''),
         ),
-        if (onRemove != null)
+        if (!isLocked && onRemove != null)
           Positioned(
             top: 4,
             right: 14,
@@ -361,6 +377,39 @@ class HostImageThumbnail extends StatelessWidget {
                 radius: 11,
                 backgroundColor: Color(0x99000000),
                 child: Icon(Icons.close, size: 13, color: Colors.white),
+              ),
+            ),
+          ),
+        if (isLocked)
+          Positioned(
+            top: 4,
+            right: 14,
+            child: Container(
+              padding: const EdgeInsets.all(3.5),
+              decoration: const BoxDecoration(
+                color: Color(0xCC0F172A),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.lock_rounded, size: 12, color: Colors.white),
+            ),
+          ),
+        if (isLocked)
+          Positioned(
+            left: 5,
+            bottom: isCover ? 22 : 5,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFF334155),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                'Ảnh từ phòng',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
@@ -492,6 +541,7 @@ class HostAmenityTile extends StatelessWidget {
     required this.name,
     required this.isSelected,
     this.isCustom = false,
+    this.isLocked = false,
     this.onTap,
     this.onDeleteCustom,
   });
@@ -499,6 +549,7 @@ class HostAmenityTile extends StatelessWidget {
   final String name;
   final bool isSelected;
   final bool isCustom;
+  final bool isLocked;
   final VoidCallback? onTap;
   final VoidCallback? onDeleteCustom;
 
@@ -509,11 +560,13 @@ class HostAmenityTile extends StatelessWidget {
     final Color checkColor;
 
     if (isSelected) {
-      borderColor = isCustom
-          ? const Color(0xFF60A5FA)
-          : const Color(0xFF93C5FD);
-      bgColor = isCustom ? const Color(0xFFEFF6FF) : const Color(0xFFF0F7FF);
-      checkColor = HostTheme.primary;
+      borderColor = isLocked
+          ? const Color(0xFFCBD5E1)
+          : (isCustom ? const Color(0xFF60A5FA) : const Color(0xFF93C5FD));
+      bgColor = isLocked
+          ? const Color(0xFFF1F5F9)
+          : (isCustom ? const Color(0xFFEFF6FF) : const Color(0xFFF0F7FF));
+      checkColor = isLocked ? const Color(0xFF64748B) : HostTheme.primary;
     } else {
       borderColor = const Color(0xFFE2E8F0);
       bgColor = HostTheme.background;
@@ -530,7 +583,7 @@ class HostAmenityTile extends StatelessWidget {
       child: InkWell(
         key: ValueKey('amenity_tile_$name'),
         borderRadius: HostTheme.radius14,
-        onTap: onTap,
+        onTap: isLocked ? null : onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
@@ -568,7 +621,33 @@ class HostAmenityTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              if (isCustom) ...[
+              if (isLocked) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.lock_outline, size: 12, color: Color(0xFF475569)),
+                      SizedBox(width: 4),
+                      Text(
+                        'Cố định từ phòng',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF475569),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else if (isCustom) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
