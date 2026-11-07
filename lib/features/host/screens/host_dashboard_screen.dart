@@ -356,9 +356,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
     final hostName = profile?.displayName.isNotEmpty == true
         ? profile!.displayName
         : 'Chủ trọ';
-    final isVip =
-        profile != null &&
-        (profile.reputationScore >= 80 || profile.isCccdVerified);
+    
     final avatarUrl = profile?.avatarUrl ?? '';
     final initials = hostName.isNotEmpty
         ? hostName.trim().split(' ').last.substring(0, 1).toUpperCase()
@@ -399,26 +397,6 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                       letterSpacing: -0.3,
                     ),
                   ),
-                  if (isVip)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFFF59E0B)),
-                      ),
-                      child: const Text(
-                        'Chủ trọ VIP',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFB45309),
-                        ),
-                      ),
-                    ),
                 ],
               ),
               const SizedBox(height: 2),

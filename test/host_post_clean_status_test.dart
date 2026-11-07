@@ -1,15 +1,14 @@
-import 'package:flutter_test/flutter_test.dart';
+﻿import 'package:flutter_test/flutter_test.dart';
 import 'package:home_share/data/models/host_post_model.dart';
 
 void main() {
-  group('HostPostModel Status Clean Tests', () {
-    test('PostStatus canonical values must be exactly: pending, active, rejected, hidden', () {
+  group('HostPostModel Status Clean Tests (3 statuses: pending, active, rejected)', () {
+    test('PostStatus canonical values must be exactly: pending, active, rejected', () {
       expect(PostStatus.pending, 'pending');
       expect(PostStatus.active, 'active');
       expect(PostStatus.rejected, 'rejected');
-      expect(PostStatus.hidden, 'hidden');
-      expect(PostStatus.validStatuses, containsAll(['pending', 'active', 'rejected', 'hidden']));
-      expect(PostStatus.validStatuses.length, 4);
+      expect(PostStatus.validStatuses, containsAll(['pending', 'active', 'rejected']));
+      expect(PostStatus.validStatuses.length, 3);
     });
 
     test('PostStatus.normalize maps canonical and legacy values accurately', () {
@@ -33,20 +32,12 @@ void main() {
       expect(PostStatus.normalize('tuchoi'), 'rejected');
       expect(PostStatus.normalize('tu_choi'), 'rejected');
       expect(PostStatus.normalize('bituchoi'), 'rejected');
-
-      // Hidden
-      expect(PostStatus.normalize('hidden'), 'hidden');
-      expect(PostStatus.normalize('daan'), 'hidden');
-      expect(PostStatus.normalize('da_an'), 'hidden');
-      expect(PostStatus.normalize('an'), 'hidden');
-      expect(PostStatus.normalize('taman'), 'hidden');
-      expect(PostStatus.normalize('tam_an'), 'hidden');
     });
 
     test('HostPostModel constructor and toFirestore must only write status', () {
-      for (final canonical in ['pending', 'active', 'rejected', 'hidden']) {
+      for (final canonical in ['pending', 'active', 'rejected']) {
         final post = HostPostModel(
-          id: 'post_$canonical',
+          id: 'post_',
           roomId: 'room_123',
           status: canonical,
           title: 'Phòng trọ tiện nghi',
@@ -64,7 +55,6 @@ void main() {
           expect(post.isApprovedOrActive, isTrue);
         }
         if (canonical == 'rejected') expect(post.isRejected, isTrue);
-        if (canonical == 'hidden') expect(post.isHidden, isTrue);
 
         // Verify toFirestore only writes status
         final firestoreMap = post.toFirestore();
@@ -77,7 +67,7 @@ void main() {
       }
     });
 
-    test('HostPostModel fromMap reads from status or legacy fallbacks and normalizes to standard 4 statuses', () {
+    test('HostPostModel fromMap reads from status or legacy fallbacks and normalizes to standard 3 statuses', () {
       // Legacy document with approved -> normalized to active
       final docApproved = {
         'id': 'post_approved',
@@ -91,21 +81,6 @@ void main() {
       expect(postActive.isActive, isTrue);
       expect(postActive.toFirestore()['status'], 'active');
       expect(postActive.toFirestore().containsKey('statusId'), isFalse);
-
-      // Legacy document with hidden
-      final docHidden = {
-        'id': 'post_hidden',
-        'roomId': 'room_2',
-        'status': 'hidden',
-        'statusId': 'hidden',
-        'trang_thai': 'hidden',
-      };
-      final postHidden = HostPostModel.fromMap(docHidden, 'post_hidden');
-      expect(postHidden.status, 'hidden');
-      expect(postHidden.isHidden, isTrue);
-      expect(postHidden.toFirestore()['status'], 'hidden');
-      expect(postHidden.toFirestore().containsKey('statusId'), isFalse);
-      expect(postHidden.toFirestore().containsKey('trang_thai'), isFalse);
 
       // Legacy document with rejected
       final docRejected = {

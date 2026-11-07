@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +11,7 @@ import '../../auth/providers/user_provider.dart';
 import '../data/host_post_repository.dart';
 import 'host_create_post_screen.dart';
 import 'host_post_detail_screen.dart';
+import 'host_room_view_screen.dart';
 
 /// Màn hình Quản lý bài đăng dành riêng cho Role Chủ trọ.
 /// Cho phép lọc các bài: Tất cả, Chờ duyệt, Đang hiển thị và Bị từ chối.
@@ -175,17 +176,6 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
       return;
     }
 
-    if (post.isHidden) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bài đăng ở trạng thái ẩn không thể chỉnh sửa.'),
-          backgroundColor: Color(0xFFE11D48),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -338,32 +328,6 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
               'Đang hiển thị',
               style: TextStyle(
                 color: Color(0xFF047857),
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (post.isHidden) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: const Color(0xFFCBD5E1)),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.visibility_off_rounded, size: 13, color: Color(0xFF64748B)),
-            SizedBox(width: 4),
-            Text(
-              'Đã ẩn',
-              style: TextStyle(
-                color: Color(0xFF475569),
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),
@@ -538,6 +502,57 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
                         'Đăng ngày: $formattedDate',
                         style: const TextStyle(fontSize: 10.5, color: AppColors.textMuted),
                       ),
+                      const SizedBox(height: 6),
+                      // Badge phòng gắn liền và trạng thái phòng thực tế
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.meeting_room_outlined, size: 13, color: AppColors.primary),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                post.joinedRoom?.roomCode.isNotEmpty == true
+                                    ? 'Phòng: ${post.joinedRoom!.roomCode}'
+                                    : (post.phongId.isNotEmpty ? 'Mã phòng: ${post.phongId}' : 'Chưa gắn phòng'),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textDark,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (post.joinedRoom != null) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: post.joinedRoom!.isOccupied
+                                      ? const Color(0xFFFEE2E2)
+                                      : const Color(0xFFD1FAE5),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  post.joinedRoom!.isOccupied ? 'Đang ở' : 'Còn trống',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: post.joinedRoom!.isOccupied
+                                        ? const Color(0xFFDC2626)
+                                        : const Color(0xFF047857),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -634,14 +649,14 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
           // Khối hành động chính
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: (post.isRejected && !post.isHidden)
+            child: post.isRejected
                 ? Row(
                     children: [
                       // Nút Xem chi tiết
                       OutlinedButton.icon(
                         onPressed: () => _viewPostDetail(post),
                         icon: const Icon(Icons.visibility_outlined, size: 16),
-                        label: const Text('Xem', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        label: const Text('Xem bài', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.textDark,
                           side: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -677,15 +692,46 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
                         child: OutlinedButton.icon(
                           onPressed: () => _viewPostDetail(post),
                           icon: const Icon(Icons.visibility_outlined, size: 16),
-                          label: const Text('Xem chi tiết', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                          label: const Text('Xem bài', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.textDark,
                             side: const BorderSide(color: Color(0xFFCBD5E1)),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                           ),
                         ),
                       ),
+                      if (post.phongId.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => HostRoomViewScreen(
+                                    room: post.resolvedRoom,
+                                    post: post,
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.meeting_room_outlined, size: 16, color: AppColors.primary),
+                            label: const Text(
+                              'Xem phòng',
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.primary),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: const BorderSide(color: AppColors.primaryLight),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                            ),
+                          ),
+                        ),
+                      ],
                       if (post.canEdit) ...[
                         const SizedBox(width: 8),
                         Expanded(
@@ -697,7 +743,7 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                               elevation: 0,
                             ),
                           ),

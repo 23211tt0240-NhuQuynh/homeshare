@@ -23,6 +23,43 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.79 - Khóa Cứng Tuyệt Đối Dữ Liệu Kỹ Thuật Từ Phòng Sang Bài Đăng & Cho Phép Đăng Bài Phòng Đang Ở:**
+    - **Khóa cứng dữ liệu kỹ thuật từ phòng ([host_create_post_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_create_post_screen.dart)):**
+      + *Giá thuê & Tiền cọc:* Chuyển sang chế độ khóa cứng `readOnly: true`, nền xám nhạt (`#F1F5F9`), kèm biểu tượng ổ khóa `Icons.lock_outline` và nhãn `'Giá thuê (Cố định từ phòng) *'`, `'Tiền cọc (Cố định từ phòng) *'`. Bổ sung banner thông báo trực quan: *"Giá thuê & tiền cọc được khóa cứng cố định theo dữ liệu phòng trọ."*
+      + *Diện tích:* Khóa cứng với nhãn `'Diện tích (m²) (Cố định từ phòng) *'` và icon ổ khóa.
+      + *Địa chỉ & Số điện thoại:* Khóa cứng cố định theo địa chỉ cơ sở/phòng và tài khoản chủ trọ.
+    - **Khóa cứng danh mục Tiện ích phòng:**
+      + Đồng bộ 100% từ cấu hình của phòng (`room.amenities`).
+      + Tất cả tiện ích đều ở trạng thái khóa cố định `isLocked: true`, `onTap: null` (không thể bấm bỏ chọn).
+      + Mỗi tiện ích hiển thị nhãn `Cố định từ phòng` kèm icon ổ khóa; ẩn ô nhập thêm tiện ích tùy tiện ngoài cấu hình phòng.
+      + Bổ sung banner thông báo: *"Tiện ích được đồng bộ cố định từ cấu hình phòng trọ (Khóa cứng, không thể thay đổi)."*
+    - **Khóa cứng Hình ảnh gốc của phòng:**
+      + Toàn bộ ảnh thực tế lấy từ phòng được khóa cứng, ẩn nút xóa `X`, có icon ổ khóa và nhãn `'Ảnh từ phòng'`. Không thể xóa ảnh gốc đã xác thực của phòng.
+    - **Cho phép đăng bài phòng đang có người ở để quảng bá trước:**
+      + Bỏ chặn `_isRoomOccupied(room)` trong `_onRoomSelected` và `initState()`.
+      + Cho phép chọn phòng đang có người ở; hiển thị banner màu hổ phách cảnh báo bài đăng phục vụ mục đích quảng bá / giới thiệu phòng trước, khách thuê không thể đặt cọc cho đến khi phòng trống.
+
+  * **Phase 2.78 - Tách Biệt Màn Hình Xem Phòng Riêng Biệt Cho Chủ Trọ ([host_room_view_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_room_view_screen.dart)), Giữ Sạch 100% Code Renter & Gỡ Bỏ Huy Hiệu "Uy Tín" / "VIP":**
+    - **Xây dựng màn hình xem phòng chuyên biệt cho Host ([HostRoomViewScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_room_view_screen.dart)):**
+      + Tạo mới màn hình xem chi tiết phòng độc lập hoàn toàn trong `lib/features/host/screens/`.
+      + Phục vụ nhu cầu tham khảo thông tin giữa các chủ trọ đối tác: Xem thông số phòng, chi phí dịch vụ điện/nước/wifi, danh mục tiện ích, nút "Gọi điện" và nút "Nhắn tin trao đổi".
+      + **Loại bỏ nhầm lẫn:** Không có nút "Đặt phòng", không có nút "Báo cáo chủ trọ" (quyền riêng của Renter), không bị hiển thị nhầm nhãn "Bài đăng của bạn".
+      + **Giữ sạch nguyên bản 100% Code Renter:** Tuyệt đối không can thiệp hay sửa đổi bất kỳ dòng code nào trong `lib/features/renter/screens/room_detail_screen.dart`. Điều hướng trong toàn bộ Module Host ([host_post_detail_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_post_detail_screen.dart), [host_post_management_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_post_management_screen.dart), [host_post_card.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/widgets/host_post_card.dart)) chuyển sang `HostRoomViewScreen`.
+    - **Loại bỏ hoàn toàn các huy hiệu và nhãn "Uy tín" / "VIP" trong role Host:**
+      + *Thẻ bài đăng ([host_post_card.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/widgets/host_post_card.dart)):* Gỡ bỏ khối huy hiệu màu vàng/cam `'Đối tác uy tín'` (`post.isVip`) nằm cạnh tên chủ trọ.
+      + *Dashboard ([host_dashboard_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_dashboard_screen.dart)):* Gỡ bỏ huy hiệu `'Chủ trọ VIP'` tại header bảng điều khiển HomeShare.
+      + *Tạo bài đăng ([host_create_post_screen.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_create_post_screen.dart)):* Đổi phụ đề màn hình từ `'Dành cho chủ nhà & đối tác uy tín'` thành `'Dành cho chủ nhà & đối tác'`.
+
+  * **Phase 2.77 - Chuẩn Hóa Tuyệt Đối 3 Trạng Thái Bài Đăng (`pending`, `active`, `rejected`), 1 Phòng Nhiều Bài Đăng & Tự Do Nhập Tiền Phạt / Vi Phạm Mới:**
+    - **Chuẩn hóa 3 trạng thái bài đăng duy nhất qua [PostStatus](file:///d:/DownLoad/homeshare-dev-TOAN/lib/data/models/host_post_model.dart):**
+      + Hệ thống chỉ còn 3 trạng thái chuẩn hóa: `pending` (Chờ duyệt), `active` (Đang hiển thị), `rejected` (Bị từ chối). Loại bỏ hoàn toàn trạng thái `hidden`.
+      + Cho phép 1 phòng có nhiều bài đăng (không bị chặn khi phòng đã có bài đăng trước đó).
+      + Khi khách đặt cọc giữ phòng, đơn thuê chuyển sang trạng thái chờ check-in (`RESERVED` / `DEPOSITED`), bài đăng tiếp tục quản lý đúng vòng đời chuẩn.
+      + Bộ kiểm thử tự động [host_post_clean_status_test.dart](file:///d:/DownLoad/homeshare-dev-TOAN/test/host_post_clean_status_test.dart) đạt 100% Pass với 3 trạng thái chuẩn.
+    - **Nâng cấp Lập biên bản vi phạm linh hoạt ([HostCreateViolationScreen](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/screens/host_create_violation_screen.dart) & [violation_type_selector.dart](file:///d:/DownLoad/homeshare-dev-TOAN/lib/features/host/widgets/violation_type_selector.dart)):**
+      + **Tự do nhập tiền phạt:** Cho phép chủ trọ tự nhập giá trị tiền phạt tùy ý bằng TextField số có định dạng hàng nghìn trực quan (`100.000 đ`) cùng các quick chips chọn nhanh (50k, 100k, 200k, 500k, 1 triệu).
+      + **Tự nhập hành vi vi phạm mới:** Chủ trọ có thể tự gõ tên hành vi vi phạm mới kèm tùy chọn lưu vào danh mục của chủ nhà trên Firebase Firestore, không bị bó buộc vào danh mục tĩnh.
+
   * **Phase 2.76 - Chuẩn Hóa Tuyệt Đối 4 Trạng Thái Bài Đăng (`pending`, `active`, `rejected`, `hidden`) & Dọn Sạch Toàn Bộ Trường Dư Thừa (`statusId`, `trang_thai`, `trangThai`, `trangThai_id`):**
     - **Chuẩn hóa 4 trạng thái bài đăng duy nhất qua [PostStatus](file:///d:/DownLoad/homeshare-dev-TOAN/lib/data/models/host_post_model.dart):**
       + `pending`: Chờ duyệt (khi chủ trọ tạo bài mới hoặc gửi duyệt lại sau khi sửa bài bị từ chối).

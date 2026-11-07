@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/firestore_collections.dart';
-import '../../../core/utils/vietnamese_utils.dart';
 import '../../../core/utils/vnd_input.dart';
 import '../../../data/models/room_model.dart';
 import '../../../data/models/host_post_model.dart';
@@ -65,7 +64,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
   RoomModel? _selectedRoom;
   bool _saving = false;
   bool _picking = false;
-  bool _amenitiesExpanded = false;
 
   bool _isRoomOccupied(RoomModel room) {
     if (room.isOccupied) return true;
@@ -97,10 +95,8 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                p.isHidden
-                    ? 'Bài đăng ở trạng thái ẩn không thể chỉnh sửa.'
-                    : 'Bài đăng đã được duyệt không thể chỉnh sửa.',
+              content: const Text(
+                'Bài đăng đã được duyệt không thể chỉnh sửa.',
               ),
               backgroundColor: const Color(0xFFDC2626),
               behavior: SnackBarBehavior.floating,
@@ -139,10 +135,8 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                p.isHidden
-                    ? 'Bài đăng ở trạng thái ẩn không thể chỉnh sửa.'
-                    : 'Bài đăng đã được duyệt không thể chỉnh sửa.',
+              content: const Text(
+                'Bài đăng đã được duyệt không thể chỉnh sửa.',
               ),
               backgroundColor: const Color(0xFFDC2626),
               behavior: SnackBarBehavior.floating,
@@ -176,13 +170,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     if (widget.initialRoom != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        if (_isRoomOccupied(widget.initialRoom!)) {
-          _message(
-            'Phòng "${widget.initialRoom!.roomCode}" đã có người ở. Bị khóa không thể đăng bài!',
-          );
-        } else {
-          _onRoomSelected(widget.initialRoom);
-        }
+        _onRoomSelected(widget.initialRoom);
       });
     }
   }
@@ -307,7 +295,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       _existingImageUrls.clear();
       _selectedAmenities.clear();
       _customAmenities.clear();
-      _amenitiesExpanded = false;
     });
   }
 
@@ -329,13 +316,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
 
   void _onRoomSelected(RoomModel? room) async {
     if (room == null) return;
-    if (_isRoomOccupied(room)) {
-      _message(
-        'Phòng "${room.roomCode}" đã có người ở (Đang thuê). Bị khóa không được phép đăng bài!',
-      );
-      setState(() => _selectedRoom = null);
-      return;
-    }
     setState(() {
       _selectedRoom = room;
       // Tự động lấy ghi chú / quy định của phòng gắn vào Mô tả chi tiết bài đăng (vẫn cho phép sửa)
@@ -376,7 +356,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
         room.amenities.map((a) => a.trim()).where((a) => a.isNotEmpty),
       );
       if (_selectedAmenities.isNotEmpty) {
-        _amenitiesExpanded = true;
       }
     });
 
@@ -564,81 +543,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     }
   }
 
-  void _addCustomAmenity(List<Map<String, String>> catalogItems) {
-    final raw = _customAmenity.text;
-    final normalized = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
-    if (normalized.isEmpty) {
-      _message('Vui lòng nhập tên tiện ích.');
-      return;
-    }
-
-    // 1. Chống trùng với danh mục tiện ích từ Firestore (không phân biệt dấu tiếng Việt, hoa/thường)
-    final catalogMatch = catalogItems
-        .where(
-          (item) =>
-              normalizeVietnameseComparison(item['name']!) ==
-              normalizeVietnameseComparison(normalized),
-        )
-        .firstOrNull;
-
-    if (catalogMatch != null) {
-      setState(() {
-        _selectedAmenities.add(catalogMatch['name']!);
-        _customAmenity.clear();
-        _amenitiesExpanded = true;
-      });
-      _message(
-        'Tiện ích "${catalogMatch['name']}" đã có trong danh mục (đã tự động chọn).',
-      );
-      return;
-    }
-
-    // 2. Chống trùng với tiện ích sẵn có của phòng (không phân biệt dấu tiếng Việt, hoa/thường)
-    final roomMatch = (_selectedRoom?.amenities ?? [])
-        .where(
-          (item) =>
-              normalizeVietnameseComparison(item) ==
-              normalizeVietnameseComparison(normalized),
-        )
-        .firstOrNull;
-    if (roomMatch != null) {
-      setState(() {
-        _selectedAmenities.add(roomMatch);
-        _customAmenity.clear();
-        _amenitiesExpanded = true;
-      });
-      _message('Tiện ích "$roomMatch" đã có sẵn trong phòng.');
-      return;
-    }
-
-    // 3. Chống trùng với tiện ích tùy chọn local (không phân biệt dấu tiếng Việt, hoa/thường)
-    final customMatch = _customAmenities
-        .where(
-          (item) =>
-              normalizeVietnameseComparison(item) ==
-              normalizeVietnameseComparison(normalized),
-        )
-        .firstOrNull;
-
-    if (customMatch != null) {
-      setState(() {
-        _selectedAmenities.add(customMatch);
-        _customAmenity.clear();
-        _amenitiesExpanded = true;
-      });
-      _message('Tiện ích tùy chọn "$customMatch" đã tồn tại.');
-      return;
-    }
-
-    // 4. Thêm vào list local dưới dạng checkbox đã chọn (CHỈ LƯU LOCAL TRONG FORM, CHƯA GHI FIREBASE)
-    setState(() {
-      _customAmenities.add(normalized);
-      _selectedAmenities.add(normalized);
-      _customAmenity.clear();
-      _amenitiesExpanded = true;
-    });
-  }
-
   void _toggleAmenity(String name) {
     setState(() {
       if (_selectedAmenities.contains(name)) {
@@ -649,13 +553,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     });
   }
 
-  void _removeCustomAmenity(String name) {
-    setState(() {
-      _customAmenities.remove(name);
-      _selectedAmenities.remove(name);
-    });
-  }
-
   Future<void> _save(String uid, UserProfile? profile) async {
     if (_property == null) {
       _message('Vui lòng chọn khu nhà.');
@@ -663,12 +560,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     }
     if (_selectedRoom == null) {
       _message('Vui lòng chọn phòng.');
-      return;
-    }
-    if (_isRoomOccupied(_selectedRoom!)) {
-      _message(
-        'Phòng "${_selectedRoom!.roomCode}" đã có người ở. Bị khóa không được phép đăng bài!',
-      );
       return;
     }
 
@@ -765,6 +656,8 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           'phanTramTienCoc': FieldValue.delete(),
           'diaChi': FieldValue.delete(),
           'soDienThoaiLienHe': FieldValue.delete(),
+          'hiddenReason': FieldValue.delete(),
+          'isAvailable': FieldValue.delete(),
         };
 
         final db = FirebaseFirestore.instance;
@@ -868,6 +761,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             nhaTroId: _property!.id,
             phongId: _selectedRoom!.id,
           );
+
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1017,7 +911,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               Text(
                 widget.isResubmitting
                     ? 'Cập nhật lại bài đăng bị từ chối'
-                    : 'Dành cho chủ nhà & đối tác uy tín',
+                    : 'Dành cho chủ nhà & đối tác',
                 style: const TextStyle(fontSize: 11, color: HostTheme.textSecondary),
               ),
             ],
@@ -1191,7 +1085,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                     const SizedBox(height: 12),
                     _textField(
                       _areaController,
-                      'Diện tích (m²)',
+                      'Diện tích (m²) (Cố định từ phòng) *',
                       '25',
                       key: const ValueKey('area_input'),
                       keyboard: TextInputType.number,
@@ -1224,7 +1118,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                     const SizedBox(height: 10),
                     _contactField(
                       _address,
-                      'Địa chỉ *',
+                      'Địa chỉ (Cố định theo phòng/nhà) *',
                       Icons.location_on_outlined,
                       '18 Đường số 6, Tăng Nhơn Phú B, TP. Thủ Đức',
                       key: const ValueKey('address_input'),
@@ -1237,7 +1131,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                         Expanded(
                           child: _contactField(
                             _phone,
-                            'Số điện thoại *',
+                            'Số điện thoại (Cố định tài khoản) *',
                             Icons.phone_outlined,
                             '0987 654 321',
                             key: const ValueKey('phone_input'),
@@ -1382,36 +1276,19 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                 ? dropdownRooms
                       .map(
                         (room) {
-                          final isCurrentRoom = room.id == _selectedRoom?.id;
                           final isOccupied = _isRoomOccupied(room);
-                          final canSelect = !isOccupied || isCurrentRoom;
                           return DropdownMenuItem<RoomModel>(
                             value: room,
-                            enabled: canSelect,
+                            enabled: true,
                             child: Row(
                               children: [
-                                if (isOccupied && !isCurrentRoom) ...[
-                                  Icon(
-                                    Icons.lock_rounded,
-                                    size: 16,
-                                    color: AppColors.danger,
-                                  ),
-                                  const SizedBox(width: 6),
-                                ],
                                 Expanded(
                                   child: Text(
                                     room.title.isNotEmpty
-                                        ? '${room.roomCode} - ${room.title}${isOccupied ? " (Đã có người ở - Khóa)" : ""}'
-                                        : '${room.roomCode}${isOccupied ? " (Đã có người ở - Khóa)" : ""}',
+                                        ? '${room.roomCode} - ${room.title}'
+                                        : room.roomCode,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: isOccupied && !isCurrentRoom
-                                          ? HostTheme.textSecondary
-                                          : null,
-                                      fontWeight: isOccupied && !isCurrentRoom
-                                          ? FontWeight.normal
-                                          : FontWeight.w500,
-                                    ),
+                                    style: const TextStyle(fontWeight: FontWeight.w500),
                                   ),
                                 ),
                                 if (isOccupied)
@@ -1428,7 +1305,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                                         color: AppColors.danger.withValues(alpha: 0.3),
                                       ),
                                     ),
-                                    child: Text(
+                                    child: const Text(
                                       'Đang ở',
                                       style: TextStyle(
                                         fontSize: 10,
@@ -1447,12 +1324,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             onChanged: roomEnabled
                 ? (room) {
                     if (room == null) return;
-                    if (_isRoomOccupied(room)) {
-                      _message(
-                        'Phòng "${room.roomCode}" đã có người ở, không thể đăng bài!',
-                      );
-                      return;
-                    }
                     _onRoomSelected(room);
                   }
                 : null,
@@ -1460,25 +1331,80 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               if (val == null && _selectedRoom == null) {
                 return 'Vui lòng chọn phòng';
               }
-              final checkRoom = val ?? _selectedRoom;
-              if (checkRoom != null && _isRoomOccupied(checkRoom)) {
-                return 'Phòng đã có người ở, không thể đăng bài';
-              }
               return null;
             },
           ),
+          // Banner thông báo nếu phòng đang có người ở
+          if (_selectedRoom != null && _isRoomOccupied(_selectedRoom!)) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFFD97706)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Lưu ý: Phòng này hiện đang có người ở. Bài đăng sẽ hiển thị cho mục đích quảng bá / giới thiệu phòng; người xem sẽ không thể đặt phòng cho đến khi phòng trống.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF92400E),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
   /// Bố cục: [ Giá thuê ] [ Tiền cọc ]
-  Widget _priceAndDepositRow() => Row(
+  Widget _priceAndDepositRow() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Expanded(child: _priceInput()),
-      const SizedBox(width: 10),
-      Expanded(child: _depositInput()),
+      Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.lock_outline, size: 14, color: Color(0xFF64748B)),
+            SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Giá thuê & tiền cọc được khóa cứng cố định theo dữ liệu phòng trọ.',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFF475569),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: _priceInput()),
+          const SizedBox(width: 10),
+          Expanded(child: _depositInput()),
+        ],
+      ),
     ],
   );
 
@@ -1489,21 +1415,24 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     keyboardType: TextInputType.number,
     inputFormatters: [VndInputFormatter()],
     style: const TextStyle(
-      fontSize: 17,
+      fontSize: 16,
       fontWeight: FontWeight.w700,
-      color: HostTheme.primary,
+      color: Color(0xFF334155),
     ),
     decoration: HostTheme.inputDecoration(
-      labelText: 'Tiền cọc *',
+      labelText: 'Tiền cọc (Cố định từ phòng) *',
       suffixText: 'đ',
+      suffixIcon: const Icon(Icons.lock_outline, size: 16, color: Color(0xFF64748B)),
+      fillColor: const Color(0xFFF1F5F9),
+      filled: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      enabledBorderColor: HostTheme.inputEnabledBorder,
-      enabledBorderWidth: 1.2,
-      focusedBorderColor: HostTheme.primary,
-      focusedBorderWidth: 2.0,
+      enabledBorderColor: const Color(0xFFCBD5E1),
+      enabledBorderWidth: 1.0,
+      focusedBorderColor: const Color(0xFF94A3B8),
+      focusedBorderWidth: 1.0,
     ),
     validator: (value) {
-      if (value == null || value.trim().isEmpty) return 'Nhập tiền cọc';
+      if (value == null || value.trim().isEmpty) return 'Chưa có tiền cọc từ phòng';
       final parsed = double.tryParse(vndDigits(value.trim()));
       if (parsed == null || parsed < 0) return 'Tiền cọc không hợp lệ';
       return null;
@@ -1517,21 +1446,24 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     keyboardType: TextInputType.number,
     inputFormatters: [VndInputFormatter()],
     style: const TextStyle(
-      fontSize: 17,
+      fontSize: 16,
       fontWeight: FontWeight.w700,
-      color: HostTheme.primary,
+      color: Color(0xFF334155),
     ),
     decoration: HostTheme.inputDecoration(
-      labelText: 'Giá thuê / tháng *',
+      labelText: 'Giá thuê (Cố định từ phòng) *',
       suffixText: 'đ/tháng',
+      suffixIcon: const Icon(Icons.lock_outline, size: 16, color: Color(0xFF64748B)),
+      fillColor: const Color(0xFFF1F5F9),
+      filled: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      enabledBorderColor: HostTheme.inputEnabledBorder,
-      enabledBorderWidth: 1.2,
-      focusedBorderColor: HostTheme.primary,
-      focusedBorderWidth: 2.0,
+      enabledBorderColor: const Color(0xFFCBD5E1),
+      enabledBorderWidth: 1.0,
+      focusedBorderColor: const Color(0xFF94A3B8),
+      focusedBorderWidth: 1.0,
     ),
     validator: (value) {
-      if (value == null || value.trim().isEmpty) return 'Nhập giá thuê';
+      if (value == null || value.trim().isEmpty) return 'Chưa có giá thuê từ phòng';
       final parsed = double.tryParse(vndDigits(value.trim()));
       if (parsed == null || parsed <= 0) return 'Giá thuê phải lớn hơn 0';
       return null;
@@ -1599,10 +1531,17 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       inputFormatters: keyboard == TextInputType.phone
           ? [FilteringTextInputFormatter.digitsOnly]
           : null,
+      style: readOnly
+          ? const TextStyle(color: Color(0xFF334155), fontWeight: FontWeight.w600)
+          : null,
       decoration: HostTheme.inputDecoration(
         labelText: label,
         hintText: hint,
-        prefixIcon: Icon(icon, color: HostTheme.primary, size: 20),
+        prefixIcon: Icon(icon, color: readOnly ? const Color(0xFF64748B) : HostTheme.primary, size: 20),
+        suffixIcon: readOnly ? const Icon(Icons.lock_outline, size: 16, color: Color(0xFF64748B)) : null,
+        fillColor: readOnly ? const Color(0xFFF1F5F9) : null,
+        filled: readOnly,
+        enabledBorderColor: readOnly ? const Color(0xFFCBD5E1) : HostTheme.inputEnabledBorder,
       ),
       validator: (value) =>
           label.contains('*') && (value == null || value.trim().isEmpty)
@@ -1613,6 +1552,8 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
 
   Widget _photoSection() {
     final totalImages = _existingImageUrls.length + _images.length;
+    final hasRoomImages = _selectedRoom != null && _existingImageUrls.isNotEmpty;
+
     return HostCardSection(
       title: 'HÌNH ẢNH & VIDEO PHÒNG',
       icon: Icons.image_outlined,
@@ -1627,6 +1568,33 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (hasRoomImages) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.lock_outline, size: 14, color: Color(0xFF64748B)),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Ảnh phòng được đồng bộ cố định từ dữ liệu phòng (Khóa cứng, không thể xóa).',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF475569),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           SizedBox(
             height: 94,
             child: SingleChildScrollView(
@@ -1637,15 +1605,18 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                     onTap: _pickImages,
                     disabled: _picking || totalImages >= 10,
                   ),
-                  // Hiển thị ảnh phòng đã nạp từ trước
+                  // Hiển thị ảnh phòng đã nạp từ trước (Khóa cứng nếu lấy từ phòng)
                   ..._existingImageUrls.asMap().entries.map(
                     (entry) => HostImageThumbnail(
                       index: entry.key,
                       rawUrl: entry.value,
                       isCover: entry.key == 0,
-                      onRemove: () => setState(
-                        () => _existingImageUrls.removeAt(entry.key),
-                      ),
+                      isLocked: _selectedRoom != null,
+                      onRemove: _selectedRoom != null
+                          ? null
+                          : () => setState(
+                              () => _existingImageUrls.removeAt(entry.key),
+                            ),
                     ),
                   ),
                   // Hiển thị ảnh mới chọn qua ImagePicker
@@ -1654,6 +1625,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                       index: entry.key,
                       upload: entry.value,
                       isCover: _existingImageUrls.isEmpty && entry.key == 0,
+                      isLocked: false,
                       onRemove: () => setState(() => _images.removeAt(entry.key)),
                     ),
                   ),
@@ -1703,10 +1675,17 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       inputFormatters: inputFormatters,
       maxLines: maxLines,
       maxLength: maxLength,
+      style: readOnly
+          ? const TextStyle(color: Color(0xFF334155), fontWeight: FontWeight.w600)
+          : null,
       decoration: HostTheme.inputDecoration(
         labelText: label,
         hintText: hint,
         suffixText: suffixText,
+        suffixIcon: readOnly ? const Icon(Icons.lock_outline, size: 16, color: Color(0xFF64748B)) : null,
+        fillColor: readOnly ? const Color(0xFFF1F5F9) : null,
+        filled: readOnly,
+        enabledBorderColor: readOnly ? const Color(0xFFCBD5E1) : HostTheme.inputEnabledBorder,
       ),
       validator: (value) =>
           label.contains('*') && (value == null || value.trim().isEmpty)
@@ -1716,51 +1695,13 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
   );
 
   Widget _amenitySection(List<Map<String, String>> catalogItems) {
-    final catalogNames = catalogItems.map((item) => item['name']!).toList();
-    final allItems = <String>[];
-
-    // 1. Tiện ích thực tế từ chính phòng đã chọn
-    if (_selectedRoom != null) {
-      for (final a in _selectedRoom!.amenities) {
-        final trimmed = a.trim();
-        if (trimmed.isNotEmpty && !allItems.contains(trimmed)) {
-          allItems.add(trimmed);
-        }
-      }
-    }
-
-    // 2. Tiện ích từ bảng TienIch_Phong của phòng
-    for (final a in _selectedAmenities) {
-      final trimmed = a.trim();
-      if (trimmed.isNotEmpty && !allItems.contains(trimmed)) {
-        allItems.add(trimmed);
-      }
-    }
-
-    // 3. Tiện ích từ danh mục Firestore catalog
-    for (final a in catalogNames) {
-      if (!allItems.contains(a)) {
-        allItems.add(a);
-      }
-    }
-
-    // 4. Tiện ích tùy chọn do chủ trọ thêm riêng (chỉ lưu local trong form)
-    for (final a in _customAmenities) {
-      if (!allItems.contains(a)) {
-        allItems.add(a);
-      }
-    }
-
-    // Thu gọn chỉ giữ item đã chọn; Xem thêm hiện toàn bộ
-    final visible = _amenitiesExpanded
-        ? allItems
-        : allItems.where((name) => _selectedAmenities.contains(name)).toList();
+    final isRoomSelected = _selectedRoom != null;
 
     return HostCardSection(
       title: 'Tiện ích & Yêu cầu',
       icon: Icons.format_list_bulleted_rounded,
       trailing: Text(
-        '${_selectedAmenities.length} đang chọn',
+        '${_selectedAmenities.length} tiện ích',
         style: const TextStyle(
           fontSize: 12,
           color: HostTheme.primary,
@@ -1770,113 +1711,86 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: HostTheme.background,
-              borderRadius: HostTheme.radius14,
-              border: Border.all(color: HostTheme.inputBorder),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.add_circle_outline,
-                  color: HostTheme.primary,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    key: const ValueKey('custom_amenity_input'),
-                    controller: _customAmenity,
-                    decoration: const InputDecoration(
-                      hintText: 'Thêm tiện ích, yêu cầu riêng...',
-                      hintStyle: TextStyle(
-                        fontSize: 13,
-                        color: HostTheme.textMuted,
+          if (isRoomSelected) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.lock_outline, size: 14, color: Color(0xFF64748B)),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Tiện ích được đồng bộ cố định từ cấu hình phòng trọ (Khóa cứng, không thể thay đổi).',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF475569),
+                        fontWeight: FontWeight.w600,
                       ),
-                      border: InputBorder.none,
-                      isDense: true,
                     ),
-                    onSubmitted: (_) => _addCustomAmenity(catalogItems),
                   ),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton(
-                  key: const ValueKey('add_custom_amenity_button'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: HostTheme.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    elevation: 0,
-                    minimumSize: const Size(60, 34),
-                  ),
-                  onPressed: () => _addCustomAmenity(catalogItems),
-                  child: const Text(
-                    'Thêm',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          if (visible.isEmpty && !_amenitiesExpanded)
+          ] else ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, size: 14, color: Color(0xFFD97706)),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Vui lòng chọn phòng ở phía trên để tải danh sách tiện ích cố định.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF92400E),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          if (isRoomSelected && _selectedAmenities.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Center(
                 child: Text(
-                  'Chưa chọn tiện ích nào. Nhấn "Xem thêm" để chọn.',
+                  'Phòng này chưa được cấu hình tiện ích trong mục Quản lý phòng.',
                   style: TextStyle(
                     fontSize: 12,
                     color: HostTheme.textSecondary,
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
               ),
             ),
-          ...visible.map((name) {
-            final isCustom = _customAmenities.contains(name);
-            final isSelected = _selectedAmenities.contains(name);
-            return HostAmenityTile(
-              name: name,
-              isCustom: isCustom,
-              isSelected: isSelected,
-              onTap: () => _toggleAmenity(name),
-              onDeleteCustom: isCustom
-                  ? () => _removeCustomAmenity(name)
-                  : null,
-            );
-          }),
-          const SizedBox(height: 6),
-          InkWell(
-            key: const ValueKey('amenities_toggle_button'),
-            borderRadius: HostTheme.radius12,
-            onTap: () =>
-                setState(() => _amenitiesExpanded = !_amenitiesExpanded),
-            child: Container(
-              width: double.infinity,
-              height: 38,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F5FF),
-                borderRadius: HostTheme.radius12,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                _amenitiesExpanded ? 'Thu gọn ^' : 'Xem thêm v',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: HostTheme.primary,
-                ),
-              ),
-            ),
-          ),
+
+          if (_selectedAmenities.isNotEmpty) ...[
+            ..._selectedAmenities.map((name) {
+              return HostAmenityTile(
+                name: name,
+                isCustom: false,
+                isSelected: true,
+                isLocked: isRoomSelected,
+                onTap: isRoomSelected ? null : () => _toggleAmenity(name),
+              );
+            }),
+          ],
         ],
       ),
     );

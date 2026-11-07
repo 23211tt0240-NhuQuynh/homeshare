@@ -1080,9 +1080,9 @@ class HostRepository {
       throw StateError('Phòng không tồn tại hoặc không thuộc cơ sở của bạn.');
     }
 
-    if (!RoomModel.fromFirestore(sourceRoom).canBeListed) {
-      throw StateError('Phòng đã được đặt cọc hoặc không còn trống.');
-    }
+
+
+
 
     final finalUrls = <String>[...room.images];
     if (images.isNotEmpty) {
@@ -1138,9 +1138,14 @@ class HostRepository {
       'images': finalUrls,
       'amenities': selectedAmenities.toList(),
       'status': PostStatus.normalize(status),
-      'isAvailable': PostStatus.normalize(status) == PostStatus.active,
       'isPinned': false,
       'createdAt': FieldValue.serverTimestamp(),
+      // Dọn sạch hoàn toàn các trường dữ liệu thừa trên posts
+      'hiddenReason': FieldValue.delete(),
+      'statusId': FieldValue.delete(),
+      'trang_thai': FieldValue.delete(),
+      'trangThai': FieldValue.delete(),
+      'trangThai_id': FieldValue.delete(),
     };
 
     // 5. Cập nhật bảng phòng host_rooms (100% tiếng Anh, xóa sạch trường tiếng Việt trùng lặp)
@@ -1161,8 +1166,8 @@ class HostRepository {
       'district': room.district.isNotEmpty ? room.district : (sourceData['district'] ?? diaDiemId),
       'city': room.city.isNotEmpty ? room.city : (sourceData['city'] ?? 'TP. Hồ Chí Minh'),
       'hostId': chuNhaId,
-      'isAvailable': true,
-      'status': 'available',
+      'isAvailable': sourceData['isAvailable'] ?? (sourceData['status'] == 'available'),
+      'status': sourceData['status'] ?? 'available',
       'images': finalUrls,
       'amenities': selectedAmenities.toList(),
       'updatedAt': FieldValue.serverTimestamp(),
@@ -1201,9 +1206,8 @@ class HostRepository {
     // Recheck after uploads; touching the room serializes against deposit approval.
     await _db.runTransaction((transaction) async {
       final latestRoom = await transaction.get(sourceRoom.reference);
-      if (!latestRoom.exists ||
-          !RoomModel.fromFirestore(latestRoom).canBeListed) {
-        throw StateError('Phòng đã được đặt cọc hoặc không còn trống.');
+      if (!latestRoom.exists) {
+        throw StateError('Phòng không tồn tại.');
       }
       transaction.update(sourceRoom.reference, {
         'updatedAt': FieldValue.serverTimestamp(),

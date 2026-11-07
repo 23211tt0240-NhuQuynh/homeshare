@@ -3,14 +3,15 @@ import '../../core/constants/firestore_collections.dart';
 import '../../features/auth/providers/user_provider.dart';
 import 'room_model.dart';
 
-/// Trạng thái chuẩn của bài đăng: pending, active, rejected, hidden
+/// Trạng thái chuẩn của bài đăng: pending, active, rejected (đã loại bỏ hidden)
 abstract final class PostStatus {
   static const pending = 'pending';
   static const active = 'active';
   static const rejected = 'rejected';
+  @Deprecated('Bài đăng không còn dùng hidden, chỉ còn pending, active, rejected')
   static const hidden = 'hidden';
 
-  static const validStatuses = {pending, active, rejected, hidden};
+  static const validStatuses = {pending, active, rejected};
 
   static String normalize(String? raw) {
     if (raw == null || raw.trim().isEmpty) return pending;
@@ -20,9 +21,6 @@ abstract final class PostStatus {
     }
     if (s == 'rejected' || s == 'tuchoi' || s == 'tu_choi' || s == 'bituchoi') {
       return rejected;
-    }
-    if (s == 'hidden' || s == 'daan' || s == 'da_an' || s == 'an' || s == 'taman' || s == 'tam_an') {
-      return hidden;
     }
     if (s == 'pending' || s == 'choduyet' || s == 'cho_duyet') {
       return pending;
@@ -176,11 +174,34 @@ class HostPostModel {
   bool get isPending => PostStatus.normalize(status) == PostStatus.pending;
   bool get isActive => PostStatus.normalize(status) == PostStatus.active;
   bool get isApprovedOrActive => isActive;
-  bool get isHidden => PostStatus.normalize(status) == PostStatus.hidden;
+  @Deprecated('Bài đăng không còn trạng thái hidden, chỉ có pending, active, rejected')
+  bool get isHidden => false;
 
-  /// Bài đăng có thể chỉnh sửa: chỉ cho phép khi bị từ chối / chờ duyệt,
-  /// TUYỆT ĐỐI KHÔNG cho phép chỉnh sửa khi bài đã duyệt/đang hiển thị hoặc đang ở trạng thái ẩn (hidden).
-  bool get canEdit => !isApprovedOrActive && !isHidden;
+  /// Bài đăng có thể chỉnh sửa: chỉ cho phép khi bị từ chối hoặc đang chờ duyệt,
+  /// TUYỆT ĐỐI KHÔNG cho phép chỉnh sửa khi bài đã duyệt / đang hiển thị.
+  bool get canEdit => isRejected || isPending;
+
+  /// Phòng trọ gắn kèm đã được nối hoặc tạo đối tượng RoomModel an toàn từ bài đăng
+  RoomModel get resolvedRoom => joinedRoom ?? RoomModel(
+    id: roomId.isNotEmpty ? roomId : id,
+    title: title,
+    description: description,
+    price: rentalPrice,
+    deposit: depositAmount,
+    depositPercentage: depositPercentage,
+    address: address,
+    district: district,
+    city: city.isNotEmpty ? city : 'TP. Hồ Chí Minh',
+    area: roomArea > 0 ? roomArea : 25.0,
+    roomType: roomType.isNotEmpty ? roomType : 'Phòng trọ',
+    amenities: amenities,
+    images: images,
+    hostId: hostId,
+    hostName: authorName,
+    hostPhone: contactPhone,
+    hostAvatar: authorAvatar,
+    createdAt: createdAt,
+  );
 
   /// Đường dẫn Sub-collection trên Firestore theo quan hệ 1-N:
   /// Path: rooms/{roomId}/rental_posts
