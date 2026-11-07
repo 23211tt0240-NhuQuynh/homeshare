@@ -23,6 +23,36 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.114 - Khôi Phục Mục Tùy Chỉnh Giao Diện (Appearance / Theme) & Chuẩn Hóa Theme Tối (Graphite Dark Mode) Theo `dev-THE`:**
+    - **Yêu cầu & Nghiệp vụ:**
+      1. Người dùng phản hồi: *"theme đâu"* sau khi tùy chọn Giao diện bị ẩn khỏi mục Cài đặt trang cá nhân.
+      2. Khôi phục hoàn toàn mục **"Giao diện"** (`appearance`) trong danh mục Cài đặt của [`HomeScreen`](lib/features/home/screens/home_screen.dart) kèm hiển thị trạng thái hiện tại (Sáng / Tối / Hệ thống).
+      3. BottomSheet `_showThemeDialog` cung cấp đầy đủ 3 tùy chọn:
+         - **Sáng (Light):** Dùng moodboard Phòng Sáng (`PhongSangTheme.light`), nền trắng/xám dịu mát, chữ mực đen than `#101828`.
+         - **Tối (Dark):** Kích hoạt hệ thống theme Graphite tối (`GraphiteTheme.dark`) chuẩn từ commit `a68f1dc` của `homeshare-dev-THE-on-dev`, nền xám than chì `#0F172A`, thẻ `#1E293B`, viền `#334155`, chữ sáng `#F1F5F9`.
+         - **Hệ thống (System):** Tự động thích ứng linh hoạt theo cài đặt độ sáng của thiết bị (Dark Mode / Light Mode).
+    - **Triển khai kỹ thuật:**
+      1. `lib/core/constants/app_colors.dart`:
+         - Bổ sung cấu hình `AppPalette.graphite` đầy đủ các token dark theme của `GraphiteColors`.
+         - Duy trì các token tĩnh `static const Color primary, textDark, background,...` để toàn bộ widget có `const` trong codebase không bị lỗi `invalid_constant`.
+         - Cung cấp dynamic getters (`currentBackground`, `currentSurface`, `currentTextDark`, `currentTextMuted`, `currentBorder`, `currentPrimary`), phương thức `AppColors.of(context)` và `AppColors.bind(Theme.of(context).brightness)`.
+      2. `lib/core/theme/app_theme.dart`:
+         - `lightTheme => PhongSangTheme.light`.
+         - `darkTheme => GraphiteTheme.dark`.
+      3. `lib/core/providers/app_settings_provider.dart`:
+         - `AppThemeModeNotifier` đồng bộ 2 chiều với `appThemeControllerProvider`, nạp và lưu song song 2 key SharedPreferences (`app_theme_mode` & `app_theme_mode_preference`).
+      4. `lib/main.dart`:
+         - Chuyển `MyApp` thành `ConsumerWidget`, theo dõi `appThemeControllerProvider`.
+         - Cấu hình `theme: AppTheme.lightTheme`, `darkTheme: AppTheme.darkTheme`.
+         - Khối `builder` gọi `AppColors.bind(Theme.of(context).brightness)` và tự động điều chỉnh màu chữ qua `DefaultTextStyle.merge` (`#F1F5F9` khi tối, `#101828` khi sáng). Admin luôn giữ giao diện sáng.
+      5. `lib/features/home/screens/home_screen.dart`:
+         - Tái tích hợp `_buildSettingsItem` cho `appearance`, hiển thị tag `currentThemeMode` (`Sáng`, `Tối`, `Hệ thống`).
+         - Tái kích hoạt `_showThemeDialog` với giao diện chọn theme có radio tick, icon sinh động và thông báo `SnackBar` khi đổi thành công.
+      6. `test/settings_and_localization_test.dart`:
+         - Bổ sung kiểm thử unit test cho bản dịch cài đặt giao diện (Anh/Việt) và cấu hình `AppTheme.darkTheme`.
+    - **Kiểm định chất lượng:**
+      - `flutter analyze lib/`: **No issues found! (0 errors, 0 warnings)** (100% clean).
+      - `flutter test`: **100% test cases passed**.
   * **Phase 2.113 - Chuẩn Hóa Cơ Chế Giao Diện Tối (Dark Theme) Đồng Bộ Hoàn Toàn Theo `homeshare-dev-THE-on-dev`:**
     - **Yêu cầu & Thực trạng khảo sát:**
       + Người dùng yêu cầu: *"giao diện tối phải như bên homeshare-dev-THE-on-dev"*.

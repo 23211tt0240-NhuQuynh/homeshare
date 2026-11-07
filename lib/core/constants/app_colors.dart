@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import '../theme/graphite_theme.dart';
 import '../theme/phong_sang_theme.dart';
 
-/// Palette giao diện sáng (Phòng Sáng). App không còn theme tối.
+/// Palette giao diện sáng (Phòng Sáng) & tối (Graphite).
 class AppPalette {
   const AppPalette({
     required this.primary,
@@ -20,6 +21,7 @@ class AppPalette {
     required this.warning,
     required this.warningContainer,
     required this.success,
+    required this.isDark,
   });
 
   final Color primary;
@@ -38,6 +40,7 @@ class AppPalette {
   final Color warning;
   final Color warningContainer;
   final Color success;
+  final bool isDark;
 
   Color get textPrimary => textDark;
   Color get textSecondary => textMuted;
@@ -60,20 +63,55 @@ class AppPalette {
     warning: PhongSangColors.hold,
     warningContainer: Color(0xFFFEF0C7),
     success: PhongSangColors.live,
+    isDark: false,
+  );
+
+  static const graphite = AppPalette(
+    primary: GraphiteColors.accent,
+    primaryLight: GraphiteColors.primaryLight,
+    primaryDark: GraphiteColors.primaryDark,
+    primaryContainer: GraphiteColors.accentSoft,
+    primarySurface: GraphiteColors.successContainer,
+    textDark: GraphiteColors.ink,
+    textMuted: GraphiteColors.muted,
+    background: GraphiteColors.paper,
+    surface: GraphiteColors.card,
+    surfaceVariant: GraphiteColors.priceSoft,
+    border: GraphiteColors.line,
+    danger: GraphiteColors.danger,
+    dangerContainer: GraphiteColors.dangerContainer,
+    warning: GraphiteColors.warning,
+    warningContainer: GraphiteColors.warningContainer,
+    success: GraphiteColors.success,
+    isDark: true,
   );
 }
 
-/// Màu app giao diện sáng (Phòng Sáng).
+/// Màu app giao diện.
 class AppColors {
   static AppPalette palette = AppPalette.light;
 
-  static void bind([Brightness? _]) {
-    palette = AppPalette.light;
+  static void bind([Brightness? brightness]) {
+    palette = brightness == Brightness.dark
+        ? AppPalette.graphite
+        : AppPalette.light;
   }
 
-  static bool get isDark => false;
+  static bool get isDark => palette.isDark;
 
-  static AppPalette of(BuildContext _) => AppPalette.light;
+  static AppPalette of(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? AppPalette.graphite
+        : AppPalette.light;
+  }
+
+  // Dynamic getters theo theme đang chạy:
+  static Color get currentBackground => palette.background;
+  static Color get currentSurface => palette.surface;
+  static Color get currentTextDark => palette.textDark;
+  static Color get currentTextMuted => palette.textMuted;
+  static Color get currentBorder => palette.border;
+  static Color get currentPrimary => palette.primary;
 
   // Bảng màu chuẩn theo moodboard Phòng Sáng (phong_sang_theme.dart)
   static const Color primary = PhongSangColors.accent;         // Nút chính, xanh hành động (--accent #155EEF)
