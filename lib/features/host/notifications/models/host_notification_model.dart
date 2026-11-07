@@ -118,6 +118,15 @@ class HostNotificationModel {
       title.toLowerCase().contains('bị từ chối') ||
       message.toLowerCase().contains('bị từ chối');
 
+  // Chủ trọ - Nhận thông báo giải ngân - Admin quyết toán thành công tạo phiếu này.
+  bool get isDisbursementNotification =>
+      actionType == 'disbursement' ||
+      type == HostNotificationType.paymentCompleted &&
+          (title.toLowerCase().contains('giải ngân') ||
+              message.toLowerCase().contains('giải ngân')) ||
+      title.toLowerCase().contains('admin đã giải ngân') ||
+      message.toLowerCase().contains('đã giải ngân');
+
   /// Thông báo bị mồ côi / mất dữ liệu phòng và khách thuê (thường do booking gốc bị xóa)
   bool get isOrphaned =>
       bookingId.isNotEmpty &&

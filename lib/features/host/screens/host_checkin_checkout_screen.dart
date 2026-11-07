@@ -699,11 +699,6 @@ class _HostCheckinCheckoutScreenState
     final checkinItemsAsync = ref.watch(hostCheckinItemsProvider);
     final checkoutItemsAsync = ref.watch(hostCheckoutItemsProvider);
 
-    final checkinCount =
-        checkinItemsAsync.value?.where((i) => !i.isCompleted).length ?? 1;
-    final checkoutCount =
-        checkoutItemsAsync.value?.where((i) => !i.isCompleted).length ?? 2;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
@@ -789,20 +784,18 @@ class _HostCheckinCheckoutScreenState
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+                            children: const [
                               Text(
-                                _selectedTab == 0
-                                    ? 'Quét QR Check-in\nTốc Hành'
-                                    : 'Quét QR Check-out\nTốc Hành',
-                                style: const TextStyle(
+                                'Quét QR Check-in\nTốc Hành',
+                                style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w800,
                                   color: Colors.white,
                                   height: 1.2,
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              const Text(
+                              SizedBox(height: 2),
+                              Text(
                                 'Bàn giao & kiểm tra phòng tức thì',
                                 style: TextStyle(
                                   fontSize: 11,
@@ -850,103 +843,15 @@ class _HostCheckinCheckoutScreenState
                   ),
                   const SizedBox(height: 16),
 
-                  // Tab chuyển đổi (Check-in / Check-out)
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE2E8F0),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildTabPill(
-                            index: 0,
-                            title: 'Check-in',
-                            count: checkinCount,
-                          ),
-                        ),
-                        Expanded(
-                          child: _buildTabPill(
-                            index: 1,
-                            title: 'Check-out',
-                            count: checkoutCount,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
+                  // Nếu có phòng cần check-in thì ưu tiên hiển thị trước
+                  if ((checkinItemsAsync.value?.any((i) => !i.isCompleted) ?? false)) ...[
+                    _buildCheckinContent(checkinItemsAsync),
+                    const SizedBox(height: 16),
+                  ],
 
-                  // Nội dung theo Tab
-                  if (_selectedTab == 0)
-                    _buildCheckinContent(checkinItemsAsync)
-                  else
-                    _buildCheckoutContent(checkoutItemsAsync),
+                  // Danh sách người thuê đang ở hiển thị ngay dưới khu vực quét QR (chuẩn Figma & MAN)
+                  _buildCheckoutContent(checkoutItemsAsync),
                 ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTabPill({
-    required int index,
-    required String title,
-    required int count,
-  }) {
-    final isSelected = _selectedTab == index;
-
-    return InkWell(
-      onTap: () => setState(() => _selectedTab = index),
-      borderRadius: BorderRadius.circular(20),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: isSelected
-              ? const [
-                  BoxShadow(
-                    color: Color(0x14000000),
-                    blurRadius: 4,
-                    offset: Offset(0, 1),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                color: isSelected
-                    ? const Color(0xFF2563EB)
-                    : const Color(0xFF64748B),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? const Color(0xFF2563EB)
-                    : const Color(0xFFCBD5E1),
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                '$count',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
               ),
             ),
           ],
@@ -1078,9 +983,9 @@ class _HostCheckinCheckoutScreenState
         if (pending.isEmpty && completed.isEmpty) {
           return _buildEmptyState(
             icon: Icons.exit_to_app_rounded,
-            title: 'Chưa có phòng nào cần Check-out',
+            title: 'Chưa có người thuê nào cần Check-out',
             subtitle:
-                'Các phòng sắp hết hạn thuê hoặc trả phòng sẽ xuất hiện tại đây.',
+                'Người thuê đang ở sẽ xuất hiện tại đây để checkout từng người.',
           );
         }
 
@@ -1093,7 +998,7 @@ class _HostCheckinCheckoutScreenState
                 children: [
                   const Flexible(
                     child: Text(
-                      'DANH SÁCH CẦN XỬ LÝ',
+                      'DANH SÁCH NGƯỜI THUÊ',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -1106,7 +1011,7 @@ class _HostCheckinCheckoutScreenState
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '${pending.length} phòng liên quan',
+                    '${pending.length} người thuê',
                     style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFF64748B),
@@ -1126,7 +1031,7 @@ class _HostCheckinCheckoutScreenState
             if (completed.isNotEmpty) ...[
               const SizedBox(height: 16),
               const Text(
-                'PHÒNG ĐÃ HOÀN TẤT',
+                'NGƯỜI THUÊ ĐÃ CHECK-OUT',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,

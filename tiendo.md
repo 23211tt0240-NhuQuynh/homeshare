@@ -23,6 +23,30 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.112 - Đồng Bộ Giao Diện Thông Báo (Admin Đã Giải Ngân) & Quản Lý Check-out (Danh Sách Người Thuê) Từ `homeshare-dev-MAN-on-dev` (Đổi Giao Diện Hình 1 Thành Hình 2):**
+    - **Yêu cầu & Nghiệp vụ:**
+      1. Khách hàng yêu cầu: "đổi giao diện hình 1 thành hình 2 trong homeshare-dev-MAN-on-dev".
+      2. Hình 1 (trước nâng cấp):
+         - Màn hình Thông báo chủ trọ (tab "Đã thanh toán"): Thẻ giải ngân của Admin bị hiển thị sai thành thẻ đặt phòng chung với badge `SC` (do chưa kích hoạt nhánh `isDisbursementNotification`).
+         - Màn hình Quản lý Check In & Check Out: Hiển thị thanh Tab `[ Check-in (0) ] [ Check-out (2) ]`, mặc định tab Check-in trống gây hiện thị màn hình rỗng "Chưa có phòng nào cần Check-In", che khuất danh sách người thuê đang ở.
+      3. Hình 2 (sau nâng cấp chuẩn MAN):
+         - Màn hình Thông báo chủ trọ: Thẻ giải ngân được render chuẩn giao diện thẻ xanh Admin (`_buildDisbursementCard`): Icon ngân hàng xanh lá, tiêu đề "Admin đã giải ngân", thời gian tương đối, nội dung chi tiết giải ngân và hộp "Thực nhận sau phí hoa hồng: 950.000 đ".
+         - Màn hình Quản lý Check In & Check Out: Bỏ thanh Tab phân tách. Dưới banner QR tốc hành hiển thị trực tiếp danh sách người thuê đang ở: tiêu đề `DANH SÁCH NGƯỜI THUÊ`, số lượng (`2 người thuê`), thẻ thông tin cư dân đầy đủ (tên, tòa nhà, tầng, ngày trả phòng dự kiến, tiền cọc) và nút đỏ `[-> Check-out`. Nếu có phòng chờ Check-in thì hiển thị ưu tiên phía trên.
+    - **Triển khai kỹ thuật:**
+      1. `lib/features/host/notifications/models/host_notification_model.dart`:
+         - Bổ sung getter `isDisbursementNotification` nhận diện mọi thông báo giải ngân từ Admin (`actionType == 'disbursement'` hoặc tiêu đề/nội dung chứa 'giải ngân').
+      2. `lib/features/host/notifications/widgets/notification_card.dart`:
+         - Thêm điều kiện `if (notif.isDisbursementNotification) return _buildDisbursementCard(context, ref, notif);` tại đầu hàm `build`.
+         - Bổ sung hàm `_buildDisbursementCard` chuẩn Figma & MAN với giao diện thẻ xanh tài chính, icon tài khoản ngân hàng, badge check xanh, và chạm vào để đánh dấu đã đọc.
+      3. `lib/features/host/notifications/repositories/host_notification_repository.dart`:
+         - Bổ sung `isDisbursementNotification` vào danh sách ngoại lệ của `_normalizePaymentNotifications` để không bị gộp/lọc nhầm vào danh sách booking.
+      4. `lib/features/host/screens/host_checkin_checkout_screen.dart`:
+         - Loại bỏ thanh Tab pill `[ Check-in ] [ Check-out ]`.
+         - Hiển thị trực tiếp `_buildCheckoutContent` ngay dưới banner QR Check-in tốc hành (kèm hiển thị nhận phòng nếu có phòng chờ).
+         - Chuẩn hóa nhãn tiêu đề: `DANH SÁCH NGƯỜI THUÊ`, `${pending.length} người thuê`, `NGƯỜI THUÊ ĐÃ CHECK-OUT`.
+    - **Kiểm thử chất lượng & Phân tích tĩnh:**
+      - `flutter analyze lib/`: **No issues found! (0 errors, 0 warnings)**.
+      - Test suite: **21/21 tests passed (100%)**.
   * **Phase 2.111 - Mở Rộng Hệ Thống Gợi Ý Tìm Kiếm Bản Đồ Cho Cao Đẳng, Đại Học & Điểm Mốc Trọng Điểm:**
     - **Yêu cầu & Nghiệp vụ:**
       1. Khách hàng yêu cầu: "phần seach của map có nhiều gợi ý vd cao đẳng là có gợi ý rồi".

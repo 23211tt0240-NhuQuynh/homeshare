@@ -46,7 +46,7 @@ class HostNotificationRepository {
 
     final unique = <String, HostNotificationModel>{};
     for (final item in items) {
-      if (item.isRoommateApproval || item.newRoommateId.isNotEmpty || item.isRoomIssue) continue;
+      if (item.isRoommateApproval || item.newRoommateId.isNotEmpty || item.isRoomIssue || item.isDisbursementNotification) continue;
       final key = item.bookingId.trim().isNotEmpty
           ? 'booking:${item.bookingId.trim()}'
           : item.roomId.trim().isNotEmpty
