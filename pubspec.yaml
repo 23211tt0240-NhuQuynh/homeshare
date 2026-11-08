@@ -90,7 +90,6 @@ flutter:
   assets:
     - lib/core/utils/admin_receipt_font.ttf
     - lib/core/utils/admin_receipt_font_bold.ttf
-    - assets/themes/dark_themes.xml
     - assets/images/
 
   # To add assets to your application, add an assets section, like this:

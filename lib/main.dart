@@ -6,7 +6,6 @@ import 'core/constants/app_colors.dart';
 import 'core/services/call_push_service.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/theme/app_theme.dart';
-import 'core/theme/app_theme_controller.dart';
 import 'features/admin/screens/admin_main_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/providers/user_provider.dart';
@@ -24,32 +23,22 @@ void main() async {
   runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends ConsumerWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeState = ref.watch(appThemeControllerProvider).value;
-    // Admin luôn sáng; Graphite chỉ áp host / người thuê.
-    final isAdmin = ref.watch(userProfileProvider).value?.isAdmin == true;
+  Widget build(BuildContext context) {
     return MaterialApp(
       title: 'HomeShare',
       debugShowCheckedModeBanner: false,
       // Để thông báo cuộc gọi mở IncomingCallScreen dù người dùng đang ở trang nào.
       navigatorKey: navigatorKey,
       theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: isAdmin
-          ? ThemeMode.light
-          : (themeState?.mode ?? ThemeMode.light),
+      themeMode: ThemeMode.light,
       builder: (context, child) {
-        AppColors.bind(Theme.of(context).brightness);
+        AppColors.bind();
         return DefaultTextStyle.merge(
-          style: TextStyle(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? const Color(0xFFF1F5F9)
-                : const Color(0xFF101828),
-          ),
+          style: const TextStyle(color: Color(0xFF101828)),
           child: child ?? const SizedBox.shrink(),
         );
       },

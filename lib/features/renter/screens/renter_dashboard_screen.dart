@@ -1,3 +1,4 @@
+import '../../profile/screens/role_aware_profile_screen.dart';
 import '../../profile/widgets/host_reputation_stars.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import '../../../core/services/favorites_service.dart';
 import '../../auth/providers/user_provider.dart';
 import 'room_detail_screen.dart';
 import 'search_filter_screen.dart';
+import 'user_notifications_screen.dart';
 
 class RenterDashboardScreen extends ConsumerStatefulWidget {
   const RenterDashboardScreen({super.key});
@@ -146,6 +148,106 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
               );
             },
           ),
+          Center(
+            child: Consumer(
+              builder: (context, ref, _) {
+                final unreadNotifs = ref.watch(userUnreadNotificationCountProvider);
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const UserNotificationsScreen(),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const Icon(
+                            Icons.notifications_none_rounded,
+                            size: 22,
+                            color: Color(0xFF1E293B),
+                          ),
+                          if (unreadNotifs > 0)
+                            Positioned(
+                              top: 7,
+                              right: 7,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFEF4444),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          Center(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const RoleAwareProfileScreen(),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.all(1.5),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.35),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: CircleAvatar(
+                    radius: 17,
+                    backgroundColor: AppColors.primaryContainer,
+                    backgroundImage: (profile?.avatarUrl.startsWith('http') == true)
+                        ? NetworkImage(profile!.avatarUrl)
+                        : null,
+                    child: (profile?.avatarUrl.startsWith('http') == true)
+                        ? null
+                        : Text(
+                            (profile?.displayName.isNotEmpty ?? false)
+                                ? profile!.displayName[0].toUpperCase()
+                                : 'U',
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
         ],
       ),
       body: RefreshIndicator(

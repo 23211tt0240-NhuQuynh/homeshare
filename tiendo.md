@@ -23,6 +23,38 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.118 - Tinh Chỉnh Header Dashboard & Gỡ Bỏ Icon Cây Bút Trong Trang Cá Nhân:**
+    - **Yêu cầu & Nghiệp vụ đã hoàn thành:**
+      1. **Gỡ bỏ icon cây bút ở AppBar "Trang cá nhân":**
+         - Tại [home_screen.dart](lib/features/home/screens/home_screen.dart), xóa bỏ action `IconButton(icon: const Icon(Icons.edit_outlined))` trên AppBar của tab Trang cá nhân. Giao diện tiêu đề trở nên sạch sẽ, người dùng truy cập hồ sơ chi tiết thông qua Profile Header Card trực quan bên dưới.
+      2. **Tích hợp cụm Actions hoàn chỉnh trên AppBar của Dashboard ([renter_dashboard_screen.dart](lib/features/renter/screens/renter_dashboard_screen.dart)):**
+         - Thứ tự các phần tử từ trái sang phải chuẩn theo chỉ định:
+           1. **Icon tìm kiếm (`Icons.search`):** Mở bộ lọc tìm phòng nâng cao (`SearchFilterScreen`).
+           2. **Icon thông báo (Chuông thông báo bo tròn `Icons.notifications_none_rounded`):** Đồng bộ thiết kế viền trắng 38x38 kèm chấm đỏ báo tin chưa đọc từ tab Tin nhắn sang Dashboard. Khi bấm vào sẽ mở trực tiếp màn hình danh sách thông báo người dùng (`UserNotificationsScreen`).
+           3. **Avatar người dùng (CircleAvatar):** Hiển thị ảnh đại diện thực tế hoặc ký tự đầu tên người dùng với viền bo tinh tế. Khi bấm vào avatar sẽ điều hướng trực tiếp vào màn hình hồ sơ người dùng (`RoleAwareProfileScreen`).
+      3. **Kiểm thử tự động & Phân tích tĩnh:**
+         - Viết mới bộ test [test/dashboard_header_actions_test.dart](test/dashboard_header_actions_test.dart) kiểm thử:
+           + Tab Trang cá nhân không còn icon cây bút ở AppBar.
+           + Thứ tự tọa độ X của 3 action trên Dashboard chuẩn xác: Search < Bell < Avatar.
+           + Bấm chuông thông báo mở `UserNotificationsScreen`.
+           + Bấm avatar mở `RoleAwareProfileScreen`.
+         - Kết quả: **4/4 tests passed (100%)**.
+         - `flutter analyze`: **No issues found! (0 errors, 0 warnings)**.
+  * **Phase 2.117 - Đồng Bộ 5 File Từ Ổ D & Khóa Chặt Mục Ngân Hàng Trong Profile Khi Chưa Nhấn Chỉnh Sửa:**
+    - **Yêu cầu & Nghiệp vụ đã hoàn thành:**
+      1. **Thay thế chính xác 5 file .dart từ thư mục gốc ổ D:\ vào project:**
+         - `D:\chat_list_screen.dart` -> [lib/features/chat/screens/chat_list_screen.dart](lib/features/chat/screens/chat_list_screen.dart): Loại bỏ hoàn toàn mock sample conversation, chỉ lấy và hiển thị danh sách hội thoại thực từ Firestore.
+         - `D:\host_profile_screen.dart` -> [lib/features/profile/screens/host_profile_screen.dart](lib/features/profile/screens/host_profile_screen.dart): Cập nhật tương thích với `HostReviewsSection`.
+         - `D:\personal_profile_screen.dart` -> [lib/features/profile/screens/personal_profile_screen.dart](lib/features/profile/screens/personal_profile_screen.dart): Cập nhật tương thích với `HostReviewsSection`.
+         - `D:\host_reviews_section.dart` -> [lib/features/profile/widgets/host_reviews_section.dart](lib/features/profile/widgets/host_reviews_section.dart): Chỉ hiển thị thanh uy tín khi đã có đánh giá thực (`stats.count > 0`).
+         - `D:\host_review_test.dart` -> [test/host_review_test.dart](test/host_review_test.dart): Cập nhật test cases đánh giá chủ trọ.
+      2. **Khóa mục Ngân hàng trong Profile - Chỉ cho phép sửa khi nhấn "Chỉnh sửa":**
+         - *Tại cả 2 màn hình Hồ sơ cá nhân ([personal_profile_screen.dart](lib/features/profile/screens/personal_profile_screen.dart)) và Hồ sơ chủ trọ ([host_profile_screen.dart](lib/features/profile/screens/host_profile_screen.dart)):*
+           + **Ở chế độ xem thông thường (`_locked == true` / `!_editing`):** Khóa cứng toàn bộ thông tin ngân hàng. Hiển thị dưới dạng text chỉ xem (`_profileLine`) cho "Ngân hàng", "Số tài khoản" và "Chủ tài khoản". Tuyệt đối không cho phép gõ phím hay bấm mở Dropdown chọn ngân hàng.
+           + **Khi nhấn nút "Chỉnh sửa" (`_locked == false` / `_editing == true`):** Chuyển sang biểu mẫu chỉnh sửa đầy đủ gồm `_bankDropdown()` và các trường `TextFormField` số tài khoản, tên chủ tài khoản.
+      3. **Kiểm thử tự động & Phân tích tĩnh:**
+         - Viết mới widget test [test/profile_bank_view_mode_test.dart](test/profile_bank_view_mode_test.dart) kiểm định chặt chẽ cả 4 kịch bản cho Renter & Host Profile: **4/4 tests passed (100%)**.
+         - `flutter analyze lib/ test/profile_bank_view_mode_test.dart`: **No issues found! (0 errors, 0 warnings)** (100% clean).
   * **Phase 2.116 - Giải Phóng Phòng Tức Thì Khi Hủy Đơn Thanh Toán, Modal Cảnh Báo CCCD Dí Dỏm & Bảo Toàn Tên Tài Khoản "QA" Khi Xác Thực:**
     - **Yêu cầu & Nghiệp vụ đã hoàn thành:**
       1. **Bảo toàn tuyệt đối `displayName` (Chủ trọ "QA" giữ nguyên "QA" sau khi quét CCCD):**

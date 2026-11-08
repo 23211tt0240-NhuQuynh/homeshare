@@ -1133,27 +1133,26 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
   @override
   Widget build(BuildContext context) {
     final notifsAsync = ref.watch(userNotificationsStreamProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Text(
           'Thông báo',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 18,
-            color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+            color: const Color(0xFF0F172A),
           ),
         ),
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back_ios_new_rounded,
             size: 20,
-            color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+            color: const Color(0xFF0F172A),
           ),
           onPressed: () => Navigator.pop(context),
         ),
@@ -1252,7 +1251,6 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
       status: (data['status'] ?? '').toString(),
     );
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Thẻ thông báo phân loại chi tiết theo màu sắc và icon trực quan
     return InkWell(
@@ -1261,14 +1259,10 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isDark
-              ? (isRead ? const Color(0xFF1E293B) : const Color(0xFF243048))
-              : (isRead ? Colors.white : const Color(0xFFF8FAFC)),
+          color: (isRead ? Colors.white : const Color(0xFFF8FAFC)),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isDark
-                ? (isRead ? const Color(0xFF334155) : visual.iconColor.withValues(alpha: 0.5))
-                : (isRead ? const Color(0xFFE2E8F0) : visual.iconColor.withValues(alpha: 0.35)),
+            color: (isRead ? const Color(0xFFE2E8F0) : visual.iconColor.withValues(alpha: 0.35)),
             width: isRead ? 1 : 1.5,
           ),
           boxShadow: [
@@ -1370,7 +1364,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
                     style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
-                      color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+                      color: const Color(0xFF0F172A),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -1378,7 +1372,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
                     message,
                     style: TextStyle(
                       fontSize: 13,
-                      color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+                      color: const Color(0xFF334155),
                       height: 1.35,
                     ),
                   ),
@@ -1650,19 +1644,18 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
     final price = data['pricePerPerson'] ?? 1800000;
     final priceFormatted = NumberFormat('#,###', 'vi_VN').format(price);
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: () => _handleNotificationTap(context, doc, data),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: status == 'accepted'
               ? AppColors.primary
-              : (status == 'rejected' ? (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)) : const Color(0xFFF97316)),
+              : (status == 'rejected' ? (const Color(0xFFE2E8F0)) : const Color(0xFFF97316)),
           width: 1.5,
         ),
         boxShadow: const [
@@ -1973,7 +1966,6 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
         roomTitle.isNotEmpty &&
         oldRoomTitle != roomTitle;
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: () {
         if (isPending) {
@@ -1986,15 +1978,13 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isDark
-              ? (isRead ? const Color(0xFF1E293B) : const Color(0xFF243048))
-              : (isRead ? Colors.white : const Color(0xFFF0FDF4)),
+          color: (isRead ? Colors.white : const Color(0xFFF0FDF4)),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isPending
                 ? const Color(0xFFFDB022)
                 : (isRead
-                    ? (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))
+                    ? (const Color(0xFFE2E8F0))
                     : AppColors.primary.withValues(alpha: 0.3)),
             width: isPending ? 1.5 : (isRead ? 1 : 1.5),
           ),

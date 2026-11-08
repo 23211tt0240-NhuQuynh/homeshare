@@ -80,7 +80,6 @@ class _SendRoommateInviteSheetState
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final currentUser = ref.watch(currentUserProvider);
     final userProfile = ref.watch(userProfileProvider).value;
     final currentUserId = currentUser?.uid ?? '';
@@ -97,7 +96,7 @@ class _SendRoommateInviteSheetState
         maxHeight: MediaQuery.of(context).size.height * 0.88,
       ),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF151C28) : Colors.white,
+        color: Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -109,7 +108,7 @@ class _SendRoommateInviteSheetState
               width: 44,
               height: 4,
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                color: const Color(0xFFE2E8F0),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -143,7 +142,7 @@ class _SendRoommateInviteSheetState
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: const Color(0xFF0F172A),
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -151,9 +150,7 @@ class _SendRoommateInviteSheetState
                         'Chọn bạn cùng phòng để gửi tin nhắn & lời mời vào ở ghép:',
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark
-                              ? const Color(0xFF94A3B8)
-                              : const Color(0xFF64748B),
+                          color: const Color(0xFF64748B),
                         ),
                       ),
                     ],
@@ -163,7 +160,7 @@ class _SendRoommateInviteSheetState
                   onPressed: () => Navigator.pop(context),
                   icon: Icon(
                     Icons.close,
-                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                    color: const Color(0xFF64748B),
                   ),
                 ),
               ],
@@ -177,10 +174,10 @@ class _SendRoommateInviteSheetState
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                color: const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                  color: const Color(0xFFE2E8F0),
                 ),
               ),
               child: Column(
@@ -243,7 +240,7 @@ class _SendRoommateInviteSheetState
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            color: const Color(0xFF0F172A),
                           ),
                         ),
                       ),
@@ -267,9 +264,7 @@ class _SendRoommateInviteSheetState
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: isDark
-                            ? const Color(0xFF94A3B8)
-                            : const Color(0xFF64748B),
+                        color: const Color(0xFF64748B),
                       ),
                     ),
                   ],
@@ -295,9 +290,7 @@ class _SendRoommateInviteSheetState
                           Icon(
                             Icons.post_add_rounded,
                             size: 15,
-                            color: isDark
-                                ? const Color(0xFF60A5FA)
-                                : const Color(0xFF155EEF),
+                            color: const Color(0xFF155EEF),
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -305,18 +298,14 @@ class _SendRoommateInviteSheetState
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: isDark
-                                  ? const Color(0xFF60A5FA)
-                                  : const Color(0xFF155EEF),
+                              color: const Color(0xFF155EEF),
                             ),
                           ),
                           const SizedBox(width: 4),
                           Icon(
                             Icons.arrow_forward_ios_rounded,
                             size: 10,
-                            color: isDark
-                                ? const Color(0xFF60A5FA)
-                                : const Color(0xFF155EEF),
+                            color: const Color(0xFF155EEF),
                           ),
                         ],
                       ),
@@ -337,12 +326,12 @@ class _SendRoommateInviteSheetState
                 hintText: 'Tìm theo tên bạn cùng phòng hoặc SĐT...',
                 hintStyle: TextStyle(
                   fontSize: 13,
-                  color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                  color: const Color(0xFF94A3B8),
                 ),
                 prefixIcon: Icon(
                   Icons.search_rounded,
                   size: 20,
-                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                  color: const Color(0xFF64748B),
                 ),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
@@ -351,17 +340,17 @@ class _SendRoommateInviteSheetState
                       )
                     : null,
                 filled: true,
-                fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                fillColor: const Color(0xFFF8FAFC),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(
-                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                    color: const Color(0xFFE2E8F0),
                   ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(
-                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                    color: const Color(0xFFE2E8F0),
                   ),
                 ),
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
@@ -434,9 +423,7 @@ class _SendRoommateInviteSheetState
                           Icon(
                             Icons.person_search_rounded,
                             size: 48,
-                            color: isDark
-                                ? const Color(0xFF64748B)
-                                : const Color(0xFFCBD5E1),
+                            color: const Color(0xFFCBD5E1),
                           ),
                           const SizedBox(height: 12),
                           Text(
@@ -446,9 +433,7 @@ class _SendRoommateInviteSheetState
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 13.5,
-                              color: isDark
-                                  ? const Color(0xFF94A3B8)
-                                  : const Color(0xFF64748B),
+                              color: const Color(0xFF64748B),
                             ),
                           ),
                         ],
@@ -487,12 +472,10 @@ class _SendRoommateInviteSheetState
 
                     return Container(
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: isDark
-                              ? const Color(0xFF334155)
-                              : const Color(0xFFE2E8F0),
+                          color: const Color(0xFFE2E8F0),
                         ),
                       ),
                       child: ListTile(
@@ -528,9 +511,7 @@ class _SendRoommateInviteSheetState
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14.5,
-                                  color: isDark
-                                      ? Colors.white
-                                      : const Color(0xFF0F172A),
+                                  color: const Color(0xFF0F172A),
                                 ),
                               ),
                             ),
@@ -540,18 +521,14 @@ class _SendRoommateInviteSheetState
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: isDark
-                                      ? const Color(0xFF334155)
-                                      : const Color(0xFFF1F5F9),
+                                  color: const Color(0xFFF1F5F9),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   targetGender,
                                   style: TextStyle(
                                     fontSize: 10.5,
-                                    color: isDark
-                                        ? const Color(0xFFCBD5E1)
-                                        : const Color(0xFF64748B),
+                                    color: const Color(0xFF64748B),
                                   ),
                                 ),
                               ),
@@ -566,9 +543,7 @@ class _SendRoommateInviteSheetState
                                 : 'Người dùng tìm phòng tại HomeShare',
                             style: TextStyle(
                               fontSize: 11.5,
-                              color: isDark
-                                  ? const Color(0xFF94A3B8)
-                                  : const Color(0xFF64748B),
+                              color: const Color(0xFF64748B),
                             ),
                           ),
                         ),

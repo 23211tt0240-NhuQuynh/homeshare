@@ -60,7 +60,6 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   bool _loadingUser = false;
 
   bool get _locked => _viewOnly || !_editing;
-  int _reputationScore = 100;
   String? _loadError;
   Uint8List? _pickedAvatar;
   DateTime? _birthDate;
@@ -194,7 +193,6 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     _role = profile.role.isEmpty ? 'renter' : profile.role;
     _gender = _normalizeGender(profile.gender);
     _verified = profile.isCccdVerified;
-    _reputationScore = profile.reputationScore;
     _birthDate = profile.birthDate;
     if (profile.birthDate != null) {
       _yearController.text = profile.birthDate!.year.toString();
@@ -623,7 +621,6 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     });
     if (profile != null && !viewingOther) {
       _verified = profile.isCccdVerified;
-      _reputationScore = profile.reputationScore;
       if (!_hydrated) {
         _hydrated = true;
         _hydrate(profile);
@@ -671,7 +668,6 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                               HostReviewsSection(
                                 hostId: _hostProfileId,
                                 hostName: _nameController.text.trim(),
-                                reputationScore: _reputationScore,
                                 showReviewButton: _viewOnly,
                               ),
                               if (_viewOnly) ...[
@@ -1180,58 +1176,65 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     return _buildSection(
       icon: Icons.account_balance_outlined,
       title: 'Tài khoản ngân hàng',
-      subtitle: 'Dùng khi nhận hoặc chuyển tiền. Chưa có thì để trống.',
+      subtitle: _locked ? '' : 'Dùng khi nhận hoặc chuyển tiền. Chưa có thì để trống.',
       child: !_bankLoaded
           ? const LinearProgressIndicator(minHeight: 2)
           : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (_bankLoadFailed)
                   Padding(
-                    padding: EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
                       'Không tải được tài khoản ngân hàng. Lần lưu này không đổi thông tin ngân hàng.',
                       style: TextStyle(fontSize: 12.5, color: AppColors.danger, height: 1.35),
                     ),
                   ),
-                _textField(
-                  controller: _accountNumberController,
-                  label: 'Số tài khoản',
-                  hint: 'Nhập số tài khoản',
-                  readOnly: _bankLoadFailed,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(19),
-                  ],
-                  validator: _bankLoadFailed
-                      ? null
-                      : (val) {
-                          final number = val?.trim() ?? '';
-                          if (_bankFieldsEmpty(number: number)) return null;
-                          if (!RegExp(r'^\d{6,19}$').hasMatch(number)) return 'Gồm từ 6 đến 19 chữ số';
-                          return null;
-                        },
-                ),
-                const SizedBox(height: 12),
-                _textField(
-                  controller: _accountHolderController,
-                  label: 'Chủ tài khoản',
-                  hint: 'Tên chủ tài khoản',
-                  readOnly: _bankLoadFailed,
-                  inputFormatters: [LengthLimitingTextInputFormatter(70)],
-                  validator: _bankLoadFailed
-                      ? null
-                      : (val) {
-                          final holder = val?.trim() ?? '';
-                          if (_bankFieldsEmpty(holder: holder)) return null;
-                          if (holder.length < 2 || !RegExp(r'\p{L}', unicode: true).hasMatch(holder)) {
-                            return 'Nhập tên chủ tài khoản';
-                          }
-                          return null;
-                        },
-                ),
-                const SizedBox(height: 12),
-                _bankDropdown(),
+                if (_locked) ...[
+                  _profileLine('Ngân hàng', _bankName),
+                  _profileLine('Số tài khoản', _accountNumberController.text),
+                  _profileLine('Chủ tài khoản', _accountHolderController.text),
+                ] else ...[
+                  _bankDropdown(),
+                  const SizedBox(height: 12),
+                  _textField(
+                    controller: _accountNumberController,
+                    label: 'Số tài khoản',
+                    hint: 'Nhập số tài khoản',
+                    readOnly: _bankLoadFailed,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(19),
+                    ],
+                    validator: _bankLoadFailed
+                        ? null
+                        : (val) {
+                            final number = val?.trim() ?? '';
+                            if (_bankFieldsEmpty(number: number)) return null;
+                            if (!RegExp(r'^\d{6,19}$').hasMatch(number)) return 'Gồm từ 6 đến 19 chữ số';
+                            return null;
+                          },
+                  ),
+                  const SizedBox(height: 12),
+                  _textField(
+                    controller: _accountHolderController,
+                    label: 'Chủ tài khoản',
+                    hint: 'Tên chủ tài khoản',
+                    readOnly: _bankLoadFailed,
+                    inputFormatters: [LengthLimitingTextInputFormatter(70)],
+                    validator: _bankLoadFailed
+                        ? null
+                        : (val) {
+                            final holder = val?.trim() ?? '';
+                            if (_bankFieldsEmpty(holder: holder)) return null;
+                            if (holder.length < 2 || !RegExp(r'\p{L}', unicode: true).hasMatch(holder)) {
+                              return 'Nhập tên chủ tài khoản';
+                            }
+                            return null;
+                          },
+                  ),
+                ],
               ],
             ),
     );
@@ -1245,6 +1248,9 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   }
 
   Widget _bankDropdown() {
+    if (_locked) {
+      return _profileLine('Ngân hàng', _bankName.trim());
+    }
     final selected = _bankName.trim();
     final choices = selected.isNotEmpty && !vietnamBanks.contains(selected)
         ? [selected, ...vietnamBanks]
@@ -1266,9 +1272,9 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                 child: Text(name, overflow: TextOverflow.ellipsis),
               ),
           ],
-          onChanged: _bankLoadFailed ? null : (value) => setState(() => _bankName = value ?? ''),
+          onChanged: (_bankLoadFailed || _locked) ? null : (value) => setState(() => _bankName = value ?? ''),
           decoration: _decoration('Chọn ngân hàng'),
-          validator: _bankLoadFailed
+          validator: (_bankLoadFailed || _locked)
               ? null
               : (val) {
                   final bank = (val ?? '').trim();

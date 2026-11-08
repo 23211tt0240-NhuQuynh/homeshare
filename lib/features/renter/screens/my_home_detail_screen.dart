@@ -532,12 +532,11 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
-    final cardColor = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFEAECF0);
-    final textDark = isDark ? Colors.white : const Color(0xFF1D2939);
-    final textMuted = isDark ? const Color(0xFF94A3B8) : const Color(0xFF667085);
+    final bgColor = const Color(0xFFF8FAFC);
+    final cardColor = Colors.white;
+    final borderColor = const Color(0xFFEAECF0);
+    final textDark = const Color(0xFF1D2939);
+    final textMuted = const Color(0xFF667085);
 
     final displayImages = _room?.images.isNotEmpty == true
         ? _room!.images
@@ -572,7 +571,7 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 1. CAROUSEL ẢNH PHÒNG
-                  _buildImageCarousel(displayImages, isDark),
+                  _buildImageCarousel(displayImages),
 
                   Padding(
                     padding: const EdgeInsets.all(16),
@@ -580,44 +579,44 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // 2. HEADER: TIÊU ĐỀ, MÃ PHÒNG, DIỆN TÍCH CỤ THỂ, TRẠNG THÁI
-                        _buildHeaderSection(isDark, cardColor, borderColor, textDark, textMuted),
+                        _buildHeaderSection(cardColor, borderColor, textDark, textMuted),
 
                         const SizedBox(height: 16),
 
                         // 3. THẺ TÀI CHÍNH & HỢP ĐỒNG (KÈM DIỆN TÍCH PHÒNG)
-                        _buildFinanceAndContractCard(isDark, cardColor, borderColor, textDark, textMuted),
+                        _buildFinanceAndContractCard(cardColor, borderColor, textDark, textMuted),
 
                         const SizedBox(height: 16),
 
                         // 4. BIỂU PHÍ DỊCH VỤ (ĐIỆN, NƯỚC, PHÍ CHUNG CỤ THỂ)
-                        _buildUtilitiesCard(isDark, cardColor, borderColor, textDark, textMuted),
+                        _buildUtilitiesCard(cardColor, borderColor, textDark, textMuted),
 
                         const SizedBox(height: 16),
 
                         // 5. TIỆN NGHI & ĐẶC ĐIỂM PHÒNG (DIỆN TÍCH SỬ DỤNG)
-                        _buildAmenitiesSection(isDark, cardColor, borderColor, textDark, textMuted),
+                        _buildAmenitiesSection(cardColor, borderColor, textDark, textMuted),
 
                         const SizedBox(height: 16),
 
                         // 6. THÔNG TIN CHỦ TRỌ & LIÊN HỆ
-                        _buildHostContactCard(isDark, cardColor, borderColor, textDark, textMuted),
+                        _buildHostContactCard(cardColor, borderColor, textDark, textMuted),
 
                         // 7. CƯ DÂN CÙNG PHÒNG (NẾU CÓ)
                         if (_residents.isNotEmpty) ...[
                           const SizedBox(height: 16),
-                          _buildResidentsSection(isDark, cardColor, borderColor, textDark, textMuted),
+                          _buildResidentsSection(cardColor, borderColor, textDark, textMuted),
                         ],
 
                         // 8. BIÊN BẢN TRẢ PHÒNG (NẾU CÓ)
                         if (isPast && widget.pastItem?.hasCheckoutRecord == true && widget.pastItem?.checkoutRecord != null) ...[
                           const SizedBox(height: 16),
-                          _buildCheckoutSummaryCard(widget.pastItem!.checkoutRecord!, isDark, cardColor, borderColor, textDark, textMuted),
+                          _buildCheckoutSummaryCard(widget.pastItem!.checkoutRecord!, cardColor, borderColor, textDark, textMuted),
                         ],
 
                         // 9. NỘI QUY / MÔ TẢ PHÒNG
                         if (_room?.description.isNotEmpty == true) ...[
                           const SizedBox(height: 16),
-                          _buildDescriptionSection(isDark, cardColor, borderColor, textDark, textMuted),
+                          _buildDescriptionSection(cardColor, borderColor, textDark, textMuted),
                         ],
                       ],
                     ),
@@ -626,12 +625,12 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
               ),
             ),
       // THANH THAO TÁC CỐ ĐỊNH Ở DƯỚI (BOTTOM BAR)
-      bottomSheet: _buildBottomActions(isDark, cardColor, borderColor),
+      bottomSheet: _buildBottomActions(cardColor, borderColor),
     );
   }
 
   // 1. CAROUSEL ẢNH
-  Widget _buildImageCarousel(List<String> images, bool isDark) {
+  Widget _buildImageCarousel(List<String> images) {
     final effectiveImages = images.isNotEmpty ? images : _fallbackImages;
 
     return Stack(
@@ -649,7 +648,7 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
                 fit: BoxFit.cover,
                 width: double.infinity,
                 errorBuilder: (context, error, stackTrace) => Container(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade200,
+                  color: Colors.grey.shade200,
                   child: Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -693,7 +692,7 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
   }
 
   // 2. HEADER SECTION
-  Widget _buildHeaderSection(bool isDark, Color cardColor, Color borderColor, Color textDark, Color textMuted) {
+  Widget _buildHeaderSection(Color cardColor, Color borderColor, Color textDark, Color textMuted) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -743,7 +742,7 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                      color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Row(
@@ -807,7 +806,7 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                  color: const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -825,7 +824,7 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                  color: const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -882,7 +881,7 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
   }
 
   // 3. THẺ TÀI CHÍNH & HỢP ĐỒNG (KÈM DIỆN TÍCH PHÒNG CỤ THỂ)
-  Widget _buildFinanceAndContractCard(bool isDark, Color cardColor, Color borderColor, Color textDark, Color textMuted) {
+  Widget _buildFinanceAndContractCard(Color cardColor, Color borderColor, Color textDark, Color textMuted) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1007,7 +1006,7 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
   }
 
   // 4. BIỂU PHÍ DỊCH VỤ CỤ THỂ (ĐIỆN, NƯỚC, PHÍ CHUNG)
-  Widget _buildUtilitiesCard(bool isDark, Color cardColor, Color borderColor, Color textDark, Color textMuted) {
+  Widget _buildUtilitiesCard(Color cardColor, Color borderColor, Color textDark, Color textMuted) {
     final elec = (_room?.electricityRate != null && _room!.electricityRate! > 0)
         ? _room!.electricityRate!
         : 3500.0;
@@ -1059,7 +1058,6 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
                   label: 'Tiền điện',
                   price: '${_currencyFmt.format(elec)} đ/kWh',
                   subLabel: 'Theo chỉ số đồng hồ điện',
-                  isDark: isDark,
                   textDark: textDark,
                   textMuted: textMuted,
                 ),
@@ -1072,7 +1070,6 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
                   label: 'Tiền nước',
                   price: waterPriceLabel,
                   subLabel: 'Theo chỉ số đồng hồ nước',
-                  isDark: isDark,
                   textDark: textDark,
                   textMuted: textMuted,
                 ),
@@ -1086,7 +1083,6 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
             label: 'Phí dịch vụ & Quản lý chung',
             price: '${_currencyFmt.format(service)} đ/tháng',
             subLabel: 'Wifi tốc độ cao, rác, gửi xe, camera an ninh',
-            isDark: isDark,
             textDark: textDark,
             textMuted: textMuted,
           ),
@@ -1101,16 +1097,15 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
     required String label,
     required String price,
     String? subLabel,
-    required bool isDark,
     required Color textDark,
     required Color textMuted,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9)),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1149,7 +1144,7 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
   }
 
   // 5. TIỆN NGHI & ĐẶC ĐIỂM PHÒNG (GỒM DIỆN TÍCH CỤ THỂ)
-  Widget _buildAmenitiesSection(bool isDark, Color cardColor, Color borderColor, Color textDark, Color textMuted) {
+  Widget _buildAmenitiesSection(Color cardColor, Color borderColor, Color textDark, Color textMuted) {
     final amenities = _room?.amenities ?? [];
     final floor = _room?.floor;
     final roomType = _room?.roomType;
@@ -1218,9 +1213,9 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                    color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1254,7 +1249,7 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
   }
 
   // 6. THÔNG TIN CHỦ TRỌ
-  Widget _buildHostContactCard(bool isDark, Color cardColor, Color borderColor, Color textDark, Color textMuted) {
+  Widget _buildHostContactCard(Color cardColor, Color borderColor, Color textDark, Color textMuted) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1331,7 +1326,7 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
   }
 
   // 7. CƯ DÂN CÙNG PHÒNG
-  Widget _buildResidentsSection(bool isDark, Color cardColor, Color borderColor, Color textDark, Color textMuted) {
+  Widget _buildResidentsSection(Color cardColor, Color borderColor, Color textDark, Color textMuted) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1425,7 +1420,6 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
   // 8. BIÊN BẢN TRẢ PHÒNG SUMMARY
   Widget _buildCheckoutSummaryCard(
     CheckoutRecordModel record,
-    bool isDark,
     Color cardColor,
     Color borderColor,
     Color textDark,
@@ -1490,7 +1484,7 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
   }
 
   // 9. MÔ TẢ PHÒNG
-  Widget _buildDescriptionSection(bool isDark, Color cardColor, Color borderColor, Color textDark, Color textMuted) {
+  Widget _buildDescriptionSection(Color cardColor, Color borderColor, Color textDark, Color textMuted) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1516,7 +1510,7 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
   }
 
   // THANH CỐ ĐỊNH Ở DƯỚI (BOTTOM ACTIONS)
-  Widget _buildBottomActions(bool isDark, Color cardColor, Color borderColor) {
+  Widget _buildBottomActions(Color cardColor, Color borderColor) {
     if (isPast) {
       return Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),

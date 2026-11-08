@@ -32,10 +32,9 @@ class CccdRequiredDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final textDark = isDark ? const Color(0xFFF8FAFC) : AppColors.textDark;
-    final textMuted = isDark ? const Color(0xFF94A3B8) : AppColors.textMuted;
+    const cardBg = Colors.white;
+    final textDark = AppColors.textDark;
+    final textMuted = AppColors.textMuted;
 
     // Tiêu đề dí dỏm
     final title = isHost

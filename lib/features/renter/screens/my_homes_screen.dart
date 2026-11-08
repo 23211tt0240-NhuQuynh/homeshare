@@ -421,7 +421,6 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
   }
 
   void _showCheckoutDetailModal(PastRentalHomeItem item) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final record = item.checkoutRecord;
 
     showModalBottomSheet(
@@ -430,7 +429,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          color: Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
@@ -443,7 +442,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  color: Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -469,7 +468,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : AppColors.textDark,
+                          color: AppColors.textDark,
                         ),
                       ),
                       Text(
@@ -478,7 +477,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 13,
-                          color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted,
+                          color: AppColors.textMuted,
                         ),
                       ),
                     ],
@@ -492,21 +491,20 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                  color: const Color(0xFFE2E8F0),
                 ),
               ),
               child: Column(
                 children: [
-                  _buildReceiptRow('Tiền cọc ban đầu', '${_currencyFormat.format(item.depositAmount)} đ', isDark: isDark),
+                  _buildReceiptRow('Tiền cọc ban đầu', '${_currencyFormat.format(item.depositAmount)} đ'),
                   const SizedBox(height: 8),
                   _buildReceiptRow(
                     'Khấu trừ (hư hại / điện nước)',
                     '- ${_currencyFormat.format(item.deductionAmount)} đ',
                     valueColor: const Color(0xFFD92D20),
-                    isDark: isDark,
                   ),
                   const Divider(height: 16),
                   _buildReceiptRow(
@@ -515,7 +513,6 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                     valueColor: const Color(0xFF027A48),
                     isBold: true,
                     fontSize: 15,
-                    isDark: isDark,
                   ),
                 ],
               ),
@@ -527,10 +524,10 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                  color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                    color: const Color(0xFFE2E8F0),
                   ),
                 ),
                 child: Column(
@@ -544,7 +541,6 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                             '${record.finalElectricityMeter} kWh',
                             Icons.bolt_rounded,
                             const Color(0xFFF59E0B),
-                            isDark: isDark,
                           ),
                         ),
                         Expanded(
@@ -553,7 +549,6 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                             '${record.finalWaterMeter} m³',
                             Icons.water_drop_rounded,
                             const Color(0xFF0284C7),
-                            isDark: isDark,
                           ),
                         ),
                       ],
@@ -567,7 +562,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                          color: const Color(0xFF64748B),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -575,7 +570,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                         record.note,
                         style: TextStyle(
                           fontSize: 13,
-                          color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
+                          color: const Color(0xFF1E293B),
                         ),
                       ),
                     ],
@@ -588,13 +583,13 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
             // Thời gian trả phòng
             Row(
               children: [
-                Icon(Icons.calendar_today_rounded, size: 15, color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted),
+                Icon(Icons.calendar_today_rounded, size: 15, color: AppColors.textMuted),
                 const SizedBox(width: 6),
                 Text(
                   'Thời điểm trả phòng: ${item.moveOutDate != null ? DateFormat('HH:mm - dd/MM/yyyy').format(item.moveOutDate!) : "Đã hoàn tất"}',
                   style: TextStyle(
                     fontSize: 12.5,
-                    color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted,
+                    color: AppColors.textMuted,
                   ),
                 ),
               ],
@@ -618,7 +613,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
     );
   }
 
-  Widget _buildReceiptRow(String label, String value, {Color? valueColor, bool isBold = false, double fontSize = 13.5, required bool isDark}) {
+  Widget _buildReceiptRow(String label, String value, {Color? valueColor, bool isBold = false, double fontSize = 13.5}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -626,7 +621,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
           label,
           style: TextStyle(
             fontSize: fontSize,
-            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+            color: const Color(0xFF64748B),
           ),
         ),
         Text(
@@ -634,14 +629,14 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
           style: TextStyle(
             fontSize: fontSize,
             fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-            color: valueColor ?? (isDark ? Colors.white : AppColors.textDark),
+            color: valueColor ?? (AppColors.textDark),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildInfoItem(String label, String value, IconData icon, Color iconColor, {required bool isDark}) {
+  Widget _buildInfoItem(String label, String value, IconData icon, Color iconColor) {
     return Row(
       children: [
         Container(
@@ -660,7 +655,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
               label,
               style: TextStyle(
                 fontSize: 11,
-                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                color: const Color(0xFF64748B),
               ),
             ),
             Text(
@@ -668,7 +663,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : AppColors.textDark,
+                color: AppColors.textDark,
               ),
             ),
           ],
@@ -680,13 +675,12 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final bgColor = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
-    final cardColor = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFEAECF0);
-    final textDark = isDark ? Colors.white : const Color(0xFF1D2939);
-    final textMuted = isDark ? const Color(0xFF94A3B8) : const Color(0xFF667085);
+    final bgColor = const Color(0xFFF8FAFC);
+    final cardColor = Colors.white;
+    final borderColor = const Color(0xFFEAECF0);
+    final textDark = const Color(0xFF1D2939);
+    final textMuted = const Color(0xFF667085);
 
     if (user == null) {
       return Scaffold(
@@ -809,7 +803,6 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
           _buildActiveHomesTab(
             bookingsAsync: bookingsAsync,
             pastRoomIds: pastRoomIds,
-            isDark: isDark,
             cardColor: cardColor,
             borderColor: borderColor,
             textDark: textDark,
@@ -819,7 +812,6 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
           // TAB 2: LỊCH SỬ NHÀ ĐÃ Ở
           _buildPastHomesTab(
             pastHomesAsync: pastHomesAsync,
-            isDark: isDark,
             cardColor: cardColor,
             borderColor: borderColor,
             textDark: textDark,
@@ -834,7 +826,6 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
   Widget _buildActiveHomesTab({
     required AsyncValue<List<BookingRequestModel>> bookingsAsync,
     required Set<String> pastRoomIds,
-    required bool isDark,
     required Color cardColor,
     required Color borderColor,
     required Color textDark,
@@ -904,7 +895,6 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
             final b = activeList[index];
             return _buildActiveHomeCard(
               b: b,
-              isDark: isDark,
               cardColor: cardColor,
               borderColor: borderColor,
               textDark: textDark,
@@ -920,7 +910,6 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
 
   Widget _buildActiveHomeCard({
     required BookingRequestModel b,
-    required bool isDark,
     required Color cardColor,
     required Color borderColor,
     required Color textDark,
@@ -973,7 +962,7 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                      color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -1046,10 +1035,10 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                  color: const Color(0xFFF1F5F9),
                 ),
               ),
               child: Column(
@@ -1176,8 +1165,8 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
                     icon: const Icon(Icons.build_outlined, size: 16),
                     label: Text(AppTranslations.tr('report_room_issue')),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155),
-                      side: BorderSide(color: isDark ? const Color(0xFF475467) : const Color(0xFFD0D5DD)),
+                      foregroundColor: const Color(0xFF334155),
+                      side: BorderSide(color: const Color(0xFFD0D5DD)),
                       minimumSize: const Size.fromHeight(38),
                       textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1230,7 +1219,6 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
   // ==================== TAB 2: LỊCH SỬ NHÀ ĐÃ Ở ====================
   Widget _buildPastHomesTab({
     required AsyncValue<List<PastRentalHomeItem>> pastHomesAsync,
-    required bool isDark,
     required Color cardColor,
     required Color borderColor,
     required Color textDark,
@@ -1286,7 +1274,6 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
             final item = items[index];
             return _buildPastHomeCard(
               item: item,
-              isDark: isDark,
               cardColor: cardColor,
               borderColor: borderColor,
               textDark: textDark,
@@ -1302,7 +1289,6 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
 
   Widget _buildPastHomeCard({
     required PastRentalHomeItem item,
-    required bool isDark,
     required Color cardColor,
     required Color borderColor,
     required Color textDark,
@@ -1400,10 +1386,10 @@ class _MyHomesScreenState extends ConsumerState<MyHomesScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                  color: const Color(0xFFF1F5F9),
                 ),
               ),
               child: Column(

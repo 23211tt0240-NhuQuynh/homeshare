@@ -60,80 +60,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         ? ref.watch(userConversationsStreamProvider(user.uid))
         : const AsyncValue<List<ConversationModel>>.data([]);
 
-    // Danh sách cuộc trò chuyện mẫu thực tế để luôn sẵn sàng hiển thị và trải nghiệm
-    final sampleConversations = [
-      ConversationModel(
-        id: 'host_chu_ba_101',
-        partnerId: 'host_chu_ba_101',
-        partnerName: 'Chú Ba Linh Trung (Chủ trọ)',
-        partnerPhone: '0903888999',
-        isLandlord: true,
-        lastMessage: 'Phòng 101 còn trống nha cháu, cháu qua xem lúc mấy giờ?',
-        lastMessageTime: DateTime.now().subtract(const Duration(minutes: 15)),
-        unreadCount: 1,
-        roomCode: '#LT-802',
-        roomTitle: 'Phòng trọ cao cấp gần ĐH Sư Phạm Kỹ Thuật',
-        roomPrice: 3500000,
-        roomImage: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600',
-      ),
-      ConversationModel(
-        id: 'host_linhtrung_99',
-        partnerId: 'host_linhtrung_99',
-        partnerName: 'Cô Lan Nhà Trọ',
-        partnerPhone: '0912345678',
-        isLandlord: true,
-        lastMessage: 'Dạ cô đã nhận được thông tin hẹn xem phòng rồi nhé.',
-        lastMessageTime: DateTime.now().subtract(const Duration(hours: 3)),
-        unreadCount: 0,
-        roomCode: '#LT-104',
-        roomTitle: 'Phòng ban công thoáng mát ĐH Nông Lâm',
-        roomPrice: 2800000,
-        roomImage: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600',
-      ),
-      ConversationModel(
-        id: 'user_nam_99',
-        partnerId: 'user_nam_99',
-        partnerName: 'Nguyễn Văn Nam (Tìm ở ghép)',
-        partnerPhone: '0987654321',
-        isLandlord: false,
-        lastMessage: 'Chào bạn, bạn đã tìm được ai ở ghép cùng chưa?',
-        lastMessageTime: DateTime.now().subtract(const Duration(days: 1)),
-        unreadCount: 0,
-        roomCode: '#OG-302',
-        roomTitle: 'Căn hộ mini 2 phòng ngủ ghép đôi',
-        roomPrice: 1800000,
-      ),
-      ConversationModel(
-        id: 'host_hoang_quan',
-        partnerId: 'host_hoang_quan',
-        partnerName: 'Anh Hoàng Quản Lý Trọ',
-        partnerPhone: '0933221100',
-        isLandlord: true,
-        lastMessage: 'Bạn có thể xem phòng vào sáng mai lúc 9h nhé.',
-        lastMessageTime: DateTime.now().subtract(const Duration(days: 2)),
-        unreadCount: 0,
-        roomCode: '#HQ-201',
-        roomTitle: 'Phòng trọ đầy đủ nội thất gần KTX Khu B',
-        roomPrice: 3200000,
-      ),
-    ];
-
-    // Kết hợp dữ liệu từ Firestore và danh sách mẫu
+    final waitingForChats = user != null &&
+        firestoreConversationsAsync.isLoading &&
+        !firestoreConversationsAsync.hasValue;
     final liveConversations = firestoreConversationsAsync.value ?? [];
-    final Map<String, ConversationModel> mergedMap = {};
-
-    // 1. Nạp từ Firestore trước (nếu có cuộc trò chuyện mới)
-    for (final c in liveConversations) {
-      mergedMap[c.id] = c;
-    }
-    // 2. Bổ sung các cuộc trò chuyện mẫu nếu chưa có
-    for (final s in sampleConversations) {
-      if (!mergedMap.containsKey(s.id)) {
-        mergedMap[s.id] = s;
-      }
-    }
-
-    final allConversations = mergedMap.values
+    final allConversations = liveConversations
         .where((c) => !_deletedIds.contains(c.id))
         .toList()
       ..sort((a, b) {
@@ -286,34 +217,42 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
 
           // 3. Danh sách cuộc trò chuyện
           Expanded(
-            child: filteredConversations.isEmpty
+            child: waitingForChats
+                ? const Center(child: CircularProgressIndicator())
+                : filteredConversations.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.mark_chat_read_outlined, size: 64, color: Colors.grey.shade300),
                         const SizedBox(height: 12),
-                        const Text(
-                          'Không tìm thấy cuộc trò chuyện nào phù hợp',
-                          style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold, fontSize: 14),
+                        Text(
+                          _searchQuery.isEmpty && _selectedFilter == 'all'
+                              ? 'Chưa có cuộc trò chuyện'
+                              : 'Không tìm thấy cuộc trò chuyện nào phù hợp',
+                          style: const TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold, fontSize: 14),
                         ),
                         const SizedBox(height: 6),
-                        const Text(
-                          'Hãy thử thay đổi từ khóa hoặc bộ lọc danh mục.',
-                          style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                        Text(
+                          _searchQuery.isEmpty && _selectedFilter == 'all'
+                              ? 'Chỉ hiện tin nhắn với người dùng thật trên hệ thống.'
+                              : 'Hãy thử thay đổi từ khóa hoặc bộ lọc danh mục.',
+                          style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                         ),
-                        const SizedBox(height: 16),
-                        OutlinedButton(
-                          onPressed: () {
-                            setState(() {
-                              _searchDebounce?.cancel();
-                              _searchController.clear();
-                              _searchQuery = '';
-                              _selectedFilter = 'all';
-                            });
-                          },
-                          child: const Text('Đặt lại bộ lọc'),
-                        ),
+                        if (_searchQuery.isNotEmpty || _selectedFilter != 'all') ...[
+                          const SizedBox(height: 16),
+                          OutlinedButton(
+                            onPressed: () {
+                              setState(() {
+                                _searchDebounce?.cancel();
+                                _searchController.clear();
+                                _searchQuery = '';
+                                _selectedFilter = 'all';
+                              });
+                            },
+                            child: const Text('Đặt lại bộ lọc'),
+                          ),
+                        ],
                       ],
                     ),
                   )

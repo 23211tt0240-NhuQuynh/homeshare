@@ -75,7 +75,6 @@ class AppTranslations {
       // 4. Cài đặt chung & Hỗ trợ
       'section_general_settings': 'CÀI ĐẶT CHUNG & HỖ TRỢ',
       'language': 'Ngôn ngữ',
-      'appearance': 'Giao diện',
       'help_faq': 'Trung tâm trợ giúp & FAQ',
       'help_faq_sub': 'Câu hỏi thường gặp và hướng dẫn sử dụng',
       'contact_support': 'Liên hệ hỗ trợ / Hotline',
@@ -96,23 +95,7 @@ class AppTranslations {
       'lang_changed_vi': 'Đã thiết lập ngôn ngữ hiển thị: Tiếng Việt',
       'lang_changed_en': 'Đã thiết lập ngôn ngữ hiển thị: Tiếng Anh',
 
-      // 6. Modal chọn Giao diện (Theme)
-      'customize_appearance': 'Tùy chỉnh giao diện',
-      'customize_appearance_sub': 'Chọn chủ đề sáng hoặc tối phù hợp với mắt bạn',
-      'theme_light': 'Giao diện sáng (Mặc định)',
-      'theme_light_sub': 'Thanh lịch, dịu mắt với màu lục bảo phong thủy',
-      'theme_dark': 'Giao diện tối (Dark mode)',
-      'theme_dark_sub': 'Tối ưu pin, nền đen huyền bí sang trọng',
-      'theme_system': 'Theo hệ thống thiết bị',
-      'theme_system_sub': 'Tự động đồng bộ theo chế độ sáng tối của máy',
-      'theme_changed_light': 'Đã chuyển sang giao diện sáng',
-      'theme_changed_dark': 'Đã kích hoạt giao diện tối (Dark mode)',
-      'theme_changed_system': 'Giao diện sẽ tự động đổi theo cài đặt hệ thống',
-      'theme_name_light': 'Sáng',
-      'theme_name_dark': 'Tối',
-      'theme_name_system': 'Hệ thống',
-
-      // 7. Bottom Navigation Bar
+      // 6. Bottom Navigation Bar
       'nav_home': 'Trang chủ',
       'nav_messages': 'Tin nhắn',
       'nav_post': 'Đăng bài',
@@ -197,7 +180,6 @@ class AppTranslations {
       // 4. General Settings & Support
       'section_general_settings': 'GENERAL SETTINGS & SUPPORT',
       'language': 'Language',
-      'appearance': 'Appearance',
       'help_faq': 'Help Center & FAQ',
       'help_faq_sub': 'Frequently asked questions and user guides',
       'contact_support': 'Contact Support / Hotline',
@@ -218,23 +200,7 @@ class AppTranslations {
       'lang_changed_vi': 'Display language set to Vietnamese',
       'lang_changed_en': 'Display language set to English',
 
-      // 6. Appearance / Theme Modal
-      'customize_appearance': 'Customize Appearance',
-      'customize_appearance_sub': 'Choose light or dark theme suitable for your eyes',
-      'theme_light': 'Light Theme (Default)',
-      'theme_light_sub': 'Elegant, gentle on eyes with emerald green accents',
-      'theme_dark': 'Dark Theme (Dark Mode)',
-      'theme_dark_sub': 'Battery saving with sleek midnight obsidian aesthetics',
-      'theme_system': 'System Default',
-      'theme_system_sub': 'Automatically match your device system appearance',
-      'theme_changed_light': 'Switched to Light Theme',
-      'theme_changed_dark': 'Activated Dark Theme (Dark Mode)',
-      'theme_changed_system': 'Theme will now follow system appearance settings',
-      'theme_name_light': 'Light',
-      'theme_name_dark': 'Dark',
-      'theme_name_system': 'System',
-
-      // 7. Bottom Navigation Bar
+      // 6. Bottom Navigation Bar
       'nav_home': 'Home',
       'nav_messages': 'Messages',
       'nav_post': 'Post',

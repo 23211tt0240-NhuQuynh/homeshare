@@ -811,13 +811,12 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return Container(
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(ctx).size.height * 0.75,
           ),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF151C28) : Colors.white,
+            color: Colors.white,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
@@ -829,7 +828,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   width: 44,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                    color: const Color(0xFFE2E8F0),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -857,7 +856,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                             style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              color: const Color(0xFF0F172A),
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -865,7 +864,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                             'Bạn đang thuê ${rooms.length} phòng. Chọn phòng để gửi lời mời tới ${widget.receiverName}:',
                             style: TextStyle(
                               fontSize: 12,
-                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                              color: const Color(0xFF64748B),
                             ),
                           ),
                         ],
@@ -908,12 +907,12 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                          color: const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isFull
                                 ? const Color(0xFFF59E0B).withValues(alpha: 0.5)
-                                : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                                : const Color(0xFFE2E8F0),
                           ),
                         ),
                         child: Row(
@@ -946,7 +945,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 14,
-                                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                            color: const Color(0xFF0F172A),
                                           ),
                                         ),
                                       ),
@@ -983,7 +982,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         fontSize: 11.5,
-                                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                        color: const Color(0xFF64748B),
                                       ),
                                     ),
                                   ],

@@ -46,31 +46,15 @@ void main() {
       expect(AppTranslations.tr('nav_back', 'en'), 'Back');
     });
 
-    test('Hỗ trợ dịch cài đặt giao diện (Appearance / Theme)', () {
-      expect(AppTranslations.tr('appearance', 'vi'), 'Giao diện');
-      expect(AppTranslations.tr('appearance', 'en'), 'Appearance');
-      expect(AppTranslations.tr('theme_name_light', 'vi'), 'Sáng');
-      expect(AppTranslations.tr('theme_name_dark', 'vi'), 'Tối');
-      expect(AppTranslations.tr('theme_name_system', 'vi'), 'Hệ thống');
-      expect(AppTranslations.tr('theme_name_light', 'en'), 'Light');
-      expect(AppTranslations.tr('theme_name_dark', 'en'), 'Dark');
-      expect(AppTranslations.tr('theme_name_system', 'en'), 'System');
-    });
   });
 
-  group('2. AppTheme - Giao diện sáng & tối', () {
+  group('2. AppTheme - Giao diện sáng', () {
     test('Light Theme có độ sáng chuẩn Brightness.light và màu nền dịu mắt', () {
       final theme = AppTheme.lightTheme;
       expect(theme.brightness, Brightness.light);
       expect(theme.colorScheme.brightness, Brightness.light);
       expect(theme.cardColor, isNotNull);
       expect(theme.scaffoldBackgroundColor, isNotNull);
-    });
-
-    test('Dark Theme có độ sáng chuẩn Brightness.dark và hỗ trợ Graphite theme', () {
-      final theme = AppTheme.darkTheme;
-      expect(theme.brightness, Brightness.dark);
-      expect(theme.colorScheme.brightness, Brightness.dark);
     });
   });
 }

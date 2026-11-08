@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/localization/app_translations.dart';
 import '../../../core/providers/app_settings_provider.dart';
-import '../../../core/theme/app_theme_controller.dart';
 import '../../../core/services/booking_service.dart';
 import '../../../core/services/favorites_service.dart';
 import '../../../data/models/booking_model.dart';
@@ -31,11 +30,10 @@ class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   Future<void> _confirmLogout(BuildContext context, WidgetRef ref, String currentLang) async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = Theme.of(context).cardColor;
-    final textDark = isDark ? const Color(0xFFF8FAFC) : AppColors.textDark;
-    final textMuted = isDark ? const Color(0xFF94A3B8) : AppColors.textMuted;
-    final borderColor = isDark ? const Color(0xFF243044) : AppColors.border;
+    final textDark = AppColors.textDark;
+    final textMuted = AppColors.textMuted;
+    final borderColor = AppColors.border;
 
     final shouldLogout = await showModalBottomSheet<bool>(
       context: context,
@@ -54,14 +52,14 @@ class HomeScreen extends ConsumerWidget {
               height: 4,
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                color: Colors.grey.shade300,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.dangerContainer.withValues(alpha: isDark ? 0.2 : 0.5),
+                color: AppColors.dangerContainer.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -144,11 +142,10 @@ class HomeScreen extends ConsumerWidget {
 
   void _showLanguageDialog(BuildContext context, WidgetRef ref) {
     final currentLang = ref.read(appLanguageProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = Theme.of(context).cardColor;
-    final textDark = isDark ? const Color(0xFFF8FAFC) : AppColors.textDark;
-    final textMuted = isDark ? const Color(0xFF94A3B8) : AppColors.textMuted;
-    final activeTileColor = const Color(0xFF10B981).withValues(alpha: isDark ? 0.18 : 0.1);
+    final textDark = AppColors.textDark;
+    final textMuted = AppColors.textMuted;
+    final activeTileColor = const Color(0xFF10B981).withValues(alpha: 0.1);
 
     showModalBottomSheet(
       context: context,
@@ -191,7 +188,7 @@ class HomeScreen extends ConsumerWidget {
                 side: BorderSide(
                   color: currentLang == 'vi'
                       ? const Color(0xFF10B981)
-                      : (isDark ? const Color(0xFF243044) : const Color(0xFFE2E8F0)),
+                      : (const Color(0xFFE2E8F0)),
                 ),
               ),
               tileColor: currentLang == 'vi' ? activeTileColor : Colors.transparent,
@@ -222,7 +219,7 @@ class HomeScreen extends ConsumerWidget {
                 side: BorderSide(
                   color: currentLang == 'en'
                       ? const Color(0xFF10B981)
-                      : (isDark ? const Color(0xFF243044) : const Color(0xFFE2E8F0)),
+                      : (const Color(0xFFE2E8F0)),
                 ),
               ),
               tileColor: currentLang == 'en' ? activeTileColor : Colors.transparent,
@@ -242,196 +239,6 @@ class HomeScreen extends ConsumerWidget {
                     content: Text(AppTranslations.tr('lang_changed_en', 'en')),
                     behavior: SnackBarBehavior.floating,
                     backgroundColor: const Color(0xFF10B981),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 10),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showThemeDialog(BuildContext context, WidgetRef ref) {
-    final currentMode =
-        ref.read(appThemeControllerProvider).value?.mode ??
-        ref.read(appThemeModeProvider);
-    final currentLang = ref.read(appLanguageProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = Theme.of(context).cardColor;
-    final textDark = isDark ? const Color(0xFFF8FAFC) : AppColors.textDark;
-    final textMuted = isDark ? const Color(0xFF94A3B8) : AppColors.textMuted;
-    final activeTileColor = const Color(0xFF10B981).withValues(alpha: isDark ? 0.18 : 0.1);
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: cardBg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.palette_rounded, color: Color(0xFF10B981), size: 22),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  AppTranslations.tr('customize_appearance', currentLang),
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textDark),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              AppTranslations.tr('customize_appearance_sub', currentLang),
-              style: TextStyle(fontSize: 12.5, color: textMuted),
-            ),
-            const SizedBox(height: 16),
-
-            // Sáng (Light)
-            ListTile(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: currentMode == ThemeMode.light
-                      ? const Color(0xFF10B981)
-                      : (isDark ? const Color(0xFF243044) : const Color(0xFFE2E8F0)),
-                ),
-              ),
-              tileColor: currentMode == ThemeMode.light ? activeTileColor : Colors.transparent,
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF0C7),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.wb_sunny_rounded, color: Color(0xFFF59E0B), size: 20),
-              ),
-              title: Text(
-                AppTranslations.tr('theme_light', currentLang),
-                style: TextStyle(fontWeight: FontWeight.w600, color: textDark),
-              ),
-              subtitle: Text(
-                AppTranslations.tr('theme_light_sub', currentLang),
-                style: TextStyle(fontSize: 11.5, color: textMuted),
-              ),
-              trailing: currentMode == ThemeMode.light
-                  ? const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981))
-                  : null,
-              onTap: () {
-                ref.read(appThemeControllerProvider.notifier).setMode(ThemeMode.light);
-                ref.read(appThemeModeProvider.notifier).setThemeMode(ThemeMode.light);
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(AppTranslations.tr('theme_changed_light', currentLang)),
-                    behavior: SnackBarBehavior.floating,
-                    backgroundColor: const Color(0xFF006948),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 8),
-
-            // Tối (Dark)
-            ListTile(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: currentMode == ThemeMode.dark
-                      ? const Color(0xFF10B981)
-                      : (isDark ? const Color(0xFF243044) : const Color(0xFFE2E8F0)),
-                ),
-              ),
-              tileColor: currentMode == ThemeMode.dark ? activeTileColor : Colors.transparent,
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.nightlight_round, color: Color(0xFF818CF8), size: 20),
-              ),
-              title: Text(
-                AppTranslations.tr('theme_dark', currentLang),
-                style: TextStyle(fontWeight: FontWeight.w600, color: textDark),
-              ),
-              subtitle: Text(
-                AppTranslations.tr('theme_dark_sub', currentLang),
-                style: TextStyle(fontSize: 11.5, color: textMuted),
-              ),
-              trailing: currentMode == ThemeMode.dark
-                  ? const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981))
-                  : null,
-              onTap: () {
-                ref.read(appThemeControllerProvider.notifier).setMode(ThemeMode.dark);
-                ref.read(appThemeModeProvider.notifier).setThemeMode(ThemeMode.dark);
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(AppTranslations.tr('theme_changed_dark', currentLang)),
-                    behavior: SnackBarBehavior.floating,
-                    backgroundColor: const Color(0xFF10B981),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 8),
-
-            // Hệ thống (System)
-            ListTile(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: currentMode == ThemeMode.system
-                      ? const Color(0xFF10B981)
-                      : (isDark ? const Color(0xFF243044) : const Color(0xFFE2E8F0)),
-                ),
-              ),
-              tileColor: currentMode == ThemeMode.system ? activeTileColor : Colors.transparent,
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.settings_system_daydream_rounded,
-                  color: textMuted,
-                  size: 20,
-                ),
-              ),
-              title: Text(
-                AppTranslations.tr('theme_system', currentLang),
-                style: TextStyle(fontWeight: FontWeight.w600, color: textDark),
-              ),
-              subtitle: Text(
-                AppTranslations.tr('theme_system_sub', currentLang),
-                style: TextStyle(fontSize: 11.5, color: textMuted),
-              ),
-              trailing: currentMode == ThemeMode.system
-                  ? const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981))
-                  : null,
-              onTap: () {
-                ref.read(appThemeControllerProvider.notifier).setMode(ThemeMode.system);
-                ref.read(appThemeModeProvider.notifier).setThemeMode(ThemeMode.system);
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(AppTranslations.tr('theme_changed_system', currentLang)),
-                    behavior: SnackBarBehavior.floating,
                   ),
                 );
               },
@@ -538,11 +345,10 @@ class HomeScreen extends ConsumerWidget {
     List<BookingRequestModel> rooms,
     String Function(String) tr,
   ) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final textDark = isDark ? const Color(0xFFF8FAFC) : AppColors.textDark;
-    final textMuted = isDark ? const Color(0xFF94A3B8) : AppColors.textMuted;
-    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final cardBg = Colors.white;
+    final textDark = AppColors.textDark;
+    final textMuted = AppColors.textMuted;
+    final borderColor = const Color(0xFFE2E8F0);
 
     showModalBottomSheet(
       context: context,
@@ -567,7 +373,7 @@ class HomeScreen extends ConsumerWidget {
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
+                  color: const Color(0xFFCBD5E1),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -578,10 +384,10 @@ class HomeScreen extends ConsumerWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF451A03) : const Color(0xFFFEF3C7),
+                    color: const Color(0xFFFEF3C7),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A),
+                      color: const Color(0xFFFDE68A),
                     ),
                   ),
                   alignment: Alignment.center,
@@ -635,7 +441,7 @@ class HomeScreen extends ConsumerWidget {
                     child: Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: borderColor),
                       ),
@@ -645,7 +451,7 @@ class HomeScreen extends ConsumerWidget {
                             width: 42,
                             height: 42,
                             decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF8FF),
+                              color: const Color(0xFFEFF8FF),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             alignment: Alignment.center,
@@ -729,9 +535,6 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(userProfileProvider).value;
     final currentLang = ref.watch(appLanguageProvider);
-    final currentThemeMode =
-        ref.watch(appThemeControllerProvider).value?.mode ??
-        ref.watch(appThemeModeProvider);
     final currentUser = ref.watch(currentUserProvider);
     final currentUid = currentUser?.uid ?? '';
 
@@ -759,14 +562,13 @@ class HomeScreen extends ConsumerWidget {
         : null;
     final rejectedPostsCount = rejectedCountAsync?.value ?? 0;
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = Theme.of(context).scaffoldBackgroundColor;
     final cardColor = Theme.of(context).cardColor;
-    final borderColor = isDark ? const Color(0xFF243044) : const Color(0xFFE2E8F0);
-    final textDark = isDark ? const Color(0xFFF8FAFC) : AppColors.textDark;
-    final textMuted = isDark ? const Color(0xFF94A3B8) : AppColors.textMuted;
-    final iconBg = isDark ? const Color(0xFF1E2638) : const Color(0xFFF3F4F6);
-    final dividerColor = isDark ? const Color(0xFF243044) : const Color(0xFFF1F3F5);
+    final borderColor = const Color(0xFFE2E8F0);
+    final textDark = AppColors.textDark;
+    final textMuted = AppColors.textMuted;
+    final iconBg = const Color(0xFFF3F4F6);
+    final dividerColor = const Color(0xFFF1F3F5);
 
     String tr(String key) => AppTranslations.tr(key, currentLang);
 
@@ -777,20 +579,6 @@ class HomeScreen extends ConsumerWidget {
           tr('my_profile'),
           style: TextStyle(fontWeight: FontWeight.bold, color: textDark),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: tr('personal_profile'),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const RoleAwareProfileScreen(),
-                ),
-              );
-            },
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
@@ -821,9 +609,7 @@ class HomeScreen extends ConsumerWidget {
                     children: [
                       CircleAvatar(
                         radius: 32,
-                        backgroundColor: isDark
-                            ? const Color(0xFF064E3B)
-                            : AppColors.primaryContainer,
+                        backgroundColor: AppColors.primaryContainer,
                         backgroundImage: (profile?.avatarUrl.startsWith('http') == true)
                             ? NetworkImage(profile!.avatarUrl)
                             : null,
@@ -862,9 +648,7 @@ class HomeScreen extends ConsumerWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: isDark
-                                        ? const Color(0xFF064E3B)
-                                        : AppColors.primaryContainer,
+                                    color: AppColors.primaryContainer,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
@@ -877,7 +661,7 @@ class HomeScreen extends ConsumerWidget {
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
-                                      color: isDark ? const Color(0xFFD1FAE5) : AppColors.primary,
+                                      color: AppColors.primary,
                                     ),
                                   ),
                                 ),
@@ -895,9 +679,9 @@ class HomeScreen extends ConsumerWidget {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                                     decoration: BoxDecoration(
-                                      color: isDark ? const Color(0xFF1E2638) : const Color(0xFFF1F5F9),
+                                      color: const Color(0xFFF1F5F9),
                                       borderRadius: BorderRadius.circular(5),
-                                      border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+                                      border: Border.all(color: const Color(0xFFCBD5E1)),
                                     ),
                                     child: Text(
                                       'ID: ${profile?.userCode ?? "---"}',
@@ -957,7 +741,7 @@ class HomeScreen extends ConsumerWidget {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
                                   decoration: BoxDecoration(
-                                    color: isDark ? const Color(0xFF451A03) : const Color(0xFFFEF3C7),
+                                    color: const Color(0xFFFEF3C7),
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(color: const Color(0xFFF59E0B)),
                                   ),
@@ -974,7 +758,7 @@ class HomeScreen extends ConsumerWidget {
                                           style: TextStyle(
                                             fontSize: 10.5,
                                             fontWeight: FontWeight.bold,
-                                            color: isDark ? const Color(0xFFFDE68A) : const Color(0xFFB45309),
+                                            color: const Color(0xFFB45309),
                                           ),
                                         ),
                                       ),
@@ -982,7 +766,7 @@ class HomeScreen extends ConsumerWidget {
                                       Icon(
                                         Icons.chevron_right,
                                         size: 13,
-                                        color: isDark ? const Color(0xFFFDE68A) : const Color(0xFFB45309),
+                                        color: const Color(0xFFB45309),
                                       ),
                                     ],
                                   ),
@@ -1075,7 +859,7 @@ class HomeScreen extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600,
+                  color: Colors.grey.shade600,
                   letterSpacing: 0.8,
                 ),
               ),
@@ -1290,7 +1074,7 @@ class HomeScreen extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600,
+                  color: Colors.grey.shade600,
                   letterSpacing: 0.8,
                 ),
               ),
@@ -1312,20 +1096,6 @@ class HomeScreen extends ConsumerWidget {
                     textMuted: textMuted,
                     iconBg: iconBg,
                     onTap: () => _showLanguageDialog(context, ref),
-                  ),
-                  _buildMenuDivider(dividerColor: dividerColor),
-                  _buildSettingsItem(
-                    icon: Icons.palette_outlined,
-                    title: tr('appearance'),
-                    trailingText: currentThemeMode == ThemeMode.dark
-                        ? tr('theme_name_dark')
-                        : (currentThemeMode == ThemeMode.system
-                            ? tr('theme_name_system')
-                            : tr('theme_name_light')),
-                    textDark: textDark,
-                    textMuted: textMuted,
-                    iconBg: iconBg,
-                    onTap: () => _showThemeDialog(context, ref),
                   ),
                   _buildMenuDivider(dividerColor: dividerColor),
                   _buildSettingsItem(
@@ -1375,7 +1145,7 @@ class HomeScreen extends ConsumerWidget {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.dangerContainer.withValues(alpha: isDark ? 0.25 : 0.5),
+                    color: AppColors.dangerContainer.withValues(alpha: 0.5),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(

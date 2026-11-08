@@ -67,12 +67,9 @@ class _ContactHotlineSheetContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
@@ -87,7 +84,7 @@ class _ContactHotlineSheetContent extends StatelessWidget {
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.grey.shade600 : Colors.grey.shade300,
+                  color: Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -139,7 +136,6 @@ class _ContactHotlineSheetContent extends StatelessWidget {
             // Item 1: Hotline
             _buildContactCard(
               context,
-              isDark: isDark,
               icon: Icons.phone_in_talk_rounded,
               iconColor: const Color(0xFF10B981),
               iconBg: const Color(0xFF10B981).withValues(alpha: 0.12),
@@ -156,7 +152,6 @@ class _ContactHotlineSheetContent extends StatelessWidget {
             // Item 2: Zalo CSKH
             _buildContactCard(
               context,
-              isDark: isDark,
               icon: Icons.chat_bubble_rounded,
               iconColor: const Color(0xFF0068FF),
               iconBg: const Color(0xFF0068FF).withValues(alpha: 0.12),
@@ -177,7 +172,6 @@ class _ContactHotlineSheetContent extends StatelessWidget {
             // Item 3: Email CSKH
             _buildContactCard(
               context,
-              isDark: isDark,
               icon: Icons.email_rounded,
               iconColor: const Color(0xFFF59E0B),
               iconBg: const Color(0xFFF59E0B).withValues(alpha: 0.12),
@@ -199,10 +193,10 @@ class _ContactHotlineSheetContent extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                  color: const Color(0xFFE2E8F0),
                 ),
               ),
               child: Row(
@@ -237,7 +231,7 @@ class _ContactHotlineSheetContent extends StatelessWidget {
                           'Tòa nhà HomeShare, Khu Công nghệ cao, TP. Thủ Đức, TP. Hồ Chí Minh',
                           style: TextStyle(
                             fontSize: 12,
-                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                            color: Colors.grey.shade600,
                             height: 1.35,
                           ),
                         ),
@@ -264,7 +258,6 @@ class _ContactHotlineSheetContent extends StatelessWidget {
 
   Widget _buildContactCard(
     BuildContext context, {
-    required bool isDark,
     required IconData icon,
     required Color iconColor,
     required Color iconBg,
@@ -279,10 +272,10 @@ class _ContactHotlineSheetContent extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          color: const Color(0xFFE2E8F0),
         ),
       ),
       child: Column(
@@ -307,7 +300,7 @@ class _ContactHotlineSheetContent extends StatelessWidget {
                       title,
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                        color: Colors.grey.shade600,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -337,7 +330,7 @@ class _ContactHotlineSheetContent extends StatelessWidget {
                   subText,
                   style: TextStyle(
                     fontSize: 11,
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade500,
+                    color: Colors.grey.shade500,
                   ),
                 ),
               ),

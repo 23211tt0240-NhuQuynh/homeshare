@@ -12,14 +12,12 @@ import 'host_reputation_bar.dart';
 class HostReviewsSection extends ConsumerWidget {
   final String hostId;
   final String hostName;
-  final int reputationScore;
   final bool showReviewButton;
 
   const HostReviewsSection({
     super.key,
     required this.hostId,
     required this.hostName,
-    required this.reputationScore,
     required this.showReviewButton,
   });
 
@@ -95,14 +93,14 @@ class HostReviewsSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          HostReputationBar(
-            score: loading
-                ? reputationScore
-                : HostReputation.fromAverage(stats.average),
-          ),
-          const SizedBox(height: 16),
-          const Divider(height: 1, color: AppColors.border),
-          const SizedBox(height: 14),
+          if (!loading && stats.count > 0) ...[
+            HostReputationBar(
+              score: HostReputation.fromAverage(stats.average),
+            ),
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: AppColors.border),
+            const SizedBox(height: 14),
+          ],
           Row(
             children: [
               const Icon(Icons.star_rounded, color: Color(0xFFFFA000), size: 22),

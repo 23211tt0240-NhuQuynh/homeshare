@@ -352,12 +352,11 @@ class _ReportRoomIssueBottomSheetState
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final b = widget.booking;
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF151C28) : Colors.white,
+        color: Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(
@@ -377,7 +376,7 @@ class _ReportRoomIssueBottomSheetState
                   width: 44,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: isDark ? Colors.white24 : Colors.grey.shade300,
+                    color: Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -419,7 +418,7 @@ class _ReportRoomIssueBottomSheetState
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 12.5,
-                            color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted,
+                            color: AppColors.textMuted,
                           ),
                         ),
                       ],
@@ -479,15 +478,13 @@ class _ReportRoomIssueBottomSheetState
                     label: Text(cat),
                     selected: isSelected,
                     selectedColor: AppColors.primary,
-                    backgroundColor: isDark
-                        ? const Color(0xFF1E293B)
-                        : const Color(0xFFF1F5F9),
+                    backgroundColor: const Color(0xFFF1F5F9),
                     labelStyle: TextStyle(
                       fontSize: 12,
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                       color: isSelected
                           ? Colors.white
-                          : (isDark ? Colors.white70 : const Color(0xFF334155)),
+                          : (const Color(0xFF334155)),
                     ),
                     onSelected: (val) {
                       if (val) setState(() => _selectedCategory = cat);
@@ -497,7 +494,7 @@ class _ReportRoomIssueBottomSheetState
                       side: BorderSide(
                         color: isSelected
                             ? AppColors.primary
-                            : (isDark ? const Color(0xFF334155) : Colors.transparent),
+                            : (Colors.transparent),
                       ),
                     ),
                   );
@@ -588,10 +585,10 @@ class _ReportRoomIssueBottomSheetState
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF8FF),
+                        color: const Color(0xFFEFF8FF),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: isDark ? const Color(0xFF334155) : const Color(0xFFB2DDFF),
+                          color: const Color(0xFFB2DDFF),
                         ),
                       ),
                       child: Row(
@@ -600,7 +597,7 @@ class _ReportRoomIssueBottomSheetState
                           Icon(
                             Icons.auto_awesome_rounded,
                             size: 13,
-                            color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF175CD3),
+                            color: const Color(0xFF175CD3),
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -608,7 +605,7 @@ class _ReportRoomIssueBottomSheetState
                             style: TextStyle(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w600,
-                              color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF175CD3),
+                              color: const Color(0xFF175CD3),
                             ),
                           ),
                         ],
@@ -625,18 +622,18 @@ class _ReportRoomIssueBottomSheetState
                   hintText: 'Nhập vị trí và tình trạng hỏng hóc cần sửa chữa...',
                   hintStyle: TextStyle(
                     fontSize: 12.5,
-                    color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                    color: const Color(0xFF94A3B8),
                   ),
                   errorText: _descError,
                   errorMaxLines: 2,
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                  fillColor: const Color(0xFFF8FAFC),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
                       color: _descError != null
                           ? Colors.red
-                          : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                          : (const Color(0xFFE2E8F0)),
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
@@ -644,7 +641,7 @@ class _ReportRoomIssueBottomSheetState
                     borderSide: BorderSide(
                       color: _descError != null
                           ? Colors.red
-                          : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                          : (const Color(0xFFE2E8F0)),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
@@ -691,10 +688,10 @@ class _ReportRoomIssueBottomSheetState
                           height: 80,
                           margin: const EdgeInsets.only(right: 10),
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                            color: const Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                              color: const Color(0xFFCBD5E1),
                               style: BorderStyle.solid,
                             ),
                           ),
@@ -773,7 +770,7 @@ class _ReportRoomIssueBottomSheetState
                         labelStyle: const TextStyle(fontSize: 12),
                         isDense: true,
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        fillColor: const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
@@ -789,7 +786,7 @@ class _ReportRoomIssueBottomSheetState
                         errorText: _phoneError,
                         isDense: true,
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        fillColor: const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
@@ -875,7 +872,6 @@ class _ReportRoomIssueBottomSheetState
     required Color bgColor,
   }) {
     final isSelected = _selectedSeverity == severity;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Expanded(
       child: InkWell(
@@ -886,12 +882,12 @@ class _ReportRoomIssueBottomSheetState
           decoration: BoxDecoration(
             color: isSelected
                 ? bgColor
-                : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC)),
+                : (const Color(0xFFF8FAFC)),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isSelected
                   ? color
-                  : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                  : (const Color(0xFFE2E8F0)),
               width: isSelected ? 1.5 : 1,
             ),
           ),
@@ -904,7 +900,7 @@ class _ReportRoomIssueBottomSheetState
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: isSelected ? color : (isDark ? Colors.white : AppColors.textDark),
+                  color: isSelected ? color : (AppColors.textDark),
                 ),
               ),
               const SizedBox(height: 2),
@@ -912,7 +908,7 @@ class _ReportRoomIssueBottomSheetState
                 sublabel,
                 style: TextStyle(
                   fontSize: 9.5,
-                  color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted,
+                  color: AppColors.textMuted,
                 ),
               ),
             ],

@@ -291,7 +291,6 @@ void main() {
               body: HostReviewsSection(
                 hostId: 'host1',
                 hostName: 'Lan',
-                reputationScore: 92,
                 showReviewButton: true,
               ),
             ),
@@ -321,7 +320,6 @@ void main() {
               body: HostReviewsSection(
                 hostId: 'host1',
                 hostName: 'Lan',
-                reputationScore: 100,
                 showReviewButton: true,
               ),
             ),
@@ -332,7 +330,8 @@ void main() {
 
       expect(find.text('Chưa có đánh giá'), findsOneWidget);
       expect(find.text('Chưa có nhận xét nào.'), findsOneWidget);
-      expect(find.text('100/100'), findsOneWidget);
+      expect(find.text('100/100'), findsNothing);
+      expect(find.byType(HostReputationBar), findsNothing);
       expect(find.text('Đánh giá chủ trọ'), findsNothing);
     });
 
@@ -353,7 +352,6 @@ void main() {
               body: HostReviewsSection(
                 hostId: 'host1',
                 hostName: 'QA',
-                reputationScore: 100,
                 showReviewButton: false,
               ),
             ),

@@ -11,9 +11,6 @@ class TermsPrivacyScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return DefaultTabController(
       length: 2,
       initialIndex: initialTabIndex,
@@ -27,8 +24,8 @@ class TermsPrivacyScreen extends StatelessWidget {
           bottom: TabBar(
             indicatorColor: AppColors.primary,
             indicatorWeight: 3,
-            labelColor: isDark ? Colors.white : AppColors.primary,
-            unselectedLabelColor: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+            labelColor: AppColors.primary,
+            unselectedLabelColor: Colors.grey.shade600,
             labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             tabs: const [
               Tab(text: 'Điều khoản dịch vụ'),
@@ -38,8 +35,8 @@ class TermsPrivacyScreen extends StatelessWidget {
         ),
         body: TabBarView(
           children: [
-            _TermsContent(isDark: isDark),
-            _PrivacyContent(isDark: isDark),
+            const _TermsContent(),
+            const _PrivacyContent(),
           ],
         ),
       ),
@@ -48,9 +45,7 @@ class TermsPrivacyScreen extends StatelessWidget {
 }
 
 class _TermsContent extends StatelessWidget {
-  final bool isDark;
-
-  const _TermsContent({required this.isDark});
+  const _TermsContent();
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +53,6 @@ class _TermsContent extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       children: [
         _buildNoticeBox(
-          isDark: isDark,
           icon: Icons.gavel_rounded,
           title: 'Hiệu lực áp dụng',
           desc:
@@ -67,7 +61,6 @@ class _TermsContent extends StatelessWidget {
         const SizedBox(height: 20),
 
         _buildSection(
-          isDark: isDark,
           number: '1',
           title: 'Định nghĩa & Phạm vi nền tảng',
           content:
@@ -75,7 +68,6 @@ class _TermsContent extends StatelessWidget {
         ),
 
         _buildSection(
-          isDark: isDark,
           number: '2',
           title: 'Quyền và Nghĩa vụ của Người thuê & Ở ghép',
           content:
@@ -85,7 +77,6 @@ class _TermsContent extends StatelessWidget {
         ),
 
         _buildSection(
-          isDark: isDark,
           number: '3',
           title: 'Quyền và Nghĩa vụ của Chủ trọ (Host)',
           content:
@@ -96,7 +87,6 @@ class _TermsContent extends StatelessWidget {
         ),
 
         _buildSection(
-          isDark: isDark,
           number: '4',
           title: 'Quy định Đặt cọc & Giữ chỗ an toàn (Escrow)',
           content:
@@ -106,7 +96,6 @@ class _TermsContent extends StatelessWidget {
         ),
 
         _buildSection(
-          isDark: isDark,
           number: '5',
           title: 'Chính sách Hủy phòng & Giải quyết khiếu nại',
           content:
@@ -116,7 +105,6 @@ class _TermsContent extends StatelessWidget {
         ),
 
         _buildSection(
-          isDark: isDark,
           number: '6',
           title: 'Chế tài Xử lý vi phạm & Trừ điểm uy tín',
           content:
@@ -132,9 +120,7 @@ class _TermsContent extends StatelessWidget {
 }
 
 class _PrivacyContent extends StatelessWidget {
-  final bool isDark;
-
-  const _PrivacyContent({required this.isDark});
+  const _PrivacyContent();
 
   @override
   Widget build(BuildContext context) {
@@ -142,7 +128,6 @@ class _PrivacyContent extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       children: [
         _buildNoticeBox(
-          isDark: isDark,
           icon: Icons.security_rounded,
           title: 'Cam kết Bảo mật dữ liệu',
           desc:
@@ -151,7 +136,6 @@ class _PrivacyContent extends StatelessWidget {
         const SizedBox(height: 20),
 
         _buildSection(
-          isDark: isDark,
           number: '1',
           title: 'Loại dữ liệu chúng tôi thu thập',
           content:
@@ -162,7 +146,6 @@ class _PrivacyContent extends StatelessWidget {
         ),
 
         _buildSection(
-          isDark: isDark,
           number: '2',
           title: 'Mục đích xử lý và sử dụng dữ liệu',
           content:
@@ -173,7 +156,6 @@ class _PrivacyContent extends StatelessWidget {
         ),
 
         _buildSection(
-          isDark: isDark,
           number: '3',
           title: 'Biện pháp bảo vệ & Lưu trữ dữ liệu',
           content:
@@ -183,7 +165,6 @@ class _PrivacyContent extends StatelessWidget {
         ),
 
         _buildSection(
-          isDark: isDark,
           number: '4',
           title: 'Quyền của Chủ thể dữ liệu',
           content:
@@ -195,7 +176,6 @@ class _PrivacyContent extends StatelessWidget {
         ),
 
         _buildSection(
-          isDark: isDark,
           number: '5',
           title: 'Cập nhật chính sách',
           content:
@@ -209,7 +189,6 @@ class _PrivacyContent extends StatelessWidget {
 }
 
 Widget _buildNoticeBox({
-  required bool isDark,
   required IconData icon,
   required String title,
   required String desc,
@@ -217,10 +196,10 @@ Widget _buildNoticeBox({
   return Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
+      color: const Color(0xFFEFF6FF),
       borderRadius: BorderRadius.circular(16),
       border: Border.all(
-        color: isDark ? const Color(0xFF334155) : const Color(0xFFBFDBFE),
+        color: const Color(0xFFBFDBFE),
       ),
     ),
     child: Row(
@@ -252,7 +231,7 @@ Widget _buildNoticeBox({
                 style: TextStyle(
                   fontSize: 12.5,
                   height: 1.4,
-                  color: isDark ? Colors.grey.shade300 : const Color(0xFF1E3A8A),
+                  color: const Color(0xFF1E3A8A),
                 ),
               ),
             ],
@@ -264,7 +243,6 @@ Widget _buildNoticeBox({
 }
 
 Widget _buildSection({
-  required bool isDark,
   required String number,
   required String title,
   required String content,
@@ -273,10 +251,10 @@ Widget _buildSection({
     margin: const EdgeInsets.only(bottom: 16),
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+      color: Colors.white,
       borderRadius: BorderRadius.circular(14),
       border: Border.all(
-        color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+        color: const Color(0xFFE2E8F0),
       ),
     ),
     child: Column(
@@ -308,7 +286,7 @@ Widget _buildSection({
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  color: const Color(0xFF0F172A),
                 ),
               ),
             ),
@@ -320,7 +298,7 @@ Widget _buildSection({
           style: TextStyle(
             fontSize: 13,
             height: 1.55,
-            color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+            color: const Color(0xFF475569),
           ),
         ),
       ],

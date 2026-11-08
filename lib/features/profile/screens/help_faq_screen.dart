@@ -136,9 +136,6 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -152,7 +149,7 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
           // Header search
           Container(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            color: Colors.white,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -163,7 +160,7 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                     hintText: 'Tìm kiếm câu hỏi (cọc, phòng, cccd...)...',
                     hintStyle: TextStyle(
                       fontSize: 13,
-                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade500,
+                      color: Colors.grey.shade500,
                     ),
                     prefixIcon: const Icon(Icons.search, size: 20),
                     suffixIcon: _searchQuery.isNotEmpty
@@ -176,9 +173,7 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                           )
                         : null,
                     filled: true,
-                    fillColor: isDark
-                        ? const Color(0xFF0F172A)
-                        : const Color(0xFFF1F5F9),
+                    fillColor: const Color(0xFFF1F5F9),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 12,
@@ -208,16 +203,12 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                                   : FontWeight.normal,
                               color: selected
                                   ? Colors.white
-                                  : (isDark
-                                      ? Colors.grey.shade300
-                                      : Colors.grey.shade800),
+                                  : Colors.grey.shade800,
                             ),
                           ),
                           selected: selected,
                           selectedColor: AppColors.primary,
-                          backgroundColor: isDark
-                              ? const Color(0xFF334155)
-                              : const Color(0xFFF1F5F9),
+                          backgroundColor: const Color(0xFFF1F5F9),
                           side: BorderSide.none,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
@@ -262,9 +253,7 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                             'Bạn thử tìm bằng từ khóa khác hoặc liên hệ bộ phận hỗ trợ khách hàng 24/7.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: isDark
-                                  ? Colors.grey.shade400
-                                  : Colors.grey.shade600,
+                              color: Colors.grey.shade600,
                               fontSize: 13,
                             ),
                           ),
@@ -294,14 +283,10 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                           margin: const EdgeInsets.only(top: 16, bottom: 24),
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: isDark
-                                ? const Color(0xFF1E293B)
-                                : const Color(0xFFEFF6FF),
+                            color: const Color(0xFFEFF6FF),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: isDark
-                                  ? const Color(0xFF334155)
-                                  : const Color(0xFFBFDBFE),
+                              color: const Color(0xFFBFDBFE),
                             ),
                           ),
                           child: Column(
@@ -375,13 +360,11 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Material(
-                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                          color: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                             side: BorderSide(
-                              color: isDark
-                                  ? const Color(0xFF334155)
-                                  : const Color(0xFFE2E8F0),
+                              color: const Color(0xFFE2E8F0),
                             ),
                           ),
                           child: Theme(
@@ -410,9 +393,7 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                                 style: TextStyle(
                                   fontSize: 14.5,
                                   fontWeight: FontWeight.w600,
-                                  color: isDark
-                                      ? Colors.white
-                                      : const Color(0xFF0F172A),
+                                  color: const Color(0xFF0F172A),
                                 ),
                               ),
                               children: [
@@ -422,9 +403,7 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                                     width: double.infinity,
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: isDark
-                                          ? const Color(0xFF0F172A)
-                                          : const Color(0xFFF8FAFC),
+                                      color: const Color(0xFFF8FAFC),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Text(
@@ -432,9 +411,7 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                                       style: TextStyle(
                                         fontSize: 13.5,
                                         height: 1.5,
-                                        color: isDark
-                                            ? const Color(0xFFCBD5E1)
-                                            : const Color(0xFF334155),
+                                        color: const Color(0xFF334155),
                                       ),
                                     ),
                                   ),
