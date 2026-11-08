@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +12,6 @@ import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../profile/screens/host_profile_screen.dart';
-import '../../renter/screens/report_host_screen.dart';
 import 'host_room_view_screen.dart';
 import '../data/host_post_repository.dart';
 import 'host_create_post_screen.dart';
@@ -290,18 +289,6 @@ class _HostPostDetailScreenState extends ConsumerState<HostPostDetailScreen> {
             child: const Text('Đóng'),
           ),
         ],
-      ),
-    );
-  }
-
-  void _onReportPressed() {
-    final post = _currentPost;
-    if (post == null) return;
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ReportHostScreen.fromRoom(post.toRoomModel()),
       ),
     );
   }
@@ -1170,20 +1157,6 @@ final currentUserId = ref.watch(currentUserProvider)?.uid ?? '';
               // ROLE CHỦ TRỌ XEM BÀI CỦA CHỦ TRỌ KHÁC -> KHÔNG ĐẶT PHÒNG!
               : Row(
                   children: [
-                    // Nút Báo cáo
-                    OutlinedButton(
-                      onPressed: _onReportPressed,
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(48, 48),
-                        padding: EdgeInsets.zero,
-                        side: const BorderSide(color: Color(0xFFFCA5A5)),
-                        backgroundColor: const Color(0xFFFEF2F2),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: const Icon(Icons.flag_outlined, color: Color(0xFFDC2626), size: 18),
-                    ),
-                    const SizedBox(width: 8),
-
                     // Nút Xem thông tin phòng đối tác
                     Expanded(
                       child: OutlinedButton.icon(
@@ -1213,7 +1186,7 @@ final currentUserId = ref.watch(currentUserProvider)?.uid ?? '';
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
 
                     // Nút Nhắn tin trao đổi hợp tác
                     Expanded(

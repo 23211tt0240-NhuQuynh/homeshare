@@ -23,6 +23,16 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.119 - Đồng Bộ Các File Quản Lý Vi Phạm & Chi Tiết Bài Đăng Từ Downloads:**
+    - **Yêu cầu & Nghiệp vụ đã hoàn thành:**
+      1. **Đồng bộ file từ thư mục `C:\Users\PC\Downloads` vào đúng module trong project:**
+         - `violation_type_selector.dart` -> [lib/features/host/widgets/violation_type_selector.dart](lib/features/host/widgets/violation_type_selector.dart): Cập nhật định dạng tiền tệ việt nam chuẩn qua `NumberFormat.decimalPattern('vi')`, tự động kiểm tra phát hiện hành vi trùng với danh mục có sẵn để chọn ngay, kiểm tra hợp lệ tiền phạt (> 0 đ), quản lý xóa/thêm mục vi phạm tùy chỉnh mượt mà.
+         - `host_create_violation_screen.dart` -> [lib/features/host/screens/host_create_violation_screen.dart](lib/features/host/screens/host_create_violation_screen.dart): Tạo ID vi phạm duy nhất kèm timestamp (`vp_${DateTime.now().millisecondsSinceEpoch}`) khi lưu vào Firestore catalog.
+         - `violation_repository.dart` -> [lib/features/host/repositories/violation_repository.dart](lib/features/host/repositories/violation_repository.dart): Tự động sinh ID chuẩn nếu chưa có khi thêm loại vi phạm mới vào Firestore collection `violations`.
+         - `host_post_detail_screen.dart` -> [lib/features/host/screens/host_post_detail_screen.dart](lib/features/host/screens/host_post_detail_screen.dart): Dọn sạch nút "Báo cáo chủ trọ" khi host xem bài viết của host khác, chuẩn hóa layout nút xem phòng đối tác và nhắn tin hợp tác.
+      2. **Kiểm thử tự động & Phân tích tĩnh:**
+         - `flutter analyze lib/features/host/`: **No issues found (0 errors, 0 warnings)**.
+         - `flutter test`: **10/10 host tests passed (100%)**.
   * **Phase 2.118 - Tinh Chỉnh Header Dashboard & Gỡ Bỏ Icon Cây Bút Trong Trang Cá Nhân:**
     - **Yêu cầu & Nghiệp vụ đã hoàn thành:**
       1. **Gỡ bỏ icon cây bút ở AppBar "Trang cá nhân":**

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/services.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/user_provider.dart';
@@ -1107,7 +1107,7 @@ class _HostCreateViolationScreenState
                           final repo = ref.read(violationRepositoryProvider);
                           await repo.addViolationType(
                             ViolationModel(
-                              id: 'vp_',
+                              id: 'vp_${DateTime.now().millisecondsSinceEpoch}',
                               title: title,
                               defaultFine: fine ?? 0.0,
                               category: 'Nội quy chủ trọ',

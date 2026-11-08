@@ -1,5 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import '../models/violation_model.dart';
 
 class ViolationTypeSelector extends StatefulWidget {
@@ -33,6 +34,15 @@ class _ViolationTypeSelectorState extends State<ViolationTypeSelector> {
   bool _ownsTitleController = false;
   bool _ownsFineController = false;
   bool _saveToCatalog = false;
+  bool _isExpanded = false;
+  final List<ViolationModel> _customViolations = [];
+
+  void _handleRemoveCustom(String id) {
+    setState(() {
+      _customViolations.removeWhere((c) => c.id == id);
+    });
+    widget.onRemoveViolation?.call(id);
+  }
 
   @override
   void initState() {
@@ -90,17 +100,9 @@ class _ViolationTypeSelectorState extends State<ViolationTypeSelector> {
   }
 
   String _formatCurrency(double amount) {
-    final s = amount.toInt().toString();
-    final buffer = StringBuffer();
-    int count = 0;
-    for (int i = s.length - 1; i >= 0; i--) {
-      buffer.write(s[i]);
-      count++;
-      if (count % 3 == 0 && i != 0) {
-        buffer.write('.');
-      }
-    }
-    return ' đ';
+    if (amount <= 0) return '';
+    final formatter = NumberFormat.decimalPattern('vi');
+    return '${formatter.format(amount.toInt())} đ';
   }
 
   void _handleAddCustom() {
@@ -116,8 +118,39 @@ class _ViolationTypeSelectorState extends State<ViolationTypeSelector> {
       return;
     }
 
+    // Kiểm tra nếu tên vi phạm trùng với mục có sẵn thì tích chọn luôn
+    final matching = widget.violations.where(
+      (v) => v.title.toLowerCase().trim() == title.toLowerCase(),
+    );
+    if (matching.isNotEmpty) {
+      final existing = matching.first;
+      if (!widget.selectedViolations.any((v) => v.id == existing.id)) {
+        widget.onToggle(existing);
+      }
+      _titleController.clear();
+      _fineController.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Hành vi "${existing.title}" đã có, đã chọn mục có sẵn.'),
+          backgroundColor: const Color(0xFF2563EB),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     final rawFine = _fineController.text.replaceAll(RegExp(r'[^0-9]'), '');
     final fine = double.tryParse(rawFine);
+    if (fine == null || fine <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng nhập mức tiền phạt (> 0 đ) cho hành vi này'),
+          backgroundColor: Color(0xFFDC2626),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
 
     widget.onAddCustomViolation?.call(title, fine, _saveToCatalog);
 
@@ -125,16 +158,173 @@ class _ViolationTypeSelectorState extends State<ViolationTypeSelector> {
     _fineController.clear();
     setState(() {
       _saveToCatalog = false;
+      _isExpanded = true;
     });
+  }
+
+  Widget _buildViolationTile(ViolationModel item, {required bool isCustom}) {
+    final isSelected = widget.selectedViolations.any((v) => v.id == item.id);
+    final formattedFine = _formatCurrency(item.defaultFine);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isSelected ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isSelected ? const Color(0xFF93C5FD) : const Color(0xFFE2E8F0),
+          width: isSelected ? 1.4 : 1.0,
+        ),
+      ),
+      child: InkWell(
+        onTap: () => widget.onToggle(item),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          child: Row(
+            children: [
+              // Checkbox vuông chuẩn như thẻ tiện ích HostAmenityTile
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF2563EB) : Colors.white,
+                  borderRadius: BorderRadius.circular(5),
+                  border: Border.all(
+                    color: isSelected
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFFCBD5E1),
+                    width: 1.5,
+                  ),
+                ),
+                child: isSelected
+                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    : null,
+              ),
+              const SizedBox(width: 10),
+
+              // Icon đại diện vi phạm
+              Icon(
+                _getIconData(item.iconName),
+                size: 20,
+                color: isSelected
+                    ? const Color(0xFF2563EB)
+                    : _getUnselectedIconColor(item.id),
+              ),
+              const SizedBox(width: 10),
+
+              // Tên vi phạm
+              Expanded(
+                child: Text(
+                  item.title,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected
+                        ? const Color(0xFF1E40AF)
+                        : const Color(0xFF1E293B),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Nếu là vi phạm tự nhập: Chip "Tự nhập" + Nút xóa
+              if (isCustom) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2.5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEDE9FE),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'Tự nhập',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF7C3AED),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: () => _handleRemoveCustom(item.id),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(
+                      Icons.close_rounded,
+                      size: 14,
+                      color: Color(0xFFDC2626),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+
+              // Mức phạt đề xuất (nếu có)
+              if (formattedFine.isNotEmpty)
+                Text(
+                  formattedFine,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: isSelected
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFF475569),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final selectedCount = widget.selectedViolations.length;
-    // Lọc ra các vi phạm tự nhập đã chọn
-    final customSelected = widget.selectedViolations
-        .where((s) => !widget.violations.any((v) => v.id == s.id))
-        .toList();
+
+    // Đồng bộ các vi phạm tự nhập từ widget.selectedViolations vào danh sách hiển thị
+    for (final s in widget.selectedViolations) {
+      final isSystem = widget.violations.any((v) => v.id == s.id);
+      if (!isSystem &&
+          !_customViolations.any((c) =>
+              c.id == s.id ||
+              c.title.toLowerCase().trim() == s.title.toLowerCase().trim())) {
+        _customViolations.add(s);
+      }
+    }
+
+    // Toàn bộ vi phạm gồm mẫu Firestore + vi phạm tự nhập
+    final allItems = <ViolationModel>[
+      ...widget.violations,
+      ..._customViolations,
+    ];
+
+    // Lọc danh sách hiển thị theo trạng thái Thu gọn / Mở rộng (luôn hiện các mục đang chọn)
+    final displayedItems = <ViolationModel>[];
+    if (_isExpanded || allItems.length <= 4) {
+      displayedItems.addAll(allItems);
+    } else {
+      for (int i = 0; i < allItems.length; i++) {
+        final item = allItems[i];
+        final isSelected = widget.selectedViolations.any((v) => v.id == item.id);
+        if (i < 4 || isSelected) {
+          if (!displayedItems.any((d) => d.id == item.id)) {
+            displayedItems.add(item);
+          }
+        }
+      }
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -146,7 +336,7 @@ class _ViolationTypeSelectorState extends State<ViolationTypeSelector> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // 1. Tiêu đề khối & Badge số lượng đã chọn
           Row(
             children: [
               const Icon(
@@ -184,7 +374,7 @@ class _ViolationTypeSelectorState extends State<ViolationTypeSelector> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  selectedCount > 0 ? 'Đã chọn  lỗi' : 'Chưa chọn lỗi',
+                  selectedCount > 0 ? 'Đã chọn $selectedCount lỗi' : 'Chưa chọn lỗi',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -198,300 +388,92 @@ class _ViolationTypeSelectorState extends State<ViolationTypeSelector> {
           ),
           const SizedBox(height: 14),
 
-          // 1. Danh sách các vi phạm mẫu có sẵn
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: widget.violations.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final item = widget.violations[index];
-              final isSelected =
-                  widget.selectedViolations.any((v) => v.id == item.id);
-
-              return InkWell(
-                onTap: () => widget.onToggle(item),
-                borderRadius: BorderRadius.circular(12),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? const Color(0xFF2563EB)
-                        : const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF1D4ED8)
-                          : const Color(0xFFE2E8F0),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _getIconData(item.iconName),
-                        size: 20,
-                        color: isSelected
-                            ? Colors.white
-                            : _getUnselectedIconColor(item.id),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          item.title,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.w500,
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF1E293B),
-                          ),
-                        ),
-                      ),
-                      if (item.defaultFine > 0)
-                        Text(
-                          _formatCurrency(item.defaultFine),
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF334155),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-
-          // 2. Danh sách các vi phạm tự nhập đã thêm
-          if (customSelected.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                const Icon(
-                  Icons.assignment_turned_in_outlined,
-                  size: 16,
-                  color: Color(0xFF7C3AED),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Vi phạm tự nhập ()',
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF4C1D95),
-                  ),
-                ),
-              ],
+          // 2. Khối nhập hành vi vi phạm mới & Mức tiền phạt
+          Container(
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFCBD5E1)),
             ),
-            const SizedBox(height: 8),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: customSelected.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final item = customSelected[index];
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFAF5FF),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFDDD6FE)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEDE9FE),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          'Tự nhập',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF7C3AED),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          item.title,
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1E293B),
-                          ),
-                        ),
-                      ),
-                      if (item.defaultFine > 0) ...[
-                        Text(
-                          _formatCurrency(item.defaultFine),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF7C3AED),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      InkWell(
-                        onTap: () => widget.onRemoveViolation?.call(item.id),
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEE2E2),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Icon(
-                            Icons.close_rounded,
-                            size: 16,
-                            color: Color(0xFFDC2626),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ],
-
-          const SizedBox(height: 16),
-          const Divider(height: 1, color: Color(0xFFE2E8F0)),
-          const SizedBox(height: 14),
-
-          // 3. Khối Tự nhập hành vi vi phạm mới
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Icon(
+            child: TextField(
+              controller: _titleController,
+              textAlignVertical: TextAlignVertical.center,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                hintText: 'Nhập tên hành vi vi phạm riêng...',
+                hintStyle: TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
+                prefixIcon: Icon(
                   Icons.add_circle_outline_rounded,
-                  size: 16,
                   color: Color(0xFF2563EB),
+                  size: 18,
                 ),
+                isDense: true,
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(horizontal: 10),
               ),
-              const SizedBox(width: 8),
-              const Text(
-                'Tự nhập hành vi vi phạm khác',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1E293B),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Ô nhập tên hành vi vi phạm
-          TextField(
-            controller: _titleController,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              hintText: 'Nhập hành vi vi phạm (VD: Nuôi thú cưng, để xe sai chỗ...)',
-              hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-              fillColor: const Color(0xFFF8FAFC),
-              filled: true,
-              prefixIcon: const Icon(
-                Icons.edit_outlined,
-                size: 18,
-                color: Color(0xFF64748B),
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFF2563EB)),
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             ),
           ),
           const SizedBox(height: 8),
 
-          // Ô nhập mức phạt đề xuất & Nút Thêm
+          // Hàng nhập Mức tiền phạt (bắt buộc) & Nút Thêm
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: _fineController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _handleAddCustom(),
-                  decoration: InputDecoration(
-                    hintText: 'Mức phạt đề xuất (VNĐ - tùy chọn)',
-                    hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
-                    fillColor: const Color(0xFFF8FAFC),
-                    filled: true,
-                    prefixIcon: const Icon(
-                      Icons.attach_money_rounded,
-                      size: 18,
-                      color: Color(0xFF64748B),
+                child: Container(
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                  ),
+                  child: TextField(
+                    controller: _fineController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    textAlignVertical: TextAlignVertical.center,
+                    textInputAction: TextInputAction.done,
+                    decoration: const InputDecoration(
+                      hintText: 'Mức tiền phạt (VNĐ) *',
+                      hintStyle: TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
+                      prefixIcon: Icon(
+                        Icons.attach_money_rounded,
+                        color: Color(0xFF2563EB),
+                        size: 18,
+                      ),
+                      isDense: true,
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10),
                     ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: Color(0xFF2563EB)),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    onSubmitted: (_) => _handleAddCustom(),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              ElevatedButton.icon(
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  minimumSize: const Size(100, 44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  elevation: 0,
+                ),
                 onPressed: _handleAddCustom,
-                icon: const Icon(Icons.add_rounded, size: 18, color: Colors.white),
+                icon: const Icon(Icons.add, size: 18),
                 label: const Text(
                   'Thêm',
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.bold,
                     color: Colors.white,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
 
           // Checkbox lưu vào danh mục dùng lại
           InkWell(
@@ -500,38 +482,74 @@ class _ViolationTypeSelectorState extends State<ViolationTypeSelector> {
                 _saveToCatalog = !_saveToCatalog;
               });
             },
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: Checkbox(
-                      value: _saveToCatalog,
-                      activeColor: const Color(0xFF2563EB),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      onChanged: (val) {
-                        setState(() {
-                          _saveToCatalog = val ?? false;
-                        });
-                      },
+            borderRadius: BorderRadius.circular(6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: Checkbox(
+                    value: _saveToCatalog,
+                    activeColor: const Color(0xFF2563EB),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
                     ),
+                    onChanged: (val) {
+                      setState(() {
+                        _saveToCatalog = val ?? false;
+                      });
+                    },
                   ),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'Lưu hành vi này vào danh mục vi phạm để dùng cho các lần sau',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF475569)),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'Lưu hành vi này vào danh mục vi phạm để dùng cho các lần sau',
+                  style: TextStyle(fontSize: 11.5, color: Color(0xFF475569)),
+                ),
+              ],
             ),
           ),
+          const SizedBox(height: 14),
+
+          // 3. Danh sách các hành vi vi phạm (chuẩn hóa theo phong cách thẻ tiện ích)
+          Column(
+            children: [
+              for (final item in displayedItems)
+                _buildViolationTile(
+                  item,
+                  isCustom: !widget.violations.any((v) => v.id == item.id),
+                ),
+            ],
+          ),
+
+          // 4. Nút Thu gọn / Xem thêm khi danh sách có trên 4 mục
+          if (allItems.length > 4) ...[
+            const SizedBox(height: 4),
+            InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => setState(() => _isExpanded = !_isExpanded),
+              child: Container(
+                width: double.infinity,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F5FF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  _isExpanded
+                      ? 'Thu gọn ^'
+                      : 'Xem thêm (${allItems.length - displayedItems.length} vi phạm) v',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1E60F2),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

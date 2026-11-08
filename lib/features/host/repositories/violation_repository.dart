@@ -1,4 +1,4 @@
-﻿import '../../../core/services/resident_service.dart';
+import '../../../core/services/resident_service.dart';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -201,10 +201,14 @@ class ViolationRepository {
 
   /// Thêm một loại vi phạm mới vào danh mục
   Future<void> addViolationType(ViolationModel item) async {
+    final id = (item.id.isNotEmpty && item.id != 'vp_')
+        ? item.id
+        : 'vp_${DateTime.now().millisecondsSinceEpoch}';
     final docRef = _firestore
         .collection(FirestoreCollections.violations)
-        .doc(item.id);
-    await docRef.set(item.toMap());
+        .doc(id);
+    final toSave = item.id == id ? item : item.copyWith(id: id);
+    await docRef.set(toSave.toMap());
   }
 
   /// Lắng nghe danh sách biên bản vi phạm của chủ trọ hiện tại
