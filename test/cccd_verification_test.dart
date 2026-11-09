@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:home_share/features/profile/models/cccd_data.dart';
+import 'package:home_share/features/profile/models/cccd_validation_models.dart';
+import 'package:home_share/features/profile/services/cccd_image_evidence_validator.dart';
 
 /// Hàm tính toán điều kiện gửi xác thực: bắt buộc đủ 3/3 bước
 /// (Ảnh mặt trước + Ảnh mặt sau + Quét thông tin QR thẻ CCCD)
@@ -139,6 +141,89 @@ void main() {
       expect(displayName, equals('QA'));
       expect(cccdFullName, equals('NGUYỄN VĂN AN'));
       expect(displayName, isNot(equals(cccdFullName)));
+    });
+  });
+
+  group('CccdImageEvidenceValidator Proof & Save Boundary Tests', () {
+    const validator = CccdImageEvidenceValidator();
+
+    final mockFrontEvidence = CccdImageEvidence(
+      side: CccdImageSide.front,
+      normalizedOcrText: 'CONG HOA XA HOI CHU NGHIA VIET NAM CAN CUOC CONG DAN SO 079206022867 HO VA TEN TRAN TRA QUOC MAN',
+      qrPayload: null, // Ảnh chụp ban đầu không bắt được QR nhỏ
+      imageByteHash: 'front_hash_1234567890abcdef',
+      width: 1920,
+      height: 1080,
+      byteLength: 500000,
+    );
+
+    final mockBackEvidence = CccdImageEvidence(
+      side: CccdImageSide.back,
+      normalizedOcrText: 'DAC DIEM NHAN DANG NOT RUOI CUC CANH SAT BO CONG AN CHIP DIEN TU IDVNM',
+      qrPayload: null,
+      imageByteHash: 'back_hash_0987654321fedcba',
+      width: 1920,
+      height: 1080,
+      byteLength: 520000,
+    );
+
+    const verifiedCccd = CccdData(
+      idNumber: '079206022867',
+      oldCmnd: '',
+      fullName: 'Trần Trà Quốc Mẫn',
+      birthDate: '01/04/2006',
+      gender: 'Nam',
+      address: '39 Đường 24, Khu Phố 7, P.Linh Đông, TP.Thủ Đức',
+      issueDate: '01/04/2021',
+    );
+
+    test('Khi frontEvidence chưa có QR nhưng có explicitVerifiedData từ bước 3, createProof hợp lệ và canSave trả về true', () {
+      final proof = validator.createProof(
+        frontEvidence: mockFrontEvidence,
+        backEvidence: mockBackEvidence,
+        explicitVerifiedData: verifiedCccd,
+      );
+
+      expect(proof.isValid, isTrue);
+      expect(proof.verifiedData, isNotNull);
+      expect(proof.verifiedData!.idNumber, '079206022867');
+      expect(proof.verifiedData!.fullName, 'Trần Trà Quốc Mẫn');
+      expect(validator.canSave(proof), isTrue);
+    });
+
+    test('validateStrictQr chấp nhận cả mã QR 6 trường (không có ngày cấp trong QR)', () {
+      const qr6 = '079206022867||Trần Trà Quốc Mẫn|01042006|Nam|TP. Hồ Chí Minh';
+      final parsed = validator.validateStrictQr(qr6);
+
+      expect(parsed, isNotNull);
+      expect(parsed!.idNumber, '079206022867');
+      expect(parsed.birthDate, '01/04/2006');
+    });
+
+    test('Chống ảnh demo: createProof từ chối khi phát hiện ảnh demo', () {
+      final demoFront = mockFrontEvidence.copyWith(isDemo: true);
+      final proof = validator.createProof(
+        frontEvidence: demoFront,
+        backEvidence: mockBackEvidence,
+        explicitVerifiedData: verifiedCccd,
+      );
+
+      expect(proof.isValid, isFalse);
+      expect(proof.isDemo, isTrue);
+      expect(validator.canSave(proof), isFalse);
+    });
+
+    test('Chống Replay Attack: createProof từ chối khi trùng hash giữa 2 mặt', () {
+      final dupBack = mockBackEvidence.copyWith(imageByteHash: mockFrontEvidence.imageByteHash);
+      final proof = validator.createProof(
+        frontEvidence: mockFrontEvidence,
+        backEvidence: dupBack,
+        explicitVerifiedData: verifiedCccd,
+      );
+
+      expect(proof.isValid, isFalse);
+      expect(proof.rejectionReasonCode, CccdValidationReasonCodes.duplicateImageHash);
+      expect(validator.canSave(proof), isFalse);
     });
   });
 }

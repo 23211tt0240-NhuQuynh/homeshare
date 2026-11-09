@@ -192,13 +192,19 @@ class CccdData {
     }
 
     return const CccdData(
-      idNumber: '079201012345',
-      fullName: 'CHỦ THẺ CCCD',
-      birthDate: '15/08/2001',
-      gender: 'Nam',
-      address: 'TP. Hồ Chí Minh',
-      issueDate: '25/12/2021',
+      idNumber: '',
+      fullName: '',
+      birthDate: '',
+      gender: '',
+      address: '',
+      issueDate: '',
     );
+  }
+
+  /// Chuyển thành chuỗi QR định dạng 7 trường chuẩn CCCD gắn chip
+  String toQrString() {
+    String stripSlash(String d) => d.replaceAll('/', '');
+    return '$idNumber|$oldCmnd|$fullName|${stripSlash(birthDate)}|$gender|$address|${stripSlash(issueDate)}';
   }
 
   Map<String, dynamic> toMap() => {

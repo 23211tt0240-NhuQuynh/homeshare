@@ -374,63 +374,6 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
     }
   }
 
-  Future<void> _confirmResetCccdForTesting() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 24),
-            SizedBox(width: 8),
-            Text('Xóa xác thực CCCD?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-          ],
-        ),
-        content: const Text(
-          'Hệ thống sẽ xóa toàn bộ dữ liệu CCCD (số CCCD, ngày cấp, quê quán, ảnh thẻ) và đặt lại trạng thái về "Chưa xác thực" để bạn có thể kiểm thử lại quy trình xác thực từ đầu.',
-          style: TextStyle(fontSize: 13.5, height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Hủy'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Xóa để test'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true && mounted) {
-      final user = ref.read(currentUserProvider);
-      final uid = user?.uid ?? (FirebaseAuth.instance.currentUser?.uid ?? '');
-      await resetCccdVerificationForTesting(uid: uid);
-      ref.invalidate(userProfileProvider);
-      final updated = await ref.read(userProfileProvider.future);
-      if (mounted) {
-        setState(() {
-          _verified = false;
-          if (updated != null) {
-            _hydrate(updated);
-          }
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đã xóa thông tin xác thực CCCD thành công! Bạn có thể quét/xác thực lại để test.'),
-            backgroundColor: Color(0xFF16A34A),
-          ),
-        );
-      }
-    }
-  }
-
   void _showCccdVerificationDetails() {
     final profile = ref.read(userProfileProvider).value;
     showDialog(
@@ -462,15 +405,6 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
           ],
         ),
         actions: [
-          if (!_viewOnly)
-            TextButton.icon(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                _confirmResetCccdForTesting();
-              },
-              icon: const Icon(Icons.delete_outline, color: Colors.red, size: 16),
-              label: const Text('Xóa để test lại', style: TextStyle(color: Colors.red)),
-            ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
@@ -868,26 +802,6 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
             ),
           ),
         ),
-        if (_verified && !_viewOnly) ...[
-          const SizedBox(height: 6),
-          TextButton.icon(
-            onPressed: _confirmResetCccdForTesting,
-            icon: const Icon(Icons.delete_outline_rounded, size: 15, color: Color(0xFFDC2626)),
-            label: const Text(
-              'Xóa xác thực CCCD (để test lại)',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFFDC2626),
-              ),
-            ),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          ),
-        ],
       ],
     );
   }

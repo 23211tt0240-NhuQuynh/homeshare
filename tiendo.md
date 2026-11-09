@@ -23,6 +23,39 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.121 - Loại Bỏ Toàn Bộ Nút & Dữ Liệu Kiểm Thử (Clean Production UI):**
+    - **Yêu cầu & Nghiệp vụ đã hoàn thành:**
+      1. [cccd_scanner_screen.dart](lib/features/profile/screens/cccd_scanner_screen.dart):
+         - Loại bỏ nút `"Thử Mẫu"` và hàm quét mô phỏng `_simulateSampleScan()` (với các dữ liệu giả lập hardcoded như `'079201012345'`, `'NGUYỄN VĂN AN'`).
+         - Cập nhật luồng quét đảm bảo 100% dữ liệu được bóc tách từ camera thật hoặc dán chuỗi QR thật của người dùng.
+      2. [cccd_verification_screen.dart](lib/features/profile/screens/cccd_verification_screen.dart):
+         - Loại bỏ nút thùng rác đỏ trên AppBar (`Icons.delete_sweep_outlined` - tooltip: "Xóa dữ liệu để test lại") và phương thức `_confirmResetAllForTesting`.
+      3. [personal_profile_screen.dart](lib/features/profile/screens/personal_profile_screen.dart) & [host_profile_screen.dart](lib/features/profile/screens/host_profile_screen.dart):
+         - Loại bỏ nút văn bản `"Xóa xác thực CCCD (để test lại)"` bên dưới huy hiệu trạng thái CCCD.
+         - Loại bỏ nút `"Xóa để test lại"` bên trong hộp thoại chi tiết xác thực CCCD (`_showCccdVerificationDetails`).
+         - Loại bỏ phương thức `_confirmResetCccdForTesting` và dọn sạch các import không còn sử dụng.
+      4. [cccd_reset_button_test.dart](test/cccd_reset_button_test.dart):
+         - Cập nhật bộ test widget để xác nhận giao diện người dùng sản phẩm hoàn toàn sạch sẽ, không hiển thị bất kỳ nút xóa test nào khi đã xác thực.
+    - **Kiểm thử tự động & Phân tích tĩnh:**
+      - Phân tích tĩnh: `flutter analyze lib/features/profile/`: **No issues found (0 errors, 0 warnings)**.
+      - Chạy kiểm thử tự động: `flutter test test/cccd_verification_test.dart test/cccd_reset_button_test.dart`: **17/17 tests passed (100%)**.
+  * **Phase 2.120 - Khắc Phục Lỗi Thẩm Định Bằng Chứng (Save Boundary) Khi Xác Thực CCCD Đủ 3/3 Bước:**
+    - **Nguyên nhân cốt lõi:**
+      + Khi người dùng chụp ảnh mặt trước ở Bước 1, camera máy quét toàn thẻ thường không giải mã được mã QR siêu nhỏ (~1cm ở góc thẻ), nên hệ thống cho phép qua Bước 1 (dựa vào OCR) và lưu `_frontEvidence` với `qrPayload == null` để quét QR chi tiết ở Bước 3.
+      + Đến Bước 3, người dùng dùng camera quét riêng mã QR và bóc tách dữ liệu CCCD thành công (`_cccdData` hợp lệ).
+      + Tuy nhiên, khi bấm "Xác nhận & Hoàn tất xác thực", hàm `_submitVerification` lại gọi `_validator.createProof(_frontEvidence, _backEvidence)` mà không gắn dữ liệu QR từ Bước 3 vào `_frontEvidence`. Hàm `createProof` kiểm tra strict QR trên `_frontEvidence` bị rỗng nên báo lỗi `"Bằng chứng xác thực chưa đạt tiêu chuẩn an toàn để lưu. Vui lòng kiểm tra lại ảnh!"`, chặn người dùng hoàn tất dù giao diện đã báo đủ 3/3 bước.
+    - **Giải pháp xử lý triệt để:**
+      1. [cccd_validation_models.dart](lib/features/profile/models/cccd_validation_models.dart): Thêm phương thức `copyWith` cho `CccdImageEvidence`.
+      2. [cccd_data.dart](lib/features/profile/models/cccd_data.dart): Bổ sung `toQrString()` chuẩn hóa chuỗi QR thẻ CCCD gắn chip.
+      3. [cccd_image_evidence_validator.dart](lib/features/profile/services/cccd_image_evidence_validator.dart):
+         - `validateStrictQr`: Mở rộng hỗ trợ định dạng mã QR 6 trường và 7 trường chuẩn Việt Nam.
+         - `validateEvidence` & `createProof`: Tiếp nhận `explicitVerifiedData` từ Bước 3, tự động kết nối dữ liệu QR đã quét với bằng chứng ảnh mặt trước.
+      4. [cccd_verification_screen.dart](lib/features/profile/screens/cccd_verification_screen.dart):
+         - Khi quét QR xong ở Bước 3, tự động cập nhật `qrPayload` vào `_frontEvidence`.
+         - Khi nhấn hoàn tất, truyền `explicitVerifiedData` vào `createProof`, hiển thị thông báo lỗi chi tiết thay vì thông báo chung chung nếu vi phạm thực sự (trùng ảnh, ảnh demo, v.v.).
+    - **Kiểm thử tự động & Phân tích tĩnh:**
+      - Viết mới 4 unit test trong [test/cccd_verification_test.dart](test/cccd_verification_test.dart): **14/14 tests passed (100%)**.
+      - `flutter analyze lib/`: **No issues found (0 errors, 0 warnings)**.
   * **Phase 2.119 - Đồng Bộ Các File Quản Lý Vi Phạm & Chi Tiết Bài Đăng Từ Downloads:**
     - **Yêu cầu & Nghiệp vụ đã hoàn thành:**
       1. **Đồng bộ file từ thư mục `C:\Users\PC\Downloads` vào đúng module trong project:**

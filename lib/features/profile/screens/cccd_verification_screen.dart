@@ -450,6 +450,9 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
       setState(() {
         _cccdData = result;
         _qrRawPayload = rawPayload;
+        if (_frontEvidence != null) {
+          _frontEvidence = _frontEvidence!.copyWith(qrPayload: rawPayload);
+        }
       });
 
       // Nếu mặt trước đã chọn trước đó, chạy lại kiểm định với mã QR vừa quét
@@ -478,16 +481,39 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
   Future<void> _submitVerification() async {
     if (!_canSubmit || _isSubmitting) return;
 
-    if (_frontEvidence != null && _backEvidence != null && _cccdData != null) {
+    final effectiveFront = _frontEvidence != null
+        ? ((_frontEvidence!.qrPayload == null || _frontEvidence!.qrPayload!.isEmpty)
+            ? _frontEvidence!.copyWith(
+                qrPayload: _qrRawPayload ??
+                    (_cccdData != null ? _reconstructQrPayload(_cccdData!) : null))
+            : _frontEvidence!)
+        : null;
+
+    if (effectiveFront != null && _backEvidence != null && _cccdData != null) {
       final proof = _validator.createProof(
-        frontEvidence: _frontEvidence!,
+        frontEvidence: effectiveFront,
         backEvidence: _backEvidence!,
+        explicitVerifiedData: _cccdData,
       );
       if (!_validator.canSave(proof)) {
         if (mounted) {
+          String reasonMessage =
+              'Bằng chứng xác thực chưa đạt tiêu chuẩn an toàn để lưu. Vui lòng kiểm tra lại ảnh!';
+          if (proof.isDemo) {
+            reasonMessage = 'Không thể dùng ảnh mẫu demo để xác thực tài khoản thật.';
+          } else if (proof.rejectionReasonCode ==
+              CccdValidationReasonCodes.duplicateImageHash) {
+            reasonMessage =
+                'Cảnh báo: Ảnh mặt trước và mặt sau bị trùng nhau! Vui lòng chụp 2 mặt khác nhau.';
+          } else if (proof.rejectionReasonCode ==
+              CccdValidationReasonCodes.wrongSideDetected) {
+            reasonMessage =
+                'Ảnh chụp bị đảo ngược thứ tự mặt trước và mặt sau. Vui lòng kiểm tra lại!';
+          }
+
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Bằng chứng xác thực chưa đạt tiêu chuẩn an toàn để lưu. Vui lòng kiểm tra lại ảnh!'),
+            SnackBar(
+              content: Text(reasonMessage),
               backgroundColor: Colors.red,
             ),
           );
@@ -592,61 +618,6 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
     }
   }
 
-  Future<void> _confirmResetAllForTesting() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.delete_outline, color: Colors.red),
-            SizedBox(width: 8),
-            Text('Xóa dữ liệu để test lại?'),
-          ],
-        ),
-        content: const Text(
-          'Thao tác này sẽ xóa toàn bộ ảnh 2 mặt, thông tin quét mã QR và bản nháp để bạn có thể kiểm thử lại quy trình từ đầu.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Xóa tất cả'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true && mounted) {
-      setState(() {
-        _frontImage = null;
-        _frontStatus = CccdSideValidationStatus.idle;
-        _frontMessage = null;
-        _frontEvidence = null;
-        _backImage = null;
-        _backStatus = CccdSideValidationStatus.idle;
-        _backMessage = null;
-        _backEvidence = null;
-        _cccdData = null;
-        _qrRawPayload = null;
-      });
-      await _clearDraft();
-      final user = ref.read(currentUserProvider);
-      final uid = user?.uid ?? (FirebaseAuth.instance.currentUser?.uid ?? '');
-      await resetCccdVerificationForTesting(uid: uid);
-      ref.invalidate(userProfileProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đã xóa toàn bộ dữ liệu xác thực CCCD để test lại ✓'),
-            backgroundColor: Color(0xFF16A34A),
-          ),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -654,13 +625,6 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
       appBar: AppBar(
         title: const Text('Xác thực CCCD (eKYC)'),
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_sweep_outlined, color: Colors.red),
-            tooltip: 'Xóa dữ liệu để test lại',
-            onPressed: _confirmResetAllForTesting,
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

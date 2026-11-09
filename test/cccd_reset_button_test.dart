@@ -35,7 +35,7 @@ void main() {
       expect(prefs.getString('draft_cccd_back_image'), isNull);
     });
 
-    testWidgets('PersonalProfileScreen hiển thị nút "Xóa xác thực CCCD (để test lại)" khi đã xác thực', (tester) async {
+    testWidgets('PersonalProfileScreen KHÔNG hiển thị nút xóa test khi đã xác thực (giao diện sản phẩm chuẩn)', (tester) async {
       final verifiedProfile = UserProfile(
         uid: 'USER_1',
         displayName: 'Trần Thanh Anh Toàn',
@@ -64,17 +64,9 @@ void main() {
       // Huy hiệu xanh "Đã xác thực VNeID / CCCD"
       expect(find.text('Đã xác thực VNeID / CCCD'), findsOneWidget);
 
-      // Nút xóa màu đỏ phục vụ kiểm thử
-      final resetBtn = find.text('Xóa xác thực CCCD (để test lại)');
-      expect(resetBtn, findsOneWidget);
-
-      // Chạm vào nút xóa -> Mở dialog xác nhận
-      await tester.tap(resetBtn);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Xóa xác thực CCCD?'), findsOneWidget);
-      expect(find.text('Hủy'), findsOneWidget);
-      expect(find.text('Xóa để test'), findsOneWidget);
+      // Đã loại bỏ hoàn toàn các nút xóa test khỏi giao diện người dùng
+      expect(find.text('Xóa xác thực CCCD (để test lại)'), findsNothing);
+      expect(find.text('Xóa để test lại'), findsNothing);
     });
 
     testWidgets('PersonalProfileScreen KHÔNG hiển thị nút xóa khi chưa xác thực', (tester) async {

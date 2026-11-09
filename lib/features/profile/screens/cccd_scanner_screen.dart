@@ -252,32 +252,6 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
     );
   }
 
-  // Quét mô phỏng thẻ CCCD mẫu
-  void _simulateSampleScan() {
-    if (_isProcessing) return;
-    HapticFeedback.mediumImpact();
-    setState(() => _isProcessing = true);
-
-    final user = ref.read(currentUserProvider);
-    final profile = ref.read(userProfileProvider).value;
-
-    final sampleData = CccdData(
-      idNumber: '079201012345',
-      oldCmnd: '025896321',
-      fullName: (profile?.displayName.isNotEmpty ?? false)
-          ? profile!.displayName.toUpperCase()
-          : (user?.displayName?.toUpperCase() ?? 'NGUYỄN VĂN AN'),
-      birthDate: '15/08/2001',
-      gender: profile?.gender ?? 'Nam',
-      address: profile?.address.isNotEmpty ?? false
-          ? profile!.address
-          : 'Số 123 Võ Văn Ngân, Phường Linh Chiểu, TP. Thủ Đức, TP. Hồ Chí Minh',
-      issueDate: '25/12/2021',
-    );
-
-    _showVerificationModal(sampleData);
-  }
-
   Future<void> _showVerificationModal(CccdData cccd, {bool isRealScan = false, String? rawQrText}) async {
     final bool? confirmed = await showModalBottomSheet<bool>(
       context: context,
@@ -332,7 +306,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
               ),
               const SizedBox(height: 16),
 
-              // Thẻ CCCD mô phỏng
+              // Thẻ CCCD xem trước
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -814,19 +788,6 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
                           icon: const Icon(Icons.paste_rounded, size: 18, color: Colors.amber),
                           label: const Text('Dán QR Thật', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
                           onPressed: _pasteRawQrDialog,
-                        ),
-
-                        // Nút Quét mô phỏng thẻ CCCD mẫu
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white24,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          ),
-                          icon: const Icon(Icons.qr_code_scanner, size: 18),
-                          label: const Text('Thử Mẫu', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
-                          onPressed: _simulateSampleScan,
                         ),
                       ],
                     ),

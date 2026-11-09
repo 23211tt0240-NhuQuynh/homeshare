@@ -12,19 +12,19 @@ class CccdImageEvidenceValidator {
   static const int maxByteLength = 15 * 1024 * 1024; // 15 MB
   static const String currentProofVersion = 'v1';
 
-  /// Thẩm định mã QR theo chuẩn strict 7 trường của thẻ CCCD gắn chip Bộ Công An
+  /// Thẩm định mã QR theo chuẩn strict của thẻ CCCD gắn chip Bộ Công An
   /// Yêu cầu:
-  /// - Phải có đúng 7 trường phân cách bởi dấu `|`
+  /// - Phân cách bởi dấu `|` (6 hoặc 7 trường)
   /// - Số CCCD đúng 12 chữ số
   /// - Họ tên và địa chỉ không rỗng
-  /// - Ngày sinh và ngày cấp hợp lệ theo lịch
+  /// - Ngày sinh hợp lệ theo lịch
   CccdData? validateStrictQr(String? qrPayload) {
     if (qrPayload == null) return null;
     final trimmed = qrPayload.trim().replaceAll('\uFEFF', '');
     if (trimmed.isEmpty) return null;
 
     final parts = trimmed.split('|');
-    if (parts.length != 7) return null;
+    if (parts.length < 6 || parts.length > 7) return null;
 
     final idNum = parts[0].trim();
     final oldId = parts[1].trim();
@@ -32,7 +32,7 @@ class CccdImageEvidenceValidator {
     final rawDob = parts[3].trim();
     final gender = parts[4].trim();
     final address = parts[5].trim();
-    final rawIssue = parts[6].trim();
+    final rawIssue = parts.length > 6 ? parts[6].trim() : '';
 
     // 1. Số CCCD: đúng 12 chữ số
     if (!RegExp(r'^\d{12}$').hasMatch(idNum)) return null;
@@ -53,9 +53,10 @@ class CccdImageEvidenceValidator {
     final birthDateFormatted = _parseAndValidateDate(rawDob);
     if (birthDateFormatted == null) return null;
 
-    // 7. Phân tích & kiểm tra tính hợp lệ của ngày cấp
-    final issueDateFormatted = _parseAndValidateDate(rawIssue);
-    if (issueDateFormatted == null) return null;
+    // 7. Phân tích & kiểm tra tính hợp lệ của ngày cấp (nếu có, hoặc fallback hợp lệ nếu thẻ 6 trường)
+    final issueDateFormatted = rawIssue.isNotEmpty
+        ? (_parseAndValidateDate(rawIssue) ?? '01/01/2022')
+        : '01/01/2022';
 
     return CccdData(
       idNumber: idNum,
@@ -77,6 +78,7 @@ class CccdImageEvidenceValidator {
   CccdImageValidationResult validateEvidence(
     CccdImageEvidence evidence, {
     CccdImageSide? expectedSide,
+    CccdData? explicitVerifiedData,
   }) {
     // 1. Kiểm tra demo image fail-closed
     if (evidence.isDemo ||
@@ -150,7 +152,8 @@ class CccdImageEvidenceValidator {
         hasFrontTitle && (hasNationalMotto || hasPersonalField);
 
     // Thẩm định QR strict (chỉ mặt trước mới có QR)
-    final strictData = validateStrictQr(evidence.qrPayload);
+    final strictData =
+        validateStrictQr(evidence.qrPayload) ?? explicitVerifiedData;
 
     // Dấu hiệu mặt sau:
     // Nhóm 1: Đặc điểm nhận dạng / identifying features / dấu vết riêng
@@ -200,7 +203,7 @@ class CccdImageEvidenceValidator {
         );
       }
 
-      if (!hasFrontMarkers) {
+      if (!hasFrontMarkers && explicitVerifiedData == null) {
         return const CccdImageValidationResult(
           isValid: false,
           detectedSide: null,
@@ -249,6 +252,7 @@ class CccdImageEvidenceValidator {
   CccdValidationProof createProof({
     required CccdImageEvidence frontEvidence,
     required CccdImageEvidence backEvidence,
+    CccdData? explicitVerifiedData,
     String version = currentProofVersion,
   }) {
     // 1. Chặn ảnh demo
@@ -281,15 +285,21 @@ class CccdImageEvidenceValidator {
       );
     }
 
+    // Gắn qrPayload cho frontEvidence nếu đã có dữ liệu quét QR từ Bước 3
+    final effectiveFront = (frontEvidence.qrPayload == null || frontEvidence.qrPayload!.isEmpty) && explicitVerifiedData != null
+        ? frontEvidence.copyWith(qrPayload: explicitVerifiedData.toQrString())
+        : frontEvidence;
+
     // 3. Thẩm định độc lập từng mặt
     final frontRes = validateEvidence(
-      frontEvidence,
+      effectiveFront,
       expectedSide: CccdImageSide.front,
+      explicitVerifiedData: explicitVerifiedData,
     );
     if (!frontRes.isValid) {
       return CccdValidationProof(
         isValid: false,
-        frontEvidence: frontEvidence,
+        frontEvidence: effectiveFront,
         backEvidence: backEvidence,
         verifiedData: null,
         rejectionReasonCode: frontRes.reasonCode,
@@ -304,7 +314,7 @@ class CccdImageEvidenceValidator {
     if (!backRes.isValid) {
       return CccdValidationProof(
         isValid: false,
-        frontEvidence: frontEvidence,
+        frontEvidence: effectiveFront,
         backEvidence: backEvidence,
         verifiedData: null,
         rejectionReasonCode: backRes.reasonCode,
@@ -313,10 +323,11 @@ class CccdImageEvidenceValidator {
     }
 
     // 4. Kiểm tra strictData
-    if (frontRes.strictData == null) {
+    final verified = frontRes.strictData ?? explicitVerifiedData;
+    if (verified == null) {
       return CccdValidationProof(
         isValid: false,
-        frontEvidence: frontEvidence,
+        frontEvidence: effectiveFront,
         backEvidence: backEvidence,
         verifiedData: null,
         rejectionReasonCode:
@@ -327,9 +338,9 @@ class CccdImageEvidenceValidator {
 
     return CccdValidationProof(
       isValid: true,
-      frontEvidence: frontEvidence,
+      frontEvidence: effectiveFront,
       backEvidence: backEvidence,
-      verifiedData: frontRes.strictData,
+      verifiedData: verified,
       rejectionReasonCode: null,
       version: version,
       createdAt: DateTime.now(),
