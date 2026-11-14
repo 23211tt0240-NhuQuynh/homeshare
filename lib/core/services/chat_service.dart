@@ -486,22 +486,16 @@ class ChatService {
       'notificationId': notifRef.id,
       'id': notifRef.id,
       'receiverId': hostId,
-      'nguoiNhanId': hostId,
       'recipientRole': 'host',
       'senderId': newRoommateId,
-      'nguoiGuiId': newRoommateId,
       'notificationType': 'pendingAction',
       'legacyNotificationType': 'pendingAction',
       'type': 'pendingAction',
       'actionType': 'roommate_approval',
       'title': 'Yêu cầu duyệt người ở ghép mới',
-      'tieuDe': 'Yêu cầu duyệt người ở ghép mới',
       'message':
           '$newRoommateName đã đồng ý ở ghép cùng $primaryTenantName tại phòng $roomTitle ($resolvedCode). Vui lòng xác nhận duyệt để khách chính thức vào phòng.',
-      'noiDung':
-          '$newRoommateName đã đồng ý ở ghép cùng $primaryTenantName tại phòng $roomTitle ($resolvedCode). Vui lòng xác nhận duyệt để khách chính thức vào phòng.',
       'roomId': roomId,
-      'phongId': roomId,
       'roomTitle': roomTitle,
       'renterName': '$primaryTenantName & $newRoommateName',
       'primaryTenantName': primaryTenantName,
@@ -509,12 +503,9 @@ class ChatService {
       'newRoommateName': newRoommateName,
       'newRoommateId': newRoommateId,
       'userNotificationId': userNotificationId,
-      'statusId': 'pending',
       'status': 'pending',
       'isRead': false,
-      'daDoc': false,
       'createdAt': FieldValue.serverTimestamp(),
-      'ngayTao': FieldValue.serverTimestamp(),
       'bookingCode': resolvedCode,
       'roomCode': resolvedCode,
     });
@@ -583,7 +574,6 @@ class ChatService {
       'receiverId': cleanReceiverId,
       'recipientId': cleanReceiverId,
       'userId': cleanReceiverId,
-      'nguoiNhanId': cleanReceiverId,
       'recipientRole': 'renter',
       'senderId': cleanSenderId,
       'senderName': senderName,
@@ -591,9 +581,7 @@ class ChatService {
       'notificationType': 'roommate_invitation',
       'type': 'roommate_invitation',
       'title': 'Lời mời ở ghép mới',
-      'tieuDe': 'Lời mời ở ghép mới',
       'message': customMessage,
-      'noiDung': customMessage,
       'note': note.trim(),
       'roomId': cleanRoomId,
       'roomCode': resolvedCode,
@@ -601,10 +589,8 @@ class ChatService {
       'pricePerPerson': pricePerPerson,
       'status': 'pending',
       'isRead': false,
-      'daDoc': false,
       if (messageId.isNotEmpty) 'messageId': messageId,
       'createdAt': FieldValue.serverTimestamp(),
-      'ngayTao': FieldValue.serverTimestamp(),
     };
 
     // Chỉ ghi vào duy nhất collection notification_user cho người dùng/người thuê
@@ -638,7 +624,7 @@ class ChatService {
             await col.doc(notificationId).update({
               'status': newStatus,
               'isRead': true,
-              'daDoc': true,
+              'daDoc': FieldValue.delete(),
               'updatedAt': FieldValue.serverTimestamp(),
             });
             return notificationId;
@@ -657,7 +643,7 @@ class ChatService {
             await doc.reference.update({
               'status': newStatus,
               'isRead': true,
-              'daDoc': true,
+              'daDoc': FieldValue.delete(),
               'updatedAt': FieldValue.serverTimestamp(),
             });
             matchedNotificationId ??= doc.id;
@@ -687,7 +673,7 @@ class ChatService {
             await doc.reference.update({
               'status': newStatus,
               'isRead': true,
-              'daDoc': true,
+              'daDoc': FieldValue.delete(),
               'updatedAt': FieldValue.serverTimestamp(),
             });
             matchedNotificationId ??= doc.id;

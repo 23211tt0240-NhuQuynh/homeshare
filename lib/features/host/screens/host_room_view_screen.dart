@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../../data/models/room_model.dart';
+import '../../../core/widgets/app_safe_image.dart';
 import '../../../data/models/host_post_model.dart';
 import '../../chat/screens/chat_detail_screen.dart';
 import '../providers/host_management_provider.dart';
@@ -425,19 +426,11 @@ class _HostRoomViewScreenState extends ConsumerState<HostRoomViewScreen> {
                           },
                           itemBuilder: (ctx, index) {
                             final url = allImages[index];
-                            return Image.network(
-                              url,
+                            return AppSafeImage(
+                              imageUrl: url,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => Container(
-                                color: const Color(0xFFF1F5F9),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.image_not_supported_outlined,
-                                    size: 48,
-                                    color: Color(0xFF94A3B8),
-                                  ),
-                                ),
-                              ),
+                              fallbackIcon: Icons.image_not_supported_outlined,
+                              iconSize: 48,
                             );
                           },
                         )

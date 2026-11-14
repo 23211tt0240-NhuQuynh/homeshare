@@ -17,16 +17,74 @@ class BookingService {
   BookingService({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
 
+  static const _activeBookingStatuses = {
+    'pending',
+    'pending_payment',
+    'pending_confirmation',
+    'approved',
+    'deposit_paid',
+    'dacoc',
+    'paid',
+    'completed',
+    'active',
+    'dango',
+    'danhanphong',
+    'chonhanphong',
+    'reserved',
+  };
+
+  /// Một người không được thuê trùng cùng phòng vật lý qua bài đăng khác
+  /// khi vẫn còn đơn đang hiệu lực (chưa hủy / chưa checkout).
+  Future<void> assertNoActiveBookingForSameRoom({
+    required String renterId,
+    required String roomReference,
+  }) async {
+    final uid = renterId.trim();
+    if (uid.isEmpty || uid == 'guest') return;
+    final realRoomId =
+        await _resolveRealRoomId(roomReference) ?? roomReference.trim();
+    if (realRoomId.isEmpty) return;
+
+    final snap = await _firestore
+        .collection('bookings')
+        .where('renterId', isEqualTo: uid)
+        .get();
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      final status = (data['status'] ?? '').toString().toLowerCase();
+      if (!_activeBookingStatuses.contains(status)) continue;
+      if (data['daHuy'] == true) continue;
+      final ref = (data['roomId'] ?? data['phongId'] ?? data['hostRoomId'] ?? '')
+          .toString()
+          .trim();
+      if (ref.isEmpty) continue;
+      final linked = await _resolveRealRoomId(ref) ?? ref;
+      if (linked == realRoomId || ref == realRoomId) {
+        throw StateError(
+          'Bạn đang có đơn thuê cho phòng này (kể cả qua bài đăng khác). '
+          'Hủy đơn cũ hoặc hoàn tất trả phòng trước khi đặt lại.',
+        );
+      }
+    }
+  }
+
   // Gửi yêu cầu đặt thuê / hẹn xem phòng (Đơn đặt phòng, sinh Document ID chuẩn DP_...)
   Future<String> createBooking(
     BookingRequestModel booking, {
     String? propertyId,
   }) async {
+    await assertNoActiveBookingForSameRoom(
+      renterId: booking.renterId,
+      roomReference: booking.roomId,
+    );
+
+    final realRoomId =
+        await _resolveRealRoomId(booking.roomId) ?? booking.roomId.trim();
     final bookingId = booking.id.isNotEmpty
         ? booking.id
         : IdGenerator.booking(
             renterCode: booking.renterUserCode,
-            roomCode: booking.roomId,
+            roomCode: realRoomId.isNotEmpty ? realRoomId : booking.roomId,
           );
     final now = DateTime.now();
     // Giai đoạn 1 (Hybrid): Quét mã QR giữ chỗ trong 15 phút (trước khi khách bấm xác nhận đã chuyển khoản)
@@ -34,9 +92,14 @@ class BookingService {
         ? booking.createdAt.add(const Duration(minutes: 15))
         : now.add(const Duration(minutes: 15));
     final hostRoomTitle = await titleFromHostRooms(booking.roomId);
-    final stored = hostRoomTitle.isNotEmpty
+    var stored = hostRoomTitle.isNotEmpty
         ? booking.copyWith(roomTitle: hostRoomTitle)
         : booking;
+    // Luôn neo roomId về phòng thật trên host_rooms để các bài đăng khác
+    // cùng phòng không bị coi là phòng khác khi kiểm tra / giữ chỗ.
+    if (realRoomId.isNotEmpty && realRoomId != stored.roomId) {
+      stored = stored.copyWith(roomId: realRoomId);
+    }
 
     // Nội dung CK ngắn: hostIndex + 4 ký tự cuối đơn → lưu orderCode & transferNote.
     String transferNote = (stored.transferNote ?? '').trim();
@@ -74,9 +137,10 @@ class BookingService {
       'deadline': Timestamp.fromDate(expiresAt),
     });
 
-    // Cập nhật trạng thái giữ phòng tạm thời 15 phút trên host_rooms
-    if (booking.roomId.isNotEmpty) {
-      await _firestore.collection('host_rooms').doc(booking.roomId).set({
+    // Cập nhật trạng thái giữ phòng tạm thời 15 phút trên host_rooms (phòng thật)
+    final holdRoomId = realRoomId.isNotEmpty ? realRoomId : booking.roomId;
+    if (holdRoomId.isNotEmpty) {
+      await _firestore.collection('host_rooms').doc(holdRoomId).set({
         'isHolding': true,
         'holdingBookingId': bookingId,
         'holdingRenterId': booking.renterId,
@@ -379,11 +443,12 @@ class BookingService {
       });
       for (final post in posts.values) {
         transaction.update(post, {
-          'status': 'hidden',
-          'statusId': 'hidden',
-          'trang_thai': 'hidden',
-          'isAvailable': false,
-          'hiddenReason': 'room_reserved',
+          'status': 'occupied',
+          'isAvailable': FieldValue.delete(),
+          'isPinned': FieldValue.delete(),
+          'statusId': FieldValue.delete(),
+          'trang_thai': FieldValue.delete(),
+          'hiddenReason': FieldValue.delete(),
           'updatedAt': FieldValue.serverTimestamp(),
         });
       }
@@ -418,6 +483,16 @@ class BookingService {
       if (note != null && note.isNotEmpty) 'approvalNote': note,
       'trangThai': FieldValue.delete(),
     }, SetOptions(merge: true));
+
+    final approvedRoomId = await ResidentService(_firestore).resolveRoomId(
+      (data['roomId'] ?? data['phongId'] ?? data['baiDangId'] ?? '').toString(),
+    );
+    if (approvedRoomId.isNotEmpty) {
+      await markPostsOccupied(
+        approvedRoomId,
+        tenantName: renterName,
+      );
+    }
 
     // Gửi thông báo đến người thuê
     if (renterId.isNotEmpty && renterId != 'guest') {
@@ -456,8 +531,8 @@ class BookingService {
           await doc.reference.set({
             'notificationType': 'deposit',
             'type': 'deposit',
-            'statusId': 'deposited',
             'status': 'approved',
+            'statusId': FieldValue.delete(),
             'title': 'Đơn thuê phòng đã được duyệt',
             'message':
                 'Khách $renterName đã được duyệt cọc cho phòng "$roomTitle". Sẵn sàng tiếp nhận check-in nhận phòng.',
@@ -480,7 +555,6 @@ class BookingService {
           'notificationType': 'deposit',
           'type': 'deposit',
           'bookingId': bookingId,
-          'statusId': 'deposited',
           'status': 'approved',
           'isRead': false,
           'createdAt': FieldValue.serverTimestamp(),
@@ -522,12 +596,20 @@ class BookingService {
       roomId ?? (data['roomId'] ?? data['phongId'] ?? '').toString(),
     );
     final renterId = (data['renterId'] ?? data['nguoiDungId'] ?? '').toString();
-    final renterName = (data['renterName'] ?? data['tenNguoiO'] ?? 'Khách thuê')
+    final renterName = (data['renterName'] ?? data['tenNguoiO'] ?? data['tenKhach'] ?? 'Khách thuê')
         .toString();
-    final renterPhone = (data['renterPhone'] ?? data['sdtNguoiO'] ?? '')
+    final renterPhone = (data['renterPhone'] ?? data['sdtNguoiO'] ?? data['sdtKhach'] ?? '')
         .toString();
-    final roomTitle = (data['roomTitle'] ?? data['tieuDePhong'] ?? 'Phòng trọ')
+    final roomTitle = (data['roomTitle'] ?? data['tieuDePhong'] ?? data['tenPhong'] ?? 'Phòng trọ')
         .toString();
+    final roomAddress = (data['roomAddress'] ?? data['diaChiPhong'] ?? data['diaChi'] ?? '').toString();
+    final rentalPrice = data['rentalPrice'] ?? data['giaThue'] ?? data['giaPhong'];
+    final depositAmount = data['depositAmount'] ?? data['tienCoc'] ?? data['deposit'];
+    final totalPayment = data['totalPayment'] ?? data['tongPhaiTra'] ?? data['tongTien'];
+    final rentalMonths = data['rentalMonths'] ?? data['soThangThue'];
+    final paymentMethod = (data['paymentMethod'] ?? data['hinhThucThanhToan'] ?? data['phuongThucThanhToan'] ?? 'Chuyển khoản QR').toString();
+    final roomCode = (data['roomCode'] ?? data['maPhong'] ?? '').toString();
+    final hostIdFinal = (hostId ?? data['hostId'] ?? data['chuNhaId'] ?? '').toString();
 
     final batch = _firestore.batch();
     final periodId = await residentService.preparePrimary(
@@ -540,22 +622,67 @@ class BookingService {
       now: now,
     );
 
-    // Cập nhật booking sang trạng thái 'dangO'
+    // Cập nhật booking sang chuẩn tiếng Anh và xóa sạch toàn bộ các trường tiếng Việt trùng lặp
     batch.set(_firestore.collection('bookings').doc(bookingId), {
-      'status': 'dangO',
-      'subTag': 'Đang ở',
-      'description': 'Đang ở (Đã bàn giao phòng)',
+      'status': 'active',
       'isCheckIn': true,
-      'daNhanPhong': true,
+      'isCheckedIn': true,
+      'roomId': finalRoomId,
+      if (hostIdFinal.isNotEmpty) 'hostId': hostIdFinal,
+      if (renterId.isNotEmpty) 'renterId': renterId,
+      'renterName': renterName,
+      'renterPhone': renterPhone,
+      'roomTitle': roomTitle,
+      if (roomAddress.isNotEmpty) 'roomAddress': roomAddress,
+      'rentalPrice': ?rentalPrice,
+      'depositAmount': ?depositAmount,
+      'totalPayment': ?totalPayment,
+      'rentalMonths': ?rentalMonths,
+      'paymentMethod': paymentMethod,
+      if (roomCode.isNotEmpty) 'roomCode': roomCode,
       'acceptedDate': Timestamp.fromDate(now),
       'checkedInAt': Timestamp.fromDate(now),
       'updatedAt': Timestamp.fromDate(now),
       if (note != null && note.isNotEmpty) 'checkinNote': note,
+      // Xóa toàn bộ trường tiếng Việt tồn đọng
+      'phongId': FieldValue.delete(),
+      'chuNhaId': FieldValue.delete(),
+      'tenNguoiO': FieldValue.delete(),
+      'sdtNguoiO': FieldValue.delete(),
+      'tenKhach': FieldValue.delete(),
+      'sdtKhach': FieldValue.delete(),
+      'nguoiThueTen': FieldValue.delete(),
+      'nguoiThueSdt': FieldValue.delete(),
+      'tieuDePhong': FieldValue.delete(),
+      'tenPhong': FieldValue.delete(),
+      'diaChiPhong': FieldValue.delete(),
+      'diaChi': FieldValue.delete(),
+      'giaThue': FieldValue.delete(),
+      'giaPhong': FieldValue.delete(),
+      'tienCoc': FieldValue.delete(),
+      'tongPhaiTra': FieldValue.delete(),
+      'tongTien': FieldValue.delete(),
+      'soThangThue': FieldValue.delete(),
+      'hinhThucThanhToan': FieldValue.delete(),
+      'phuongThucThanhToan': FieldValue.delete(),
+      'maPhong': FieldValue.delete(),
+      'ngayVao': FieldValue.delete(),
+      'ngayNhanPhong': FieldValue.delete(),
+      'ngayDonVao': FieldValue.delete(),
+      'ngayTao': FieldValue.delete(),
+      'ngayCapNhat': FieldValue.delete(),
+      'daNhanPhong': FieldValue.delete(),
+      'daThanhToan': FieldValue.delete(),
       'trangThai': FieldValue.delete(),
+      'statusId': FieldValue.delete(),
+      'subTag': FieldValue.delete(),
+      'description': FieldValue.delete(),
+      'ghiChu': FieldValue.delete(),
     }, SetOptions(merge: true));
 
     batch.set(_firestore.collection('host_rooms').doc(finalRoomId), {
       'status': 'occupied',
+      'isAvailable': false,
       'contractId': periodId,
       'tenantName': renterName,
       'tenantPhone': renterPhone,
@@ -567,6 +694,7 @@ class BookingService {
     if (realRoomId != null && realRoomId.isNotEmpty && realRoomId != finalRoomId) {
       batch.set(_firestore.collection('host_rooms').doc(realRoomId), {
         'status': 'occupied',
+        'isAvailable': false,
         'contractId': periodId,
         'tenantName': renterName,
         'tenantPhone': renterPhone,
@@ -580,6 +708,7 @@ class BookingService {
       if (realRoomId != null && realRoomId.isNotEmpty) {
         await _firestore.collection('rooms').doc(realRoomId).set({
           'status': 'occupied',
+          'isAvailable': false,
           'tenantName': renterName,
           'tenantPhone': renterPhone,
           'contractStart': Timestamp.fromDate(now),
@@ -587,6 +716,24 @@ class BookingService {
         }, SetOptions(merge: true));
       }
     } catch (_) {}
+
+    // Chỉ đổi trạng thái bài đăng sang đã có người ở — không ẩn bài.
+    await markPostsOccupied(
+      finalRoomId,
+      tenantName: renterName,
+      tenantPhone: renterPhone,
+      contractId: periodId,
+    );
+    if (realRoomId != null &&
+        realRoomId.isNotEmpty &&
+        realRoomId != finalRoomId) {
+      await markPostsOccupied(
+        realRoomId,
+        tenantName: renterName,
+        tenantPhone: renterPhone,
+        contractId: periodId,
+      );
+    }
 
     // Thông báo cho người thuê
     if (renterId.isNotEmpty && renterId != 'guest') {
@@ -626,8 +773,8 @@ class BookingService {
           await doc.reference.set({
             'notificationType': 'staying',
             'type': 'staying',
-            'status': 'dangO',
-            'statusId': 'dango',
+            'status': 'occupied',
+            'statusId': FieldValue.delete(),
             'title': 'Khách đã nhận phòng và đang ở',
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
@@ -814,6 +961,13 @@ class BookingService {
     final newDateStr = DateFormat('dd/MM/yyyy').format(newMoveInDate);
     final cleanReason = reason?.trim();
 
+    final bookingCode = (data['bookingCode'] ?? data['maDon'] ?? '').toString();
+    final roomCode = (data['roomCode'] ?? data['maPhong'] ?? '').toString();
+    final renterAvatarUrl = (data['renterAvatarUrl'] ?? data['anhKhach'] ?? '').toString();
+    final rawAmt = data['depositAmount'] ?? data['amount'] ?? data['tienCoc'];
+    final amount = (rawAmt is num) ? rawAmt.toDouble() : 0.0;
+    final paymentMethod = (data['paymentMethod'] ?? 'Chuyển khoản QR').toString();
+
     // 1. Cập nhật booking document trong collection 'bookings'
     await _firestore.collection('bookings').doc(bookingId).set({
       'moveInDate': Timestamp.fromDate(newMoveInDate),
@@ -840,6 +994,7 @@ class BookingService {
         'id': hostNotifId,
         'notificationId': hostNotifId,
         'receiverId': hostId,
+        'senderId': renterId,
         'recipientRole': 'host',
         'title': 'Khách thuê dời ngày dọn vào',
         'message':
@@ -847,11 +1002,19 @@ class BookingService {
         'notificationType': 'booking_adjustment',
         'type': 'booking_adjustment',
         'bookingId': bookingId,
+        'bookingCode': bookingCode,
         'roomId': roomId,
+        'roomCode': roomCode,
         'roomTitle': roomTitle,
+        'renterName': renterName,
+        'renterAvatarUrl': renterAvatarUrl,
+        'amount': amount,
+        'paymentMethod': paymentMethod,
+        'adjustmentReason': cleanReason ?? '',
         if (oldDate != null) 'oldCheckInDate': Timestamp.fromDate(oldDate),
         'newCheckInDate': Timestamp.fromDate(newMoveInDate),
         'checkInDate': Timestamp.fromDate(newMoveInDate),
+        'status': 'pending',
         'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -871,6 +1034,7 @@ class BookingService {
             'id': renterNotifId,
             'recipientId': renterId,
             'receiverId': renterId,
+            'senderId': hostId,
             'userId': renterId,
             'recipientRole': 'renter',
             'title': 'Thay đổi ngày dọn vào thành công ✓',
@@ -879,11 +1043,15 @@ class BookingService {
             'notificationType': 'booking_adjustment',
             'type': 'booking_adjustment',
             'bookingId': bookingId,
+            'bookingCode': bookingCode,
             'roomId': roomId,
+            'roomCode': roomCode,
             'roomTitle': roomTitle,
+            'amount': amount,
             if (oldDate != null) 'oldCheckInDate': Timestamp.fromDate(oldDate),
             'newCheckInDate': Timestamp.fromDate(newMoveInDate),
             'checkInDate': Timestamp.fromDate(newMoveInDate),
+            'status': 'pending',
             'isRead': false,
             'createdAt': FieldValue.serverTimestamp(),
           });
@@ -933,92 +1101,100 @@ class BookingService {
     }
   }
 
-  /// 5. ẨN BÀI ĐĂNG KHI CÓ YÊU CẦU ĐẶT PHÒNG ĐANG CHỜ XỬ LÝ
-  Future<void> hidePostOnPendingBooking(String roomId, {String? reason}) async {
+  /// Đánh dấu bài đăng đã có người ở (không ẩn bài — chỉ đổi trạng thái).
+  Future<void> markPostsOccupied(
+    String roomId, {
+    String? tenantName,
+    String? tenantPhone,
+    String? contractId,
+  }) async {
     if (roomId.isEmpty) return;
     try {
       final now = DateTime.now();
-      final hiddenReason = reason ?? 'Đang có yêu cầu đặt phòng chờ xử lý';
       final postsRef = _firestore.collection('posts');
-      final hidePayload = <String, dynamic>{
-        'status': 'hidden',
-        'isAvailable': false,
-        'hiddenReason': hiddenReason,
-        'updatedAt': Timestamp.fromDate(now),
-        // Dọn sạch hoàn toàn các trường trạng thái thừa/cũ trên Firestore
+      final payload = <String, dynamic>{
+        'status': 'occupied',
+        'isAvailable': FieldValue.delete(),
+        'isPinned': FieldValue.delete(),
         'statusId': FieldValue.delete(),
         'trang_thai': FieldValue.delete(),
-        'trangThai': FieldValue.delete(),
-        'trangThai_id': FieldValue.delete(),
+        'hiddenReason': FieldValue.delete(),
+        'updatedAt': Timestamp.fromDate(now),
+        if (tenantName != null && tenantName.trim().isNotEmpty)
+          'tenantName': tenantName.trim(),
+        if (tenantPhone != null && tenantPhone.trim().isNotEmpty)
+          'tenantPhone': tenantPhone.trim(),
+        if (contractId != null && contractId.trim().isNotEmpty)
+          'contractId': contractId.trim(),
       };
 
-      // 1. Kiểm tra trực tiếp document theo doc ID == roomId
-      try {
-        final directDoc = await postsRef.doc(roomId).get();
-        if (directDoc.exists) {
-          await postsRef.doc(roomId).set(hidePayload, SetOptions(merge: true));
-        }
-      } catch (e) {
-        debugPrint('Error hiding post directDoc $roomId: $e');
+      Future<void> apply(DocumentReference<Map<String, dynamic>> ref) async {
+        final snap = await ref.get();
+        if (!snap.exists) return;
+        await ref.set(payload, SetOptions(merge: true));
       }
 
-      // 2. Tìm bài đăng có trường 'roomId' == roomId
       try {
-        final queryByRoomId =
-            await postsRef.where('roomId', isEqualTo: roomId).get();
-        for (final doc in queryByRoomId.docs) {
-          await doc.reference.set(hidePayload, SetOptions(merge: true));
-        }
+        await apply(postsRef.doc(roomId));
       } catch (e) {
-        debugPrint('Error hiding posts by roomId $roomId: $e');
+        debugPrint('Error marking post occupied directDoc $roomId: $e');
       }
 
-      // 3. Tìm bài đăng có trường 'phongId' == roomId
-      try {
-        final queryByPhongId =
-            await postsRef.where('phongId', isEqualTo: roomId).get();
-        for (final doc in queryByPhongId.docs) {
-          await doc.reference.set(hidePayload, SetOptions(merge: true));
+      for (final field in const [
+        'roomId',
+        'phongId',
+        'id',
+        'hostRoomId',
+        'phong_tro_id',
+        'room_id',
+      ]) {
+        try {
+          final snap = await postsRef.where(field, isEqualTo: roomId).get();
+          for (final doc in snap.docs) {
+            await apply(doc.reference);
+          }
+        } catch (e) {
+          debugPrint('Error marking posts occupied by $field $roomId: $e');
         }
-      } catch (e) {
-        debugPrint('Error hiding posts by phongId $roomId: $e');
       }
 
-      // 4. Tìm bài đăng có trường 'id' == roomId
-      try {
-        final queryById =
-            await postsRef.where('id', isEqualTo: roomId).get();
-        for (final doc in queryById.docs) {
-          await doc.reference.set(hidePayload, SetOptions(merge: true));
-        }
-      } catch (e) {
-        debugPrint('Error hiding posts by id $roomId: $e');
-      }
-
-      // 5. Cập nhật khóa phòng trong host_rooms và rooms CHỈ KHI phòng thực sự tồn tại
       final realRoomId = await _resolveRealRoomId(roomId);
       if (realRoomId != null && realRoomId.isNotEmpty) {
+        final roomPayload = <String, dynamic>{
+          'isAvailable': false,
+          'status': 'occupied',
+          'updatedAt': Timestamp.fromDate(now),
+          if (tenantName != null && tenantName.trim().isNotEmpty)
+            'tenantName': tenantName.trim(),
+          if (tenantPhone != null && tenantPhone.trim().isNotEmpty)
+            'tenantPhone': tenantPhone.trim(),
+          if (contractId != null && contractId.trim().isNotEmpty)
+            'contractId': contractId.trim(),
+        };
         try {
-          await _firestore.collection('host_rooms').doc(realRoomId).set({
-            'isAvailable': false,
-            'bookingStatus': 'pending_approval',
-            'updatedAt': Timestamp.fromDate(now),
-          }, SetOptions(merge: true));
+          await _firestore
+              .collection('host_rooms')
+              .doc(realRoomId)
+              .set(roomPayload, SetOptions(merge: true));
         } catch (_) {}
-
         try {
-          await _firestore.collection('rooms').doc(realRoomId).set({
-            'isAvailable': false,
-            'bookingStatus': 'pending_approval',
-            'updatedAt': Timestamp.fromDate(now),
-          }, SetOptions(merge: true));
+          await _firestore
+              .collection('rooms')
+              .doc(realRoomId)
+              .set(roomPayload, SetOptions(merge: true));
         } catch (_) {}
       }
 
-      debugPrint('Đã ẩn bài đăng cho phòng $roomId (Lý do: $hiddenReason)');
+      debugPrint('Đã đánh dấu bài đăng phòng $roomId: đã có người ở');
     } catch (e) {
-      debugPrint('Lỗi tổng quát khi hidePostOnPendingBooking $roomId: $e');
+      debugPrint('Lỗi markPostsOccupied $roomId: $e');
     }
+  }
+
+  /// 5. ẨN BÀI ĐĂNG KHI CÓ YÊU CẦU ĐẶT PHÒNG ĐANG CHỜ XỬ LÝ
+  Future<void> hidePostOnPendingBooking(String roomId, {String? reason}) async {
+    // Giữ API cũ nhưng không ẩn bài — chỉ đổi trạng thái còn trống.
+    await markPostsOccupied(roomId);
   }
 
   /// 6. KHÔI PHỤC BÀI ĐĂNG KHI YÊU CẦU ĐẶT PHÒNG BỊ HỦY / HẾT HẠN
@@ -1031,8 +1207,12 @@ class BookingService {
       Future<void> restoreDoc(DocumentReference ref) async {
         await ref.set({
           'status': 'active',
-          'isAvailable': true,
+          'isAvailable': FieldValue.delete(),
+          'isPinned': FieldValue.delete(),
           'hiddenReason': FieldValue.delete(),
+          'tenantName': FieldValue.delete(),
+          'tenantPhone': FieldValue.delete(),
+          'contractId': FieldValue.delete(),
           'updatedAt': Timestamp.fromDate(now),
           // Dọn sạch hoàn toàn các trường trạng thái thừa/cũ trên Firestore
           'statusId': FieldValue.delete(),
@@ -1042,15 +1222,22 @@ class BookingService {
         }, SetOptions(merge: true));
       }
 
+      bool needsRestore(Map<String, dynamic> data) {
+        final status = (data['status'] ?? data['statusId'] ?? data['trang_thai'] ?? '')
+            .toString()
+            .toLowerCase();
+        return data['isAvailable'] == false ||
+            data['hiddenReason'] != null ||
+            status == 'hidden' ||
+            status == 'occupied';
+      }
+
       // 1. Khôi phục trực tiếp theo doc ID == roomId
       try {
         final directDoc = await postsRef.doc(roomId).get();
         if (directDoc.exists) {
           final data = directDoc.data() ?? {};
-          if (data['hiddenReason'] == 'Đang có yêu cầu đặt phòng chờ xử lý' ||
-              data['status'] == 'hidden' ||
-              data['statusId'] == 'hidden' ||
-              data['trang_thai'] == 'hidden') {
+          if (needsRestore(data)) {
             await restoreDoc(postsRef.doc(roomId));
           }
         }
@@ -1061,11 +1248,7 @@ class BookingService {
         final queryByRoomId =
             await postsRef.where('roomId', isEqualTo: roomId).get();
         for (final doc in queryByRoomId.docs) {
-          final data = doc.data();
-          if (data['hiddenReason'] == 'Đang có yêu cầu đặt phòng chờ xử lý' ||
-              data['status'] == 'hidden' ||
-              data['statusId'] == 'hidden' ||
-              data['trang_thai'] == 'hidden') {
+          if (needsRestore(doc.data())) {
             await restoreDoc(doc.reference);
           }
         }
@@ -1076,11 +1259,7 @@ class BookingService {
         final queryByPhongId =
             await postsRef.where('phongId', isEqualTo: roomId).get();
         for (final doc in queryByPhongId.docs) {
-          final data = doc.data();
-          if (data['hiddenReason'] == 'Đang có yêu cầu đặt phòng chờ xử lý' ||
-              data['status'] == 'hidden' ||
-              data['statusId'] == 'hidden' ||
-              data['trang_thai'] == 'hidden') {
+          if (needsRestore(doc.data())) {
             await restoreDoc(doc.reference);
           }
         }
@@ -1091,11 +1270,7 @@ class BookingService {
         final queryById =
             await postsRef.where('id', isEqualTo: roomId).get();
         for (final doc in queryById.docs) {
-          final data = doc.data();
-          if (data['hiddenReason'] == 'Đang có yêu cầu đặt phòng chờ xử lý' ||
-              data['status'] == 'hidden' ||
-              data['statusId'] == 'hidden' ||
-              data['trang_thai'] == 'hidden') {
+          if (needsRestore(doc.data())) {
             await restoreDoc(doc.reference);
           }
         }
@@ -1109,6 +1284,17 @@ class BookingService {
             'status': 'available',
             'isAvailable': true,
             'bookingStatus': 'available',
+            'tenantName': '',
+            'tenantPhone': '',
+            'tenantAvatar': '',
+            'contractId': '',
+            'contractStart': null,
+            'contractEnd': null,
+            'reservedBookingId': FieldValue.delete(),
+            'isHolding': false,
+            'holdingBookingId': FieldValue.delete(),
+            'holdingRenterId': FieldValue.delete(),
+            'holdingExpiresAt': FieldValue.delete(),
             'updatedAt': Timestamp.fromDate(now),
           }, SetOptions(merge: true));
         } catch (_) {}
@@ -1118,10 +1304,25 @@ class BookingService {
             'status': 'available',
             'isAvailable': true,
             'bookingStatus': 'available',
+            'tenantName': '',
+            'tenantPhone': '',
+            'contractId': '',
             'updatedAt': Timestamp.fromDate(now),
           }, SetOptions(merge: true));
         } catch (_) {}
       }
+
+      // Khôi phục thêm theo hostRoomId nếu roomId là mã phòng thật.
+      try {
+        final byHostRoom = await postsRef
+            .where('hostRoomId', isEqualTo: roomId)
+            .get();
+        for (final doc in byHostRoom.docs) {
+          if (needsRestore(doc.data())) {
+            await restoreDoc(doc.reference);
+          }
+        }
+      } catch (_) {}
 
       debugPrint('Đã khôi phục bài đăng thành công cho phòng: $roomId');
     } catch (e) {
@@ -1538,8 +1739,12 @@ class BookingService {
     final activeResidentBookingIds = <String>{};
     final checkedOutBookingIds = <String>{};
     final checkedOutRooms = <String>{};
+    final checkedOutRoomAt = <String, DateTime>{};
     final residentRoomForBooking = <String, String>{};
     final residentService = ResidentService(_firestore);
+    final bookingRawById = <String, Map<String, dynamic>>{
+      for (final doc in bookingSnap.docs) doc.id: doc.data(),
+    };
 
     for (final doc in residentSnap.docs) {
       try {
@@ -1585,11 +1790,21 @@ class BookingService {
           activeResidentBookingIds.addAll(candidateBookingIds);
         } else {
           // Resident đã rời phòng (status == 'moved_out' || statusId == 'daRoi' || isMovedOut)
+          final moveOutAt = r.moveOutDate ?? r.moveInDate;
+          void rememberCheckoutRoom(String id) {
+            if (id.isEmpty) return;
+            checkedOutRooms.add(id);
+            final prev = checkedOutRoomAt[id];
+            if (prev == null || moveOutAt.isAfter(prev)) {
+              checkedOutRoomAt[id] = moveOutAt;
+            }
+          }
+
           if (roomId.isNotEmpty) {
-            checkedOutRooms.add(roomId);
+            rememberCheckoutRoom(roomId);
             try {
               final canonical = await residentService.resolveRoomId(roomId);
-              if (canonical.isNotEmpty) checkedOutRooms.add(canonical);
+              rememberCheckoutRoom(canonical);
             } catch (_) {}
           }
           checkedOutBookingIds.addAll(candidateBookingIds);
@@ -1613,16 +1828,108 @@ class BookingService {
         } catch (_) {}
       }
 
-      final isExplicitlyCheckedOut = checkedOutBookingIds.contains(booking.id) ||
-          checkedOutBookingIds.any((cid) => cid.contains(booking.id) || booking.id.contains(cid)) ||
-          ((checkedOutRooms.contains(roomId) || checkedOutRooms.contains(canonicalRoomId)) &&
-              !activeResidentRooms.contains(roomId) &&
-              !activeResidentRooms.contains(canonicalRoomId));
+      final statusLower = booking.status.toLowerCase().trim();
+      final isPendingLike = const {
+        'pending',
+        'pending_payment',
+        'pending_confirmation',
+        'choduyet',
+        'cho_duyet',
+        'choxacnhan',
+        'dangxuly',
+      }.contains(statusLower);
 
-      final isActiveInResident = !isExplicitlyCheckedOut && (
-          activeResidentBookingIds.contains(booking.id) ||
-          activeResidentRooms.contains(roomId) ||
-          (canonicalRoomId.isNotEmpty && activeResidentRooms.contains(canonicalRoomId)));
+      // Chỉ gắn checkout theo đúng bookingId (không fuzzy, không đè đơn mới cùng phòng).
+      final matchedByBookingId = checkedOutBookingIds.contains(booking.id);
+      final roomCheckoutAt =
+          checkedOutRoomAt[canonicalRoomId] ?? checkedOutRoomAt[roomId];
+      final createdAfterRoomCheckout = roomCheckoutAt != null &&
+          !booking.createdAt.isBefore(roomCheckoutAt);
+      final matchedByPriorStay = !isPendingLike &&
+          !matchedByBookingId &&
+          !createdAfterRoomCheckout &&
+          (booking.isApproved || booking.isActive) &&
+          (checkedOutRooms.contains(roomId) ||
+              checkedOutRooms.contains(canonicalRoomId)) &&
+          !activeResidentRooms.contains(roomId) &&
+          !activeResidentRooms.contains(canonicalRoomId);
+
+      var isExplicitlyCheckedOut = matchedByBookingId || matchedByPriorStay;
+
+      // Hồi phục đơn mới bị ghi nhầm status=checked_out vì checkout phòng cũ.
+      // Không bao giờ tự nâng lên approved chỉ vì isPaid — phải có approvedAt (admin duyệt).
+      final raw = bookingRawById[booking.id] ?? const <String, dynamic>{};
+      final hasCheckoutRecord =
+          (raw['checkoutRecordId'] ?? '').toString().trim().isNotEmpty;
+      final hasAdminApproval = raw['approvedAt'] != null && raw['isPaid'] == true;
+      final awaitingAdminConfirm = raw['confirmationDeadline'] != null ||
+          raw['confirmedAt'] != null;
+      final falselyCheckedOut = booking.isCheckedOut &&
+          !matchedByBookingId &&
+          !hasCheckoutRecord &&
+          (createdAfterRoomCheckout ||
+              isPendingLike ||
+              awaitingAdminConfirm ||
+              raw['expiresAt'] != null ||
+              raw['deadline'] != null);
+      if (falselyCheckedOut) {
+        final String restoredStatus;
+        if (hasAdminApproval) {
+          restoredStatus = 'approved';
+        } else if (awaitingAdminConfirm) {
+          restoredStatus = 'pending_confirmation';
+        } else if (raw['expiresAt'] != null || raw['deadline'] != null) {
+          restoredStatus = 'pending_payment';
+        } else {
+          restoredStatus = 'pending';
+        }
+        booking = booking.copyWith(
+          status: restoredStatus,
+          isPaid: hasAdminApproval,
+          note: booking.note == 'Đã hoàn tất trả phòng' ? '' : booking.note,
+        );
+        unawaited(_firestore.collection('bookings').doc(booking.id).set({
+          'status': restoredStatus,
+          if (!hasAdminApproval) 'isPaid': false,
+          'subTag': FieldValue.delete(),
+          'description': FieldValue.delete(),
+          'trangThai': FieldValue.delete(),
+          'checkoutAt': FieldValue.delete(),
+          'checkoutRecordId': FieldValue.delete(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true)));
+        isExplicitlyCheckedOut = false;
+      }
+
+      // Đơn khách đã bấm CK nhưng bị nâng nhầm lên approved/paid trước khi admin duyệt.
+      final prematurelyApproved = !isExplicitlyCheckedOut &&
+          booking.isApproved &&
+          !hasAdminApproval &&
+          awaitingAdminConfirm &&
+          raw['isPaid'] != true;
+      if (prematurelyApproved) {
+        booking = booking.copyWith(
+          status: 'pending_confirmation',
+          isPaid: false,
+          approvedAt: null,
+        );
+        unawaited(_firestore.collection('bookings').doc(booking.id).set({
+          'status': 'pending_confirmation',
+          'isPaid': false,
+          'approvedAt': FieldValue.delete(),
+          'subTag': FieldValue.delete(),
+          'description': 'Chờ xác nhận',
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true)));
+      }
+
+      final isActiveInResident = !isExplicitlyCheckedOut &&
+          (activeResidentBookingIds.contains(booking.id) ||
+              (!isPendingLike &&
+                  (booking.isApproved || booking.isActive) &&
+                  (activeResidentRooms.contains(roomId) ||
+                      (canonicalRoomId.isNotEmpty &&
+                          activeResidentRooms.contains(canonicalRoomId)))));
 
       if (isActiveInResident) {
         // Cư dân đã check-in trong bảng residents -> đơn thuê chuyển sang 'dangO' (Đang ở)
@@ -1632,23 +1939,24 @@ class BookingService {
         if (roomId.isNotEmpty) activeRoomsCovered.add(roomId);
         if (canonicalRoomId.isNotEmpty) activeRoomsCovered.add(canonicalRoomId);
       } else if (isExplicitlyCheckedOut && !booking.isCheckedOut && !booking.isCancelled) {
-        // Cư dân đã check out trong bảng residents -> chuyển đơn thuê sang hoàn tất/checked_out (vào lịch sử đã ở, KHÔNG vào đã hủy)
+        // Chỉ đánh dấu trả phòng cho đúng đơn đã ở / đã duyệt trước checkout.
         booking = booking.copyWith(
           status: 'checked_out',
           note: booking.note.isNotEmpty ? booking.note : 'Đã hoàn tất trả phòng',
         );
 
-        // Đồng bộ cập nhật lên Firestore bookings doc
-        unawaited(_firestore.collection('bookings').doc(booking.id).set({
-          'status': 'checked_out',
-          'subTag': 'Đã trả phòng',
-          'description': 'Đã hoàn tất trả phòng',
-          'trangThai': 'daKetThuc',
-          'isCheckIn': false,
-          'daNhanPhong': false,
-          'checkoutAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true)));
+        if (matchedByBookingId) {
+          unawaited(_firestore.collection('bookings').doc(booking.id).set({
+            'status': 'checked_out',
+            'subTag': 'Đã trả phòng',
+            'description': 'Đã hoàn tất trả phòng',
+            'trangThai': 'daKetThuc',
+            'isCheckIn': false,
+            'daNhanPhong': false,
+            'checkoutAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true)));
+        }
       }
 
       // Luôn phân giải tiêu đề phòng thật từ host_rooms cho mọi đơn thuê (thay vì lấy snapshot cũ hoặc post title):
@@ -1784,22 +2092,46 @@ class BookingService {
       final snapshot = await _firestore.collection('bookings').get();
       BookingRequestModel? approved;
       final residents = await ResidentService(_firestore).forUser(renterId);
-      final checkedOutRoomIds = residents
-          .where((r) => !ResidentService.isActive(r))
-          .map((r) => r.roomId.trim())
-          .toSet();
-      final activeResidentRoomIds = residents
-          .where(ResidentService.isActive)
-          .map((r) => r.roomId.trim())
-          .toSet();
+      final checkedOutBookingIds = <String>{};
+      final checkedOutRoomAt = <String, DateTime>{};
+      final activeResidentRoomIds = <String>{};
+      for (final r in residents) {
+        final roomId = r.roomId.trim();
+        if (ResidentService.isActive(r)) {
+          if (roomId.isNotEmpty) activeResidentRoomIds.add(roomId);
+          continue;
+        }
+        final moveOutAt = r.moveOutDate ?? r.moveInDate;
+        if (roomId.isNotEmpty) {
+          final prev = checkedOutRoomAt[roomId];
+          if (prev == null || moveOutAt.isAfter(prev)) {
+            checkedOutRoomAt[roomId] = moveOutAt;
+          }
+        }
+        if (r.periodId.isNotEmpty) {
+          checkedOutBookingIds.add(r.periodId);
+          if (r.periodId.startsWith('checkin_')) {
+            checkedOutBookingIds.add(r.periodId.substring('checkin_'.length));
+          }
+        }
+      }
 
       for (final doc in snapshot.docs) {
         final data = doc.data();
         if (_bookingOwnerId(data) != renterId) continue;
         final booking = BookingRequestModel.fromFirestore(doc);
         final bRoom = booking.roomId.trim();
-        final isCheckedOut = checkedOutRoomIds.contains(bRoom) &&
-            !activeResidentRoomIds.contains(bRoom);
+        final matchedByBookingId = checkedOutBookingIds.contains(booking.id);
+        final roomCheckoutAt = checkedOutRoomAt[bRoom];
+        final createdAfterRoomCheckout = roomCheckoutAt != null &&
+            !booking.createdAt.isBefore(roomCheckoutAt);
+        final isCheckedOut = matchedByBookingId ||
+            (booking.isCheckedOut &&
+                (data['checkoutRecordId'] ?? '').toString().trim().isNotEmpty) ||
+            ((booking.isApproved || booking.isActive) &&
+                roomCheckoutAt != null &&
+                !createdAfterRoomCheckout &&
+                !activeResidentRoomIds.contains(bRoom));
 
         if (booking.isActive && !isCheckedOut) return booking;
         if (approved == null && booking.isApproved && !isCheckedOut) {

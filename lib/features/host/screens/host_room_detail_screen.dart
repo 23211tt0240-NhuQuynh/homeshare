@@ -2,6 +2,7 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_safe_image.dart';
 import '../../../data/models/room_model.dart';
 import '../providers/host_management_provider.dart';
 import '../widgets/host_room_widgets.dart';
@@ -170,17 +171,11 @@ class _HostRoomDetailScreenState extends ConsumerState<HostRoomDetailScreen> {
                               : PageView(
                                   children: [
                                     for (final url in displayImages)
-                                      Image.network(
-                                        url,
-                                        webHtmlElementStrategy:
-                                            WebHtmlElementStrategy.fallback,
+                                      AppSafeImage(
+                                        imageUrl: url,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, _, _) => const Center(
-                                          child: Icon(
-                                            Icons.broken_image_outlined,
-                                            size: 48,
-                                          ),
-                                        ),
+                                        fallbackIcon: Icons.broken_image_outlined,
+                                        iconSize: 48,
                                       ),
                                     for (final photo in widget.previewImages)
                                       Image.memory(

@@ -42,7 +42,6 @@ class _HostFinanceInvoicesState extends ConsumerState<HostFinanceInvoices> {
   static const _muted = Color(0xFF7C8193);
   String? _property;
   bool _newest = true;
-  final Set<String> _saving = {};
 
   // Chủ trọ - Chuẩn hóa giá trị số tiền từ dữ liệu hóa đơn.
   double _number(dynamic v) =>
@@ -338,22 +337,19 @@ class _HostFinanceInvoicesState extends ConsumerState<HostFinanceInvoices> {
     );
   }
 
-  // Chủ trọ - Phiếu hóa đơn - Chi tiết mở thông tin; Đã nhận tiền mở xác nhận sau giải ngân.
+  // Chủ trọ - Phiếu hóa đơn - Chi tiết mở thông tin; trạng thái giải ngân
+  // do admin cập nhật, không còn nút xác nhận nhận tiền trên thẻ.
   Widget _invoice(Map<String, dynamic> b) {
-    final received = b['hostReceiptConfirmedAt'] != null;
     final disbursed = b['isDisbursed'] == true;
-    final id = '${b['id']}';
     final tone = widget.isDeposit ? const Color(0xFFA7743F) : _teal;
     final wash = widget.isDeposit
         ? const Color(0xFFFBF1E6)
         : const Color(0xFFF0EFFB);
-    final status = received
-        ? 'Đã nhận tiền'
-        : disbursed
+    final status = disbursed
         ? 'Đã giải ngân'
         : widget.isDeposit && b['isCheckIn'] != true
         ? 'Chờ check-in'
-        : 'Chờ giải ngân';
+        : 'Đã nhận tiền';
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -418,7 +414,7 @@ class _HostFinanceInvoicesState extends ConsumerState<HostFinanceInvoices> {
                   style: const TextStyle(fontSize: 12, color: _muted),
                 ),
                 const SizedBox(height: 16),
-                _line('Mã hóa đơn', '${b['orderCode'] ?? id}'),
+                _line('Mã hóa đơn', '${b['orderCode'] ?? b['id']}'),
                 _line('Ngày tạo', _day(b['createdAt'])),
                 _line(
                   widget.isDeposit ? 'Ngày nhận phòng' : 'Kỳ thuê bắt đầu',
@@ -464,54 +460,26 @@ class _HostFinanceInvoicesState extends ConsumerState<HostFinanceInvoices> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: HostFinanceStyle.ink,
-                          side: const BorderSide(color: Color(0xFFE1E2EC)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed: () => _details(b),
-                        child: const Text(
-                          'Chi tiết',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                      ),
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: HostFinanceStyle.ink,
+                    side: const BorderSide(color: Color(0xFFE1E2EC)),
+                    minimumSize: const Size.fromHeight(42),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: tone,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed:
-                            received || !disbursed || _saving.contains(id)
-                            ? null
-                            : () => _confirm(b),
-                        child: Text(
-                          _saving.contains(id)
-                              ? 'Đang lưu…'
-                              : received
-                              ? 'Đã nhận'
-                              : 'Đã nhận tiền',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
+                  onPressed: () => _details(b),
+                  child: const Text(
+                    'Chi tiết',
+                    style: TextStyle(fontSize: 12),
+                  ),
                 ),
                 if (!disbursed)
                   const Padding(
                     padding: EdgeInsets.only(top: 8),
                     child: Text(
-                      'Có thể xác nhận nhận tiền sau khi sàn giải ngân.',
+                      'Chờ sàn giải ngân. Khi admin chuyển tiền, bạn sẽ nhận thông báo trong tab Đã thanh toán.',
                       style: TextStyle(fontSize: 10, color: _muted),
                     ),
                   ),
@@ -566,77 +534,6 @@ class _HostFinanceInvoicesState extends ConsumerState<HostFinanceInvoices> {
       ),
     ),
   );
-
-  // Chủ trọ - Xác nhận nhận tiền - Từ hóa đơn đã giải ngân mở hộp xác nhận;
-  // chọn Đã nhận tiền lưu thời điểm nhận vào Firebase và cập nhật danh sách,
-  // chọn Để sau đóng hộp thoại và trở về hóa đơn.
-  Future<void> _confirm(Map<String, dynamic> b) async {
-    final accepted = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xác nhận đã nhận tiền'),
-        content: const Text(
-          'Bạn đã nhận khoản giải ngân của hóa đơn này vào tài khoản?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Để sau'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Đã nhận tiền'),
-          ),
-        ],
-      ),
-    );
-    if (accepted != true || !mounted) return;
-    final id = '${b['id']}';
-    final uid = ref.read(hostSessionProvider).value;
-    if (uid == null) return;
-    setState(() => _saving.add(id));
-    try {
-      final db = FirebaseFirestore.instance;
-      // Chủ trọ - Kiểm tra quyền sở hữu và trạng thái giải ngân trước khi
-      // lưu xác nhận nhận tiền; không thay đổi trạng thái thanh toán của đơn.
-      await db.runTransaction((tx) async {
-        final doc = db.collection('bookings').doc(id);
-        final snapshot = await tx.get(doc);
-        final data = snapshot.data();
-        if (data == null ||
-            data['hostId'] != uid ||
-            !(data['isDisbursed'] == true ||
-                data['disbursedAt'] != null ||
-                data['ngayGiaiNgan'] != null)) {
-          throw StateError(
-            'Đơn chưa được giải ngân hoặc không thuộc tài khoản này.',
-          );
-        }
-        if (data['hostReceiptConfirmedAt'] == null) {
-          tx.update(doc, {
-            'hostReceiptConfirmedAt': FieldValue.serverTimestamp(),
-          });
-        }
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Đã xác nhận nhận tiền.')));
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Chưa thể xác nhận. Kiểm tra quyền truy cập và thử lại.',
-            ),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _saving.remove(id));
-    }
-  }
 
   // Chủ trọ - Hiển thị thẻ cơ sở cho thuê và trạng thái danh sách hóa đơn.
   Widget _card(Widget child) =>

@@ -1,16 +1,68 @@
-﻿import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/violation_model.dart';
 import '../models/violation_record_model.dart';
 import '../repositories/violation_repository.dart';
 import 'violation_provider.dart';
+
+/// Đại diện cho tệp bằng chứng vi phạm (ảnh hoặc video)
+/// Tương thích hoàn toàn trên Web, Android, iOS, Windows, macOS.
+/// Sử dụng trực tiếp bytes để hiển thị Image.memory và tải lên Firebase Storage bằng putData.
+class ViolationEvidenceFile {
+  final String name;
+  final String path;
+  final Uint8List bytes;
+  final bool isVideo;
+  final String contentType;
+  final XFile? xFile;
+
+  const ViolationEvidenceFile({
+    required this.name,
+    required this.path,
+    required this.bytes,
+    this.isVideo = false,
+    required this.contentType,
+    this.xFile,
+  });
+
+  int get sizeInBytes => bytes.length;
+
+  static Future<ViolationEvidenceFile> fromXFile(
+    XFile xFile, {
+    bool isVideo = false,
+  }) async {
+    final bytes = await xFile.readAsBytes();
+    final name = xFile.name.isNotEmpty
+        ? xFile.name
+        : (isVideo
+            ? 'video_${DateTime.now().millisecondsSinceEpoch}.mp4'
+            : 'image_${DateTime.now().millisecondsSinceEpoch}.jpg');
+    final ext = name.split('.').last.toLowerCase();
+    String contentType;
+    if (isVideo) {
+      contentType = ext == 'mov' ? 'video/quicktime' : 'video/mp4';
+    } else {
+      contentType = ext == 'png' ? 'image/png' : 'image/jpeg';
+    }
+
+    return ViolationEvidenceFile(
+      name: name,
+      path: xFile.path,
+      bytes: bytes,
+      isVideo: isVideo,
+      contentType: contentType,
+      xFile: xFile,
+    );
+  }
+}
 
 class ViolationFormState {
   final HostOccupiedRoomItem? selectedRoom;
   final List<ViolationModel> selectedViolations;
   final double fineAmount;
   final String paymentMethod; // 'NEXT_INVOICE', 'CASH', 'DEPOSIT'
-  final List<File> evidenceFiles; // max 5 files
+  final List<ViolationEvidenceFile> evidenceFiles; // max 5 files
   final String note;
   final bool isSubmitting;
   final String? errorMessage;
@@ -35,7 +87,7 @@ class ViolationFormState {
     List<ViolationModel>? selectedViolations,
     double? fineAmount,
     String? paymentMethod,
-    List<File>? evidenceFiles,
+    List<ViolationEvidenceFile>? evidenceFiles,
     String? note,
     bool? isSubmitting,
     String? errorMessage,
@@ -180,31 +232,31 @@ class ViolationFormNotifier extends Notifier<ViolationFormState> {
     state = state.copyWith(paymentMethod: method, clearError: true);
   }
 
-  String? addEvidenceFile(File file) {
+  String? addEvidenceFile(ViolationEvidenceFile file) {
     if (state.evidenceFiles.length >= 5) {
       return 'Chỉ được tải lên tối đa 5 tệp bằng chứng';
     }
 
     // Kiểm tra dung lượng < 25MB
-    final sizeInBytes = file.lengthSync();
+    final sizeInBytes = file.sizeInBytes;
     if (sizeInBytes > 25 * 1024 * 1024) {
       return 'Dung lượng tệp vượt quá 25MB cho phép';
     }
 
-    // Kiểm tra định dạng JPG, PNG, MP4
-    final ext = file.path.split('.').last.toLowerCase();
-    if (!['jpg', 'jpeg', 'png', 'mp4'].contains(ext)) {
+    // Kiểm tra định dạng JPG, PNG, MP4, MOV
+    final ext = file.name.split('.').last.toLowerCase();
+    if (!['jpg', 'jpeg', 'png', 'mp4', 'mov'].contains(ext)) {
       return 'Chỉ hỗ trợ định dạng ảnh JPG, PNG hoặc video MP4';
     }
 
-    final updated = List<File>.from(state.evidenceFiles)..add(file);
+    final updated = List<ViolationEvidenceFile>.from(state.evidenceFiles)..add(file);
     state = state.copyWith(evidenceFiles: updated, clearError: true);
     return null;
   }
 
   void removeEvidenceFile(int index) {
     if (index < 0 || index >= state.evidenceFiles.length) return;
-    final updated = List<File>.from(state.evidenceFiles)..removeAt(index);
+    final updated = List<ViolationEvidenceFile>.from(state.evidenceFiles)..removeAt(index);
     state = state.copyWith(evidenceFiles: updated, clearError: true);
   }
 

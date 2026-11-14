@@ -36,7 +36,6 @@ class _HostCreateViolationScreenState
   final _noteController = TextEditingController();
   final _fineController = TextEditingController();
   final _customViolationController = TextEditingController();
-  final _customFineController = TextEditingController();
   String? _selectedPropertyId;
   String? _selectedRoomId;
 
@@ -54,7 +53,6 @@ class _HostCreateViolationScreenState
     _noteController.dispose();
     _fineController.dispose();
     _customViolationController.dispose();
-    _customFineController.dispose();
     super.dispose();
   }
 
@@ -138,16 +136,10 @@ class _HostCreateViolationScreenState
     // Tự động thêm vi phạm tự nhập nếu người dùng đã gõ mà chưa bấm nút Thêm
     final draftCustom = _customViolationController.text.trim();
     if (draftCustom.isNotEmpty) {
-      final draftFine = double.tryParse(
-            _customFineController.text.replaceAll(RegExp(r'[^0-9]'), ''),
-          ) ??
-          0.0;
       ref.read(violationFormNotifierProvider.notifier).addCustomViolation(
             draftCustom,
-            defaultFine: draftFine,
           );
       _customViolationController.clear();
-      _customFineController.clear();
     }
 
     // Đảm bảo số tiền phạt từ ô nhập đã được đồng bộ vào provider
@@ -812,64 +804,76 @@ class _HostCreateViolationScreenState
           const SizedBox(height: 6),
 
           // Ô nhập tiền phạt
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: fineAmount > 0
-                    ? const Color(0xFF2563EB)
-                    : const Color(0xFFCBD5E1),
-                width: fineAmount > 0 ? 1.5 : 1,
+          TextField(
+            controller: _fineController,
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+            ],
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFFDC2626),
+              letterSpacing: 0.5,
+            ),
+            decoration: InputDecoration(
+              hintText: '0',
+              hintStyle: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF94A3B8),
+              ),
+              filled: true,
+              fillColor: const Color(0xFFF8FAFC),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              prefixIcon: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Icon(
+                  Icons.payments_outlined,
+                  color: Color(0xFF2563EB),
+                  size: 22,
+                ),
+              ),
+              prefixIconConstraints: const BoxConstraints(minWidth: 46, minHeight: 46),
+              suffixIcon: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: UnconstrainedBox(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'VNĐ',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFDC2626),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: fineAmount > 0
+                      ? const Color(0xFF2563EB)
+                      : const Color(0xFFCBD5E1),
+                  width: fineAmount > 0 ? 1.5 : 1.2,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
               ),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _fineController,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                    ],
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFFDC2626),
-                    ),
-                    decoration: const InputDecoration(
-                      hintText: '0',
-                      hintStyle: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFFCBD5E1),
-                      ),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(vertical: 8),
-                    ),
-                    onChanged: _onFineChanged,
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEE2E2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'VNĐ',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFFDC2626),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            onChanged: _onFineChanged,
           ),
           const SizedBox(height: 10),
 
@@ -1092,7 +1096,6 @@ class _HostCreateViolationScreenState
                     violations: types,
                     selectedViolations: formState.selectedViolations,
                     customTitleController: _customViolationController,
-                    customFineController: _customFineController,
                     onToggle: (item) {
                       ref
                           .read(violationFormNotifierProvider.notifier)

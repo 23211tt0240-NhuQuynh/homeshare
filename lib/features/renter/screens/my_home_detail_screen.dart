@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_safe_image.dart';
 import '../../../core/constants/firestore_collections.dart';
 import '../../../core/services/room_service.dart';
 import '../../../core/utils/host_review_policy.dart';
@@ -643,23 +644,13 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
             onPageChanged: (i) => setState(() => _currentImageIndex = i),
             itemBuilder: (context, index) {
               final url = effectiveImages[index];
-              return Image.network(
-                url,
+              return AppSafeImage(
+                imageUrl: url,
                 fit: BoxFit.cover,
                 width: double.infinity,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: Colors.grey.shade200,
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.image_not_supported_outlined, size: 44, color: Colors.grey.shade400),
-                        const SizedBox(height: 6),
-                        Text('Không tải được ảnh', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-                      ],
-                    ),
-                  ),
-                ),
+                height: double.infinity,
+                fallbackIcon: Icons.image_not_supported_outlined,
+                iconSize: 44,
               );
             },
           ),

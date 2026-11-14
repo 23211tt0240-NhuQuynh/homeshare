@@ -33,8 +33,13 @@ class BookingRequestModel {
   final String note; // ghiChu
   final String? cancelReason; // lyDoHuy
   final DateTime createdAt; // ngayTao
+  final bool isPaid; // Admin đã đối soát / xác nhận tiền
+  final DateTime? approvedAt; // Thời điểm admin duyệt cọc/thanh toán
 
   // Status Helper Getters
+  /// QR nhận phòng chỉ sau khi admin đã xác nhận tiền (không phải lúc khách bấm đã CK).
+  bool get canShowCheckinQr => isApproved && isPaid;
+
   bool get isPending {
     final s = status.toLowerCase();
     return s == 'pending' ||
@@ -209,6 +214,8 @@ class BookingRequestModel {
     this.note = '',
     this.cancelReason,
     required this.createdAt,
+    this.isPaid = false,
+    this.approvedAt,
   })  : _renterUserCode = renterUserCode ?? '',
         _roomCode = roomCode ?? '';
 
@@ -242,6 +249,8 @@ class BookingRequestModel {
     String? note,
     String? cancelReason,
     DateTime? createdAt,
+    bool? isPaid,
+    DateTime? approvedAt,
   }) {
     return BookingRequestModel(
       id: id ?? this.id,
@@ -273,6 +282,8 @@ class BookingRequestModel {
       note: note ?? this.note,
       cancelReason: cancelReason ?? this.cancelReason,
       createdAt: createdAt ?? this.createdAt,
+      isPaid: isPaid ?? this.isPaid,
+      approvedAt: approvedAt ?? this.approvedAt,
     );
   }
 
@@ -329,6 +340,14 @@ class BookingRequestModel {
           : (data['createdAt'] is Timestamp)
               ? (data['createdAt'] as Timestamp).toDate()
               : DateTime.now(),
+      isPaid: data['isPaid'] == true || data['daThanhToan'] == true,
+      approvedAt: (data['approvedAt'] is Timestamp)
+          ? (data['approvedAt'] as Timestamp).toDate()
+          : (data['ngayChapNhan'] is Timestamp &&
+                  (data['status'] ?? '').toString().toLowerCase() !=
+                      'pending_confirmation')
+              ? (data['ngayChapNhan'] as Timestamp).toDate()
+              : null,
     );
   }
 
@@ -366,6 +385,8 @@ class BookingRequestModel {
       'note': note,
       if (cancelReason != null) 'cancelReason': cancelReason,
       'createdAt': Timestamp.fromDate(createdAt),
+      'isPaid': isPaid,
+      if (approvedAt != null) 'approvedAt': Timestamp.fromDate(approvedAt!),
     };
   }
 

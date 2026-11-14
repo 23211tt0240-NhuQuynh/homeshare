@@ -8,16 +8,20 @@ abstract final class PostStatus {
   static const pending = 'pending';
   static const active = 'active';
   static const rejected = 'rejected';
-  @Deprecated('Bài đăng không còn dùng hidden, chỉ còn pending, active, rejected')
+  static const occupied = 'occupied';
+  @Deprecated('Bài đăng không còn dùng hidden, chỉ còn pending, active, rejected, occupied')
   static const hidden = 'hidden';
 
-  static const validStatuses = {pending, active, rejected};
+  static const validStatuses = {pending, active, rejected, occupied};
 
   static String normalize(String? raw) {
     if (raw == null || raw.trim().isEmpty) return pending;
     final s = raw.toLowerCase().trim();
     if (s == 'active' || s == 'approved' || s == 'daduyet' || s == 'da_duyet' || s == 'danghienthi' || s == 'published') {
       return active;
+    }
+    if (s == 'occupied' || s == 'dathue' || s == 'da_thue' || s == 'dango' || s == 'dang_o' || s == 'đã có người' || s == 'đang ở') {
+      return occupied;
     }
     if (s == 'rejected' || s == 'tuchoi' || s == 'tu_choi' || s == 'bituchoi') {
       return rejected;
@@ -173,7 +177,8 @@ class HostPostModel {
   bool get isRejected => PostStatus.normalize(status) == PostStatus.rejected;
   bool get isPending => PostStatus.normalize(status) == PostStatus.pending;
   bool get isActive => PostStatus.normalize(status) == PostStatus.active;
-  bool get isApprovedOrActive => isActive;
+  bool get isOccupied => PostStatus.normalize(status) == PostStatus.occupied || (joinedRoom?.isOccupied == true);
+  bool get isApprovedOrActive => isActive || isOccupied;
   @Deprecated('Bài đăng không còn trạng thái hidden, chỉ có pending, active, rejected')
   bool get isHidden => false;
 
@@ -223,7 +228,6 @@ class HostPostModel {
       .collection(FirestoreCollections.rentalPosts);
 
   /// Mapper chuẩn theo bảng rental_posts (100% tiếng Anh)
-  /// Không lưu nhúng mảng amenities và images vào bài đăng (tách bảng riêng)
   Map<String, dynamic> toFirestore() {
     return {
       'id': id,
@@ -235,7 +239,8 @@ class HostPostModel {
       'rentalPrice': rentalPrice,
       'depositAmount': depositAmount,
       'status': PostStatus.normalize(status),
-      'isPinned': false,
+      'images': images,
+      'amenities': amenities,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
@@ -653,11 +658,19 @@ class HostPostModel {
     final effectiveRoomId = roomId.trim().isNotEmpty
         ? roomId.trim()
         : ((joinedRoom?.id.trim().isNotEmpty == true) ? joinedRoom!.id.trim() : id);
+    final linkedCode = (joinedRoom?.roomCode ?? '').trim();
     return RoomModel(
       id: effectiveRoomId,
       propertyId: propertyId.isNotEmpty ? propertyId : (joinedRoom?.propertyId ?? ''),
-      roomCode: joinedRoom?.roomCode ?? (roomId.isNotEmpty ? roomId : 'P001'),
-      status: status.isNotEmpty ? status : statusId,
+      roomCode: linkedCode.isNotEmpty && !RoomModel.looksLikeOpaqueRoomId(linkedCode)
+          ? linkedCode
+          : '',
+      // Ưu tiên occupancy thật từ phòng; post "active" không có nghĩa là còn trống.
+      status: (joinedRoom != null && joinedRoom!.isRentedOrOccupied)
+          ? (joinedRoom!.status.trim().isNotEmpty
+              ? joinedRoom!.status
+              : 'occupied')
+          : (status.isNotEmpty ? status : statusId),
       title: title.isNotEmpty ? title : (joinedRoom?.title ?? ''),
       description: description.isNotEmpty ? description : (joinedRoom?.description ?? ''),
       price: rentalPrice > 0 ? rentalPrice : (joinedRoom?.price ?? 0.0),
@@ -678,7 +691,12 @@ class HostPostModel {
       hostAvatar: authorAvatar.isNotEmpty ? authorAvatar : (joinedRoom?.hostAvatar ?? ''),
       rating: 5.0,
       reviewCount: 0,
-      isAvailable: isActive,
+      isAvailable: joinedRoom != null
+          ? !joinedRoom!.isRentedOrOccupied && joinedRoom!.isAvailable
+          : isActive,
+      tenantName: joinedRoom?.tenantName ?? '',
+      tenantPhone: joinedRoom?.tenantPhone ?? '',
+      contractId: joinedRoom?.contractId ?? '',
       capacity: joinedRoom?.capacity ?? 2,
       floor: joinedRoom?.floor ?? 1,
       createdAt: createdAt,

@@ -1,5 +1,6 @@
 import '../../../core/services/resident_service.dart';
-import 'dart:io';
+import 'dart:async';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
@@ -11,6 +12,7 @@ import '../../../data/models/room_model.dart';
 import '../models/invoice_line_model.dart';
 import '../models/violation_model.dart';
 import '../models/violation_record_model.dart';
+import '../providers/violation_form_provider.dart';
 
 /// Dữ liệu phòng đang có khách thuê để chọn trong Form lập biên bản
 class HostOccupiedRoomItem {
@@ -192,15 +194,50 @@ class ViolationRepository {
             return defaultViolationTypes;
           }
 
-          return snapshot.docs
+          final items = snapshot.docs
               .map(ViolationModel.fromFirestore)
               .where((v) => v.isActive)
               .toList();
+
+          // Xử lý dữ liệu trùng: lọc bỏ các loại vi phạm trùng tiêu đề hoặc trùng ID
+          final seenTitles = <String>{};
+          final seenIds = <String>{};
+          final deduplicated = <ViolationModel>[];
+
+          for (final item in items) {
+            final cleanTitle = item.title.trim().toLowerCase();
+            final cleanId = item.id.trim();
+            if (cleanTitle.isEmpty || seenTitles.contains(cleanTitle) || seenIds.contains(cleanId)) {
+              continue;
+            }
+            seenTitles.add(cleanTitle);
+            seenIds.add(cleanId);
+            deduplicated.add(item);
+          }
+          return deduplicated;
         });
   }
 
-  /// Thêm một loại vi phạm mới vào danh mục
+  /// Thêm một loại vi phạm mới vào danh mục (có kiểm tra chống trùng lặp)
   Future<void> addViolationType(ViolationModel item) async {
+    final cleanTitle = item.title.trim().toLowerCase();
+    if (cleanTitle.isEmpty) return;
+
+    // Kiểm tra chống trùng lặp trước khi thêm
+    try {
+      final existingSnap = await _firestore
+          .collection(FirestoreCollections.violations)
+          .get();
+      for (final doc in existingSnap.docs) {
+        final docData = doc.data();
+        final title = (docData['title'] ?? docData['ten'] ?? '').toString().trim().toLowerCase();
+        if (title == cleanTitle) {
+          // Đã tồn tại loại vi phạm này, không thêm bản ghi trùng
+          return;
+        }
+      }
+    } catch (_) {}
+
     final id = (item.id.isNotEmpty && item.id != 'vp_')
         ? item.id
         : 'vp_${DateTime.now().millisecondsSinceEpoch}';
@@ -415,30 +452,45 @@ class ViolationRepository {
     return result;
   }
 
-  /// Tải danh sách tệp bằng chứng lên Firebase Storage
+  /// Tải danh sách tệp bằng chứng lên Firebase Storage (Hỗ trợ toàn diện Web, Android, iOS qua putData và fallback Base64)
   Future<List<String>> uploadEvidenceFiles({
     required String hostId,
     required String recordId,
-    required List<File> files,
+    required List<ViolationEvidenceFile> files,
   }) async {
     if (files.isEmpty) return [];
 
     final downloadUrls = <String>[];
     for (int i = 0; i < files.length; i++) {
       final file = files[i];
-      final ext = file.path.split('.').last.toLowerCase();
+      final ext = file.name.split('.').last.toLowerCase();
       final fileName = '${DateTime.now().millisecondsSinceEpoch}_$i.$ext';
       final ref = _storageInstance.ref().child(
         'violations_media/$hostId/$recordId/$fileName',
       );
 
       final metadata = SettableMetadata(
-        contentType: ext == 'mp4' ? 'video/mp4' : 'image/jpeg',
+        contentType: file.contentType,
       );
 
-      final uploadTask = await ref.putFile(file, metadata);
-      final url = await uploadTask.ref.getDownloadURL();
-      downloadUrls.add(url);
+      try {
+        final uploadTask = ref.putData(file.bytes, metadata);
+        final snapshot = await uploadTask.timeout(
+          const Duration(seconds: 40),
+          onTimeout: () async {
+            await uploadTask.cancel();
+            throw TimeoutException('Tải tệp bằng chứng quá thời gian cho phép.');
+          },
+        );
+        final url = await snapshot.ref.getDownloadURL();
+        downloadUrls.add(url);
+      } catch (e) {
+        debugPrint('Lỗi tải bằng chứng vi phạm lên Firebase Storage: $e. Sử dụng fallback data URI.');
+        if (!file.isVideo) {
+          final b64 = base64Encode(file.bytes);
+          downloadUrls.add('data:${file.contentType};base64,$b64');
+        }
+      }
     }
 
     return downloadUrls;
@@ -642,7 +694,7 @@ class ViolationRepository {
         .doc(record.id);
     await recDocRef.set({
       'status': 'ADDED_TO_INVOICE',
-      'paymentMethod': 'NEXT_INVOICE',
+      'paymentMethod': FieldValue.delete(),
       'updatedAt': Timestamp.now(),
     }, SetOptions(merge: true));
 
@@ -728,6 +780,18 @@ class ViolationRepository {
         List<String>.from(data['evidenceUrls'] ?? data['chungCu'] ?? []);
     final description =
         (data['description'] ?? data['moTa'] ?? '').toString();
+
+    // Chặn spam nhắc nhở: Giới hạn mỗi lần gửi cách nhau tối thiểu 60 giây
+    final lastReminder = (data['lastReminderAt'] is Timestamp)
+        ? (data['lastReminderAt'] as Timestamp).toDate()
+        : null;
+    if (lastReminder != null) {
+      final elapsed = DateTime.now().difference(lastReminder).inSeconds;
+      if (elapsed < 60) {
+        throw StateError(
+            'Vui lòng đợi ${60 - elapsed}s trước khi gửi lại thông báo nhắc nộp phạt.');
+      }
+    }
 
     await _firestore
         .collection(FirestoreCollections.violationRecords)

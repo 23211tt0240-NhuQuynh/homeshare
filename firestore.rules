@@ -111,6 +111,11 @@ service cloud.firestore {
       allow delete: if admin();
     }
 
+    // Cho phép đọc/ghi mã OTP xác thực email khi đăng ký tài khoản (chưa đăng nhập)
+    match /email_otps/{email} {
+      allow read, write: if true;
+    }
+
     // Rule đang live: user đã đăng nhập được đọc/ghi đến 10/12/2026, trừ host_reviews ở trên.
     match /{collection}/{document=**} {
       allow read, write: if collection != 'host_reviews'

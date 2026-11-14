@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_safe_image.dart';
 import '../../../core/services/favorites_service.dart';
+import '../../../core/services/resident_service.dart';
 import '../../../core/services/room_service.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -168,13 +170,38 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
       return;
     }
 
-    // Kiểm tra trạng thái phòng trên host_rooms trước khi chuyển màn hình
+    // Kiểm tra trạng thái phòng THẬT trên host_rooms (id màn hình có thể là postId)
     if (_room.id.isNotEmpty) {
       try {
-        final hostRoomSnap = await FirebaseFirestore.instance.collection('host_rooms').doc(_room.id).get();
+        String hostRoomDocId = _room.id;
+        try {
+          hostRoomDocId = await ResidentService(
+            FirebaseFirestore.instance,
+          ).resolveRoomId(_room.id);
+        } catch (_) {}
+
+        final hostRoomSnap = await FirebaseFirestore.instance
+            .collection('host_rooms')
+            .doc(hostRoomDocId)
+            .get();
         if (hostRoomSnap.exists) {
           final rData = hostRoomSnap.data() ?? {};
           final rStatus = (rData['status'] ?? '').toString().toLowerCase();
+          final isAvail = rData['isAvailable'];
+          if (rStatus == 'occupied' ||
+              rStatus == 'dango' ||
+              rStatus == 'reserved' ||
+              isAvail == false) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Phòng này đã có người thuê hoặc đang được ở.'),
+                  backgroundColor: Color(0xFFD92D20),
+                ),
+              );
+            }
+            return;
+          }
           if (rStatus == 'pending_confirmation') {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -202,7 +229,10 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                 if (bSnap.exists) {
                   final bData = bSnap.data() ?? {};
                   final bStatus = (bData['status'] ?? '').toString().toLowerCase();
-                  if (bStatus == 'cancelled' || bStatus == 'rejected' || bData['daHuy'] == true) {
+                  if (bStatus == 'cancelled' ||
+                      bStatus == 'rejected' ||
+                      bStatus == 'checked_out' ||
+                      bData['daHuy'] == true) {
                     isBookingCancelled = true;
                   }
                 } else {
@@ -215,7 +245,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
             if (isBookingCancelled) {
               // Giải phóng phòng ngay lập tức cho người mới đặt, không bắt chờ 15 phút!
               try {
-                await FirebaseFirestore.instance.collection('host_rooms').doc(_room.id).update({
+                await FirebaseFirestore.instance.collection('host_rooms').doc(hostRoomDocId).update({
                   'isHolding': false,
                   'holdingBookingId': FieldValue.delete(),
                   'holdingRenterId': FieldValue.delete(),
@@ -546,14 +576,13 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                             return Semantics(
                               image: true,
                               label: 'Ảnh phòng trọ ${index + 1} trên ${_cleanedImages.length}',
-                              child: Image.network(
-                                _cleanedImages[index],
+                              child: AppSafeImage(
+                                imageUrl: _cleanedImages[index],
                                 fit: BoxFit.cover,
                                 width: double.infinity,
-                                errorBuilder: (context, error, stackTrace) => Container(
-                                  color: Colors.grey.shade200,
-                                  child: const Icon(Icons.apartment, size: 64, color: Colors.grey),
-                                ),
+                                height: double.infinity,
+                                fallbackIcon: Icons.apartment,
+                                iconSize: 64,
                               ),
                             );
                           },
@@ -649,7 +678,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
 
           // Title
           Text(
-            _room.title,
+            _room.displayListingTitle,
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -971,9 +1000,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
           const SizedBox(height: 10),
 
           Text(
-            _room.roomCode.isNotEmpty
-                ? 'Phòng ${_room.roomCode}'
-                : (_room.maPhong.isNotEmpty ? 'Phòng ${_room.maPhong}' : (_room.title.isNotEmpty ? _room.title : 'Phòng cho thuê')),
+            _room.displayListingTitle,
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,

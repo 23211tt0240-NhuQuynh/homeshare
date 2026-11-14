@@ -100,26 +100,38 @@ class _HostProposeCheckInDateBottomSheetState
 
       final batch = FirebaseFirestore.instance.batch();
 
+      final hostNotifRef = hostId.isNotEmpty
+          ? FirebaseFirestore.instance
+              .collection(FirestoreCollections.notifications)
+              .doc()
+          : null;
+
       // 1. Tạo thông báo gửi đến chuông người thuê (notification_user)
       final renterNotifRef = FirebaseFirestore.instance
           .collection(FirestoreCollections.notificationUser)
           .doc();
       batch.set(renterNotifRef, {
         'id': renterNotifRef.id,
+        'userNotificationId': renterNotifRef.id,
+        if (hostNotifRef != null) 'hostNotificationId': hostNotifRef.id,
         'receiverId': widget.item.renterId,
         'recipientId': widget.item.renterId,
+        'senderId': hostId,
         'userId': widget.item.renterId,
         'recipientRole': 'renter',
         'title': 'Chủ trọ đề xuất đổi lịch dọn vào',
         'message':
             'Chủ trọ đề xuất dời ngày nhận phòng từ $oldDateStr sang $newDateStr.'
             '${reason.isNotEmpty ? " Lý do: $reason" : ""}',
-        'notificationType': 'booking_date_change',
-        'type': 'booking_date_change',
+        'notificationType': 'booking_adjustment',
+        'type': 'booking_adjustment',
         'bookingId': widget.item.bookingId,
         'roomId': widget.item.roomId,
         'roomCode': widget.item.roomCode,
         'roomTitle': widget.item.propertyName,
+        'renterName': widget.item.renterName,
+        'renterId': widget.item.renterId,
+        'amount': widget.item.deposit,
         'checkInDate': Timestamp.fromDate(widget.item.expectedDate),
         'oldCheckInDate': Timestamp.fromDate(widget.item.expectedDate),
         'newCheckInDate': Timestamp.fromDate(_selectedDate),
@@ -142,21 +154,28 @@ class _HostProposeCheckInDateBottomSheetState
           'adjustmentReason': reason,
           'adjustmentStatus': 'pending',
           'status': 'choXacNhanThayDoi',
+          'statusId': FieldValue.delete(),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       }
 
       // 3. Tạo thông báo bên phía Chủ trọ để theo dõi (notifications)
-      if (hostId.isNotEmpty) {
-        final hostNotifRef = FirebaseFirestore.instance
-            .collection(FirestoreCollections.notifications)
-            .doc();
+      if (hostNotifRef != null) {
         batch.set(hostNotifRef, {
           'id': hostNotifRef.id,
+          'notificationId': hostNotifRef.id,
+          'userNotificationId': renterNotifRef.id,
+          'hostNotificationId': hostNotifRef.id,
           'receiverId': hostId,
+          'recipientId': hostId,
+          'senderId': widget.item.renterId,
+          'renterId': widget.item.renterId,
+          'renterName': widget.item.renterName,
           'recipientRole': 'host',
-          'notificationType': 'booking_adjustment',
-          'type': 'booking_adjustment',
+          'notificationType': 'deposit',
+          'type': 'deposit',
+          'status': 'deposit',
+          'adjustmentStatus': 'pending',
           'title': 'Đã gửi đề xuất đổi lịch dọn vào',
           'message':
               'Đã gửi đề xuất chuyển ngày nhận phòng sang $newDateStr cho khách thuê ${widget.item.renterName}. Đang chờ khách xác nhận.',
@@ -164,11 +183,11 @@ class _HostProposeCheckInDateBottomSheetState
           'roomId': widget.item.roomId,
           'roomCode': widget.item.roomCode,
           'roomTitle': widget.item.propertyName,
+          'amount': widget.item.deposit,
           'oldCheckInDate': Timestamp.fromDate(widget.item.expectedDate),
           'newCheckInDate': Timestamp.fromDate(_selectedDate),
+          'checkInDate': Timestamp.fromDate(_selectedDate),
           'adjustmentReason': reason,
-          'status': 'choXacNhanThayDoi',
-          'statusId': 'choXacNhanThayDoi',
           'isRead': false,
           'createdAt': FieldValue.serverTimestamp(),
         });

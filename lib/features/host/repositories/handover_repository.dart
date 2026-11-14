@@ -280,13 +280,47 @@ class HandoverRepository {
       final bookingRef = _firestore
           .collection(FirestoreCollections.bookings)
           .doc(bookingId);
-      batch.update(bookingRef, {
+      batch.set(bookingRef, {
         'status': 'active',
-        'trangThai': 'dangO',
+        'isCheckedIn': true,
+        'isCheckIn': true,
+        'trangThai': FieldValue.delete(),
+        'daNhanPhong': FieldValue.delete(),
+        'subTag': FieldValue.delete(),
+        'statusId': FieldValue.delete(),
+        'phongId': FieldValue.delete(),
+        'chuNhaId': FieldValue.delete(),
+        'tenNguoiO': FieldValue.delete(),
+        'sdtNguoiO': FieldValue.delete(),
+        'tenKhach': FieldValue.delete(),
+        'sdtKhach': FieldValue.delete(),
+        'nguoiThueTen': FieldValue.delete(),
+        'nguoiThueSdt': FieldValue.delete(),
+        'tieuDePhong': FieldValue.delete(),
+        'tenPhong': FieldValue.delete(),
+        'diaChiPhong': FieldValue.delete(),
+        'diaChi': FieldValue.delete(),
+        'giaThue': FieldValue.delete(),
+        'giaPhong': FieldValue.delete(),
+        'tienCoc': FieldValue.delete(),
+        'tongPhaiTra': FieldValue.delete(),
+        'tongTien': FieldValue.delete(),
+        'soThangThue': FieldValue.delete(),
+        'hinhThucThanhToan': FieldValue.delete(),
+        'phuongThucThanhToan': FieldValue.delete(),
+        'maPhong': FieldValue.delete(),
+        'ngayVao': FieldValue.delete(),
+        'ngayNhanPhong': FieldValue.delete(),
+        'ngayDonVao': FieldValue.delete(),
+        'ngayTao': FieldValue.delete(),
+        'ngayCapNhat': FieldValue.delete(),
+        'daThanhToan': FieldValue.delete(),
+        'description': FieldValue.delete(),
+        'ghiChu': FieldValue.delete(),
         'checkinAt': FieldValue.serverTimestamp(),
         'acceptedDate': Timestamp.fromDate(now),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
     }
 
     // 6. Cập nhật host_rooms sang occupied

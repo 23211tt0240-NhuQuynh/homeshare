@@ -426,7 +426,7 @@ class RoommateService {
 
   Future<List<String>> _hobbyNamesOf(String uid) async {
     try {
-      return UserProfileService().loadInterestNames(uid);
+      return await UserProfileService().loadInterestNames(uid);
     } catch (e) {
       debugPrint('Đọc sở thích $uid: $e');
       return const [];
@@ -435,7 +435,7 @@ class RoommateService {
 
   Future<Map<String, List<String>>> _hobbyNamesByUser(Set<String> uids) async {
     try {
-      return UserProfileService().loadInterestNamesForUsers(uids);
+      return await UserProfileService().loadInterestNamesForUsers(uids);
     } catch (e) {
       debugPrint('Đọc sở thích người đăng: $e');
       return {};

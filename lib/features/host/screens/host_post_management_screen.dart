@@ -11,6 +11,7 @@ import '../../auth/providers/user_provider.dart';
 import '../../profile/widgets/cccd_required_modal.dart';
 import '../data/host_post_repository.dart';
 import 'host_create_post_screen.dart';
+import 'host_main_screen.dart';
 import 'host_post_detail_screen.dart';
 import 'host_room_view_screen.dart';
 import 'host_management_menu.dart';
@@ -38,6 +39,25 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _hasAutoSelectedTab = false;
+
+  void _openSwitcherMenu() {
+    HostManagementMenu.show(
+      context: context,
+      currentSection: HostManagementSection.posts,
+      onSelect: (section) {
+        if (widget.onSectionChanged != null) {
+          widget.onSectionChanged!(section);
+          return;
+        }
+        if (section == HostManagementSection.posts) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => HostMainScreen(initialSection: section),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -918,13 +938,40 @@ class _HostPostManagementScreenState extends ConsumerState<HostPostManagementScr
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text(
-          'Quản lý bài đăng',
-          style: TextStyle(
-            color: AppColors.textDark,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: _openSwitcherMenu,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.menu,
+                  color: Color(0xFF2563EB),
+                  size: 24,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Quản lý bài đăng',
+                style: TextStyle(
+                  color: AppColors.textDark,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ],
         ),
         elevation: 0,
         backgroundColor: Colors.white,

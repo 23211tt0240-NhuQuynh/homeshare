@@ -3,15 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/vietnam_banks.dart';
 import '../../../core/services/user_profile_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../renter/screens/report_host_screen.dart';
-import '../../host/data/host_post_repository.dart';
-import '../../host/screens/host_post_management_screen.dart';
 import '../widgets/host_reviews_section.dart';
 import '../widgets/user_avatar.dart';
 import 'cccd_verification_screen.dart';
@@ -514,108 +511,6 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
-                              ),
-                            ] else ...[
-                              const SizedBox(height: 14),
-                              Consumer(
-                                builder: (context, ref, _) {
-                                  final authUser = ref.watch(currentUserProvider);
-                                  User? firebaseAuthUser;
-                                  try {
-                                    firebaseAuthUser = FirebaseAuth.instance.currentUser;
-                                  } catch (_) {}
-                                  final userProfile = ref.watch(userProfileProvider).asData?.value;
-                                  final uid = (authUser?.uid != null && authUser!.uid.isNotEmpty)
-                                      ? authUser.uid
-                                      : (firebaseAuthUser?.uid != null && firebaseAuthUser!.uid.isNotEmpty
-                                          ? firebaseAuthUser.uid
-                                          : (userProfile?.uid ?? ''));
-                                  final rejectedCount = ref.watch(hostRejectedCountProvider(uid)).value ?? 0;
-                                  return InkWell(
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => HostPostManagementScreen(
-                                            initialTabIndex: rejectedCount > 0 ? 0 : 2,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    borderRadius: BorderRadius.circular(14),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                      decoration: BoxDecoration(
-                                        color: rejectedCount > 0 ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
-                                        borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(
-                                          color: rejectedCount > 0 ? const Color(0xFFFECDD3) : const Color(0xFFBBF7D0),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              color: rejectedCount > 0 ? const Color(0xFFFEE2E2) : const Color(0xFFDCFCE7),
-                                              borderRadius: BorderRadius.circular(10),
-                                            ),
-                                            child: Icon(
-                                              Icons.post_add_rounded,
-                                              size: 20,
-                                              color: rejectedCount > 0 ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                const Text(
-                                                  'Quản lý bài đăng của bạn',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 14,
-                                                    color: AppColors.textDark,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  rejectedCount > 0
-                                                      ? '$rejectedCount bài đăng bị từ chối duyệt cần xử lý'
-                                                      : 'Quản lý, chỉnh sửa và theo dõi trạng thái duyệt',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: rejectedCount > 0 ? const Color(0xFFB91C1C) : AppColors.textMuted,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          if (rejectedCount > 0) ...[
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFDC2626),
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              child: Text(
-                                                '$rejectedCount',
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                          ],
-                                          const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textMuted),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
                               ),
                             ],
                             const SizedBox(height: 18),

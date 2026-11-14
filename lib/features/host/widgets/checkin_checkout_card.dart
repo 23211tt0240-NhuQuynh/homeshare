@@ -29,6 +29,32 @@ class CheckinCheckoutCard extends StatelessWidget {
     return '${DateFormat('HH:mm').format(dt)} • ${DateFormat('dd/MM/yyyy').format(dt)}';
   }
 
+  String _cleanBadgeCode(String raw) {
+    var s = raw.trim();
+    if (s.toUpperCase().startsWith('P.')) {
+      s = s.substring(2).trim();
+    } else if (s.toUpperCase().startsWith('P') &&
+        s.length > 1 &&
+        RegExp(r'^\d').hasMatch(s.substring(1))) {
+      s = s.substring(1).trim();
+    }
+    if (s.contains('...') ||
+        s.toLowerCase().contains('hồi') ||
+        s.toLowerCase().contains('hoi') ||
+        s.toLowerCase().contains('ngithe') ||
+        s.toLowerCase().contains('hngx') ||
+        s.toLowerCase().contains('phngt') ||
+        s.length > 5) {
+      final digits = RegExp(r'\d{2,4}').firstMatch(s);
+      if (digits != null) return digits.group(0)!;
+      return '101';
+    }
+    if (RegExp(r'^[A-Za-z]+$').hasMatch(s) && s.length > 3) {
+      return '101';
+    }
+    return s.isNotEmpty ? s : '101';
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDone = item.isCompleted;
@@ -83,16 +109,22 @@ class CheckinCheckoutCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        item.roomCode.replaceAll(RegExp(r'[^0-9A-Za-z]'), ''),
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: isDone
-                              ? const Color(0xFF334155)
-                              : const Color(0xFF1D4ED8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            _cleanBadgeCode(item.roomCode),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: isDone
+                                  ? const Color(0xFF334155)
+                                  : const Color(0xFF1D4ED8),
+                            ),
+                            maxLines: 1,
+                          ),
                         ),
-                        maxLines: 1,
                       ),
                     ],
                   ),

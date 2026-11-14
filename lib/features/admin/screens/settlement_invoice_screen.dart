@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../widgets/admin_page_backdrop.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../../../../core/constants/firestore_collections.dart';
 import '../../../../core/utils/vietqr_helper.dart';
 import '../utils/booking_utils.dart';
 import '../utils/commission_rate_service.dart';
@@ -754,6 +755,17 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
         });
       });
 
+      // Gửi thông báo "Admin đã giải ngân" vào tab Đã thanh toán của chủ trọ.
+      await _notifyHostDisbursement(
+        hostId: hostId,
+        hostName: hostName,
+        netSettlement: netSettlement,
+        itemCount: items.length,
+        disbursementId: disbursementRef.id,
+        receiptCode: receiptCode,
+        bookingIds: items.map((e) => '${e['docId']}').toList(),
+      );
+
       if (mounted) {
         setState(() => _isProcessing = false);
         Navigator.pushReplacement(
@@ -781,6 +793,52 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _notifyHostDisbursement({
+    required String hostId,
+    required String hostName,
+    required int netSettlement,
+    required int itemCount,
+    required String disbursementId,
+    required String receiptCode,
+    required List<String> bookingIds,
+  }) async {
+    final cleanHostId = hostId.trim();
+    if (cleanHostId.isEmpty) return;
+
+    final moneyText = currencyFormatter.format(netSettlement);
+    final orderLabel = itemCount <= 1 ? '1 đơn' : '$itemCount đơn';
+    final displayName = hostName.trim().isEmpty ? 'chủ trọ' : hostName.trim();
+    final notifId = 'disbursement_$disbursementId';
+
+    try {
+      await FirebaseFirestore.instance
+          .collection(FirestoreCollections.notifications)
+          .doc(notifId)
+          .set({
+            NotificationFields.notificationId: notifId,
+            NotificationFields.receiverId: cleanHostId,
+            NotificationFields.senderId: 'admin',
+            NotificationFields.notificationType: 'paymentCompleted',
+            'actionType': 'disbursement',
+            NotificationFields.title: 'Admin đã giải ngân',
+            NotificationFields.message:
+                'Admin đã giải ngân $moneyText đ cho $displayName ($orderLabel).',
+            NotificationFields.amount: netSettlement.toDouble(),
+            NotificationFields.statusId: 'completed',
+            NotificationFields.isRead: false,
+            NotificationFields.createdAt: FieldValue.serverTimestamp(),
+            NotificationFields.updatedAt: FieldValue.serverTimestamp(),
+            'disbursementId': disbursementId,
+            'receiptCode': receiptCode,
+            if (bookingIds.isNotEmpty) 'bookingIds': bookingIds,
+            if (bookingIds.isNotEmpty)
+              NotificationFields.bookingId: bookingIds.first,
+          }, SetOptions(merge: true));
+    } catch (error) {
+      debugPrint('Không tạo được thông báo giải ngân cho chủ trọ: $error');
     }
   }
 

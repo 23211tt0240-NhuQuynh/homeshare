@@ -421,30 +421,16 @@ Future<void> saveCccdVerificationToBackend({
       debugPrint('Lỗi ghi CCCD vào Firestore users/$effectiveUid: $e');
     }
 
+    // Đã lưu trực tiếp toàn bộ thông tin CCCD vào users/$effectiveUid,
+    // Xóa subcollection id_verifications cũ nếu còn tồn tại để tránh dữ liệu phân mảnh
     try {
       await firestore
           .collection('users')
           .doc(effectiveUid)
           .collection('id_verifications')
           .doc('cccd')
-          .set({
-        'id': 'cccd',
-        'type': 'cccd',
-        'cccdNumber': cccdNumber,
-        'cccdFullName': cccdFullName,
-        'cccdIssueDate': cccdIssueDate,
-        'cccdHometown': cccdHometown,
-        'gender': gender,
-        if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate),
-        if (cccdFrontImageUrl.isNotEmpty) 'cccdFrontImageUrl': cccdFrontImageUrl,
-        if (cccdBackImageUrl.isNotEmpty) 'cccdBackImageUrl': cccdBackImageUrl,
-        'status': 'verified',
-        'verifiedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    } catch (e) {
-      debugPrint('Lỗi ghi subcollection id_verifications: $e');
-    }
+          .delete();
+    } catch (_) {}
   }
 
   try {

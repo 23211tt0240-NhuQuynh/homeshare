@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/email_otp_service.dart';
 import '../../../core/theme/phong_sang_theme.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_form_card.dart';
+import '../widgets/email_otp_verification_sheet.dart';
 
 /// Màn hình Đăng Ký Tài Khoản HomeShare (Hỗ trợ 2 Role: Người thuê & Chủ trọ)
 /// Theo chuẩn Moodboard Phòng Sáng (phong_sang_theme.dart)
@@ -56,19 +58,60 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       return;
     }
 
+    final targetEmail = _emailController.text.trim().toLowerCase();
+    final targetName = _nameController.text.trim();
+    final targetPassword = _passwordController.text.trim();
+    final targetPhone = _phoneController.text.trim();
+
     setState(() => _isLoading = true);
 
     try {
+      final emailOtpService = ref.read(emailOtpServiceProvider);
+
+      // 1. Kiểm tra xem email đã được đăng ký tài khoản nào chưa
+      final isRegistered = await emailOtpService.isEmailRegistered(targetEmail);
+      if (isRegistered) {
+        throw 'Email này đã được sử dụng cho tài khoản khác. Vui lòng đăng nhập hoặc dùng email mới.';
+      }
+
+      // 2. Gửi mã OTP xác thực qua Gmail
+      final sendResult = await emailOtpService.sendRegistrationOtp(
+        rawEmail: targetEmail,
+        recipientName: targetName.isNotEmpty ? targetName : 'Bạn',
+      );
+
+      setState(() => _isLoading = false);
+
+      if (!mounted) return;
+
+      // 3. Mở Bottom Sheet để người dùng nhập mã OTP 6 số
+      final verified = await EmailOtpVerificationSheet.show(
+        context,
+        email: targetEmail,
+        recipientName: targetName,
+        initialDebugOtp: sendResult.debugOtp,
+      );
+
+      if (verified != true) {
+        // Người dùng đã đóng sheet hoặc chưa xác thực xong
+        return;
+      }
+
+      // 4. Đã xác thực OTP thành công -> Tạo tài khoản Firebase Auth & Firestore
+      setState(() => _isLoading = true);
       final authService = ref.read(authServiceProvider);
       await authService.signUpWithEmail(
-        email: _emailController.text.trim().toLowerCase(),
-        password: _passwordController.text.trim(),
-        displayName: _nameController.text.trim(),
-        phoneNumber: _phoneController.text.trim(),
+        email: targetEmail,
+        password: targetPassword,
+        displayName: targetName,
+        phoneNumber: targetPhone,
         role: _selectedRole,
       );
 
-      // QUAN TRỌNG: Đăng xuất ngay để người dùng trở về màn hình Đăng Nhập
+      // 5. Tiêu thụ / dọn dẹp bản ghi OTP
+      await emailOtpService.consumeOtp(targetEmail);
+
+      // 6. Đăng xuất ngay để người dùng trở về màn hình Đăng Nhập
       await authService.signOut();
 
       if (mounted) {
@@ -76,7 +119,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Đăng ký tài khoản $roleName thành công! Vui lòng đăng nhập.',
+              'Xác thực Gmail và đăng ký tài khoản $roleName thành công! Vui lòng đăng nhập.',
             ),
             backgroundColor: AppColors.primary,
             behavior: SnackBarBehavior.floating,
@@ -85,7 +128,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         );
 
         // Quay trở lại màn hình Đăng nhập và truyền email vừa tạo để điền sẵn
-        Navigator.pop(context, _emailController.text.trim().toLowerCase());
+        Navigator.pop(context, targetEmail);
       }
     } catch (e) {
       if (mounted) {

@@ -3,6 +3,7 @@ import '../widgets/host_management_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_safe_image.dart';
 import '../../../data/models/room_model.dart';
 import '../providers/host_management_provider.dart';
 import '../widgets/host_room_widgets.dart';
@@ -322,22 +323,13 @@ class _HostRoomListScreenState extends ConsumerState<HostRoomListScreen> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: SizedBox(
+                child: AppSafeImage(
+                  imageUrl: room.images.isNotEmpty ? room.images.first : '',
                   width: 64,
                   height: 64,
-                  child: room.images.isEmpty
-                      ? const Icon(Icons.image_outlined)
-                      : Image.network(
-                          room.images.first,
-                          webHtmlElementStrategy:
-                              WebHtmlElementStrategy.fallback,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const Tooltip(
-                            message:
-                                'Không tải được ảnh phòng. Kiểm tra kết nối hoặc cập nhật ảnh.',
-                            child: Icon(Icons.broken_image_outlined),
-                          ),
-                        ),
+                  fit: BoxFit.cover,
+                  fallbackIcon: Icons.image_outlined,
+                  iconSize: 28,
                 ),
               ),
               const SizedBox(width: 12),

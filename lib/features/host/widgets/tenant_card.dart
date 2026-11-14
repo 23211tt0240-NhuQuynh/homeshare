@@ -150,6 +150,14 @@ class TenantCard extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              if (tenant.isCccdVerified) ...[
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.verified,
+                                  size: 15,
+                                  color: Color(0xFF16A34A),
+                                ),
+                              ],
                               if (tenant.isGroup) ...[
                                 const SizedBox(width: 8),
                                 Container(

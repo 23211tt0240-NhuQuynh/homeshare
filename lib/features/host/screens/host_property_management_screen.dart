@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_safe_image.dart';
 import '../../auth/providers/user_provider.dart';
 import '../../profile/widgets/cccd_required_modal.dart';
 import '../data/host_property.dart';
@@ -145,16 +146,6 @@ class HostPropertyManagementScreen extends ConsumerWidget {
                       fontWeight: FontWeight.w800,
                       color: _blue,
                     ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: 'Thông báo',
-                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Thông báo sẽ được bổ sung sau.'),
-                      ),
-                    ),
-                    icon: const Icon(Icons.notifications_none, color: _muted),
                   ),
                 ],
               ),
@@ -402,18 +393,14 @@ class HostPropertyManagementScreen extends ConsumerWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: p.images.isEmpty
-                      ? _imageFallback()
-                      : Image.network(
-                          p.images.first,
-                          webHtmlElementStrategy:
-                              WebHtmlElementStrategy.fallback,
-                          width: 64,
-                          height: 64,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stack) =>
-                              _imageFallback(),
-                        ),
+                  child: AppSafeImage(
+                    imageUrl: p.images.isNotEmpty ? p.images.first : '',
+                    width: 64,
+                    height: 64,
+                    fit: BoxFit.cover,
+                    placeholder: _imageFallback(),
+                    errorWidget: _imageFallback(),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

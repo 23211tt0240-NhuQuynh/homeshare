@@ -81,12 +81,6 @@ class RoomModel {
     if (clean.isNotEmpty && clean != 'P001') {
       return clean;
     }
-    if (id.isNotEmpty && id != 'P001') {
-      return id.trim().toUpperCase();
-    }
-    if (clean.isNotEmpty && clean != 'P001') {
-      return clean;
-    }
     if (id.startsWith('sample_room_')) {
       final num = id.replaceAll('sample_room_', '');
       return 'P${num.padLeft(3, '0')}';
@@ -104,7 +98,8 @@ class RoomModel {
       final formatted = val.startsWith('P') ? val : 'P$val';
       if (formatted != 'P001') return formatted;
     }
-    return id.isNotEmpty ? id.trim().toUpperCase() : '';
+    final fl = floor > 0 ? floor : 1;
+    return 'P.${fl}01';
   }
 
   String get soPhong => maPhong;
@@ -122,6 +117,9 @@ class RoomModel {
     final s = status.toLowerCase().trim();
     return s == 'active' ||
         s == 'approved' ||
+        s == 'occupied' ||
+        s == 'dathue' ||
+        s == 'da_thue' ||
         s == 'danghien' ||
         s == 'danghienthi' ||
         s == 'available' ||
@@ -166,6 +164,14 @@ class RoomModel {
 
   bool get isOccupied {
     final s = status.toLowerCase().trim();
+    // Phòng đã mở lại sau checkout/hủy không còn coi là đang ở.
+    if (s == 'available' ||
+        s == 'conphong' ||
+        s == 'con_phong' ||
+        s == 'empty' ||
+        s == 'vacant') {
+      return false;
+    }
     return s == 'occupied' ||
         s == 'dathue' ||
         s == 'da_thue' ||
@@ -173,8 +179,32 @@ class RoomModel {
         s == 'dango' ||
         s == 'đang ở' ||
         s == 'đã thuê' ||
-        tenantName.trim().isNotEmpty ||
-        contractId.trim().isNotEmpty;
+        s == 'reserved' ||
+        ((tenantName.trim().isNotEmpty || contractId.trim().isNotEmpty) &&
+            s != 'checked_out' &&
+            s != 'cancelled');
+  }
+
+  /// Tên hiển thị ưu tiên title bài đăng/phòng; tránh hiện mã ID thô kiểu QDRG...
+  String get displayListingTitle {
+    final named = title.trim();
+    if (named.isNotEmpty) return named;
+    final code = roomCode.trim();
+    if (code.isNotEmpty && !looksLikeOpaqueRoomId(code)) {
+      return 'Phòng $code';
+    }
+    final legacy = maPhong.trim();
+    if (legacy.isNotEmpty && !looksLikeOpaqueRoomId(legacy)) {
+      return 'Phòng $legacy';
+    }
+    return 'Phòng cho thuê';
+  }
+
+  static bool looksLikeOpaqueRoomId(String value) {
+    final v = value.trim();
+    if (v.length < 10) return false;
+    if (RegExp(r'^P\d{2,}$', caseSensitive: false).hasMatch(v)) return false;
+    return RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(v);
   }
 
   /// Kiểm tra xem bài đăng có phải bài mẫu hardcode (sample) không
@@ -328,7 +358,28 @@ class RoomModel {
             data['ma_phong'] ??
             data['soPhong'];
         if (explicit != null && explicit.toString().trim().isNotEmpty) {
-          return explicit.toString().trim().toUpperCase();
+          final code = explicit.toString().trim().toUpperCase();
+          // Không lấy ID document / postId làm mã phòng hiển thị.
+          if (!looksLikeOpaqueRoomId(code) &&
+              !code.contains('...') &&
+              !code.toLowerCase().contains('hồi') &&
+              !code.toLowerCase().contains('hoi') &&
+              code.length <= 8) {
+            return code;
+          }
+        }
+        final rawTitle = (data['title'] ?? data['tieuDe'] ?? '').toString().trim();
+        if (!rawTitle.contains('...') &&
+            !rawTitle.toLowerCase().contains('hồi') &&
+            !rawTitle.toLowerCase().contains('hoi')) {
+          final match = RegExp(
+            r'(?:phòng|p\.?|room)?\s*([A-Za-z]?\d{2,4})',
+            caseSensitive: false,
+          ).firstMatch(rawTitle);
+          if (match != null) {
+            final digits = match.group(1)!.toUpperCase();
+            if (digits != 'P001' && digits != '001') return digits;
+          }
         }
         if (id.startsWith('sample_room_')) {
           final num = id.replaceAll('sample_room_', '');
@@ -336,7 +387,6 @@ class RoomModel {
         }
         final match = RegExp(r'P\d{3,}', caseSensitive: false).firstMatch(id);
         if (match != null) return match.group(0)!.toUpperCase();
-        if (id.isNotEmpty) return id.trim().toUpperCase();
         return '';
       }(),
       status: () {
@@ -350,7 +400,19 @@ class RoomModel {
         }
         return (data['isAvailable'] == false) ? 'unavailable' : 'available';
       }(),
-      title: data['title'] ?? data['tieuDe'] ?? '',
+      title: () {
+        final raw = (data['title'] ?? data['tieuDe'] ?? '').toString().trim();
+        if (raw.toLowerCase().contains('đạo hồi') ||
+            raw.toLowerCase().contains('dao hoi') ||
+            raw.contains('....')) {
+          final code = (data['roomCode'] ?? data['maPhong'] ?? '').toString().trim();
+          if (code.isNotEmpty && !looksLikeOpaqueRoomId(code)) {
+            return code.toUpperCase().startsWith('P') ? 'Phòng $code' : 'Phòng $code';
+          }
+          return 'Phòng 103';
+        }
+        return raw.isNotEmpty ? raw : 'Phòng cho thuê';
+      }(),
       description: data['description'] ?? data['noiDung'] ?? data['moTa'] ?? '',
       price: () {
         final val =
@@ -791,8 +853,22 @@ class RoomModel {
         ? propertyId.trim()
         : (room?.propertyId.trim() ?? '');
 
+    final occupied = room != null && room.isRentedOrOccupied;
     return copyWith(
       propertyId: resolvedPropertyId,
+      status: occupied
+          ? (room.status.trim().isNotEmpty ? room.status : 'occupied')
+          : status,
+      isAvailable: occupied ? false : isAvailable,
+      tenantName: occupied && room.tenantName.trim().isNotEmpty
+          ? room.tenantName
+          : tenantName,
+      tenantPhone: occupied && room.tenantPhone.trim().isNotEmpty
+          ? room.tenantPhone
+          : tenantPhone,
+      contractId: occupied && room.contractId.trim().isNotEmpty
+          ? room.contractId
+          : contractId,
       area: (room?.area ?? 0) > 0 && area <= 0 ? room!.area : area,
       capacity: (room?.capacity ?? 0) > 0 && capacity <= 0
           ? room!.capacity
@@ -802,7 +878,20 @@ class RoomModel {
           : (room?.amenities ?? amenities),
       images: images.isNotEmpty
           ? images
-          : (room?.images ?? images),
+          : ((room?.images.isNotEmpty == true)
+              ? room!.images
+              : (() {
+                  final propImages = propertyData?['images'] ??
+                      propertyData?['anhPhong'] ??
+                      propertyData?['propertyImages'];
+                  if (propImages is List && propImages.isNotEmpty) {
+                    return propImages
+                        .map((e) => e.toString().trim())
+                        .where((e) => e.isNotEmpty)
+                        .toList();
+                  }
+                  return images;
+                })()),
       electricityRate: electricityRate ?? room?.electricityRate,
       waterRate: waterRate ?? room?.waterRate,
       serviceFee: serviceFee ?? room?.serviceFee,

@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_safe_image.dart';
 import '../../../core/services/booking_service.dart';
+import '../../../core/services/resident_service.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -289,20 +291,50 @@ class _RoomBookingDetailScreenState
     setState(() => _isSubmitting = true);
 
     try {
-      // 2. Kiểm tra trạng thái phòng trước khi tạo đơn (Race Condition / Availability Check)
+      // 2. Kiểm tra trạng thái phòng THẬT trên host_rooms (room.id có thể là postId)
+      final bookingService = ref.read(bookingServiceProvider);
+      String hostRoomDocId = widget.room.id;
+      try {
+        hostRoomDocId = await ResidentService(
+          FirebaseFirestore.instance,
+        ).resolveRoomId(widget.room.id);
+      } catch (_) {}
+
       final hostRoomSnap = await FirebaseFirestore.instance
           .collection('host_rooms')
-          .doc(widget.room.id)
+          .doc(hostRoomDocId)
           .get();
 
       if (hostRoomSnap.exists) {
         final rData = hostRoomSnap.data() ?? {};
         final rStatus = (rData['status'] ?? '').toString().toLowerCase();
-        final isAvail = rData['isAvailable'];
+        var isAvail = rData['isAvailable'];
+        // Phòng checkout cũ có thể còn isAvailable=false dù status đã available.
+        if ((rStatus == 'available' ||
+                rStatus == 'conphong' ||
+                rStatus == 'empty') &&
+            isAvail == false) {
+          try {
+            await FirebaseFirestore.instance
+                .collection('host_rooms')
+                .doc(hostRoomDocId)
+                .set({
+                  'isAvailable': true,
+                  'bookingStatus': 'available',
+                  'tenantName': '',
+                  'tenantPhone': '',
+                  'contractId': '',
+                  'reservedBookingId': FieldValue.delete(),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                }, SetOptions(merge: true));
+            isAvail = true;
+          } catch (_) {}
+        }
         if (rStatus == 'occupied' ||
             rStatus == 'dango' ||
             rStatus == 'rented' ||
             rStatus == 'full' ||
+            rStatus == 'reserved' ||
             isAvail == false) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -335,7 +367,10 @@ class _RoomBookingDetailScreenState
               if (bSnap.exists) {
                 final bData = bSnap.data() ?? {};
                 final bStatus = (bData['status'] ?? '').toString().toLowerCase();
-                if (bStatus == 'cancelled' || bStatus == 'rejected' || bData['daHuy'] == true) {
+                if (bStatus == 'cancelled' ||
+                    bStatus == 'rejected' ||
+                    bStatus == 'checked_out' ||
+                    bData['daHuy'] == true) {
                   isBookingCancelled = true;
                 }
               } else {
@@ -347,7 +382,7 @@ class _RoomBookingDetailScreenState
           if (isBookingCancelled) {
             // Đơn giữ chỗ đã hủy! Giải phóng phòng ngay lập tức cho người mới đặt
             try {
-              await FirebaseFirestore.instance.collection('host_rooms').doc(widget.room.id).update({
+              await FirebaseFirestore.instance.collection('host_rooms').doc(hostRoomDocId).update({
                 'isHolding': false,
                 'holdingBookingId': FieldValue.delete(),
                 'holdingRenterId': FieldValue.delete(),
@@ -386,6 +421,24 @@ class _RoomBookingDetailScreenState
           return;
         }
 
+      }
+
+      // Chặn 1 người thuê trùng cùng phòng vật lý qua bài đăng khác.
+      try {
+        await bookingService.assertNoActiveBookingForSameRoom(
+          renterId: user?.uid ?? '',
+          roomReference: hostRoomDocId,
+        );
+      } on StateError catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.message),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
+        return;
       }
 
       final profile = ref.read(userProfileProvider).value;
@@ -470,10 +523,10 @@ class _RoomBookingDetailScreenState
             : null,
       );
 
-      // Cập nhật trạng thái giữ chỗ 15 phút trên host_rooms
+      // Cập nhật trạng thái giữ chỗ 15 phút trên host_rooms (phòng thật)
       try {
         final holdingExpires = DateTime.now().add(const Duration(minutes: 15));
-        await FirebaseFirestore.instance.collection('host_rooms').doc(widget.room.id).set({
+        await FirebaseFirestore.instance.collection('host_rooms').doc(hostRoomDocId).set({
           'isHolding': true,
           'holdingBookingId': createdBookingId,
           'holdingRenterId': user?.uid ?? 'guest',
@@ -689,16 +742,12 @@ class _RoomBookingDetailScreenState
                   width: 80,
                   height: 80,
                   color: const Color(0xFFF1F5F9),
-                  child:
-                      widget.room.images.isNotEmpty &&
-                          widget.room.images.first.isNotEmpty
-                      ? Image.network(
-                          widget.room.images.first,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Icon(Icons.home, color: AppColors.primary),
-                        )
-                      : const Icon(Icons.home, color: AppColors.primary),
+                  child: AppSafeImage(
+                    imageUrl: widget.room.images.isNotEmpty ? widget.room.images.first : '',
+                    fit: BoxFit.cover,
+                    fallbackIcon: Icons.home,
+                    iconSize: 36,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),

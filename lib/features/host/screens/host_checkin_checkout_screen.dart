@@ -11,9 +11,8 @@ import '../widgets/checkin_checkout_card.dart';
 import '../widgets/host_qr_scanner_modal.dart';
 import '../widgets/host_checkin_qr_result_sheet.dart';
 import 'host_checkin_handover_screen.dart';
+import 'host_main_screen.dart';
 import 'host_management_menu.dart';
-import 'host_violation_management_screen.dart';
-import 'host_post_management_screen.dart';
 
 class HostCheckinCheckoutScreen extends ConsumerStatefulWidget {
   final ValueChanged<HostManagementSection>? onSectionChanged;
@@ -22,7 +21,7 @@ class HostCheckinCheckoutScreen extends ConsumerStatefulWidget {
   const HostCheckinCheckoutScreen({
     super.key,
     this.onSectionChanged,
-    this.initialTab = 1,
+    this.initialTab = 0,
   });
 
   @override
@@ -47,18 +46,10 @@ class _HostCheckinCheckoutScreenState
       onSelect: (section) {
         if (widget.onSectionChanged != null) {
           widget.onSectionChanged!(section);
-        } else if (section == HostManagementSection.posts) {
+        } else if (section != HostManagementSection.checkinCheckout) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (_) => const HostPostManagementScreen(),
-            ),
-          );
-        } else if (section == HostManagementSection.tenants) {
-          Navigator.of(context).pushReplacementNamed('/host/tenants');
-        } else if (section == HostManagementSection.violations) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (_) => const HostViolationManagementScreen(),
+              builder: (_) => HostMainScreen(initialSection: section),
             ),
           );
         }
@@ -66,16 +57,18 @@ class _HostCheckinCheckoutScreenState
     );
   }
 
-  void _openQrScanner() {
+  /// Banner "Quét QR Check-in Tốc Hành" luôn mở khung check-in,
+  /// không phụ thuộc tab/mặc định checkout.
+  void _openQrScanner({bool isCheckin = true}) {
     final checkinItems = ref.read(hostCheckinItemsProvider).value ?? [];
     final checkoutItems = ref.read(hostCheckoutItemsProvider).value ?? [];
-    final firstPending = _selectedTab == 0
+    final firstPending = isCheckin
         ? checkinItems.where((i) => !i.isCompleted).firstOrNull
         : checkoutItems.where((i) => !i.isCompleted).firstOrNull;
 
     final sampleCode = firstPending != null
         ? jsonEncode({
-            'type': _selectedTab == 0 ? 'checkin' : 'checkout',
+            'type': isCheckin ? 'checkin' : 'checkout',
             'bookingId': firstPending.bookingId,
             'roomId': firstPending.roomId,
             'roomCode': firstPending.roomCode,
@@ -97,7 +90,7 @@ class _HostCheckinCheckoutScreenState
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => HostQrScannerModal(
-        isCheckin: _selectedTab == 0,
+        isCheckin: isCheckin,
         sampleCode: sampleCode,
         sampleRoomCode: firstPending?.roomCode ?? '',
         onCodeScanned: (code) {
@@ -526,7 +519,7 @@ class _HostCheckinCheckoutScreenState
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Chốt trả phòng P.${item.roomCode}',
+                        'Chốt trả phòng ${item.roomCode.toUpperCase().startsWith('P.') ? item.roomCode : 'P.${item.roomCode}'}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
@@ -538,6 +531,15 @@ class _HostCheckinCheckoutScreenState
                         onPressed: () => Navigator.of(ctx).pop(),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Người trả phòng: ${item.renterName}${item.status.isNotEmpty && item.status != 'Đang ở' ? ' • ${item.status}' : ''}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF475569),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   // Thông tin tiền cọc
@@ -656,6 +658,7 @@ class _HostCheckinCheckoutScreenState
                               roomId: item.roomId,
                               periodId: item.periodId,
                               renterId: item.renterId,
+                              bookingId: item.bookingId,
                               initialDeposit: item.deposit,
                               deductionAmount: currentDeduction,
                               note: noteCtrl.text.trim(),

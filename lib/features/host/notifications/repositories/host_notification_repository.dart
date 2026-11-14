@@ -45,8 +45,18 @@ class HostNotificationRepository {
     }
 
     final unique = <String, HostNotificationModel>{};
+    final disbursements = <HostNotificationModel>[];
     for (final item in items) {
-      if (item.isRoommateApproval || item.newRoommateId.isNotEmpty || item.isRoomIssue || item.isDisbursementNotification) continue;
+      // Giữ thẻ "Admin đã giải ngân" riêng, không gộp theo booking.
+      if (item.isDisbursementNotification) {
+        disbursements.add(item);
+        continue;
+      }
+      if (item.isRoommateApproval ||
+          item.newRoommateId.isNotEmpty ||
+          item.isRoomIssue) {
+        continue;
+      }
       final key = item.bookingId.trim().isNotEmpty
           ? 'booking:${item.bookingId.trim()}'
           : item.roomId.trim().isNotEmpty
@@ -55,7 +65,9 @@ class HostNotificationRepository {
       // Danh sách đã sắp xếp mới nhất trước nên giữ bản ghi đầu tiên.
       unique.putIfAbsent(key, () => item);
     }
-    return unique.values.toList();
+    final merged = [...disbursements, ...unique.values];
+    merged.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return merged;
   }
 
   /// Đồng bộ và giải quyết trạng thái thông báo với bảng bookings để đảm bảo
@@ -118,7 +130,16 @@ class HostNotificationRepository {
           data['issueId'] != null && data['issueId'].toString().isNotEmpty ||
           (data['title']?.toString().toLowerCase().contains('sự cố') ?? false);
 
-      if (isRoomIssue) {
+      final isDisbursement = actionType == 'disbursement' ||
+          (data[NotificationFields.title]?.toString().toLowerCase().contains('admin đã giải ngân') ?? false) ||
+          (data['title']?.toString().toLowerCase().contains('admin đã giải ngân') ?? false);
+
+      if (isDisbursement) {
+        // Thông báo giải ngân luôn nằm ở tab "Đã thanh toán".
+        data[NotificationFields.notificationType] =
+            HostNotificationType.paymentCompleted.code;
+        data['actionType'] = 'disbursement';
+      } else if (isRoomIssue) {
         // Sự cố phòng luôn được phân loại vào tab "Đang xử lý" (pendingAction) để chủ trọ tiếp nhận và giải quyết
         final issueStatus = (data['statusId'] ?? data['status'] ?? 'pending').toString().toLowerCase();
         if (issueStatus == 'resolved' || issueStatus == 'completed' || issueStatus == 'dakhacphuc') {
@@ -193,6 +214,92 @@ class HostNotificationRepository {
     return list;
   }
 
+  /// Bổ sung thông báo giải ngân từ collection `disbursements` nếu chưa có
+  /// (đơn admin đã giải ngân trước khi app ghi notification).
+  Future<List<HostNotificationModel>> _mergeDisbursementNotifications(
+    String hostId,
+    List<HostNotificationModel> current,
+  ) async {
+    final db = _firestore;
+    if (db == null || hostId.isEmpty) return current;
+
+    try {
+      final snap = await db
+          .collection('disbursements')
+          .where('hostId', isEqualTo: hostId)
+          .limit(40)
+          .get();
+      if (snap.docs.isEmpty) return current;
+
+      final existingIds = current.map((item) => item.id).toSet();
+      final moneyFmt = NumberFormat('#,###', 'vi_VN');
+      final extras = <HostNotificationModel>[];
+
+      for (final doc in snap.docs) {
+        final notifId = 'disbursement_${doc.id}';
+        if (existingIds.contains(notifId)) continue;
+
+        final data = doc.data();
+        final net = (data['netAmount'] ?? data['totalAmount'] ?? 0) is num
+            ? ((data['netAmount'] ?? data['totalAmount']) as num).toDouble()
+            : double.tryParse('${data['netAmount'] ?? data['totalAmount']}') ??
+                0;
+        final itemCount = (data['itemCount'] as num?)?.toInt() ??
+            ((data['bookingIds'] as List?)?.length ?? 1);
+        final hostName = '${data['hostName'] ?? 'chủ trọ'}'.trim();
+        final orderLabel = itemCount <= 1 ? '1 đơn' : '$itemCount đơn';
+        final moneyText = moneyFmt.format(net.round());
+        final createdAt = data['disbursedAt'] is Timestamp
+            ? (data['disbursedAt'] as Timestamp).toDate()
+            : data['createdAt'] is Timestamp
+            ? (data['createdAt'] as Timestamp).toDate()
+            : DateTime.now();
+        final bookingIds = (data['bookingIds'] as List?)
+                ?.map((e) => e.toString())
+                .where((e) => e.isNotEmpty)
+                .toList() ??
+            const <String>[];
+
+        final payload = <String, dynamic>{
+          NotificationFields.notificationId: notifId,
+          NotificationFields.receiverId: hostId,
+          NotificationFields.senderId: 'admin',
+          NotificationFields.notificationType:
+              HostNotificationType.paymentCompleted.code,
+          'actionType': 'disbursement',
+          NotificationFields.title: 'Admin đã giải ngân',
+          NotificationFields.message:
+              'Admin đã giải ngân $moneyText đ cho $hostName ($orderLabel).',
+          NotificationFields.amount: net,
+          NotificationFields.statusId: 'completed',
+          NotificationFields.isRead: false,
+          NotificationFields.createdAt: Timestamp.fromDate(createdAt),
+          'disbursementId': doc.id,
+          if (data['receiptCode'] != null) 'receiptCode': data['receiptCode'],
+          if (bookingIds.isNotEmpty) 'bookingIds': bookingIds,
+          if (bookingIds.isNotEmpty)
+            NotificationFields.bookingId: bookingIds.first,
+        };
+
+        // Ghi một lần để lần sau stream đọc trực tiếp từ notifications.
+        _notificationsCol
+            ?.doc(notifId)
+            .set(payload, SetOptions(merge: true))
+            .catchError((_) {});
+
+        extras.add(HostNotificationModel.fromMap(payload, notifId));
+      }
+
+      if (extras.isEmpty) return current;
+      final merged = [...extras, ...current];
+      merged.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return merged;
+    } catch (error) {
+      debugPrint('Không đồng bộ được thông báo giải ngân: $error');
+      return current;
+    }
+  }
+
   /// Lắng nghe danh sách thông báo theo loại thông báo và ID chủ trọ (Realtime)
   Stream<List<HostNotificationModel>> watchByType({
     required String hostId,
@@ -208,7 +315,11 @@ class HostNotificationRepository {
           .snapshots()
           .asyncMap((snapshot) async {
             final all = await _resolveNotifications(snapshot, hostId);
-            final filtered = all.where((item) => item.type == type).toList();
+            var filtered = all.where((item) => item.type == type).toList();
+            if (type == HostNotificationType.paymentCompleted) {
+              filtered =
+                  await _mergeDisbursementNotifications(hostId, filtered);
+            }
             return _normalizePaymentNotifications(filtered, type);
           })
           .handleError((_) {
@@ -410,7 +521,7 @@ class HostNotificationRepository {
         'adjustmentReason': adjustmentReason,
         'adjustmentStatus': 'pending',
         'status': 'choXacNhanThayDoi',
-        'statusId': 'choXacNhanThayDoi',
+        'statusId': FieldValue.delete(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     }
@@ -423,7 +534,10 @@ class HostNotificationRepository {
         'newRoomTitle': newRoomTitle,
         NotificationFields.newCheckInDate: Timestamp.fromDate(newCheckInDate),
         NotificationFields.adjustmentReason: adjustmentReason,
-        NotificationFields.statusId: 'choXacNhanThayDoi',
+        'adjustmentStatus': 'pending',
+        'status': 'deposit',
+        'statusId': FieldValue.delete(),
+        NotificationFields.oldCheckInDate: ?oldCheckInDate,
         NotificationFields.updatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     }
@@ -439,7 +553,6 @@ class HostNotificationRepository {
         'receiverId': effectiveRenterId,
         'recipientId': effectiveRenterId,
         'userId': effectiveRenterId,
-        'nguoiNhanId': effectiveRenterId,
         'recipientRole': 'renter',
         'title': 'Chủ trọ yêu cầu đổi lịch dọn vào',
         'message':
@@ -462,11 +575,9 @@ class HostNotificationRepository {
         'renterName': renterName,
         'hostName': hostName,
         'hostId': effectiveHostId,
-        'chuNhaId': effectiveHostId,
         'adjustmentReason': adjustmentReason,
         'status': 'pending',
         'isRead': false,
-        'daDoc': false,
         'createdAt': FieldValue.serverTimestamp(),
       });
     }
@@ -501,7 +612,7 @@ class HostNotificationRepository {
       if (bookingId.isNotEmpty) {
         batch.set(_bookingsCol!.doc(bookingId), {
           'status': bookingStatus,
-          'statusId': targetStatus,
+          'statusId': FieldValue.delete(),
           'adminVerified': true,
           'adminVerifiedAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
@@ -510,7 +621,8 @@ class HostNotificationRepository {
       if (notificationId.isNotEmpty) {
         batch.set(_notificationsCol!.doc(notificationId), {
           NotificationFields.notificationType: targetType.code,
-          NotificationFields.statusId: targetStatus,
+          'status': targetStatus,
+          NotificationFields.statusId: FieldValue.delete(),
           NotificationFields.isRead: true,
           NotificationFields.updatedAt: FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
@@ -533,14 +645,15 @@ class HostNotificationRepository {
     if (bookingId.isNotEmpty) {
       batch.set(_bookingsCol!.doc(bookingId), {
         'status': 'daCoc',
-        'statusId': 'deposited',
+        'statusId': FieldValue.delete(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     }
     if (notificationId.isNotEmpty) {
       batch.set(_notificationsCol!.doc(notificationId), {
         NotificationFields.notificationType: HostNotificationType.deposit.code,
-        NotificationFields.statusId: 'deposited',
+        'status': 'deposited',
+        NotificationFields.statusId: FieldValue.delete(),
         NotificationFields.isRead: true,
         NotificationFields.updatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -586,8 +699,15 @@ class HostNotificationRepository {
         NotificationFields.notificationType: HostNotificationType.staying.code,
         'legacyNotificationType': HostNotificationType.staying.code,
         'type': HostNotificationType.staying.code,
-        NotificationFields.statusId: 'approved',
         'status': 'approved',
+        'statusId': FieldValue.delete(),
+        'nguoiNhanId': FieldValue.delete(),
+        'nguoiGuiId': FieldValue.delete(),
+        'tieuDe': FieldValue.delete(),
+        'noiDung': FieldValue.delete(),
+        'phongId': FieldValue.delete(),
+        'daDoc': FieldValue.delete(),
+        'ngayTao': FieldValue.delete(),
         NotificationFields.isRead: true,
         NotificationFields.updatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -599,6 +719,12 @@ class HostNotificationRepository {
           _firestore!.collection(FirestoreCollections.notificationUser);
       batch.set(uCol.doc(userNotificationId), {
         'status': 'accepted',
+        'statusId': FieldValue.delete(),
+        'nguoiNhanId': FieldValue.delete(),
+        'tieuDe': FieldValue.delete(),
+        'noiDung': FieldValue.delete(),
+        'daDoc': FieldValue.delete(),
+        'ngayTao': FieldValue.delete(),
         'isRead': true,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -677,8 +803,15 @@ class HostNotificationRepository {
     // 1. Cập nhật thông báo của Chủ trọ thành rejected
     if (notificationId.isNotEmpty) {
       batch.set(_notificationsCol!.doc(notificationId), {
-        NotificationFields.statusId: 'rejected',
         'status': 'rejected',
+        'statusId': FieldValue.delete(),
+        'nguoiNhanId': FieldValue.delete(),
+        'nguoiGuiId': FieldValue.delete(),
+        'tieuDe': FieldValue.delete(),
+        'noiDung': FieldValue.delete(),
+        'phongId': FieldValue.delete(),
+        'daDoc': FieldValue.delete(),
+        'ngayTao': FieldValue.delete(),
         NotificationFields.isRead: true,
         NotificationFields.updatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -690,6 +823,12 @@ class HostNotificationRepository {
           _firestore!.collection(FirestoreCollections.notificationUser);
       batch.set(uCol.doc(userNotificationId), {
         'status': 'host_rejected',
+        'statusId': FieldValue.delete(),
+        'nguoiNhanId': FieldValue.delete(),
+        'tieuDe': FieldValue.delete(),
+        'noiDung': FieldValue.delete(),
+        'daDoc': FieldValue.delete(),
+        'ngayTao': FieldValue.delete(),
         'isRead': true,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -760,6 +899,12 @@ class HostNotificationRepository {
 
     String hostId = '';
     String renterName = '';
+    String renterId = '';
+    String roomCode = '';
+    String oldRoomId = '';
+    String oldRoomTitle = '';
+    double depositAmount = 0.0;
+    DateTime? oldCheckInDate;
 
     // 1. Lấy dữ liệu và cập nhật booking gốc
     if (bookingId.isNotEmpty) {
@@ -768,11 +913,20 @@ class HostNotificationRepository {
         if (bDoc.exists && bDoc.data() != null) {
           final bData = bDoc.data()!;
           hostId = (bData['hostId'] ?? bData['chuNhaId'] ?? '').toString();
+          renterId = (bData['renterId'] ?? bData['nguoiDungId'] ?? bData['userId'] ?? '').toString();
           renterName = (bData['renterName'] ??
                   bData['userName'] ??
                   bData['nguoiThueTen'] ??
                   '')
               .toString();
+          roomCode = (bData['roomCode'] ?? bData['maPhong'] ?? '').toString();
+          oldRoomId = (bData['roomId'] ?? bData['phongId'] ?? '').toString();
+          oldRoomTitle = (bData['roomTitle'] ?? bData['tieuDePhong'] ?? '').toString();
+          final rawAmt = bData['depositAmount'] ?? bData['paymentAmount'] ?? bData['tienCoc'] ?? bData['amount'];
+          if (rawAmt is num) depositAmount = rawAmt.toDouble();
+          final oldDateTs = bData['checkInDate'] ?? bData['ngayVao'] ?? bData['ngayNhanPhong'];
+          if (oldDateTs is Timestamp) oldCheckInDate = oldDateTs.toDate();
+
           if (newCheckInDate == null) {
             final ts = bData['newCheckInDate'];
             if (ts is Timestamp) newCheckInDate = ts.toDate();
@@ -788,7 +942,7 @@ class HostNotificationRepository {
 
       final bookingUpdates = <String, dynamic>{
         'status': 'daCoc',
-        'statusId': 'deposited',
+        'statusId': FieldValue.delete(),
         'subTag': 'Đã cọc',
         'adjustmentStatus': 'accepted',
         'updatedAt': FieldValue.serverTimestamp(),
@@ -819,17 +973,17 @@ class HostNotificationRepository {
           _firestore!.collection(FirestoreCollections.notificationUser);
       batch.set(uCol.doc(notificationId), {
         'status': 'accepted',
-        NotificationFields.statusId: 'approved',
+        'statusId': FieldValue.delete(),
         NotificationFields.isRead: true,
-        'daDoc': true,
+        'daDoc': FieldValue.delete(),
         'respondedAt': FieldValue.serverTimestamp(),
         NotificationFields.updatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       batch.set(_notificationsCol!.doc(notificationId), {
         'status': 'accepted',
-        NotificationFields.statusId: 'approved',
+        'statusId': FieldValue.delete(),
         NotificationFields.isRead: true,
-        'daDoc': true,
+        'daDoc': FieldValue.delete(),
         'respondedAt': FieldValue.serverTimestamp(),
         NotificationFields.updatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -839,7 +993,7 @@ class HostNotificationRepository {
     if (hostNotificationId != null && hostNotificationId.isNotEmpty) {
       final hostUpdates = <String, dynamic>{
         'status': 'approved',
-        NotificationFields.statusId: 'deposited',
+        'statusId': FieldValue.delete(),
         'adjustmentStatus': 'accepted',
         NotificationFields.updatedAt: FieldValue.serverTimestamp(),
       };
@@ -865,23 +1019,35 @@ class HostNotificationRepository {
       final dateStr = newCheckInDate != null
           ? DateFormat('dd/MM/yyyy').format(newCheckInDate)
           : '';
+      final finalRoomId = (newRoomId != null && newRoomId.isNotEmpty) ? newRoomId : oldRoomId;
+      final finalRoomTitle = (newRoomTitle != null && newRoomTitle.isNotEmpty) ? newRoomTitle : oldRoomTitle;
+
       batch.set(hostNotifRef, {
         'id': hostNotifRef.id,
+        'notificationId': hostNotifRef.id,
         'receiverId': hostId,
+        'recipientId': hostId,
         'recipientRole': 'host',
+        'senderId': renterId,
+        'renterId': renterId,
+        'renterName': renterName,
         'title': 'Khách thuê đã đồng ý đổi lịch dọn vào! 🎉',
         'message':
             'Khách thuê ${renterName.isNotEmpty ? renterName : ''} đã đồng ý với ngày nhận phòng mới ${dateStr.isNotEmpty ? "($dateStr)" : ""}. Đơn đặt phòng ${bookingId.isNotEmpty ? bookingId : ""} đã sẵn sàng chờ nhận phòng.',
         'notificationType': 'deposit',
         'type': 'deposit',
         'status': 'approved',
-        'statusId': 'deposited',
         'bookingId': bookingId,
-        if (newRoomId != null && newRoomId.isNotEmpty) 'roomId': newRoomId,
-        if (newRoomTitle != null && newRoomTitle.isNotEmpty)
-          'roomTitle': newRoomTitle,
+        if (finalRoomId.isNotEmpty) 'roomId': finalRoomId,
+        if (finalRoomTitle.isNotEmpty) 'roomTitle': finalRoomTitle,
+        if (roomCode.isNotEmpty) 'roomCode': roomCode,
+        'amount': depositAmount,
+        if (oldCheckInDate != null) 'oldCheckInDate': Timestamp.fromDate(oldCheckInDate),
+        if (newCheckInDate != null) 'newCheckInDate': Timestamp.fromDate(newCheckInDate),
         if (newCheckInDate != null)
-          'checkInDate': Timestamp.fromDate(newCheckInDate),
+          'checkInDate': Timestamp.fromDate(newCheckInDate)
+        else if (oldCheckInDate != null)
+          'checkInDate': Timestamp.fromDate(oldCheckInDate),
         'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -905,6 +1071,12 @@ class HostNotificationRepository {
 
     String hostId = '';
     String renterName = '';
+    String renterId = '';
+    String roomCode = '';
+    String roomId = '';
+    String roomTitle = '';
+    double depositAmount = 0.0;
+    DateTime? checkInDate;
 
     // 1. Lấy thông tin từ booking và cập nhật adjustmentStatus: 'rejected'
     if (bookingId.isNotEmpty) {
@@ -913,18 +1085,26 @@ class HostNotificationRepository {
         if (bDoc.exists && bDoc.data() != null) {
           final bData = bDoc.data()!;
           hostId = (bData['hostId'] ?? bData['chuNhaId'] ?? '').toString();
+          renterId = (bData['renterId'] ?? bData['nguoiDungId'] ?? bData['userId'] ?? '').toString();
           renterName = (bData['renterName'] ??
                   bData['userName'] ??
                   bData['nguoiThueTen'] ??
                   '')
               .toString();
+          roomCode = (bData['roomCode'] ?? bData['maPhong'] ?? '').toString();
+          roomId = (bData['roomId'] ?? bData['phongId'] ?? '').toString();
+          roomTitle = (bData['roomTitle'] ?? bData['tieuDePhong'] ?? '').toString();
+          final rawAmt = bData['depositAmount'] ?? bData['paymentAmount'] ?? bData['tienCoc'] ?? bData['amount'];
+          if (rawAmt is num) depositAmount = rawAmt.toDouble();
+          final dateTs = bData['checkInDate'] ?? bData['ngayVao'] ?? bData['ngayNhanPhong'];
+          if (dateTs is Timestamp) checkInDate = dateTs.toDate();
         }
       } catch (_) {}
 
       batch.set(_bookingsCol!.doc(bookingId), {
         'adjustmentStatus': 'rejected',
         'status': 'daCoc',
-        'statusId': 'deposited',
+        'statusId': FieldValue.delete(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     }
@@ -935,17 +1115,17 @@ class HostNotificationRepository {
           _firestore!.collection(FirestoreCollections.notificationUser);
       batch.set(uCol.doc(notificationId), {
         'status': 'rejected',
-        NotificationFields.statusId: 'rejected',
+        'statusId': FieldValue.delete(),
         NotificationFields.isRead: true,
-        'daDoc': true,
+        'daDoc': FieldValue.delete(),
         'respondedAt': FieldValue.serverTimestamp(),
         NotificationFields.updatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       batch.set(_notificationsCol!.doc(notificationId), {
         'status': 'rejected',
-        NotificationFields.statusId: 'rejected',
+        'statusId': FieldValue.delete(),
         NotificationFields.isRead: true,
-        'daDoc': true,
+        'daDoc': FieldValue.delete(),
         'respondedAt': FieldValue.serverTimestamp(),
         NotificationFields.updatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -955,7 +1135,7 @@ class HostNotificationRepository {
     if (hostNotificationId != null && hostNotificationId.isNotEmpty) {
       batch.set(_notificationsCol!.doc(hostNotificationId), {
         'status': 'approved',
-        NotificationFields.statusId: 'deposited',
+        NotificationFields.statusId: FieldValue.delete(),
         'adjustmentStatus': 'rejected',
         NotificationFields.updatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -966,16 +1146,25 @@ class HostNotificationRepository {
       final hostNotifRef = _notificationsCol!.doc();
       batch.set(hostNotifRef, {
         'id': hostNotifRef.id,
+        'notificationId': hostNotifRef.id,
         'receiverId': hostId,
+        'recipientId': hostId,
         'recipientRole': 'host',
+        'senderId': renterId,
+        'renterId': renterId,
+        'renterName': renterName,
         'title': 'Khách thuê từ chối thay đổi ngày dọn vào',
         'message':
             'Khách thuê ${renterName.isNotEmpty ? renterName : ''} đã từ chối yêu cầu đổi lịch dọn vào hoặc đổi phòng. Lịch dọn vào ban đầu vẫn được giữ nguyên.',
-        'notificationType': 'booking_adjustment_rejected',
-        'type': 'booking_adjustment_rejected',
-        'status': 'rejected',
-        'statusId': 'rejected',
+        'notificationType': 'deposit',
+        'type': 'deposit',
+        'status': 'approved',
         'bookingId': bookingId,
+        if (roomId.isNotEmpty) 'roomId': roomId,
+        if (roomTitle.isNotEmpty) 'roomTitle': roomTitle,
+        if (roomCode.isNotEmpty) 'roomCode': roomCode,
+        'amount': depositAmount,
+        if (checkInDate != null) 'checkInDate': Timestamp.fromDate(checkInDate),
         'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
       });

@@ -16,6 +16,10 @@ class ResidentModel {
   final String statusId; // 'dangO', 'daRoi'
   final DateTime moveInDate;
   final DateTime? moveOutDate;
+  final String cccdNumber;
+  final String cccdFrontImageUrl;
+  final String cccdBackImageUrl;
+  final bool isCccdVerified;
 
   // Status Helper Getters
   bool get isMovedOut {
@@ -55,6 +59,11 @@ class ResidentModel {
   DateTime get ngayVao => moveInDate;
   DateTime? get ngayRoi => moveOutDate;
 
+  String get soCccd => cccdNumber;
+  String get anhMatTruoc => cccdFrontImageUrl;
+  String get anhMatSau => cccdBackImageUrl;
+  bool get daXacThucCccd => isCccdVerified;
+
   const ResidentModel({
     required this.id,
     required this.periodId,
@@ -68,6 +77,10 @@ class ResidentModel {
     this.statusId = 'dangO',
     required this.moveInDate,
     this.moveOutDate,
+    this.cccdNumber = '',
+    this.cccdFrontImageUrl = '',
+    this.cccdBackImageUrl = '',
+    this.isCccdVerified = false,
   });
 
   ResidentModel copyWith({
@@ -83,6 +96,10 @@ class ResidentModel {
     String? statusId,
     DateTime? moveInDate,
     DateTime? moveOutDate,
+    String? cccdNumber,
+    String? cccdFrontImageUrl,
+    String? cccdBackImageUrl,
+    bool? isCccdVerified,
   }) {
     return ResidentModel(
       id: id ?? this.id,
@@ -97,6 +114,10 @@ class ResidentModel {
       statusId: statusId ?? this.statusId,
       moveInDate: moveInDate ?? this.moveInDate,
       moveOutDate: moveOutDate ?? this.moveOutDate,
+      cccdNumber: cccdNumber ?? this.cccdNumber,
+      cccdFrontImageUrl: cccdFrontImageUrl ?? this.cccdFrontImageUrl,
+      cccdBackImageUrl: cccdBackImageUrl ?? this.cccdBackImageUrl,
+      isCccdVerified: isCccdVerified ?? this.isCccdVerified,
     );
   }
 
@@ -139,6 +160,20 @@ class ResidentModel {
           : (data['ngayRoi'] is Timestamp)
           ? (data['ngayRoi'] as Timestamp).toDate()
           : null,
+      cccdNumber: data['cccdNumber'] ?? data['soCccd'] ?? data['soGiayTo'] ?? '',
+      cccdFrontImageUrl: data['cccdFrontImageUrl'] ??
+          data['anhMatTruoc'] ??
+          data['anh_mat_truoc'] ??
+          data['frontImageUrl'] ??
+          '',
+      cccdBackImageUrl: data['cccdBackImageUrl'] ??
+          data['anhMatSau'] ??
+          data['anh_mat_sau'] ??
+          data['backImageUrl'] ??
+          '',
+      isCccdVerified: data['isCccdVerified'] == true ||
+          data['daXacThucCccd'] == true ||
+          data['trangThaiXacMinh'] == 'daXacThuc',
     );
   }
 
@@ -232,6 +267,10 @@ class ResidentModel {
       'statusId': statusId,
       'moveInDate': Timestamp.fromDate(moveInDate),
       if (moveOutDate != null) 'moveOutDate': Timestamp.fromDate(moveOutDate!),
+      if (cccdNumber.isNotEmpty) 'cccdNumber': cccdNumber,
+      if (cccdFrontImageUrl.isNotEmpty) 'cccdFrontImageUrl': cccdFrontImageUrl,
+      if (cccdBackImageUrl.isNotEmpty) 'cccdBackImageUrl': cccdBackImageUrl,
+      'isCccdVerified': isCccdVerified,
       'createdAt': FieldValue.serverTimestamp(),
     };
   }

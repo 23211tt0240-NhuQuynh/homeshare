@@ -17,14 +17,12 @@ import '../../renter/screens/favorite_rooms_screen.dart';
 import '../../renter/screens/renter_bookings_screen.dart';
 import '../../renter/screens/my_homes_screen.dart';
 import '../../renter/widgets/report_room_issue_bottom_sheet.dart';
-import '../../host/screens/host_main_screen.dart';
 import '../../host/screens/host_property_management_screen.dart';
 import '../../host/screens/host_tenant_management_screen.dart';
 import '../../host/screens/host_checkin_checkout_screen.dart';
 import '../../host/screens/host_violation_management_screen.dart';
 import '../../host/screens/host_post_management_screen.dart';
 import '../../host/data/host_post_repository.dart';
-import '../../admin/screens/admin_main_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -998,36 +996,7 @@ class HomeScreen extends ConsumerWidget {
                             );
                           },
                         ),
-                        _buildMenuDivider(dividerColor: dividerColor),
-                        _buildMenuRow(
-                          icon: Icons.storefront_outlined,
-                          title: tr('host_interface'),
-                          subtitle: tr('host_interface_sub'),
-                          textDark: textDark,
-                          textMuted: textMuted,
-                          iconBg: iconBg,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const HostMainScreen()),
-                            );
-                          },
-                        ),
-                        _buildMenuDivider(dividerColor: dividerColor),
-                        _buildMenuRow(
-                          icon: Icons.admin_panel_settings_outlined,
-                          title: tr('admin_portal'),
-                          subtitle: tr('admin_portal_sub'),
-                          textDark: textDark,
-                          textMuted: textMuted,
-                          iconBg: iconBg,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const AdminMainScreen()),
-                            );
-                          },
-                        ),
+
                         _buildMenuDivider(dividerColor: dividerColor),
                         _buildMenuRow(
                           icon: Icons.meeting_room_outlined,

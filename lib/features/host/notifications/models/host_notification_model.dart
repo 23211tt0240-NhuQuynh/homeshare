@@ -434,9 +434,9 @@ class HostNotificationModel {
           ? amtVal.toDouble()
           : (double.tryParse(amtVal?.toString() ?? '') ?? 0.0),
       statusId:
+          data['status'] ??
           data[NotificationFields.statusId] ??
           data[NotificationFields.legacyStatusId] ??
-          data['status'] ??
           'pending',
       isRead:
           (data[NotificationFields.isRead] ??

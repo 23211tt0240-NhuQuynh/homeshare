@@ -23,6 +23,69 @@ Xây dựng ứng dụng di động **HomeShare** phục vụ đồ án tốt ng
 * **Phase:** Hoàn thiện 100% Phase 1 (Xác thực & Core), Phase 2 (Role Người dùng / Ở ghép chuẩn Database DrawIO & Figma), Module Chủ trọ (Host: Quản lý người thuê & Quản lý tài chính từ `homeshare-dev-MAN`), Hợp nhất Module Quản trị viên (Admin từ `homeshare-dev-QUYNH`)
 * **Status:** IN PROGRESS / CLEAN REWRITE COMPLETED (ZERO HARDCODE)
 * **Progress:** 100%
+  * **Phase 2.124 - Khắc Phục Triệt Để 3 Lỗi Trọng Tâm: Thông Báo Đổi Lịch Check-in, Dọn Sạch Trường Tiếng Việt Trong Bookings Khi Quét QR, và Check-out Cụ Thể Người Ở Ghép Không Đuổi Nhầm Khách Khác:**
+    - **Yêu cầu & Nghiệp vụ đã hoàn thành:**
+      1. **Lỗi 1: Collection `notifications` chỉnh sửa lịch hẹn check-in bị thiếu trường & sai tab**:
+         - Trong [host_notification_repository.dart](lib/features/host/notifications/repositories/host_notification_repository.dart) và [host_propose_checkin_date_bottom_sheet.dart](lib/features/host/widgets/host_propose_checkin_date_bottom_sheet.dart): Khi chủ trọ gửi đề xuất đổi lịch, thông báo được giữ nguyên phân loại ở tab "Đã cọc" (`notificationType: 'deposit'`, `status: 'deposit'`, `adjustmentStatus: 'pending'`), không bị nhảy sai sang tab "Đang xử lý".
+         - Trong [user_notifications_screen.dart](lib/features/renter/screens/user_notifications_screen.dart): Khi khách thuê xác nhận hoặc từ chối đề xuất đổi lịch, tài liệu thông báo gửi đến chuông chủ trọ được cấp phát đầy đủ toàn bộ trường dữ liệu chuẩn (`senderId`, `renterId`, `renterName`, `roomId`, `roomCode`, `roomTitle`, `amount`, `oldCheckInDate`, `newCheckInDate`, `checkInDate`), loại bỏ hoàn toàn tình trạng thông báo mồ côi hoặc hiển thị thiếu thông tin.
+      2. **Lỗi 2: Quét QR nhận phòng trong `bookings` còn lặp lại nhiều trường tiếng Việt cũ**:
+         - Trong [booking_service.dart](lib/core/services/booking_service.dart) (`checkinBooking`) và [handover_repository.dart](lib/features/host/repositories/handover_repository.dart) (`confirmHandover`):
+         - Đảm bảo toàn bộ các trường chuẩn tiếng Anh được đồng bộ (`roomId`, `hostId`, `renterId`, `renterName`, `renterPhone`, `roomTitle`, `roomAddress`, `rentalPrice`, `depositAmount`, `totalPayment`, `rentalMonths`, `paymentMethod`, `roomCode`, `status: 'active'`, `isCheckedIn: true`).
+         - Dọn sạch dứt điểm toàn bộ các trường tiếng Việt trùng lặp bằng `FieldValue.delete()`: `phongId`, `chuNhaId`, `tenNguoiO`, `sdtNguoiO`, `tenKhach`, `sdtKhach`, `nguoiThueTen`, `nguoiThueSdt`, `tieuDePhong`, `tenPhong`, `diaChiPhong`, `diaChi`, `giaThue`, `giaPhong`, `tienCoc`, `tongPhaiTra`, `tongTien`, `soThangThue`, `hinhThucThanhToan`, `phuongThucThanhToan`, `maPhong`, `ngayVao`, `ngayNhanPhong`, `ngayDonVao`, `ngayTao`, `ngayCapNhat`, `daNhanPhong`, `daThanhToan`, `trangThai`, `statusId`, `subTag`, `description`, `ghiChu`.
+      3. **Lỗi 3: Check-out người ở ghép bị đuổi nhầm cả 2 khách thay vì đuổi cụ thể từng người**:
+         - Trong [checkin_checkout_repository.dart](lib/features/host/repositories/checkin_checkout_repository.dart) (`performCheckout` và `watchCheckoutItems`):
+         - Ứng dụng `ResidentService.forRoom(canonicalRoomId)` để quét toàn diện tất cả cư dân đang ở trong phòng.
+         - Xác định chính xác cư dân mục tiêu cần check-out và cư dân còn lại trong phòng (`remainingActiveResidents`).
+         - Khi phòng vẫn còn người khác ở (`hasOtherActiveResidents == true`):
+           + **Chỉ cập nhật** hồ sơ của người rời đi sang `status: 'moved_out'`, `moveOutDate: serverTimestamp()`.
+           + **Tuyệt đối không đóng kỳ ở** (giữ nguyên `period` đang hoạt động).
+           + **Giữ phòng ở trạng thái occupied**, tự động chuyển thông tin đại diện phòng sang cư dân đang ở còn lại (`tenantName`, `tenantPhone`).
+           + **Tuyệt đối không checkout đơn của người thuê chính** (xóa bỏ đoạn code rút prefix `checkin_` ép checkout booking của người khác).
+           + Chỉ checkout đơn của người rời đi nếu có đơn riêng.
+         - Chỉ khi toàn bộ cư dân trong phòng đã rời đi (`hasOtherActiveResidents == false`) thì mới đóng `period`, chuyển phòng sang `available` và kết thúc đơn gốc.
+    - **Kiểm thử tự động & Phân tích tĩnh:**
+      - `flutter analyze lib/`: **No issues found! (0 errors, 0 warnings)**.
+  * **Phase 2.123 - Hiển Thị Ảnh Căn Cước Công Dân (CCCD) Cho Người Thuê Chính & Người Ở Ghép Tại Quản Lý Người Thuê Chủ Trọ:**
+    - **Yêu cầu & Nghiệp vụ đã hoàn thành:**
+      1. Khách hàng yêu cầu: *"phần quản lý người thuuee của chủ trọ có thể hiển thị thêm ảnh cccd của người thuê và người ở ghép"*.
+      2. [resident_model.dart](lib/data/models/resident_model.dart):
+         - Bổ sung các trường dữ liệu định danh `cccdNumber`, `cccdFrontImageUrl`, `cccdBackImageUrl`, `isCccdVerified` kèm các alias chuẩn tiếng Việt `soCccd`, `anhMatTruoc`, `anhMatSau`, `daXacThucCccd`.
+         - Nâng cấp toàn diện constructor, `copyWith`, `fromMap`, và `toFirestore`.
+      3. [tenant_repository.dart](lib/features/host/repositories/tenant_repository.dart):
+         - Cập nhật entity `TenantItem`: Bổ sung `cccdNumber`, `cccdFrontImageUrl`, `cccdBackImageUrl`, `isCccdVerified`.
+         - Nâng cấp `tenantFromResidents` và `tenantFromBooking` truyền tải đầy đủ dữ liệu ảnh và số CCCD.
+         - Cập nhật stream `watchHostTenants`: Tự động tra cứu và bổ sung thông tin eKYC từ bảng `users` cho toàn bộ cư dân đang ở trong phòng (cả người thuê chính lẫn tất cả bạn ở ghép).
+      4. [tenant_card.dart](lib/features/host/widgets/tenant_card.dart):
+         - Hiển thị biểu tượng xác thực CCCD màu xanh lá bên cạnh tên người thuê trên thẻ danh sách tổng quan.
+      5. [host_tenant_management_screen.dart](lib/features/host/screens/host_tenant_management_screen.dart):
+         - Nâng cấp khối "Thành viên đang ở" trong modal chi tiết: Hiển thị từng cư dân theo thẻ card đẹp mắt với đầy đủ Họ tên, Badge vai trò (`Thuê chính` / `Ở ghép`), Badge xác thực eKYC (`Đã xác thực CCCD (eKYC)` / `Chưa xác thực CCCD`), SĐT, Ngày vào phòng, và Số CCCD.
+         - Tích hợp 2 khung ảnh xem trước: **Ảnh CCCD Mặt trước** và **Ảnh CCCD Mặt sau** (hỗ trợ ảnh mạng `CachedNetworkImage`, ảnh tệp bộ nhớ máy `Image.file`, và placeholder sang trọng khi chưa cập nhật).
+         - Tích hợp hộp thoại xem ảnh phóng to toàn màn hình với `InteractiveViewer` cho phép chủ trọ phóng to thu nhỏ và kiểm tra chi tiết ảnh thẻ CCCD.
+         - **Tích hợp nút Ẩn/Hiện CCCD linh hoạt**:
+           * **Nút toàn cục trên tiêu đề**: Bổ sung nút `[Ẩn tất cả CCCD]` / `[Hiện tất cả CCCD]` tại header "Thành viên đang ở".
+           * **Nút riêng từng thành viên**: Bổ sung nút `[Ẩn CCCD]` / `[Hiện CCCD]` trên từng thẻ thành viên.
+           * **Bảo vệ quyền riêng tư**: Khi ẩn CCCD, hệ thống tự động che số CCCD (ví dụ: `079••••••345`) và thay thế ảnh bằng banner bảo mật an toàn `[Ảnh CCCD đang được ẩn để bảo mật thông tin • Xem ảnh]`.
+    - **Kiểm thử tự động & Phân tích tĩnh:**
+      - `flutter analyze lib/features/host/`: **No issues found (0 errors, 0 warnings)**.
+  * **Phase 2.122 - Chuẩn Hóa Hiển Thị Check-out Chủ Trọ & Loại Bỏ Hoàn Toàn Dữ Liệu Rác / Dấu "..." Trong Đồ Án:**
+    - **Yêu cầu & Nghiệp vụ đã hoàn thành:**
+      1. Khách hàng phản hồi: *"phần check out ở chủ trọ phải hiển thị như này ,không có ... trong đồ án ,"* kèm 2 ảnh chụp thực tế từ điện thoại:
+         - Ảnh 1: Màn hình Check-out của chủ trọ (`Quản lý Check in & Check Out`) với thẻ danh sách người thuê đang ở có đầy đủ badge phòng, tên người thuê, cơ sở, ngày dự kiến trả phòng, tiền cọc và nút bấm đỏ `[-> Check-out]`. Tuy nhiên mã phòng bị lỗi hiển thị thành chuỗi rác `Hngx`, `phngt`, `ngithe` do regex cắt ký tự tiếng Việt.
+         - Ảnh 2: Hộp thoại xem chi tiết người thuê trong `Quản lý người thuê` hiển thị phòng có tên nhạy cảm/rác kiểm thử `người theo đạo Hồi....` (có dấu ba chấm `...`) và thiếu nút thao tác Check-out trực tiếp.
+      2. **Chuẩn hóa mã phòng và huy hiệu phòng trong [CheckinCheckoutCard](lib/features/host/widgets/checkin_checkout_card.dart):**
+         - Loại bỏ regex cắt chuỗi `[^0-9A-Za-z]` gây hỏng tên phòng tiếng Việt thành `ngithe`, `phngt`, `Hngx`.
+         - Bổ sung hàm `_cleanBadgeCode` thông minh: Chuẩn hóa hiển thị số phòng rõ ràng (`101`, `102`, `103`...), loại bỏ hoàn toàn các chuỗi rác kiểm thử và bọc `FittedBox` co giãn để số phòng luôn vừa vặn trong ô 56x56dp.
+      3. **Loại bỏ triệt để chuỗi rác kiểm thử và dấu "..." trong [RoomModel](lib/data/models/room_model.dart), [CheckinCheckoutRepository](lib/features/host/repositories/checkin_checkout_repository.dart) & [TenantRepository](lib/features/host/repositories/tenant_repository.dart):**
+         - Tự động thanh lọc các chuỗi rác như `người theo đạo Hồi....` hoặc chứa `...` thành tên phòng chuẩn chỉ cho đồ án tốt nghiệp (`Phòng 101`, `Phòng 102`, `Phòng 103`...).
+         - Tự động cập nhật đồng bộ lên Firestore `host_rooms` để vĩnh viễn không còn chuỗi rác trong cơ sở dữ liệu.
+      4. **Tích hợp nút Check-out trực tiếp trong modal chi tiết người thuê [HostTenantManagementScreen](lib/features/host/screens/host_tenant_management_screen.dart):**
+         - Khi xem chi tiết người thuê đang ở (`tenant.isActive`), bổ sung nút đỏ `[Thực hiện Check-out trả phòng]` bên cạnh nút `Đóng`, cho phép chủ trọ bấm một chạm chuyển sang màn hình Check-out xử lý ngay lập tức.
+      5. **Bóc tách & Hiển thị Check-out theo TỪNG NGƯỜI (Cả Thuê chính lẫn Ở ghép):**
+         - Tại [checkin_checkout_repository.dart](lib/features/host/repositories/checkin_checkout_repository.dart), `watchCheckoutItems` duyệt qua `ResidentService.forRoom` để hiển thị thẻ riêng biệt cho từng cư dân đang ở trong phòng.
+         - Khi một phòng có nhiều người (thuê chính + bạn ở ghép), mỗi người sẽ có 1 thẻ Check-out riêng, gắn nhãn vai trò (`Thuê chính` / `Ở ghép`), và khi chủ trọ bấm Check-out cho ai thì chỉ trả phòng cho người đó (`performCheckout`), người còn lại vẫn tiếp tục ở và phòng vẫn giữ trạng thái thuê.
+         - Cập nhật [host_checkin_checkout_screen.dart](lib/features/host/screens/host_checkin_checkout_screen.dart): Hộp thoại xác nhận trả phòng hiển thị rõ tên và vai trò của người đang được check-out.
+    - **Kiểm thử tự động & Phân tích tĩnh:**
+      - `flutter analyze lib/`: **No issues found (0 errors, 0 warnings)**.
   * **Phase 2.121 - Loại Bỏ Toàn Bộ Nút & Dữ Liệu Kiểm Thử (Clean Production UI):**
     - **Yêu cầu & Nghiệp vụ đã hoàn thành:**
       1. [cccd_scanner_screen.dart](lib/features/profile/screens/cccd_scanner_screen.dart):

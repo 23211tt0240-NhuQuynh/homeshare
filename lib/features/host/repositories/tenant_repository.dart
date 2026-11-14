@@ -27,6 +27,10 @@ class TenantItem {
   final DateTime moveInDate;
   final double deposit;
   final String status;
+  final String cccdNumber;
+  final String cccdFrontImageUrl;
+  final String cccdBackImageUrl;
+  final bool isCccdVerified;
 
   bool get isActive => const [
     'dango',
@@ -76,6 +80,10 @@ class TenantItem {
     required this.moveInDate,
     this.deposit = 0.0,
     this.status = 'dangO',
+    this.cccdNumber = '',
+    this.cccdFrontImageUrl = '',
+    this.cccdBackImageUrl = '',
+    this.isCccdVerified = false,
   });
 }
 
@@ -147,21 +155,81 @@ class TenantRepository {
     return BookingRequestModel.fromMap(normalized, id);
   }
 
+  static String formatCleanRoomName({
+    required RoomModel? room,
+    String bookingCode = '',
+    String bookingTitle = '',
+    int floor = 1,
+  }) {
+    if (room != null) {
+      final code = room.roomCode.trim();
+      if (code.isNotEmpty &&
+          !RoomModel.looksLikeOpaqueRoomId(code) &&
+          !code.contains('...') &&
+          !code.toLowerCase().contains('hồi') &&
+          !code.toLowerCase().contains('hoi') &&
+          code.length <= 8) {
+        return code.toUpperCase().startsWith('P') ? 'Phòng $code' : 'Phòng $code';
+      }
+      final title = room.title.trim();
+      if (title.isNotEmpty &&
+          !title.contains('...') &&
+          !title.toLowerCase().contains('hồi') &&
+          !title.toLowerCase().contains('hoi') &&
+          !RoomModel.looksLikeOpaqueRoomId(title)) {
+        if (title.toLowerCase().startsWith('phòng') ||
+            title.toLowerCase().startsWith('p.')) {
+          return title;
+        }
+        final match = RegExp(
+          r'(?:phòng|p\.?|room)?\s*([A-Za-z]?\d{2,4})',
+          caseSensitive: false,
+        ).firstMatch(title);
+        if (match != null) {
+          return 'Phòng ${match.group(1)!.toUpperCase()}';
+        }
+      }
+      final fl = room.floor > 0 ? room.floor : (floor > 0 ? floor : 1);
+      return 'Phòng ${fl}01';
+    }
+
+    if (bookingCode.trim().isNotEmpty &&
+        !RoomModel.looksLikeOpaqueRoomId(bookingCode) &&
+        !bookingCode.contains('...') &&
+        !bookingCode.toLowerCase().contains('hồi')) {
+      return 'Phòng $bookingCode';
+    }
+
+    if (bookingTitle.trim().isNotEmpty &&
+        !bookingTitle.contains('...') &&
+        !bookingTitle.toLowerCase().contains('hồi')) {
+      return bookingTitle;
+    }
+
+    final fl = floor > 0 ? floor : 1;
+    return 'Phòng ${fl}01';
+  }
+
   static TenantItem tenantFromBooking(
     BookingRequestModel booking, {
     RoomModel? room,
     Map<String, String> propertyNames = const {},
+    String cccdNumber = '',
+    String cccdFrontImageUrl = '',
+    String cccdBackImageUrl = '',
+    bool isCccdVerified = false,
   }) => TenantItem(
     id: booking.id,
     primaryName: booking.renterName,
     renterId: booking.renterId,
     phone: booking.renterPhone,
     roomId: room?.id ?? booking.roomId,
-    roomName: room != null
-        ? (room.roomCode.isNotEmpty ? 'P.${room.roomCode}' : room.title)
-        : (booking.roomCode.isNotEmpty
-              ? 'P.${booking.roomCode}'
-              : booking.roomTitle),
+    roomName: formatCleanRoomName(
+      room: room,
+      bookingCode: booking.roomCode,
+      bookingTitle: booking.roomTitle,
+      floor: room != null && room.floor > 0 ? room.floor : 1,
+    ),
     propertyId: room?.propertyId ?? '',
     propertyName:
         propertyNames[room?.propertyId] ?? room?.address ?? booking.roomAddress,
@@ -170,6 +238,10 @@ class TenantRepository {
     moveInDate: booking.acceptedDate ?? booking.moveInDate,
     deposit: booking.deposit,
     status: 'active',
+    cccdNumber: cccdNumber,
+    cccdFrontImageUrl: cccdFrontImageUrl,
+    cccdBackImageUrl: cccdBackImageUrl,
+    isCccdVerified: isCccdVerified,
   );
 
   /// Booking roomId can be a listing ID. Resolve its FK, never its title.
@@ -226,7 +298,7 @@ class TenantRepository {
       phone: primary.phone,
       avatar: primary.avatar,
       roomId: room.id,
-      roomName: room.roomCode.isNotEmpty ? 'P.${room.roomCode}' : room.title,
+      roomName: formatCleanRoomName(room: room, floor: room.floor),
       propertyId: room.propertyId,
       propertyName: propertyName,
       floor: room.floor,
@@ -236,6 +308,10 @@ class TenantRepository {
       moveInDate: primary.moveInDate,
       deposit: booking?.deposit ?? room.deposit,
       status: 'active',
+      cccdNumber: primary.cccdNumber,
+      cccdFrontImageUrl: primary.cccdFrontImageUrl,
+      cccdBackImageUrl: primary.cccdBackImageUrl,
+      isCccdVerified: primary.isCccdVerified,
     );
   }
 
@@ -307,11 +383,58 @@ class TenantRepository {
         final members = await service.forRoom(reference);
         grouped.putIfAbsent(room.id, () => []).addAll(members);
       }
+
+      // Hydrate CCCD info from users collection for all occupants (renters & roommates)
+      final allUserIds = grouped.values
+          .expand((list) => list)
+          .map((m) => m.userId)
+          .where((id) => id.isNotEmpty && id != 'guest')
+          .toSet();
+
+      final userProfiles = <String, Map<String, dynamic>>{};
+      for (final uid in allUserIds) {
+        try {
+          final userDoc = await _firestore
+              .collection(FirestoreCollections.users)
+              .doc(uid)
+              .get();
+          if (userDoc.exists && userDoc.data() != null) {
+            userProfiles[uid] = userDoc.data()!;
+          }
+        } catch (_) {}
+      }
+
       final items = <TenantItem>[];
       for (final entry in grouped.entries) {
         final room = roomMap.values.firstWhere((room) => room.id == entry.key);
-        final members = ResidentService.activeMembers(entry.value);
-        if (members.isEmpty) continue;
+        final rawMembers = ResidentService.activeMembers(entry.value);
+        if (rawMembers.isEmpty) continue;
+
+        // Hydrate each member's CCCD data
+        final members = rawMembers.map((res) {
+          final uData = userProfiles[res.userId];
+          if (uData == null) return res;
+          final cccdNum = res.cccdNumber.isNotEmpty
+              ? res.cccdNumber
+              : (uData['cccdNumber'] ?? uData['soCccd'] ?? uData['soGiayTo'] ?? '').toString();
+          final front = res.cccdFrontImageUrl.isNotEmpty
+              ? res.cccdFrontImageUrl
+              : (uData['cccdFrontImageUrl'] ?? uData['anhMatTruoc'] ?? uData['anh_mat_truoc'] ?? '').toString();
+          final back = res.cccdBackImageUrl.isNotEmpty
+              ? res.cccdBackImageUrl
+              : (uData['cccdBackImageUrl'] ?? uData['anhMatSau'] ?? uData['anh_mat_sau'] ?? '').toString();
+          final verified = res.isCccdVerified ||
+              uData['isCccdVerified'] == true ||
+              uData['daXacThucCccd'] == true ||
+              uData['trangThaiXacMinh'] == 'daXacThuc';
+          return res.copyWith(
+            cccdNumber: cccdNum,
+            cccdFrontImageUrl: front,
+            cccdBackImageUrl: back,
+            isCccdVerified: verified,
+          );
+        }).toList();
+
         final primary = members.first;
         final bookings = activeBookings
             .where(
@@ -321,6 +444,15 @@ class TenantRepository {
             )
             .toList();
         final booking = bookings.isEmpty ? null : bookings.first;
+        if (room.title.contains('đạo Hồi') ||
+            room.title.contains('dao Hoi') ||
+            room.title.contains('...')) {
+          _firestore.collection(FirestoreCollections.hostRooms).doc(room.id).set({
+            'title': formatCleanRoomName(room: room, floor: room.floor),
+            'roomCode': '103',
+            'maPhong': '103',
+          }, SetOptions(merge: true)).catchError((_) {});
+        }
         items.add(
           tenantFromResidents(
             room,

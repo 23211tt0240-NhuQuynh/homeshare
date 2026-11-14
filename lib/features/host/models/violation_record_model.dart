@@ -225,6 +225,7 @@ class ViolationRecordModel {
               '')
           .toString(),
       tenantId: (data['tenantId'] ??
+              data['residentId'] ??
               data['tenant_id'] ??
               data['nguoiDungId'] ??
               '')
@@ -242,7 +243,8 @@ class ViolationRecordModel {
           .toString(),
       violationIds: vIds,
       violationTitles: vTitles,
-      totalFine: ((data['totalFine'] ??
+      totalFine: ((data['fineAmount'] ??
+                  data['totalFine'] ??
                   data['fine_amount'] ??
                   data['tongTienPhat'] ??
                   data['mucPhat']) as num?)
@@ -334,12 +336,11 @@ class ViolationRecordModel {
     return ViolationRecordModel.fromMap(data, id);
   }
 
-  /// Ghi Firestore 100% tiếng Anh chuẩn Firebase Console
+  /// Ghi Firestore 100% tiếng Anh chuẩn Firebase Console (đã bỏ violationContent, violationIds, paymentMethod và trường lặp)
   Map<String, dynamic> toFirestore() {
     return {
       'id': id,
       'landlordId': landlordId,
-      'residentId': tenantId,
       'tenantId': tenantId,
       'tenantName': tenantName,
       'tenantPhone': tenantPhone,
@@ -347,14 +348,8 @@ class ViolationRecordModel {
       'roomCode': roomCode,
       'propertyName': propertyName,
       'periodId': periodId,
-      'violationIds': violationIds,
       'violationTitles': violationTitles,
-      'violationContent': description.isNotEmpty
-          ? description
-          : violationTitles.join(', '),
       'fineAmount': totalFine,
-      'totalFine': totalFine,
-      'paymentMethod': paymentMethod,
       'status': status,
       'description': description,
       'evidenceUrls': evidenceUrls,

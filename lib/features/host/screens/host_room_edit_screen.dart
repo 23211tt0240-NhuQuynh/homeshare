@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_safe_image.dart';
 import '../../../core/utils/room_amenities.dart';
 import '../../../core/utils/room_deposit.dart';
 import '../../../core/utils/vnd_input.dart';
@@ -321,13 +322,11 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                       ),
                       for (var i = 0; i < _images.length; i++)
                         _photo(
-                          Image.network(
-                            webHtmlElementStrategy:
-                                WebHtmlElementStrategy.fallback,
-                            _images[i],
+                          AppSafeImage(
+                            imageUrl: _images[i],
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) =>
-                                const Icon(Icons.broken_image_outlined),
+                            fallbackIcon: Icons.broken_image_outlined,
+                            iconSize: 24,
                           ),
                           () => setState(() => _images.removeAt(i)),
                         ),

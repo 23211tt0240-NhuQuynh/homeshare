@@ -1,13 +1,14 @@
 import '../../../core/services/resident_service.dart';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/firestore_collections.dart';
 import '../../../core/constants/vietnam_locations.dart';
+import '../../../core/services/image_storage_service.dart';
 import '../../../core/utils/room_identity.dart';
 import '../../../core/utils/room_deposit.dart';
 import '../../../data/models/room_model.dart';
@@ -166,8 +167,8 @@ class HostRepository {
     }
   }
 
-  // Chủ trọ - Tải ảnh thực - Luồng đi: Kiểm tra định dạng và dung
-  // lượng trước khi upload; lỗi Storage được báo, không thay bằng ảnh mẫu.
+  // Chủ trọ - Tải ảnh thực - Luồng đi: Ưu tiên Firebase Storage; nếu
+  // Storage lỗi (billing/rules/mạng) thì lưu Base64 vào Firestore như chat.
   Future<List<String>> _upload(
     List<HostUpload> images,
     String folder,
@@ -204,13 +205,16 @@ class HostRepository {
           throw StateError('Không lấy được đường dẫn ảnh. Vui lòng thử lại.');
         }
         urls.add(url);
-      } on FirebaseException catch (error) {
-        if (error.code == 'unauthorized') {
-          throw StateError(
-            'Firebase Storage chưa cho phép lưu ảnh nhà/phòng. Cần cập nhật quyền host_media cho tài khoản Chủ trọ.',
-          );
+      } catch (error) {
+        debugPrint(
+          '[HostRepository] Storage upload lỗi ($error). Lưu ảnh Base64 vào Firestore.',
+        );
+        const maxBytes = 180 * 1024;
+        var prepared = image.bytes;
+        if (prepared.length > maxBytes) {
+          prepared = await compute(compressJpegToLimit, (prepared, maxBytes));
         }
-        rethrow;
+        urls.add('data:image/jpeg;base64,${base64Encode(prepared)}');
       }
     }
     return urls;
@@ -260,7 +264,6 @@ class HostRepository {
           'roomCount': 0,
           'roomCodes': <String, String>{},
           'proofPath': ?proofPath,
-          'verificationStatus': 'unverified',
         };
         transaction.set(document, propData);
       }
@@ -1134,8 +1137,6 @@ class HostRepository {
       'images': finalUrls,
       'amenities': selectedAmenities.toList(),
       'status': status.isNotEmpty ? status : 'pending',
-      'isAvailable': status == 'active' || status == 'approved',
-      'isPinned': false,
       'createdAt': FieldValue.serverTimestamp(),
     };
     await batch.commit();

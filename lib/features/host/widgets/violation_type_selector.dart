@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/violation_model.dart';
 
@@ -30,9 +29,7 @@ class ViolationTypeSelector extends StatefulWidget {
 
 class _ViolationTypeSelectorState extends State<ViolationTypeSelector> {
   late final TextEditingController _titleController;
-  late final TextEditingController _fineController;
   bool _ownsTitleController = false;
-  bool _ownsFineController = false;
   bool _saveToCatalog = false;
   bool _isExpanded = false;
   final List<ViolationModel> _customViolations = [];
@@ -53,22 +50,12 @@ class _ViolationTypeSelectorState extends State<ViolationTypeSelector> {
       _titleController = TextEditingController();
       _ownsTitleController = true;
     }
-
-    if (widget.customFineController != null) {
-      _fineController = widget.customFineController!;
-    } else {
-      _fineController = TextEditingController();
-      _ownsFineController = true;
-    }
   }
 
   @override
   void dispose() {
     if (_ownsTitleController) {
       _titleController.dispose();
-    }
-    if (_ownsFineController) {
-      _fineController.dispose();
     }
     super.dispose();
   }
@@ -128,7 +115,6 @@ class _ViolationTypeSelectorState extends State<ViolationTypeSelector> {
         widget.onToggle(existing);
       }
       _titleController.clear();
-      _fineController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Hành vi "${existing.title}" đã có, đã chọn mục có sẵn.'),
@@ -139,23 +125,22 @@ class _ViolationTypeSelectorState extends State<ViolationTypeSelector> {
       return;
     }
 
-    final rawFine = _fineController.text.replaceAll(RegExp(r'[^0-9]'), '');
-    final fine = double.tryParse(rawFine);
-    if (fine == null || fine <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng nhập mức tiền phạt (> 0 đ) cho hành vi này'),
-          backgroundColor: Color(0xFFDC2626),
-          duration: Duration(seconds: 2),
-        ),
-      );
+    // Kiểm tra trùng trong danh sách vi phạm tùy chỉnh tạm thời
+    final matchingCustom = _customViolations.where(
+      (v) => v.title.toLowerCase().trim() == title.toLowerCase(),
+    );
+    if (matchingCustom.isNotEmpty) {
+      final existing = matchingCustom.first;
+      if (!widget.selectedViolations.any((v) => v.id == existing.id)) {
+        widget.onToggle(existing);
+      }
+      _titleController.clear();
       return;
     }
 
-    widget.onAddCustomViolation?.call(title, fine, _saveToCatalog);
+    widget.onAddCustomViolation?.call(title, null, _saveToCatalog);
 
     _titleController.clear();
-    _fineController.clear();
     setState(() {
       _saveToCatalog = false;
       _isExpanded = true;
@@ -388,35 +373,7 @@ class _ViolationTypeSelectorState extends State<ViolationTypeSelector> {
           ),
           const SizedBox(height: 14),
 
-          // 2. Khối nhập hành vi vi phạm mới & Mức tiền phạt
-          Container(
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFCBD5E1)),
-            ),
-            child: TextField(
-              controller: _titleController,
-              textAlignVertical: TextAlignVertical.center,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                hintText: 'Nhập tên hành vi vi phạm riêng...',
-                hintStyle: TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
-                prefixIcon: Icon(
-                  Icons.add_circle_outline_rounded,
-                  color: Color(0xFF2563EB),
-                  size: 18,
-                ),
-                isDense: true,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 10),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Hàng nhập Mức tiền phạt (bắt buộc) & Nút Thêm
+          // 2. Khối nhập hành vi vi phạm riêng & Nút Thêm
           Row(
             children: [
               Expanded(
@@ -428,16 +385,14 @@ class _ViolationTypeSelectorState extends State<ViolationTypeSelector> {
                     border: Border.all(color: const Color(0xFFCBD5E1)),
                   ),
                   child: TextField(
-                    controller: _fineController,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    controller: _titleController,
                     textAlignVertical: TextAlignVertical.center,
                     textInputAction: TextInputAction.done,
                     decoration: const InputDecoration(
-                      hintText: 'Mức tiền phạt (VNĐ) *',
+                      hintText: 'Nhập tên hành vi vi phạm riêng...',
                       hintStyle: TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
                       prefixIcon: Icon(
-                        Icons.attach_money_rounded,
+                        Icons.add_circle_outline_rounded,
                         color: Color(0xFF2563EB),
                         size: 18,
                       ),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_safe_image.dart';
 import '../../../core/constants/vietnam_locations.dart';
 import '../../../core/services/room_service.dart';
 import '../../../core/services/roommate_service.dart';
@@ -2763,17 +2764,11 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(
-                      imageUrl,
+                    AppSafeImage(
+                      imageUrl: imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: const Color(0xFFF1F5F9),
-                        child: const Icon(
-                          Icons.meeting_room_outlined,
-                          size: 36,
-                          color: Color(0xFF94A3B8),
-                        ),
-                      ),
+                      fallbackIcon: Icons.meeting_room_outlined,
+                      iconSize: 36,
                     ),
                     // Badge trạng thái phòng trên ảnh (Còn trống / Đã có người ở)
                     Positioned(
@@ -3092,17 +3087,11 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(
-                      imageUrl,
+                    AppSafeImage(
+                      imageUrl: imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: const Color(0xFFF3F4F6),
-                        child: const Icon(
-                          Icons.home,
-                          size: 36,
-                          color: Color(0xFF9CA3AF),
-                        ),
-                      ),
+                      fallbackIcon: Icons.home,
+                      iconSize: 36,
                     ),
                     Positioned(
                       top: 6,

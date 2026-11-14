@@ -36,6 +36,7 @@ abstract final class FirestoreCollections {
   static const hostSettlements = 'host_settlements';
   static const idVerifications = 'id_verifications';
   static const favoriteRooms = 'favorite_rooms';
+  static const emailOtps = 'email_otps';
 
   // Thông báo & Thanh toán
   static const notifications = 'notifications';

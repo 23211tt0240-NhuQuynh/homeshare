@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_safe_image.dart';
 import '../../../data/models/room_model.dart';
 import '../../../core/services/room_service.dart';
 import '../../../core/services/favorites_service.dart';
@@ -308,15 +309,14 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
               ),
               roomsAsync.when(
                 data: (rawRooms) {
-                  // Chỉ hiển thị bài đã duyệt, đã đăng công khai và phòng còn trống
+                  // Hiển thị bài đã duyệt/đăng công khai; phòng đã thuê vẫn hiện với badge "Đã có người ở"
                   final rooms = rawRooms
                       .where((r) =>
                           r.isDisplayable &&
                           !r.isUnposted &&
                           r.isApproved &&
                           !r.isPending &&
-                          !r.isHiddenOrRejected &&
-                          !r.isRentedOrOccupied)
+                          !r.isHiddenOrRejected)
                       .toList();
                   if (rooms.isEmpty) {
                     return Container(
@@ -474,28 +474,14 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(16),
                     ),
-                    child: room.images.isNotEmpty
-                        ? Image.network(
-                            room.images.first,
-                            width: double.infinity,
-                            height: 140,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Center(
-                                  child: Icon(
-                                    Icons.apartment,
-                                    size: 48,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                          )
-                        : const Center(
-                            child: Icon(
-                              Icons.apartment,
-                              size: 48,
-                              color: Colors.grey,
-                            ),
-                          ),
+                    child: AppSafeImage(
+                      imageUrl: room.images.isNotEmpty ? room.images.first : '',
+                      width: double.infinity,
+                      height: 140,
+                      fit: BoxFit.cover,
+                      fallbackIcon: Icons.apartment,
+                      iconSize: 48,
+                    ),
                   ),
                   if (room.isHiddenOrRejected)
                     Positioned.fill(

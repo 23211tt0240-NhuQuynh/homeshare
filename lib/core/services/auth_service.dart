@@ -132,6 +132,7 @@ class AuthService {
           'phoneNumber': phoneNumber ?? '',
           'role': role,
           'reputationScore': 100,
+          'isEmailVerified': true,
           'createdAt': FieldValue.serverTimestamp(),
         });
 

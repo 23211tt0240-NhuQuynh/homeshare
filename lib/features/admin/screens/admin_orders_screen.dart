@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../../core/services/booking_service.dart';
 import '../utils/booking_utils.dart';
 import '../services/admin_audit_identity.dart';
 import '../utils/commission_rate_service.dart';
@@ -2474,6 +2475,14 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
         'approvedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+
+      final roomId = (item['roomId'] ?? item['phongId'] ?? '').toString().trim();
+      if (roomId.isNotEmpty) {
+        await BookingService().markPostsOccupied(
+          roomId,
+          tenantName: (item['renterName'] ?? '').toString(),
+        );
+      }
 
       final renterId = (item['renterId'] ?? '').toString();
       if (renterId.isNotEmpty && renterId != 'guest') {

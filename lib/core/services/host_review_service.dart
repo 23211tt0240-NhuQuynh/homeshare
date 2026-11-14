@@ -93,33 +93,91 @@ class HostReviewService {
 
     try {
       await _firestore.runTransaction((tx) async {
-        final bookingRef =
-            _firestore.collection(FirestoreCollections.bookings).doc(cleanBookingId);
         final reviewRef = _reviews.doc(cleanBookingId);
-        final bookingSnap = await tx.get(bookingRef);
-        if (!bookingSnap.exists) {
-          throw const HostReviewException('Không tìm thấy giao dịch thuê.');
-        }
-        final booking = BookingRequestModel.fromFirestore(bookingSnap);
-        if (booking.renterId != cleanReviewerId) {
-          throw const HostReviewException(
-            'Chỉ người thuê của giao dịch này được đánh giá.',
-          );
-        }
-        if (booking.hostId != cleanHostId) {
-          throw const HostReviewException('Giao dịch không thuộc chủ trọ này.');
-        }
-        if (!HostReviewPolicy.isReviewableBooking(booking)) {
-          throw const HostReviewException(
-            'Giao dịch chưa đủ điều kiện để đánh giá.',
-          );
-        }
         final existing = await tx.get(reviewRef);
         if (existing.exists) {
-          throw const HostReviewException(
-            'Bạn đã đánh giá giao dịch này rồi.',
-          );
+          throw const HostReviewException('Bạn đã đánh giá giao dịch này rồi.');
         }
+
+        final bookingRef =
+            _firestore.collection(FirestoreCollections.bookings).doc(cleanBookingId);
+        final bookingSnap = await tx.get(bookingRef);
+
+        bool isAuthorized = false;
+
+        if (bookingSnap.exists) {
+          final booking = BookingRequestModel.fromFirestore(bookingSnap);
+          if (booking.renterId == cleanReviewerId &&
+              booking.hostId == cleanHostId &&
+              HostReviewPolicy.isReviewableBooking(booking)) {
+            isAuthorized = true;
+          } else {
+            // Kiểm tra nếu người dùng là người ở ghép trong phòng của đơn này
+            final roomId = booking.roomId;
+            final resSnap = await _firestore
+                .collection(FirestoreCollections.residents)
+                .where('roomId', isEqualTo: roomId)
+                .where('userId', isEqualTo: cleanReviewerId)
+                .get();
+            if (resSnap.docs.isNotEmpty) {
+              final resData = resSnap.docs.first.data();
+              final resStatus = (resData['status'] ?? resData['statusId'] ?? '').toString();
+              if (HostReviewPolicy.isReviewableResidentStatus(resStatus)) {
+                isAuthorized = true;
+              }
+            }
+          }
+        }
+
+        if (!isAuthorized) {
+          // Kiểm tra xem cleanBookingId có phải là ID cư dân ở ghép trong residents không
+          final resRef = _firestore
+              .collection(FirestoreCollections.residents)
+              .doc(cleanBookingId);
+          final resSnap = await tx.get(resRef);
+          if (resSnap.exists) {
+            final resData = resSnap.data() ?? {};
+            final resUserId = (resData['userId'] ?? resData['nguoiDungId'] ?? '').toString();
+            final resStatus = (resData['status'] ?? resData['statusId'] ?? '').toString();
+            final resRoomId = (resData['roomId'] ?? resData['phongId'] ?? '').toString();
+
+            if (resUserId != cleanReviewerId) {
+              throw const HostReviewException('Chỉ người thuê hoặc cư dân ở ghép của phòng được đánh giá.');
+            }
+            if (!HostReviewPolicy.isReviewableResidentStatus(resStatus)) {
+              throw const HostReviewException('Hợp đồng ở ghép chưa đủ điều kiện để đánh giá.');
+            }
+
+            // Kiểm tra phòng có thuộc về chủ trọ này không
+            bool hostMatched = false;
+            for (final col in [
+              FirestoreCollections.hostRooms,
+              FirestoreCollections.rooms,
+              FirestoreCollections.posts,
+            ]) {
+              try {
+                final rSnap = await _firestore.collection(col).doc(resRoomId).get();
+                if (rSnap.exists) {
+                  final rData = rSnap.data() ?? {};
+                  final hId = (rData['hostId'] ?? rData['chuNhaId'] ?? rData['landlordId'] ?? rData['userId'] ?? '').toString();
+                  if (hId == cleanHostId) {
+                    hostMatched = true;
+                    break;
+                  }
+                }
+              } catch (_) {}
+            }
+            if (!hostMatched) {
+              throw const HostReviewException('Phòng ở ghép không thuộc chủ trọ này.');
+            }
+            isAuthorized = true;
+          }
+        }
+
+        if (!isAuthorized) {
+          throw const HostReviewException('Không tìm thấy thông tin thuê hoặc ở ghép hợp lệ để đánh giá.');
+        }
+
         tx.set(
           reviewRef,
           HostReviewModel(
@@ -206,10 +264,24 @@ final eligibleHostReviewBookingProvider =
   if (uid.isEmpty || uid == hostId) return null;
   final bookings = ref.watch(renterBookingsStreamProvider(uid)).value ?? const [];
   final reviews = ref.watch(hostReviewsProvider(hostId)).value ?? const [];
-  return HostReviewPolicy.firstEligibleBooking(
+  final reviewedIds = reviews.map((review) => review.bookingId).toSet();
+
+  final eligible = HostReviewPolicy.firstEligibleBooking(
     reviewerId: uid,
     hostId: hostId,
     bookings: bookings,
-    reviewedBookingIds: reviews.map((review) => review.bookingId).toSet(),
+    reviewedBookingIds: reviewedIds,
   );
+  if (eligible != null) return eligible;
+
+  // Hỗ trợ người ở ghép: renterBookingsStreamProvider đã gộp cả các kỳ ở ghép từ residents
+  for (final stay in bookings) {
+    if (stay.hostId == hostId &&
+        (stay.isActive || HostReviewPolicy.isReviewableStatus(stay.status)) &&
+        !reviewedIds.contains(stay.id)) {
+      return stay;
+    }
+  }
+
+  return null;
 });

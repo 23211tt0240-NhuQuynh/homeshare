@@ -455,7 +455,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Badge Mã đơn & Trạng thái
+                  // Badge Trạng thái nhận phòng (Đã xóa mã đơn)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
@@ -466,13 +466,13 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
+                        const Row(
                           children: [
-                            const Icon(Icons.receipt_long_outlined, size: 18, color: Color(0xFF155EEF)),
-                            const SizedBox(width: 6),
+                            Icon(Icons.qr_code_scanner_rounded, size: 18, color: Color(0xFF155EEF)),
+                            SizedBox(width: 6),
                             Text(
-                              'Mã đơn: $_bookingId',
-                              style: const TextStyle(
+                              'Xác thực nhận phòng',
+                              style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFF101828),

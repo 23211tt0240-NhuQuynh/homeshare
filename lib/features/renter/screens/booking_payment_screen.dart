@@ -307,6 +307,11 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           'confirmedAt': FieldValue.serverTimestamp(),
           'confirmationDeadline': Timestamp.fromDate(confirmationExpiresAt),
           'updatedAt': FieldValue.serverTimestamp(),
+          // Hết giai đoạn 15 phút QR CK → sang chờ Admin 6h; không để expiresAt cũ kéo đơn về pending_payment.
+          'expiresAt': FieldValue.delete(),
+          'deadline': FieldValue.delete(),
+          'approvedAt': FieldValue.delete(),
+          'subTag': FieldValue.delete(),
           // Xóa triệt để các trường tiếng Việt trên Firebase
           'trangThai': FieldValue.delete(),
           'moTa': FieldValue.delete(),

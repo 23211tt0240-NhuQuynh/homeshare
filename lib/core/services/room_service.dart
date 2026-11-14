@@ -233,6 +233,112 @@ class RoomService {
     return null;
   }
 
+  /// Gắn trạng thái đã thuê từ phòng gốc lên bài đăng (tránh badge "Còn trống" sai).
+  RoomModel _mergeRoomOccupancy(RoomModel listing, RoomModel? room) {
+    if (room == null || !room.isRentedOrOccupied) return listing;
+    return listing.copyWith(
+      status: room.status.trim().isNotEmpty ? room.status : 'occupied',
+      isAvailable: false,
+      tenantName: room.tenantName.trim().isNotEmpty
+          ? room.tenantName
+          : listing.tenantName,
+      tenantPhone: room.tenantPhone.trim().isNotEmpty
+          ? room.tenantPhone
+          : listing.tenantPhone,
+      contractId: room.contractId.trim().isNotEmpty
+          ? room.contractId
+          : listing.contractId,
+    );
+  }
+
+  Future<List<String>> _fetchImagesForRoom(String roomId) async {
+    if (roomId.trim().isEmpty) return const [];
+    try {
+      final results = <String>[];
+      final targetIds = <String>{
+        roomId,
+        if (roomId.contains('_') && roomId.lastIndexOf('_') > 0)
+          roomId.substring(0, roomId.lastIndexOf('_')),
+      };
+
+      for (final col in [
+        FirestoreCollections.roomImages,
+        FirestoreCollections.hinhAnhPhong,
+        'roomImages',
+        'AnhPhong',
+        'anhPhong',
+        'hinh_anh_phong',
+      ]) {
+        for (final field in const ['roomId', 'phongId', 'phong_tro_id']) {
+          for (final tid in targetIds) {
+            final snap = await _firestore
+                .collection(col)
+                .where(field, isEqualTo: tid)
+                .limit(10)
+                .get();
+            for (final doc in snap.docs) {
+              final data = doc.data();
+              final url = (data['url'] ??
+                      data['url_anh'] ??
+                      data['duongDan'] ??
+                      data['image'] ??
+                      data['imageUrl'] ??
+                      '')
+                  .toString()
+                  .trim();
+              if (url.isNotEmpty && !results.contains(url)) {
+                results.add(url);
+              }
+            }
+            if (results.isNotEmpty) return results;
+          }
+        }
+      }
+      return results;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<List<String>> _fetchImagesForProperty(String propertyId) async {
+    if (propertyId.trim().isEmpty) return const [];
+    try {
+      final results = <String>[];
+      for (final col in [
+        FirestoreCollections.propertyImages,
+        'property_images',
+        'hinh_anh_nha_tro',
+        'anhNhaTro',
+      ]) {
+        for (final field in const ['propertyId', 'nhaTroId', 'maNhaTro', 'batDongSanId']) {
+          final snap = await _firestore
+              .collection(col)
+              .where(field, isEqualTo: propertyId)
+              .limit(10)
+              .get();
+          for (final doc in snap.docs) {
+            final data = doc.data();
+            final url = (data['url'] ??
+                    data['url_anh'] ??
+                    data['duongDan'] ??
+                    data['image'] ??
+                    data['imageUrl'] ??
+                    '')
+                .toString()
+                .trim();
+            if (url.isNotEmpty && !results.contains(url)) {
+              results.add(url);
+            }
+          }
+          if (results.isNotEmpty) return results;
+        }
+      }
+      return results;
+    } catch (_) {
+      return const [];
+    }
+  }
+
   Future<RoomModel?> _readReferencedRoom(String roomId) async {
     if (roomId.trim().isEmpty) return null;
     final collections = <String>{
@@ -241,32 +347,44 @@ class RoomService {
       FirestoreCollections.phongTro,
     };
 
+    RoomModel? room;
     final directData = await _readDocument(collections, roomId);
-    if (directData != null) return RoomModel.fromMap(directData, roomId);
-
-    for (final collection in collections) {
-      for (final field in const [
-        'roomId',
-        'room_id',
-        'phongId',
-        'phong_tro_id',
-      ]) {
-        try {
-          final result = await _firestore
-              .collection(collection)
-              .where(field, isEqualTo: roomId)
-              .limit(1)
-              .get();
-          if (result.docs.isNotEmpty) {
-            final doc = result.docs.first;
-            return RoomModel.fromMap(doc.data(), doc.id);
+    if (directData != null) {
+      room = RoomModel.fromMap(directData, roomId);
+    } else {
+      for (final collection in collections) {
+        for (final field in const [
+          'roomId',
+          'room_id',
+          'phongId',
+          'phong_tro_id',
+        ]) {
+          try {
+            final result = await _firestore
+                .collection(collection)
+                .where(field, isEqualTo: roomId)
+                .limit(1)
+                .get();
+            if (result.docs.isNotEmpty) {
+              final doc = result.docs.first;
+              room = RoomModel.fromMap(doc.data(), doc.id);
+              break;
+            }
+          } catch (error) {
+            debugPrint('Không thể tìm phòng $roomId theo $field: $error');
           }
-        } catch (error) {
-          debugPrint('Không thể tìm phòng $roomId theo $field: $error');
         }
+        if (room != null) break;
       }
     }
-    return null;
+
+    if (room != null && room.images.isEmpty) {
+      final fallbackImages = await _fetchImagesForRoom(roomId);
+      if (fallbackImages.isNotEmpty) {
+        room = room.copyWith(images: fallbackImages);
+      }
+    }
+    return room;
   }
 
   Future<RoomModel> _enrichPostDocument(
@@ -303,6 +421,7 @@ class RoomService {
           FirestoreCollections.nguoiDung,
         ], hostId),
         _readDocument(const [
+          FirestoreCollections.hostProperties,
           FirestoreCollections.properties,
           FirestoreCollections.batDongSan,
         ], propertyId),
@@ -328,8 +447,21 @@ class RoomService {
         }
       }
 
+      var enrichedRoom = room;
+      if (post.images.isEmpty && (enrichedRoom == null || enrichedRoom.images.isEmpty)) {
+        final roomImgs = await _fetchImagesForRoom(roomId.isNotEmpty ? roomId : post.id);
+        if (roomImgs.isNotEmpty) {
+          enrichedRoom = (enrichedRoom ?? post).copyWith(images: roomImgs);
+        } else if (propertyId.isNotEmpty) {
+          final propImgs = await _fetchImagesForProperty(propertyId);
+          if (propImgs.isNotEmpty) {
+            enrichedRoom = (enrichedRoom ?? post).copyWith(images: propImgs);
+          }
+        }
+      }
+
       return post.enrichWithRelatedData(
-        room: room,
+        room: enrichedRoom,
         propertyData: propertyData,
         hostData: hostData,
         locationData: locationData,
@@ -366,15 +498,29 @@ class RoomService {
       final referencedRoom = await _readReferencedRoom(roomId);
       if (referencedRoom?.isDeleted == true) return null;
 
-      final addressText = listing.address
+      // Đồng bộ occupancy từ phòng thật — post active không đồng nghĩa còn trống.
+      final occupancyAware = _mergeRoomOccupancy(listing, referencedRoom);
+      if (referencedRoom != null &&
+          referencedRoom.isRentedOrOccupied &&
+          listing.isAvailable) {
+        // Heal dữ liệu cũ: phòng đã ở mà post vẫn isAvailable=true.
+        unawaited(
+          document.reference.set({
+            'isAvailable': false,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true)),
+        );
+      }
+
+      final addressText = occupancyAware.address
           .replaceAll(RegExp(r'[,\s]'), '')
           .trim();
-      final normalizedHost = listing.hostName.trim().toLowerCase();
+      final normalizedHost = occupancyAware.hostName.trim().toLowerCase();
       final needsRelatedData =
-          listing.images.isEmpty ||
-          listing.amenities.isEmpty ||
+          occupancyAware.images.isEmpty ||
+          occupancyAware.amenities.isEmpty ||
           addressText.isEmpty ||
-          VietnamAddressParser.isCityOrProvinceOnly(listing.address) ||
+          VietnamAddressParser.isCityOrProvinceOnly(occupancyAware.address) ||
           normalizedHost.isEmpty ||
           normalizedHost == 'chủ nhà' ||
           normalizedHost == 'chủ trọ';
@@ -383,10 +529,11 @@ class RoomService {
           document,
           referencedRoom: referencedRoom,
         );
-        if (!enriched.isDisplayable) return null;
-        return enriched;
+        final merged = _mergeRoomOccupancy(enriched, referencedRoom);
+        if (!merged.isDisplayable) return null;
+        return merged;
       }
-      return listing;
+      return occupancyAware;
     } catch (error, stackTrace) {
       debugPrint('Không thể đọc phòng/bài đăng ${document.id}: $error');
       debugPrintStack(stackTrace: stackTrace);

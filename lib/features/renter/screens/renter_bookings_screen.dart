@@ -835,8 +835,8 @@ class _RenterBookingsScreenState extends ConsumerState<RenterBookingsScreen> {
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      // 1. Khi ĐÃ DUYỆT: Hiển thị Nút "Mã QR nhận phòng"
-                                      if (b.isApproved) ...[
+                                      // 1. Khi Admin ĐÃ XÁC NHẬN TIỀN: Hiển thị Nút "Mã QR nhận phòng"
+                                      if (b.canShowCheckinQr) ...[
                                         TextButton(
                                           onPressed: () =>
                                               _cancelBookingDialog(b),

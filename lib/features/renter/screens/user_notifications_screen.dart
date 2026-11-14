@@ -146,7 +146,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
     for (final doc in docs) {
       final isRead = doc.data()['isRead'] == true || doc.data()['daDoc'] == true;
       if (!isRead) {
-        batch.update(doc.reference, {'isRead': true, 'daDoc': true});
+        batch.update(doc.reference, {'isRead': true, 'daDoc': FieldValue.delete()});
       }
     }
     await batch.commit();
@@ -154,7 +154,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
 
   Future<void> _markAsRead(DocumentReference docRef) async {
     try {
-      await docRef.update({'isRead': true, 'daDoc': true});
+      await docRef.update({'isRead': true, 'daDoc': FieldValue.delete()});
     } catch (_) {}
   }
 
@@ -250,7 +250,12 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
       await doc.reference.update({
         'status': 'waiting_host_approval',
         'isRead': true,
-        'daDoc': true,
+        'daDoc': FieldValue.delete(),
+        'nguoiNhanId': FieldValue.delete(),
+        'tieuDe': FieldValue.delete(),
+        'noiDung': FieldValue.delete(),
+        'ngayTao': FieldValue.delete(),
+        'statusId': FieldValue.delete(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -298,7 +303,12 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
       await doc.reference.update({
         'status': 'rejected',
         'isRead': true,
-        'daDoc': true,
+        'daDoc': FieldValue.delete(),
+        'nguoiNhanId': FieldValue.delete(),
+        'tieuDe': FieldValue.delete(),
+        'noiDung': FieldValue.delete(),
+        'ngayTao': FieldValue.delete(),
+        'statusId': FieldValue.delete(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -669,8 +679,9 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
       // 1. Cập nhật thông báo người thuê
       batch.set(doc.reference, {
         'status': accept ? 'accepted' : 'rejected',
+        'statusId': FieldValue.delete(),
         'isRead': true,
-        'daDoc': true,
+        'daDoc': FieldValue.delete(),
         'respondedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
@@ -679,7 +690,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
         final bRef = FirebaseFirestore.instance.collection('bookings').doc(bookingId);
         final bookingUpdates = <String, dynamic>{
           'status': 'daCoc',
-          'statusId': 'deposited',
+          'statusId': FieldValue.delete(),
           'adjustmentStatus': accept ? 'accepted' : 'rejected',
           'updatedAt': FieldValue.serverTimestamp(),
         };
@@ -710,7 +721,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
         final hRef = FirebaseFirestore.instance.collection('notifications').doc(hostNotifId);
         final hostUpdates = <String, dynamic>{
           'status': accept ? 'approved' : 'rejected',
-          'statusId': accept ? 'deposited' : 'rejected',
+          'statusId': FieldValue.delete(),
           'adjustmentStatus': accept ? 'accepted' : 'rejected',
           'updatedAt': FieldValue.serverTimestamp(),
         };
@@ -730,7 +741,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
             final hRef = q.docs.first.reference;
             final hostUpdates = <String, dynamic>{
               'status': accept ? 'approved' : 'rejected',
-              'statusId': accept ? 'deposited' : 'rejected',
+              'statusId': FieldValue.delete(),
               'adjustmentStatus': accept ? 'accepted' : 'rejected',
               'updatedAt': FieldValue.serverTimestamp(),
             };
@@ -744,12 +755,33 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
 
       // 4. Gửi thông báo đến chuông của Chủ trọ về phản hồi của khách
       String hostId = (data['hostId'] ?? data['chuNhaId'] ?? '').toString();
-      if (hostId.isEmpty && bookingId.isNotEmpty) {
+      String renterId = (data['senderId'] ?? data['userId'] ?? data['recipientId'] ?? '').toString();
+      String renterName = (data['renterName'] ?? data['userName'] ?? 'Khách thuê').toString();
+      String roomCode = (data['roomCode'] ?? '').toString();
+      String roomId = (data['newRoomId'] ?? data['roomId'] ?? '').toString();
+      String roomTitle = (data['newRoomTitle'] ?? data['roomTitle'] ?? '').toString();
+      double depositAmount = 0.0;
+      final rawAmt = data['amount'] ?? data['depositAmount'] ?? data['tienCoc'];
+      if (rawAmt is num) depositAmount = rawAmt.toDouble();
+      final oldDateTs = (data['oldCheckInDate'] ?? data['checkInDate']) as Timestamp?;
+
+      if (bookingId.isNotEmpty) {
         try {
           final bDoc = await FirebaseFirestore.instance.collection('bookings').doc(bookingId).get();
           if (bDoc.exists && bDoc.data() != null) {
             final bData = bDoc.data()!;
-            hostId = (bData['hostId'] ?? bData['chuNhaId'] ?? '').toString();
+            if (hostId.isEmpty) hostId = (bData['hostId'] ?? bData['chuNhaId'] ?? '').toString();
+            if (renterId.isEmpty) renterId = (bData['renterId'] ?? bData['nguoiDungId'] ?? bData['userId'] ?? '').toString();
+            if (renterName.isEmpty || renterName == 'Khách thuê') {
+              renterName = (bData['renterName'] ?? bData['userName'] ?? bData['tenNguoiO'] ?? 'Khách thuê').toString();
+            }
+            if (roomCode.isEmpty) roomCode = (bData['roomCode'] ?? bData['maPhong'] ?? '').toString();
+            if (roomId.isEmpty) roomId = (bData['roomId'] ?? bData['phongId'] ?? '').toString();
+            if (roomTitle.isEmpty) roomTitle = (bData['roomTitle'] ?? bData['tieuDePhong'] ?? '').toString();
+            if (depositAmount <= 0) {
+              final bAmt = bData['depositAmount'] ?? bData['paymentAmount'] ?? bData['tienCoc'] ?? bData['amount'];
+              if (bAmt is num) depositAmount = bAmt.toDouble();
+            }
           }
         } catch (_) {}
       }
@@ -759,37 +791,56 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
         final dateStr = newCheckInDate != null
             ? DateFormat('dd/MM/yyyy').format(newCheckInDate.toDate())
             : '';
-        final renterName = (data['renterName'] ?? data['userName'] ?? 'Khách thuê').toString();
         if (accept) {
           batch.set(hostNotifRef, {
             'id': hostNotifRef.id,
+            'notificationId': hostNotifRef.id,
             'receiverId': hostId,
+            'recipientId': hostId,
             'recipientRole': 'host',
+            'senderId': renterId,
+            'renterId': renterId,
+            'renterName': renterName,
             'title': 'Khách đã xác nhận thay đổi thông tin 🎉',
             'message':
                 'Khách thuê $renterName đã xác nhận đồng ý ngày nhận phòng mới ${dateStr.isNotEmpty ? "($dateStr)" : ""}. Đơn đặt phòng ${bookingId.isNotEmpty ? bookingId : ""} đã sẵn sàng chờ nhận phòng.',
             'notificationType': 'deposit',
             'type': 'deposit',
             'status': 'approved',
-            'statusId': 'deposited',
             'bookingId': bookingId,
-            'checkInDate': ?newCheckInDate,
+            if (roomId.isNotEmpty) 'roomId': roomId,
+            if (roomCode.isNotEmpty) 'roomCode': roomCode,
+            if (roomTitle.isNotEmpty) 'roomTitle': roomTitle,
+            'amount': depositAmount,
+            'oldCheckInDate': ?oldDateTs,
+            'newCheckInDate': ?newCheckInDate,
+            if (newCheckInDate != null || oldDateTs != null)
+              'checkInDate': (newCheckInDate ?? oldDateTs)!,
             'isRead': false,
             'createdAt': FieldValue.serverTimestamp(),
           });
         } else {
           batch.set(hostNotifRef, {
             'id': hostNotifRef.id,
+            'notificationId': hostNotifRef.id,
             'receiverId': hostId,
+            'recipientId': hostId,
             'recipientRole': 'host',
+            'senderId': renterId,
+            'renterId': renterId,
+            'renterName': renterName,
             'title': 'Khách thuê từ chối thay đổi ngày dọn vào',
             'message':
                 'Khách thuê $renterName đã từ chối yêu cầu đổi lịch dọn vào hoặc đổi phòng. Lịch dọn vào ban đầu vẫn được giữ nguyên.',
-            'notificationType': 'booking_adjustment_rejected',
-            'type': 'booking_adjustment_rejected',
-            'status': 'rejected',
-            'statusId': 'rejected',
+            'notificationType': 'deposit',
+            'type': 'deposit',
+            'status': 'approved',
             'bookingId': bookingId,
+            if (roomId.isNotEmpty) 'roomId': roomId,
+            if (roomCode.isNotEmpty) 'roomCode': roomCode,
+            if (roomTitle.isNotEmpty) 'roomTitle': roomTitle,
+            'amount': depositAmount,
+            'checkInDate': ?oldDateTs,
             'isRead': false,
             'createdAt': FieldValue.serverTimestamp(),
           });
