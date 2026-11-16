@@ -14,6 +14,22 @@ import 'host_checkin_handover_screen.dart';
 import 'host_main_screen.dart';
 import 'host_management_menu.dart';
 
+List<CheckinCheckoutItem> applyCheckinCheckoutFilters(
+  List<CheckinCheckoutItem> items, {
+  int? floor,
+  String? roomCode,
+}) {
+  final normalizedRoomCode = roomCode?.trim().toLowerCase() ?? '';
+  return items.where((item) {
+    if (floor != null && item.floor != floor) return false;
+    if (normalizedRoomCode.isNotEmpty &&
+        item.roomCode.trim().toLowerCase() != normalizedRoomCode) {
+      return false;
+    }
+    return true;
+  }).toList();
+}
+
 class HostCheckinCheckoutScreen extends ConsumerStatefulWidget {
   final ValueChanged<HostManagementSection>? onSectionChanged;
   final int initialTab;
@@ -154,8 +170,10 @@ class _HostCheckinCheckoutScreenState
           if (doc.exists && doc.data() != null) {
             final data = doc.data()!;
             qrPayload['bookingId'] = parsedBookingId;
-            qrPayload['hostId'] ??= data['hostId'] ?? data['chuNhaId'] ?? data['chuTroId'];
-            qrPayload['hostName'] ??= data['hostName'] ?? data['tenChuNha'] ?? data['tenChuTro'];
+            qrPayload['hostId'] ??=
+                data['hostId'] ?? data['chuNhaId'] ?? data['chuTroId'];
+            qrPayload['hostName'] ??=
+                data['hostName'] ?? data['tenChuNha'] ?? data['tenChuTro'];
             qrPayload['roomId'] ??= data['roomId'] ?? data['phongId'];
             qrPayload['roomCode'] ??= data['roomCode'] ?? data['maPhong'];
             qrPayload['roomTitle'] ??= data['roomTitle'] ?? data['tieuDePhong'];
@@ -281,8 +299,9 @@ class _HostCheckinCheckoutScreenState
           bookingHostId != hostId) {
         if (!mounted) return;
         _showWrongHostDialog(
-          expectedHostName:
-              bookingHostName.isNotEmpty ? bookingHostName : 'Chủ trọ khác',
+          expectedHostName: bookingHostName.isNotEmpty
+              ? bookingHostName
+              : 'Chủ trọ khác',
           roomTitle: (qrPayload['roomTitle'] ?? 'Phòng trọ').toString(),
           renterName: (qrPayload['renterName'] ?? 'Khách thuê').toString(),
         );
@@ -699,10 +718,176 @@ class _HostCheckinCheckoutScreenState
     );
   }
 
+  Widget _buildRoomFilters(List<CheckinCheckoutItem> items) {
+    final floors = items.map((item) => item.floor).toSet().toList()..sort();
+    final roomCodes =
+        items
+            .map((item) => item.roomCode.trim())
+            .where((code) => code.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+    final hasFilter = _selectedFloor != null || _selectedRoomCode != null;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.filter_alt_outlined,
+                size: 20,
+                color: Color(0xFF2563EB),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Lọc danh sách',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+              ),
+              if (hasFilter)
+                TextButton(
+                  onPressed: () => setState(() {
+                    _selectedFloor = null;
+                    _selectedRoomCode = null;
+                  }),
+                  child: const Text('Xóa lọc'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _buildFilterDropdown<int>(
+                  value: _selectedFloor,
+                  hint: 'Tất cả tầng',
+                  icon: Icons.layers_outlined,
+                  items: floors,
+                  labelBuilder: (floor) => 'Tầng $floor',
+                  onChanged: (floor) => setState(() {
+                    _selectedFloor = floor;
+                    _selectedRoomCode = null;
+                  }),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildFilterDropdown<String>(
+                  value: _selectedRoomCode,
+                  hint: 'Tất cả phòng',
+                  icon: Icons.meeting_room_outlined,
+                  items: roomCodes,
+                  labelBuilder: (code) => 'Phòng $code',
+                  onChanged: (code) => setState(() => _selectedRoomCode = code),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterDropdown<T>({
+    required T? value,
+    required String hint,
+    required IconData icon,
+    required List<T> items,
+    required String Function(T value) labelBuilder,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: const Color(0xFF64748B)),
+          const SizedBox(width: 7),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<T>(
+                value: value,
+                hint: Text(hint, overflow: TextOverflow.ellipsis),
+                isExpanded: true,
+                items: items
+                    .map(
+                      (item) => DropdownMenuItem<T>(
+                        value: item,
+                        child: Text(
+                          labelBuilder(item),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoFilterResults() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 26),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.search_off_rounded,
+            size: 38,
+            color: Color(0xFF94A3B8),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Không có phòng phù hợp bộ lọc',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          TextButton(
+            onPressed: () => setState(() {
+              _selectedFloor = null;
+              _selectedRoomCode = null;
+            }),
+            child: const Text('Hiển thị tất cả'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final checkinItemsAsync = ref.watch(hostCheckinItemsProvider);
     final checkoutItemsAsync = ref.watch(hostCheckoutItemsProvider);
+    final filterItems = <CheckinCheckoutItem>[
+      ...?checkinItemsAsync.value,
+      ...?checkoutItemsAsync.value,
+    ];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -848,8 +1033,14 @@ class _HostCheckinCheckoutScreenState
                   ),
                   const SizedBox(height: 16),
 
+                  if (filterItems.isNotEmpty) ...[
+                    _buildRoomFilters(filterItems),
+                    const SizedBox(height: 16),
+                  ],
+
                   // Nếu có phòng cần check-in thì ưu tiên hiển thị trước
-                  if ((checkinItemsAsync.value?.any((i) => !i.isCompleted) ?? false)) ...[
+                  if ((checkinItemsAsync.value?.any((i) => !i.isCompleted) ??
+                      false)) ...[
                     _buildCheckinContent(checkinItemsAsync),
                     const SizedBox(height: 16),
                   ],
@@ -870,10 +1061,19 @@ class _HostCheckinCheckoutScreenState
   ) {
     return itemsAsync.when(
       data: (items) {
-        final pending = items.where((i) => !i.isCompleted).toList();
-        final completed = items.where((i) => i.isCompleted).toList();
+        final filtered = applyCheckinCheckoutFilters(
+          items,
+          floor: _selectedFloor,
+          roomCode: _selectedRoomCode,
+        );
+        final pending = filtered.where((i) => !i.isCompleted).toList();
+        final completed = filtered.where((i) => i.isCompleted).toList();
 
         if (pending.isEmpty && completed.isEmpty) {
+          if (items.isNotEmpty &&
+              (_selectedFloor != null || _selectedRoomCode != null)) {
+            return _buildNoFilterResults();
+          }
           return _buildEmptyState(
             icon: Icons.meeting_room_outlined,
             title: 'Chưa có phòng nào cần Check-in',
@@ -982,10 +1182,19 @@ class _HostCheckinCheckoutScreenState
   ) {
     return itemsAsync.when(
       data: (items) {
-        final pending = items.where((i) => !i.isCompleted).toList();
-        final completed = items.where((i) => i.isCompleted).toList();
+        final filtered = applyCheckinCheckoutFilters(
+          items,
+          floor: _selectedFloor,
+          roomCode: _selectedRoomCode,
+        );
+        final pending = filtered.where((i) => !i.isCompleted).toList();
+        final completed = filtered.where((i) => i.isCompleted).toList();
 
         if (pending.isEmpty && completed.isEmpty) {
+          if (items.isNotEmpty &&
+              (_selectedFloor != null || _selectedRoomCode != null)) {
+            return _buildNoFilterResults();
+          }
           return _buildEmptyState(
             icon: Icons.exit_to_app_rounded,
             title: 'Chưa có người thuê nào cần Check-out',
