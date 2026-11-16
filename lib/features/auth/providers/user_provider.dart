@@ -25,11 +25,14 @@ class UserProfile {
   final String address; // diaChi
   final String hometown; // queQuan
   final int reputationScore;
+
   /// Số thứ tự chủ trọ cố định trên Firebase (`users.hostIndex`). 0 = chưa cấp.
   final int hostIndex;
   final int statusId;
   final bool isBanned;
   final bool accountDeleted;
+  final bool isEmailVerified;
+  final bool emailVerificationRequired;
   final DateTime? suspendedUntil;
   final String suspensionType;
   final String occupation; // ngheNghiep
@@ -126,6 +129,8 @@ class UserProfile {
     this.statusId = 0,
     this.isBanned = false,
     this.accountDeleted = false,
+    this.isEmailVerified = false,
+    this.emailVerificationRequired = false,
     this.suspendedUntil,
     this.suspensionType = '',
     this.occupation = 'Sinh viên',
@@ -198,10 +203,13 @@ class UserProfile {
       reputationScore:
           ((data['reputationScore'] ?? data['diemUyTin']) as num?)?.toInt() ??
           100,
-      hostIndex: ((data['hostIndex'] ?? data['soChuTro']) as num?)?.toInt() ?? 0,
+      hostIndex:
+          ((data['hostIndex'] ?? data['soChuTro']) as num?)?.toInt() ?? 0,
       statusId: parsedStatusId,
       isBanned: data['isBanned'] == true,
       accountDeleted: data['accountDeleted'] == true,
+      isEmailVerified: data['isEmailVerified'] == true,
+      emailVerificationRequired: data['emailVerificationRequired'] == true,
       suspendedUntil: parseModerationDate(data['suspendedUntil']),
       suspensionType: (data['suspensionType'] ?? '').toString(),
       occupation: data['occupation'] ?? data['ngheNghiep'] ?? 'Sinh viên',
@@ -252,6 +260,8 @@ class UserProfile {
       'address': address,
       'hometown': hometown,
       'reputationScore': reputationScore,
+      'isEmailVerified': isEmailVerified,
+      'emailVerificationRequired': emailVerificationRequired,
       if (hostIndex > 0) 'hostIndex': hostIndex,
 
       'occupation': occupation,
@@ -290,6 +300,8 @@ class UserProfile {
     int? statusId,
     bool? isBanned,
     bool? accountDeleted,
+    bool? isEmailVerified,
+    bool? emailVerificationRequired,
     DateTime? suspendedUntil,
     String? suspensionType,
     String? occupation,
@@ -323,6 +335,9 @@ class UserProfile {
       statusId: statusId ?? this.statusId,
       isBanned: isBanned ?? this.isBanned,
       accountDeleted: accountDeleted ?? this.accountDeleted,
+      isEmailVerified: isEmailVerified ?? this.isEmailVerified,
+      emailVerificationRequired:
+          emailVerificationRequired ?? this.emailVerificationRequired,
       suspendedUntil: suspendedUntil ?? this.suspendedUntil,
       suspensionType: suspensionType ?? this.suspensionType,
       occupation: occupation ?? this.occupation,
@@ -368,7 +383,9 @@ Future<void> saveCccdVerificationToBackend({
     try {
       final doc = await firestore.collection('users').doc(effectiveUid).get();
       if (doc.exists && doc.data() != null) {
-        final dName = (doc.data()?['displayName'] ?? doc.data()?['hoTen'])?.toString().trim();
+        final dName = (doc.data()?['displayName'] ?? doc.data()?['hoTen'])
+            ?.toString()
+            .trim();
         if (dName != null && dName.isNotEmpty) {
           existingDisplayName = dName;
         }
@@ -416,7 +433,9 @@ Future<void> saveCccdVerificationToBackend({
           .collection('users')
           .doc(effectiveUid)
           .set(updateData, SetOptions(merge: true));
-      debugPrint('Đã lưu CCCD eKYC vào Firestore users/$effectiveUid thành công ✓');
+      debugPrint(
+        'Đã lưu CCCD eKYC vào Firestore users/$effectiveUid thành công ✓',
+      );
     } catch (e) {
       debugPrint('Lỗi ghi CCCD vào Firestore users/$effectiveUid: $e');
     }
@@ -442,7 +461,10 @@ Future<void> saveCccdVerificationToBackend({
     await prefs.setString('cccd_hometown_$cacheKey', cccdHometown);
     await prefs.setString('cccd_gender_$cacheKey', gender);
     if (birthDate != null) {
-      await prefs.setString('cccd_birth_$cacheKey', birthDate.toIso8601String());
+      await prefs.setString(
+        'cccd_birth_$cacheKey',
+        birthDate.toIso8601String(),
+      );
     }
     if (cccdFrontImageUrl.isNotEmpty) {
       await prefs.setString('cccd_front_$cacheKey', cccdFrontImageUrl);
@@ -454,7 +476,10 @@ Future<void> saveCccdVerificationToBackend({
 }
 
 /// Xóa toàn bộ thông tin xác thực CCCD trên Firestore và SharedPreferences để phục vụ kiểm thử
-Future<void> resetCccdVerificationForTesting({required String uid, FirebaseFirestore? firestore}) async {
+Future<void> resetCccdVerificationForTesting({
+  required String uid,
+  FirebaseFirestore? firestore,
+}) async {
   final effectiveUid = (uid.isNotEmpty && uid != 'guest_uid')
       ? uid
       : (FirebaseAuth.instance.currentUser?.uid ?? uid);
@@ -482,9 +507,19 @@ Future<void> resetCccdVerificationForTesting({required String uid, FirebaseFires
   if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
     try {
       final db = firestore ?? FirebaseFirestore.instance;
-      await db.collection('users').doc(effectiveUid).set(resetData, SetOptions(merge: true));
-      await db.collection('users').doc(effectiveUid).collection('id_verifications').doc('cccd').delete();
-      debugPrint('Đã xóa dữ liệu xác thực CCCD users/$effectiveUid thành công ✓');
+      await db
+          .collection('users')
+          .doc(effectiveUid)
+          .set(resetData, SetOptions(merge: true));
+      await db
+          .collection('users')
+          .doc(effectiveUid)
+          .collection('id_verifications')
+          .doc('cccd')
+          .delete();
+      debugPrint(
+        'Đã xóa dữ liệu xác thực CCCD users/$effectiveUid thành công ✓',
+      );
     } catch (e) {
       debugPrint('Lỗi xóa CCCD Firestore: $e');
     }
@@ -601,6 +636,8 @@ Stream<UserProfile?> _userProfileEvents(
       displayName: user.displayName ?? 'Người dùng HomeShare',
       phoneNumber: '',
       role: 'renter',
+      isEmailVerified: user.emailVerified,
+      emailVerificationRequired: !user.emailVerified,
     );
     return;
   }
@@ -619,8 +656,10 @@ Stream<UserProfile?> _userProfileEvents(
 
   // Tự động khôi phục tên tài khoản (như "QA") nếu từng bị ghi đè trùng với cccdFullName:
   final authDisplayName = user.displayName?.trim() ?? '';
-  final firestoreDisplayName = (data['displayName'] ?? data['hoTen'])?.toString().trim() ?? '';
-  final cccdFullName = (data['cccdFullName'] ?? data['hoTenCccd'])?.toString().trim() ?? '';
+  final firestoreDisplayName =
+      (data['displayName'] ?? data['hoTen'])?.toString().trim() ?? '';
+  final cccdFullName =
+      (data['cccdFullName'] ?? data['hoTenCccd'])?.toString().trim() ?? '';
 
   if (authDisplayName.isNotEmpty &&
       firestoreDisplayName.isNotEmpty &&
@@ -641,7 +680,9 @@ Stream<UserProfile?> _userProfileEvents(
   var profile = UserProfile.fromMap(data, user.uid);
 
   // Chủ trọ đăng nhập: bảo đảm đã có hostIndex cố định trên Firebase.
-  if (HostReputation.isHostRole(profile.role) && profile.hostIndex <= 0) {
+  if (!profile.emailVerificationRequired &&
+      HostReputation.isHostRole(profile.role) &&
+      profile.hostIndex <= 0) {
     try {
       final index = await HostIndexService().ensureHostIndex(user.uid);
       profile = profile.copyWith(hostIndex: index);

@@ -3896,3 +3896,70 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
   4. Nâng cấp tìm kiếm realtime theo mã booking đầy đủ, booking ID, tiêu đề, nội dung, phòng, người thuê và trạng thái; hỗ trợ nhập tiếng Việt không dấu.
   5. Tách logic lọc khỏi UI để dùng dữ liệu Firestore thực tế, không hard-code danh sách thông báo.
   6. Kiểm thử: test logic tìm kiếm/lọc ngày/trạng thái và widget test thao tác mở bộ lọc trên màn hình rộng 360px; toàn bộ `flutter test` **7/7 passed**, `flutter analyze` **No issues found**.
+
+
+---
+
+### Cập nhật 16/11/2026: Đăng Ký Gmail Bằng Firebase Verification Link
+* **Phương án đã duyệt:** Firebase Auth gửi link xác thực vào Gmail; người dùng bấm link trong email để kích hoạt tài khoản. Không yêu cầu khai báo trước Gmail trong Firebase Console.
+* **Yêu cầu & Thực hiện:**
+  1. **Thay hoàn toàn luồng OTP/SMTP cũ:**
+     - Xóa `EmailOtpService`, bottom sheet nhập OTP, collection/rule công khai `email_otps` và dependency `mailer`.
+     - Loại bỏ mật khẩu ứng dụng Gmail và mã OTP debug khỏi mã nguồn/APK hiện tại.
+     - Chỉ chấp nhận địa chỉ `@gmail.com` hoặc alias `@googlemail.com`; Firebase Auth vẫn tự kiểm tra email trùng và độ mạnh mật khẩu.
+  2. **Tạo tài khoản ở trạng thái chờ xác thực:**
+     - Sau khi `createUserWithEmailAndPassword`, hồ sơ Firestore được ghi `isEmailVerified: false` và `emailVerificationRequired: true`.
+     - Gọi trực tiếp `FirebaseAuth.sendEmailVerification()` với ngôn ngữ tiếng Việt; không dùng SMTP từ thiết bị.
+     - Chủ trọ chỉ được cấp `hostIndex` sau khi Firebase xác nhận email thành công.
+  3. **Màn hình xác thực Gmail riêng:**
+     - Hiển thị Gmail đã che thông tin theo dạng `a****2108@gmail.com`, nút mở Gmail, nút kiểm tra xác thực và nút gửi lại có giới hạn 60 giây.
+     - Tự kiểm tra lại khi người dùng quay về ứng dụng; có hướng dẫn kiểm tra thư mục Spam và nút đổi tài khoản/sửa Gmail.
+     - `AuthGate` chặn tài khoản mới chưa xác thực, không bind push/call và không mở màn hình nghiệp vụ trước khi kích hoạt.
+     - Sau khi Firebase xác nhận link, hiển thị hộp `Đăng ký thành công` trong 1,5 giây, tự đóng phiên đăng ký và chuyển về màn hình đăng nhập với Gmail được điền sẵn; người dùng không cần bấm thêm nút và app không tự vào thẳng trang chủ.
+  4. **Kích hoạt bằng trạng thái thật của Firebase:**
+     - Reload Firebase User, kiểm tra `emailVerified`, làm mới ID token rồi mới cập nhật hồ sơ thành đã xác thực.
+     - Tài khoản cũ không có cờ `emailVerificationRequired` vẫn đăng nhập bình thường để tránh khóa nhầm dữ liệu legacy.
+  5. **Bảo vệ Firestore:**
+     - Firestore Rules chỉ cho tài khoản chờ xác thực tạo/đọc hồ sơ của chính mình.
+     - Chỉ khi token Firebase có `email_verified: true` (hoặc là tài khoản legacy hợp lệ) mới được truy cập dữ liệu ứng dụng.
+     - Rule đã được nạp và kiểm tra cú pháp thành công bằng Firestore Emulator cục bộ; chưa deploy lên Firebase.
+  6. **Kiểm thử và build:**
+     - Thêm `test/email_verification_policy_test.dart` kiểm tra Gmail hợp lệ, tài khoản mới bị chặn, trạng thái đã xác thực và tương thích tài khoản cũ.
+     - `flutter test`: **14/14 tests passed**.
+     - `flutter analyze` toàn bộ dự án: **No issues found**.
+     - Build Android debug thành công: `build/app/outputs/flutter-apk/app-debug.apk`.
+  7. **Mẫu email xác thực có thương hiệu HomeShare:**
+     - Chuẩn bị mẫu HTML tiếng Việt tại `firebase_email_templates/verify_email_vi.html`, gồm tên HomeShare, tên người đăng ký, Gmail, cảnh báo an toàn, nút xác thực và 5 bước hoàn tất đăng ký.
+     - Chuẩn bị tiêu đề `[HomeShare] Xác thực tài khoản đăng ký` và tên người gửi `HomeShare` trong `firebase_email_templates/README.md`.
+     - Firebase chỉ hỗ trợ placeholder `%APP_NAME%`, `%DISPLAY_NAME%`, `%EMAIL%`, `%LINK%` và không có placeholder ngày/giờ động; mẫu hướng dẫn xem thời gian chính xác ở đầu thư Gmail.
+     - API của dự án Firebase Auth hiện trả `EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED`, nên mẫu chưa thể kích hoạt bằng CLI/API; cần dán và lưu một lần tại Firebase Console → Authentication → Templates.
+* **Lưu ý an toàn:** mật khẩu ứng dụng Gmail từng tồn tại trong lịch sử Git cần được chủ tài khoản thu hồi/đổi trong Google Account; việc xóa khỏi source hiện tại không xóa được secret khỏi lịch sử commit cũ.
+
+
+---
+
+### Cập nhật bổ sung 16/11/2026: Hoàn Thiện Lọc Tầng/Phòng Ở Check-in & Check-out
+1. Nối hai bộ lọc `Tầng` và `Phòng` vào danh sách dữ liệu thật của cả check-in và check-out; hỗ trợ kết hợp hai điều kiện.
+2. Danh sách lựa chọn được sinh từ các phòng của chủ trọ, không gán cứng; có nút `Xóa lọc` và trạng thái không tìm thấy kết quả.
+3. Thêm `test/checkin_checkout_filter_test.dart` kiểm tra lọc riêng theo tầng, theo phòng và kết hợp tầng/phòng.
+4. Loại bỏ hai cảnh báo biến lọc chưa sử dụng; `flutter analyze` toàn dự án đạt **No issues found**.
+
+
+---
+
+### Cập nhật bổ sung 16/11/2026: Cho Phép Đăng Ký Lại Gmail Đã Xóa / Tiếp Tục Đăng Ký Dở
+1. Gmail đã được xóa thật khỏi Firebase Authentication có thể tạo lại tài khoản bằng UID mới; document Firestore cũ không được dùng để chặn email.
+2. Khi Firebase trả `email-already-in-use`, app thử đăng nhập bằng chính Gmail và mật khẩu vừa nhập:
+   - Nếu tài khoản tồn tại nhưng chưa xác thực và hồ sơ có trạng thái chờ, app tiếp tục luồng đăng ký, gửi lại link và chuyển sang màn hình xác thực.
+   - Nếu hồ sơ chờ bị thiếu do lần đăng ký trước lỗi giữa chừng, app tự tạo lại hồ sơ chờ.
+   - Nếu tài khoản đã xác thực/đã hoạt động hoặc mật khẩu không đúng, app từ chối ghi đè để tránh chiếm tài khoản.
+3. Cho phép cập nhật an toàn tên, số điện thoại, role và mã người dùng của hồ sơ chờ; hỗ trợ cả `renter` (Người thuê) và `host` (Chủ trọ).
+4. Cập nhật Firestore Rules để tài khoản chưa xác thực chỉ được sửa đúng các trường đăng ký an toàn của chính mình; không được mở quyền truy cập dữ liệu nghiệp vụ.
+5. Kiểm thử:
+   - Thêm test tiếp tục tài khoản đăng ký dở, hồ sơ bị thiếu, chặn tài khoản đã xác thực/legacy và xác nhận cả hai role.
+   - `flutter test`: **17/17 tests passed**.
+   - `flutter analyze`: **No issues found**.
+   - Firestore Rules chạy thành công trên emulator.
+   - Build APK debug thành công tại `build/app/outputs/flutter-apk/app-debug.apk`.
+6. **Sửa điều hướng sau khi nhấn Đăng ký:** đóng route `RegisterScreen` sau khi Firebase tạo/khôi phục tài khoản chờ để `AuthGate` hiển thị ngay màn hình xác thực Gmail; trước đây route đăng ký nằm trên cùng và che màn hình xác thực ở dưới.
+7. **Không mở tài khoản trước khi hoàn tất xác thực:** khi hồ sơ vẫn còn `emailVerificationRequired: true`, người dùng luôn bị giữ tại màn hình xác thực—even khi Firebase vừa cập nhật email—cho tới khi app kiểm tra trạng thái, kích hoạt hồ sơ và hiển thị hộp `Đăng ký thành công`.

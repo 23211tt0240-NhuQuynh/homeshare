@@ -10,6 +10,8 @@ import 'features/admin/screens/admin_main_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/providers/user_provider.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/auth/screens/email_verification_screen.dart';
+import 'features/auth/services/email_verification_policy.dart';
 import 'features/host/screens/host_main_screen.dart';
 import 'features/renter/screens/renter_main_screen.dart';
 
@@ -58,7 +60,11 @@ class AuthGate extends ConsumerWidget {
       data: (user) {
         if (user != null) {
           // Bọc màn hình chính để lưu fcmToken ngay sau khi đăng nhập.
-          return _SignedInShell(uid: user.uid);
+          return _SignedInShell(
+            uid: user.uid,
+            email: user.email ?? '',
+            firebaseEmailVerified: user.emailVerified,
+          );
         }
         return const LoginScreen();
       },
@@ -74,24 +80,25 @@ class AuthGate extends ConsumerWidget {
 /// và gắn mã thông báo của máy vào user đang đăng nhập.
 class _SignedInShell extends ConsumerStatefulWidget {
   final String uid;
-  const _SignedInShell({required this.uid});
+  final String email;
+  final bool firebaseEmailVerified;
+  const _SignedInShell({
+    required this.uid,
+    required this.email,
+    required this.firebaseEmailVerified,
+  });
 
   @override
   ConsumerState<_SignedInShell> createState() => _SignedInShellState();
 }
 
 class _SignedInShellState extends ConsumerState<_SignedInShell> {
+  bool _servicesBound = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      CallPushService.bindUser(widget.uid);
-      PushNotificationService.bindUser(widget.uid);
-      if (PushNotificationService.pendingPayload != null) {
-        final payload = PushNotificationService.pendingPayload!;
-        PushNotificationService.pendingPayload = null;
-        PushNotificationService.handlePayloadNavigation(payload);
-      }
       ref.read(renterBottomNavIndexProvider.notifier).setIndex(0);
     });
   }
@@ -102,6 +109,17 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
 
     return profileAsync.when(
       data: (profile) {
+        final mustVerify = EmailVerificationPolicy.requiresVerification(
+          firebaseEmailVerified: widget.firebaseEmailVerified,
+          profileRequiresVerification:
+              profile?.emailVerificationRequired ??
+              !widget.firebaseEmailVerified,
+        );
+        if (mustVerify) {
+          return EmailVerificationScreen(email: widget.email);
+        }
+
+        _bindSignedInServices();
         final role = profile?.role.toLowerCase() ?? 'renter';
 
         if (role == 'admin') {
@@ -122,5 +140,19 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
         body: Center(child: Text('Lỗi tải thông tin tài khoản: $error')),
       ),
     );
+  }
+
+  void _bindSignedInServices() {
+    if (_servicesBound) return;
+    _servicesBound = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      CallPushService.bindUser(widget.uid);
+      PushNotificationService.bindUser(widget.uid);
+      if (PushNotificationService.pendingPayload != null) {
+        final payload = PushNotificationService.pendingPayload!;
+        PushNotificationService.pendingPayload = null;
+        PushNotificationService.handlePayloadNavigation(payload);
+      }
+    });
   }
 }

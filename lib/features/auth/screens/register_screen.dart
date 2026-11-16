@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/services/email_otp_service.dart';
 import '../../../core/theme/phong_sang_theme.dart';
 import '../providers/auth_provider.dart';
+import '../services/email_verification_policy.dart';
 import '../widgets/auth_form_card.dart';
-import '../widgets/email_otp_verification_sheet.dart';
 
 /// Màn hình Đăng Ký Tài Khoản HomeShare (Hỗ trợ 2 Role: Người thuê & Chủ trọ)
 /// Theo chuẩn Moodboard Phòng Sáng (phong_sang_theme.dart)
@@ -66,39 +65,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final emailOtpService = ref.read(emailOtpServiceProvider);
-
-      // 1. Kiểm tra xem email đã được đăng ký tài khoản nào chưa
-      final isRegistered = await emailOtpService.isEmailRegistered(targetEmail);
-      if (isRegistered) {
-        throw 'Email này đã được sử dụng cho tài khoản khác. Vui lòng đăng nhập hoặc dùng email mới.';
-      }
-
-      // 2. Gửi mã OTP xác thực qua Gmail
-      final sendResult = await emailOtpService.sendRegistrationOtp(
-        rawEmail: targetEmail,
-        recipientName: targetName.isNotEmpty ? targetName : 'Bạn',
-      );
-
-      setState(() => _isLoading = false);
-
-      if (!mounted) return;
-
-      // 3. Mở Bottom Sheet để người dùng nhập mã OTP 6 số
-      final verified = await EmailOtpVerificationSheet.show(
-        context,
-        email: targetEmail,
-        recipientName: targetName,
-        initialDebugOtp: sendResult.debugOtp,
-      );
-
-      if (verified != true) {
-        // Người dùng đã đóng sheet hoặc chưa xác thực xong
-        return;
-      }
-
-      // 4. Đã xác thực OTP thành công -> Tạo tài khoản Firebase Auth & Firestore
-      setState(() => _isLoading = true);
       final authService = ref.read(authServiceProvider);
       await authService.signUpWithEmail(
         email: targetEmail,
@@ -108,28 +74,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         role: _selectedRole,
       );
 
-      // 5. Tiêu thụ / dọn dẹp bản ghi OTP
-      await emailOtpService.consumeOtp(targetEmail);
-
-      // 6. Đăng xuất ngay để người dùng trở về màn hình Đăng Nhập
-      await authService.signOut();
-
-      if (mounted) {
-        final roleName = _selectedRole == 'host' ? 'Chủ trọ' : 'Người thuê';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Xác thực Gmail và đăng ký tài khoản $roleName thành công! Vui lòng đăng nhập.',
-            ),
-            backgroundColor: AppColors.primary,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-
-        // Quay trở lại màn hình Đăng nhập và truyền email vừa tạo để điền sẵn
-        Navigator.pop(context, targetEmail);
-      }
+      if (!mounted) return;
+      // RegisterScreen được push trên Navigator của AuthGate. Phải đóng route
+      // này sau khi Firebase đăng nhập tài khoản chờ, nếu không nó sẽ che màn
+      // hình xác thực email đang được AuthGate dựng ở phía dưới.
+      Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -270,7 +219,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           AuthTextField(
                             controller: _emailController,
                             label: 'Email *',
-                            hint: 'an.nguyen@email.com',
+                            hint: 'an.nguyen@gmail.com',
                             icon: Icons.email_outlined,
                             keyboardType: TextInputType.emailAddress,
                             validator: _validateEmail,
@@ -463,9 +412,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   String? _validateEmail(String? val) {
     final email = (val ?? '').trim().toLowerCase();
     if (email.isEmpty) return 'Vui lòng nhập email';
-    final emailRegex = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$');
-    if (!emailRegex.hasMatch(email)) {
-      return 'Email không đúng định dạng';
+    if (!EmailVerificationPolicy.isSupportedGmail(email)) {
+      return 'Vui lòng dùng địa chỉ Gmail hợp lệ (@gmail.com)';
     }
     return null;
   }

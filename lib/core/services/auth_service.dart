@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../features/auth/providers/user_provider.dart';
+import '../../features/auth/services/email_verification_policy.dart';
 import '../utils/host_reputation.dart';
 import 'host_index_service.dart';
 import 'push_notification_service.dart';
@@ -14,6 +15,9 @@ class AuthService {
 
   /// Giữ cảnh báo khi màn đăng nhập được dựng lại sau khi đăng xuất tài khoản khóa.
   static String? pendingLockNotice;
+
+  /// Gmail vừa đăng ký thành công để màn hình đăng nhập tự điền lại.
+  static String? pendingLoginEmail;
 
   static const int statusLockedId = 2;
 
@@ -66,6 +70,12 @@ class AuthService {
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
         }
+        if (profile?['emailVerificationRequired'] == true) {
+          await user.reload();
+          if (_auth.currentUser?.emailVerified == true) {
+            await activateVerifiedEmail();
+          }
+        }
       }
       return credential;
     } on FirebaseAuthException catch (e) {
@@ -110,36 +120,63 @@ class AuthService {
     String? phoneNumber,
     String role = 'renter', // 'renter' (người thuê) hoặc 'host' (chủ trọ)
   }) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    if (!EmailVerificationPolicy.isSupportedGmail(normalizedEmail)) {
+      throw 'Vui lòng sử dụng địa chỉ Gmail hợp lệ (@gmail.com).';
+    }
+    if (!EmailVerificationPolicy.isSupportedRegistrationRole(role)) {
+      throw 'Vai trò đăng ký không hợp lệ.';
+    }
     try {
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: email.trim(),
-        password: password.trim(),
-      );
+      late UserCredential credential;
+      try {
+        credential = await _auth.createUserWithEmailAndPassword(
+          email: normalizedEmail,
+          password: password.trim(),
+        );
+      } on FirebaseAuthException catch (e) {
+        if (e.code != 'email-already-in-use') rethrow;
+        credential = await _resumePendingRegistration(
+          email: normalizedEmail,
+          password: password.trim(),
+        );
+      }
 
       final user = credential.user;
       if (user != null) {
         await user.updateDisplayName(displayName);
 
         // Sinh mã người dùng 5 ký tự (3 số đầu + 2 chữ sau)
-        final userCode = UserProfile.generateUserCode(seed: user.uid, role: role);
+        final userCode = UserProfile.generateUserCode(
+          seed: user.uid,
+          role: role,
+        );
 
-        // Lưu thông tin người dùng vào Firestore collection 'users'
-        await _firestore.collection('users').doc(user.uid).set({
-          'uid': user.uid,
+        final profileRef = _firestore.collection('users').doc(user.uid);
+        final profile = await profileRef.get();
+        final pendingProfile = <String, dynamic>{
           'userCode': userCode,
-          'email': email.trim(),
           'displayName': displayName.trim(),
-          'phoneNumber': phoneNumber ?? '',
+          'phoneNumber': phoneNumber?.trim() ?? '',
           'role': role,
-          'reputationScore': 100,
-          'isEmailVerified': true,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-
-        // Chủ trọ: cấp hostIndex cố định ngay khi đăng ký.
-        if (HostReputation.isHostRole(role)) {
-          await HostIndexService(firestore: _firestore).ensureHostIndex(user.uid);
+          'isEmailVerified': false,
+          'emailVerificationRequired': true,
+        };
+        if (profile.exists) {
+          await profileRef.set({
+            ...pendingProfile,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        } else {
+          await profileRef.set({
+            'uid': user.uid,
+            'email': normalizedEmail,
+            'reputationScore': 100,
+            ...pendingProfile,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
         }
+        await sendEmailVerification();
       }
 
       return credential;
@@ -147,6 +184,87 @@ class AuthService {
       throw _handleAuthException(e);
     } catch (e) {
       throw 'Đã có lỗi xảy ra: $e';
+    }
+  }
+
+  Future<UserCredential> _resumePendingRegistration({
+    required String email,
+    required String password,
+  }) async {
+    final credential = await _auth.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    final user = credential.user;
+    if (user == null) {
+      throw FirebaseAuthException(code: 'user-not-found');
+    }
+
+    await user.reload();
+    final refreshedUser = _auth.currentUser;
+    if (refreshedUser == null) {
+      throw FirebaseAuthException(code: 'user-not-found');
+    }
+
+    final profile = await _firestore.collection('users').doc(user.uid).get();
+    final canResume = EmailVerificationPolicy.canResumePendingRegistration(
+      firebaseEmailVerified: refreshedUser.emailVerified,
+      profileExists: profile.exists,
+      profileRequiresVerification:
+          profile.data()?['emailVerificationRequired'] == true,
+    );
+    if (!canResume) {
+      await _auth.signOut();
+      throw FirebaseAuthException(code: 'email-already-in-use');
+    }
+
+    return credential;
+  }
+
+  /// Gửi email bằng hạ tầng Firebase Auth; ứng dụng không giữ mật khẩu Gmail.
+  Future<void> sendEmailVerification() async {
+    final user = _auth.currentUser;
+    if (user == null) throw 'Phiên đăng ký đã hết. Vui lòng đăng nhập lại.';
+    if (user.emailVerified) return;
+
+    try {
+      await _auth.setLanguageCode('vi');
+      await user.sendEmailVerification();
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    } catch (e) {
+      throw 'Không thể gửi email xác thực: $e';
+    }
+  }
+
+  /// Nạp lại trạng thái từ Firebase và chỉ kích hoạt hồ sơ khi link đã được bấm.
+  Future<bool> refreshEmailVerificationStatus() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    await user.reload();
+    final refreshedUser = _auth.currentUser;
+    if (refreshedUser?.emailVerified != true) return false;
+    // Làm mới ID token để Firestore Rules nhận claim email_verified mới nhất.
+    await refreshedUser!.getIdToken(true);
+    return true;
+  }
+
+  Future<void> activateVerifiedEmail() async {
+    final user = _auth.currentUser;
+    if (user == null || !user.emailVerified) return;
+
+    final profileRef = _firestore.collection('users').doc(user.uid);
+    final snapshot = await profileRef.get();
+    final data = snapshot.data();
+    await profileRef.set({
+      'isEmailVerified': true,
+      'emailVerificationRequired': false,
+      'emailVerifiedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    if (HostReputation.isHostRole(data?['role']?.toString() ?? '')) {
+      await HostIndexService(firestore: _firestore).ensureHostIndex(user.uid);
     }
   }
 

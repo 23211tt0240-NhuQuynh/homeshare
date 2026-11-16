@@ -5,6 +5,16 @@ service cloud.firestore {
     function profileExists() {
       return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
+    function hasEmailAccess() {
+      return signedIn() && (
+        request.auth.token.email_verified == true
+        || (
+          profileExists()
+          && get(/databases/$(database)/documents/users/$(request.auth.uid))
+            .data.get('emailVerificationRequired', false) != true
+        )
+      );
+    }
     function role() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'renter');
     }
@@ -91,8 +101,8 @@ service cloud.firestore {
           && residentIsActive(hostReviewResident())
           && residentRoomMatchesHost(hostReviewResident());
       }
-      allow read: if signedIn();
-      allow create: if signedIn()
+      allow read: if hasEmailAccess();
+      allow create: if hasEmailAccess()
         && request.resource.data.keys().hasOnly(hostReviewKeys())
         && request.resource.data.reviewerId == request.auth.uid
         && request.resource.data.hostId is string
@@ -111,15 +121,52 @@ service cloud.firestore {
       allow delete: if admin();
     }
 
-    // Cho phép đọc/ghi mã OTP xác thực email khi đăng ký tài khoản (chưa đăng nhập)
-    match /email_otps/{email} {
-      allow read, write: if true;
+    // Tài khoản mới được tạo hồ sơ chờ xác thực và đọc hồ sơ của chính mình.
+    // Mọi cập nhật chỉ được mở sau khi Firebase xác nhận email hoặc với tài khoản legacy.
+    match /users/{uid} {
+      allow read: if signedIn()
+        && (request.auth.uid == uid || hasEmailAccess())
+        && request.time < timestamp.date(2026, 12, 10);
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role in ['renter', 'host']
+        && (
+          request.auth.token.email_verified == true
+          || (
+            request.resource.data.emailVerificationRequired == true
+            && request.resource.data.isEmailVerified == false
+          )
+        )
+        && request.time < timestamp.date(2026, 12, 10);
+      allow update: if (
+          hasEmailAccess()
+          || (
+            signedIn()
+            && request.auth.uid == uid
+            && resource.data.emailVerificationRequired == true
+            && request.resource.data.emailVerificationRequired == true
+            && request.resource.data.isEmailVerified == false
+            && request.resource.data.uid == uid
+            && request.resource.data.email == resource.data.email
+            && request.resource.data.role in ['renter', 'host']
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'userCode', 'displayName', 'phoneNumber', 'role',
+              'isEmailVerified', 'emailVerificationRequired', 'updatedAt'
+            ])
+          )
+        )
+        && request.time < timestamp.date(2026, 12, 10);
+      allow delete: if hasEmailAccess()
+        && request.time < timestamp.date(2026, 12, 10);
     }
 
     // Rule đang live: user đã đăng nhập được đọc/ghi đến 10/12/2026, trừ host_reviews ở trên.
     match /{collection}/{document=**} {
       allow read, write: if collection != 'host_reviews'
-        && request.auth != null
+        && collection != 'users'
+        && hasEmailAccess()
         && request.time < timestamp.date(2026, 12, 10);
     }
   }

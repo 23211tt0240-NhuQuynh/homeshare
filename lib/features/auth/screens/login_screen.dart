@@ -28,8 +28,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    final registeredEmail = AuthService.pendingLoginEmail;
+    AuthService.pendingLoginEmail = null;
     _emailController = TextEditingController(
-      text: (widget.initialEmail ?? '').trim(),
+      text: (widget.initialEmail ?? registeredEmail ?? '').trim(),
     );
     final pending = AuthService.pendingLockNotice;
     if (pending != null) {
@@ -135,8 +137,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           borderRadius: BorderRadius.circular(22),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF155EEF)
-                                  .withValues(alpha: 0.2),
+                              color: const Color(
+                                0xFF155EEF,
+                              ).withValues(alpha: 0.2),
                               blurRadius: 18,
                               offset: const Offset(0, 8),
                             ),
