@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/firestore_collections.dart';
+import '../../../core/utils/room_deposit.dart';
 import '../../../core/utils/vnd_input.dart';
 import '../../../data/models/room_model.dart';
 import '../../../data/models/host_post_model.dart';
@@ -618,20 +619,8 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       if (parsedPrice > 0 && parsedDeposit > 0) {
         depositPercent = ((parsedDeposit / parsedPrice) * 100).round();
       }
-      if (!const [
-        10,
-        20,
-        30,
-        40,
-        50,
-        60,
-        70,
-        80,
-        90,
-        100,
-      ].contains(depositPercent)) {
-        const allowed = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-        depositPercent = allowed.reduce(
+      if (!roomDepositPercentages.contains(depositPercent)) {
+        depositPercent = roomDepositPercentages.reduce(
           (a, b) =>
               (depositPercent - a).abs() < (depositPercent - b).abs() ? a : b,
         );

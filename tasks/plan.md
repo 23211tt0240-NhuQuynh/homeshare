@@ -257,3 +257,123 @@
 - Đối chiếu module `lib/features/host`, chỉ nhập các thay đổi của T.ANH và dependency trực tiếp cần thiết.
 - Chạy test Chủ trọ ở trạng thái RED trước khi nhập code, sau đó chạy focused tests, analyzer, full test và build APK.
 - Không sao chép nguyên các file dùng chung đã cũ hơn từ T.ANH (`room_service`, `room_model`, `main.dart`, dependency Admin).
+
+---
+
+# Active Plan — Bộ lọc Check-in/Check-out, cọc 10–20% và bỏ `isAvailable` khi checkout
+
+## Tổng quan
+
+Hoàn thiện ba thay đổi trên nhánh hiện tại mà không làm mất phần code Anti đã sửa dở: thêm bộ lọc tầng/phòng ở màn hình quản lý Check-in & Check-out, giới hạn tỷ lệ cọc khi Chủ trọ tạo/sửa phòng trong khoảng 10–20%, và bảo đảm luồng checkout không sinh lại trường legacy `isAvailable`. Không commit hoặc push khi chưa có lệnh trực tiếp của người dùng.
+
+## Quyết định kỹ thuật
+
+- Một bộ lọc dùng chung đặt ngay dưới banner QR, áp dụng đồng thời cho danh sách check-in và check-out đang hiển thị.
+- Tùy chọn tầng/phòng được suy ra từ dữ liệu thật của hai provider, sắp xếp ổn định, không hardcode số tầng hay mã phòng.
+- Khi đổi tầng, danh sách phòng chỉ còn các phòng thuộc tầng đó; nếu phòng đang chọn không còn hợp lệ thì tự trả về “Tất cả phòng”.
+- Tỷ lệ cọc hợp lệ dùng một nguồn duy nhất `roomDepositPercentages = [10, 15, 20]`; mọi UI, model/service validation và tính tiền phải dùng cùng nguồn này.
+- Checkout dùng `status` làm nguồn trạng thái phòng. Các write trong checkout phải xóa `isAvailable` bằng `FieldValue.delete()` hoặc bỏ hẳn write thông qua helper chuyên biệt; không được gọi helper làm phát sinh lại `isAvailable: true`.
+- Không xóa khả năng đọc `isAvailable` legacy trong `RoomModel` ở phạm vi công việc này, vì dữ liệu cũ vẫn cần tương thích.
+
+## Task 1: Hoàn thiện chính sách lọc thuần
+
+**Mô tả:** Tạo helper thuần để lấy danh sách tầng/phòng và lọc `CheckinCheckoutItem`, dùng được cho cả hai provider.
+
+**Tiêu chí nghiệm thu:**
+- [ ] “Tất cả tầng” và “Tất cả phòng” trả về toàn bộ dữ liệu.
+- [ ] Chọn tầng lọc đúng `item.floor`; chọn phòng lọc đúng định danh phòng, không dùng tiêu đề hiển thị làm khóa.
+- [ ] Tầng/phòng không tồn tại trả về danh sách rỗng, không crash.
+
+**Xác minh:**
+- [ ] Viết test RED trước cho helper; sau triển khai test phải GREEN.
+- [ ] Test bao phủ kết hợp tầng + phòng và danh sách trống.
+
+**Phụ thuộc:** Không.
+
+**File dự kiến:**
+- `lib/features/host/screens/host_checkin_checkout_screen.dart` hoặc helper mới cạnh màn hình
+- `test/host_checkin_checkout_filter_test.dart`
+
+## Task 2: Thêm UI lọc tầng và phòng
+
+**Mô tả:** Hoàn thiện hai state `_selectedFloor`, `_selectedRoomCode` đã có và dựng hàng bộ lọc responsive dưới banner QR.
+
+**Tiêu chí nghiệm thu:**
+- [ ] Có hai dropdown/chip chọn “Tất cả tầng” và “Tất cả phòng”.
+- [ ] Phòng được giới hạn theo tầng đang chọn; đổi tầng làm sạch lựa chọn phòng không hợp lệ.
+- [ ] Số lượng và các card check-in/check-out phản ánh đúng kết quả lọc; trạng thái không có kết quả có thông báo riêng.
+- [ ] Không overflow ở chiều rộng 320px.
+
+**Xác minh:**
+- [ ] Widget test thao tác chọn tầng/phòng và kiểm tra card hiển thị.
+- [ ] `flutter analyze` file màn hình không có lỗi.
+
+**Phụ thuộc:** Task 1.
+
+**File dự kiến:**
+- `lib/features/host/screens/host_checkin_checkout_screen.dart`
+- `test/host_checkin_checkout_filter_test.dart`
+
+## Task 3: Khóa tỷ lệ cọc 10–20%
+
+**Mô tả:** Hoàn thiện phần Anti đã sửa dở, bảo đảm cả tạo phòng, sửa phòng và tạo bài đăng chỉ chấp nhận các mức 10%, 15%, 20%.
+
+**Tiêu chí nghiệm thu:**
+- [ ] Dropdown chỉ có 10%, 15%, 20%.
+- [ ] `roomDeposit` từ chối 5%, 25% và mọi tỷ lệ ngoài danh sách; không chỉ kiểm tra `percentage > 0`.
+- [ ] Giá trị cũ ngoài khoảng không được lưu lại âm thầm; UI yêu cầu chọn lại hoặc quy về mức hợp lệ theo hành vi đã thống nhất.
+- [ ] Số tiền cọc lưu bằng giá thuê × tỷ lệ / 100 và được validate tại provider/service.
+
+**Xác minh:**
+- [ ] Test RED/GREEN cho 10/15/20 và các biên 9/21/25.
+- [ ] Test màn tạo/sửa phòng chỉ thấy ba lựa chọn.
+
+**Phụ thuộc:** Không.
+
+**File dự kiến:**
+- `lib/core/utils/room_deposit.dart`
+- `lib/features/host/widgets/host_deposit_input.dart`
+- `lib/features/host/screens/host_create_screen.dart`
+- `lib/features/host/screens/host_room_edit_screen.dart`
+- `lib/features/host/screens/host_create_post_screen.dart`
+- `lib/features/host/providers/host_management_provider.dart`
+- `lib/data/models/host_post_model.dart`
+
+## Task 4: Không sinh `isAvailable` trong checkout
+
+**Mô tả:** Loại toàn bộ write `isAvailable` phát sinh trực tiếp hoặc gián tiếp từ `CheckinCheckoutRepository.checkout`.
+
+**Tiêu chí nghiệm thu:**
+- [ ] Checkout khi vẫn còn cư dân chỉ ghi `status: occupied` và thông tin cư dân còn lại; không ghi `isAvailable`.
+- [ ] Checkout người cuối cùng ghi `status: available`, dọn hợp đồng/giữ chỗ và xóa trường legacy `isAvailable` trên `host_rooms`/`rooms` nếu nó tồn tại.
+- [ ] Helper khôi phục bài đăng được checkout gọi không được ghi `isAvailable: true` trở lại; luồng hủy booking ngoài checkout giữ hành vi hiện tại nếu chưa được yêu cầu đổi.
+- [ ] Không thay đổi logic xác định còn cư dân, hoàn cọc, cập nhật booking/period/resident.
+
+**Xác minh:**
+- [ ] Test repository bằng fake Firestore cho checkout còn người và checkout người cuối.
+- [ ] Assert document phòng sau checkout không chứa key `isAvailable` và có `status` đúng.
+
+**Phụ thuộc:** Không.
+
+**File dự kiến:**
+- `lib/features/host/repositories/checkin_checkout_repository.dart`
+- `lib/core/services/booking_service.dart` (tách/điều khiển helper để checkout chỉ khôi phục bài đăng)
+- `test/checkin_checkout_repository_test.dart`
+
+## Checkpoint hoàn tất
+
+- [ ] Focused tests của ba lát cắt đều pass.
+- [ ] `flutter analyze` pass cho các file đã sửa.
+- [ ] Chạy full test suite và ghi rõ lỗi có sẵn nếu có.
+- [ ] `git diff --check` sạch; rà soát không có thay đổi ngoài phạm vi.
+- [ ] Cập nhật `tiendo.md` trung thực về file, hành vi và kết quả kiểm thử.
+- [ ] Không commit, không push.
+
+## Rủi ro và giảm thiểu
+
+| Rủi ro | Mức độ | Giảm thiểu |
+|---|---|---|
+| Helper `restorePostOnCancelledBooking` dùng chung cho hủy booking và checkout | Cao | Tách nhánh chỉ khôi phục bài đăng hoặc thêm tham số rõ nghĩa; test hai call site |
+| Dữ liệu phòng có mã trùng giữa các cơ sở | Trung bình | Dùng `roomId` làm khóa lọc, `roomCode` chỉ để hiển thị |
+| Code Anti đang sửa dở bị ghi đè | Cao | Giữ nguyên working tree, đọc diff trước mỗi patch, chỉ nối tiếp đúng hunk |
+| Repo hiện không có thư mục `test/` trong working tree | Trung bình | Khôi phục/tạo test theo convention dự án trước khi triển khai, không báo pass nếu chưa chạy |

@@ -3856,3 +3856,43 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
     + Xây dựng bộ test mới `test/vietnam_locations_test.dart`: 5/5 tests passed 100%.
     + Toàn bộ suite kiểm thử tự động hệ thống: **209/209 tests passed (100%)**.
     + `flutter analyze`: **No issues found! (0 errors, 0 warnings, 0 lints)** sạch hoàn hảo.
+
+
+---
+
+### Cập nhật 16/11/2026: Loại Bỏ Trường Legacy `isAvailable` Khỏi Luồng Check-out
+* **Ngày hoàn thành:** 16/11/2026
+* **Yêu cầu & Thực hiện:**
+  1. **Chuẩn hóa trạng thái phòng sau check-out:**
+     - Khi phòng vẫn còn cư dân, giữ `status: occupied` và xóa trường `isAvailable` cũ bằng `FieldValue.delete()`.
+     - Khi người cuối cùng trả phòng, chuyển sang `status: available` và xóa `isAvailable` khỏi cả `host_rooms` lẫn `rooms`.
+  2. **Ngăn helper ghi lại `isAvailable` gián tiếp:**
+     - Bổ sung tùy chọn `syncRoomDocuments` cho `BookingService.restorePostOnCancelledBooking`.
+     - Riêng luồng check-out gọi helper với `syncRoomDocuments: false`; luồng hủy booking vẫn giữ hành vi cũ để tránh ảnh hưởng ngoài phạm vi.
+  3. **Kiểm thử chất lượng:**
+     - Thêm `test/checkout_room_state_test.dart` kiểm tra hai trường hợp còn người ở và người cuối trả phòng.
+     - `flutter test`: **2/2 tests passed**.
+     - `flutter analyze` trên các file thay đổi và test: **No issues found**.
+
+
+---
+
+### Cập nhật 16/11/2026: Xóa `daDoc` và `ngayCapNhat` Khỏi Notification
+* **Yêu cầu & Thực hiện:**
+  1. Không còn tạo mới hoặc ghi giá trị vào hai trường notification legacy `daDoc`, `ngayCapNhat`.
+  2. Chuẩn hóa thao tác đánh dấu đã đọc qua `notificationReadUpdate()`: sử dụng `isRead`, `updatedAt` và xóa hai trường legacy bằng `FieldValue.delete()`.
+  3. Áp dụng cho thông báo chủ trọ, thông báo người thuê và luồng đồng bộ lời mời ở ghép từ chat; vẫn giữ đọc fallback dữ liệu cũ để tránh lỗi với document chưa được cập nhật.
+  4. Xóa `daDoc: false` khỏi dữ liệu thông báo đề xuất đổi ngày check-in mới.
+  5. Kiểm thử: `flutter test` **3/3 passed**; `flutter analyze` các file thay đổi: **No issues found**.
+
+
+---
+
+### Cập nhật 16/11/2026: Sửa Tìm Kiếm và Bộ Lọc Thông Báo Chủ Trọ
+* **Yêu cầu & Thực hiện:**
+  1. Sửa icon bộ lọc không bấm được thành nút tương tác có tooltip và badge số điều kiện đang áp dụng.
+  2. Bổ sung bộ lọc theo ngày tạo thông báo: Hôm nay, 7 ngày, 30 ngày và khoảng ngày tùy chỉnh; khoảng ngày bao gồm trọn ngày bắt đầu/kết thúc.
+  3. Bổ sung lọc Tất cả/Chưa đọc/Đã đọc, sắp xếp Mới nhất/Cũ nhất và nút xóa lọc nhanh.
+  4. Nâng cấp tìm kiếm realtime theo mã booking đầy đủ, booking ID, tiêu đề, nội dung, phòng, người thuê và trạng thái; hỗ trợ nhập tiếng Việt không dấu.
+  5. Tách logic lọc khỏi UI để dùng dữ liệu Firestore thực tế, không hard-code danh sách thông báo.
+  6. Kiểm thử: test logic tìm kiếm/lọc ngày/trạng thái và widget test thao tác mở bộ lọc trên màn hình rộng 360px; toàn bộ `flutter test` **7/7 passed**, `flutter analyze` **No issues found**.

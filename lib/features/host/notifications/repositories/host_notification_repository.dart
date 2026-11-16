@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/firestore_collections.dart';
+import '../../../../core/utils/notification_write_utils.dart';
 import '../../repositories/tenant_repository.dart';
 import '../models/host_notification_model.dart';
 import '../notification_types.dart';
@@ -394,12 +395,7 @@ class HostNotificationRepository {
       final docRef = _notificationsCol!.doc(notificationId);
       final doc = await docRef.get();
       if (doc.exists) {
-        await docRef.update({
-          NotificationFields.isRead: true,
-          NotificationFields.legacyIsRead: true,
-          NotificationFields.updatedAt: FieldValue.serverTimestamp(),
-          NotificationFields.legacyUpdatedAt: FieldValue.serverTimestamp(),
-        });
+        await docRef.update(notificationReadUpdate());
       }
     } catch (_) {}
   }
@@ -417,11 +413,7 @@ class HostNotificationRepository {
 
       final batch = _firestore!.batch();
       for (final doc in query.docs) {
-        batch.update(doc.reference, {
-          NotificationFields.isRead: true,
-          NotificationFields.legacyIsRead: true,
-          NotificationFields.updatedAt: FieldValue.serverTimestamp(),
-        });
+        batch.update(doc.reference, notificationReadUpdate());
       }
       await batch.commit();
     } catch (_) {}
@@ -706,10 +698,8 @@ class HostNotificationRepository {
         'tieuDe': FieldValue.delete(),
         'noiDung': FieldValue.delete(),
         'phongId': FieldValue.delete(),
-        'daDoc': FieldValue.delete(),
         'ngayTao': FieldValue.delete(),
-        NotificationFields.isRead: true,
-        NotificationFields.updatedAt: FieldValue.serverTimestamp(),
+        ...notificationReadUpdate(),
       }, SetOptions(merge: true));
     }
 
@@ -723,10 +713,8 @@ class HostNotificationRepository {
         'nguoiNhanId': FieldValue.delete(),
         'tieuDe': FieldValue.delete(),
         'noiDung': FieldValue.delete(),
-        'daDoc': FieldValue.delete(),
         'ngayTao': FieldValue.delete(),
-        'isRead': true,
-        'updatedAt': FieldValue.serverTimestamp(),
+        ...notificationReadUpdate(),
       }, SetOptions(merge: true));
     }
 
@@ -810,10 +798,8 @@ class HostNotificationRepository {
         'tieuDe': FieldValue.delete(),
         'noiDung': FieldValue.delete(),
         'phongId': FieldValue.delete(),
-        'daDoc': FieldValue.delete(),
         'ngayTao': FieldValue.delete(),
-        NotificationFields.isRead: true,
-        NotificationFields.updatedAt: FieldValue.serverTimestamp(),
+        ...notificationReadUpdate(),
       }, SetOptions(merge: true));
     }
 
@@ -827,10 +813,8 @@ class HostNotificationRepository {
         'nguoiNhanId': FieldValue.delete(),
         'tieuDe': FieldValue.delete(),
         'noiDung': FieldValue.delete(),
-        'daDoc': FieldValue.delete(),
         'ngayTao': FieldValue.delete(),
-        'isRead': true,
-        'updatedAt': FieldValue.serverTimestamp(),
+        ...notificationReadUpdate(),
       }, SetOptions(merge: true));
     }
 
@@ -974,18 +958,14 @@ class HostNotificationRepository {
       batch.set(uCol.doc(notificationId), {
         'status': 'accepted',
         'statusId': FieldValue.delete(),
-        NotificationFields.isRead: true,
-        'daDoc': FieldValue.delete(),
+        ...notificationReadUpdate(),
         'respondedAt': FieldValue.serverTimestamp(),
-        NotificationFields.updatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       batch.set(_notificationsCol!.doc(notificationId), {
         'status': 'accepted',
         'statusId': FieldValue.delete(),
-        NotificationFields.isRead: true,
-        'daDoc': FieldValue.delete(),
+        ...notificationReadUpdate(),
         'respondedAt': FieldValue.serverTimestamp(),
-        NotificationFields.updatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     }
 
@@ -1116,18 +1096,14 @@ class HostNotificationRepository {
       batch.set(uCol.doc(notificationId), {
         'status': 'rejected',
         'statusId': FieldValue.delete(),
-        NotificationFields.isRead: true,
-        'daDoc': FieldValue.delete(),
+        ...notificationReadUpdate(),
         'respondedAt': FieldValue.serverTimestamp(),
-        NotificationFields.updatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       batch.set(_notificationsCol!.doc(notificationId), {
         'status': 'rejected',
         'statusId': FieldValue.delete(),
-        NotificationFields.isRead: true,
-        'daDoc': FieldValue.delete(),
+        ...notificationReadUpdate(),
         'respondedAt': FieldValue.serverTimestamp(),
-        NotificationFields.updatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     }
 

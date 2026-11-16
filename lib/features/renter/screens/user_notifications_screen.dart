@@ -8,6 +8,7 @@ import '../../../core/constants/firestore_collections.dart';
 import '../../../core/services/chat_service.dart';
 import '../../../core/services/room_service.dart';
 import '../../../core/services/roommate_service.dart';
+import '../../../core/utils/notification_write_utils.dart';
 import '../../../data/models/room_model.dart';
 import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -146,7 +147,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
     for (final doc in docs) {
       final isRead = doc.data()['isRead'] == true || doc.data()['daDoc'] == true;
       if (!isRead) {
-        batch.update(doc.reference, {'isRead': true, 'daDoc': FieldValue.delete()});
+        batch.update(doc.reference, notificationReadUpdate());
       }
     }
     await batch.commit();
@@ -154,7 +155,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
 
   Future<void> _markAsRead(DocumentReference docRef) async {
     try {
-      await docRef.update({'isRead': true, 'daDoc': FieldValue.delete()});
+      await docRef.update(notificationReadUpdate());
     } catch (_) {}
   }
 
@@ -249,14 +250,12 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
       // 3. Cập nhật thông báo thành waiting_host_approval (chờ chủ trọ xác nhận)
       await doc.reference.update({
         'status': 'waiting_host_approval',
-        'isRead': true,
-        'daDoc': FieldValue.delete(),
+        ...notificationReadUpdate(),
         'nguoiNhanId': FieldValue.delete(),
         'tieuDe': FieldValue.delete(),
         'noiDung': FieldValue.delete(),
         'ngayTao': FieldValue.delete(),
         'statusId': FieldValue.delete(),
-        'updatedAt': FieldValue.serverTimestamp(),
       });
 
       // 4. Đồng bộ tức thời sang tin nhắn Chat trong Realtime Database
@@ -302,14 +301,12 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
 
       await doc.reference.update({
         'status': 'rejected',
-        'isRead': true,
-        'daDoc': FieldValue.delete(),
+        ...notificationReadUpdate(),
         'nguoiNhanId': FieldValue.delete(),
         'tieuDe': FieldValue.delete(),
         'noiDung': FieldValue.delete(),
         'ngayTao': FieldValue.delete(),
         'statusId': FieldValue.delete(),
-        'updatedAt': FieldValue.serverTimestamp(),
       });
 
       // Đồng bộ tức thời sang tin nhắn Chat trong Realtime Database
@@ -680,8 +677,7 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
       batch.set(doc.reference, {
         'status': accept ? 'accepted' : 'rejected',
         'statusId': FieldValue.delete(),
-        'isRead': true,
-        'daDoc': FieldValue.delete(),
+        ...notificationReadUpdate(),
         'respondedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 

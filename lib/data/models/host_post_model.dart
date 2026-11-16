@@ -49,7 +49,7 @@ class HostPostModel {
   final String description; // moTa
   final double rentalPrice; // giaThue
   final double depositAmount; // tienCoc
-  final int depositPercentage; // phanTramTienCoc (10–100, bước 10)
+  final int depositPercentage; // phanTramTienCoc (10–20%)
   final List<String> amenities; // tienIch
   final List<String> images; // anhPhong
   final String address; // diaChi

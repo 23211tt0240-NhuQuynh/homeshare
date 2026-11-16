@@ -1198,7 +1198,10 @@ class BookingService {
   }
 
   /// 6. KHÔI PHỤC BÀI ĐĂNG KHI YÊU CẦU ĐẶT PHÒNG BỊ HỦY / HẾT HẠN
-  Future<void> restorePostOnCancelledBooking(String roomId) async {
+  Future<void> restorePostOnCancelledBooking(
+    String roomId, {
+    bool syncRoomDocuments = true,
+  }) async {
     if (roomId.isEmpty) return;
     try {
       final now = DateTime.now();
@@ -1276,40 +1279,43 @@ class BookingService {
         }
       } catch (_) {}
 
-      // 5. Khôi phục phòng trong host_rooms và rooms CHỈ KHI phòng thực sự tồn tại
-      final realRoomId = await _resolveRealRoomId(roomId);
-      if (realRoomId != null && realRoomId.isNotEmpty) {
-        try {
-          await _firestore.collection('host_rooms').doc(realRoomId).set({
-            'status': 'available',
-            'isAvailable': true,
-            'bookingStatus': 'available',
-            'tenantName': '',
-            'tenantPhone': '',
-            'tenantAvatar': '',
-            'contractId': '',
-            'contractStart': null,
-            'contractEnd': null,
-            'reservedBookingId': FieldValue.delete(),
-            'isHolding': false,
-            'holdingBookingId': FieldValue.delete(),
-            'holdingRenterId': FieldValue.delete(),
-            'holdingExpiresAt': FieldValue.delete(),
-            'updatedAt': Timestamp.fromDate(now),
-          }, SetOptions(merge: true));
-        } catch (_) {}
+      // 5. Luồng hủy booking vẫn đồng bộ phòng như cũ. Checkout tắt bước này
+      // để không tạo lại trường isAvailable legacy trên room documents.
+      if (syncRoomDocuments) {
+        final realRoomId = await _resolveRealRoomId(roomId);
+        if (realRoomId != null && realRoomId.isNotEmpty) {
+          try {
+            await _firestore.collection('host_rooms').doc(realRoomId).set({
+              'status': 'available',
+              'isAvailable': true,
+              'bookingStatus': 'available',
+              'tenantName': '',
+              'tenantPhone': '',
+              'tenantAvatar': '',
+              'contractId': '',
+              'contractStart': null,
+              'contractEnd': null,
+              'reservedBookingId': FieldValue.delete(),
+              'isHolding': false,
+              'holdingBookingId': FieldValue.delete(),
+              'holdingRenterId': FieldValue.delete(),
+              'holdingExpiresAt': FieldValue.delete(),
+              'updatedAt': Timestamp.fromDate(now),
+            }, SetOptions(merge: true));
+          } catch (_) {}
 
-        try {
-          await _firestore.collection('rooms').doc(realRoomId).set({
-            'status': 'available',
-            'isAvailable': true,
-            'bookingStatus': 'available',
-            'tenantName': '',
-            'tenantPhone': '',
-            'contractId': '',
-            'updatedAt': Timestamp.fromDate(now),
-          }, SetOptions(merge: true));
-        } catch (_) {}
+          try {
+            await _firestore.collection('rooms').doc(realRoomId).set({
+              'status': 'available',
+              'isAvailable': true,
+              'bookingStatus': 'available',
+              'tenantName': '',
+              'tenantPhone': '',
+              'contractId': '',
+              'updatedAt': Timestamp.fromDate(now),
+            }, SetOptions(merge: true));
+          } catch (_) {}
+        }
       }
 
       // Khôi phục thêm theo hostRoomId nếu roomId là mã phòng thật.

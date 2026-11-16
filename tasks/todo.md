@@ -185,3 +185,20 @@
 - [x] Sửa overflow của tiêu đề kết quả và bộ lọc nâng cao trên màn hình rộng 320px.
 - [x] Chạy test Chủ trọ, analyzer, full test và build APK.
 - [x] Tổng hợp đầy đủ file/chức năng đã ghép và các lỗi còn tồn tại.
+
+---
+
+## Active — Bộ lọc Check-in/Check-out, cọc 10–20%, bỏ `isAvailable` khi checkout
+
+- [ ] **Task 1 — RED:** thêm test helper lọc theo tầng, phòng, kết hợp và danh sách trống.
+- [ ] **Task 1 — GREEN:** hoàn thiện helper lọc thuần bằng `roomId`, options sắp xếp ổn định.
+- [ ] **Task 2 — RED:** widget test hai bộ lọc và viewport 320px.
+- [ ] **Task 2 — GREEN:** dựng UI lọc dưới banner QR; áp dụng cho cả check-in/check-out.
+- [ ] **Task 3 — RED:** test tỷ lệ cọc 10/15/20 hợp lệ; 5/9/21/25 bị từ chối.
+- [ ] **Task 3 — GREEN:** thống nhất mọi UI/validation theo `roomDepositPercentages`.
+- [ ] **Task 4 — RED:** test checkout còn người/người cuối không còn key `isAvailable`.
+- [ ] **Task 4 — GREEN:** bỏ write trực tiếp và gián tiếp `isAvailable` khỏi checkout, giữ `status` làm nguồn thật.
+- [ ] **Checkpoint:** focused tests pass.
+- [ ] **Checkpoint:** analyzer và `git diff --check` pass.
+- [ ] **Checkpoint:** chạy full suite, cập nhật `tiendo.md` và báo rõ lỗi ngoài phạm vi.
+- [ ] **Git:** không commit/push khi chưa có lệnh của người dùng.

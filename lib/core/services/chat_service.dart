@@ -5,6 +5,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/firestore_collections.dart';
+import '../utils/notification_write_utils.dart';
 import '../../data/models/chat_model.dart';
 import '../../features/chat/services/roommate_invitation_eligibility_service.dart';
 
@@ -623,9 +624,7 @@ class ChatService {
           if (docSnap.exists) {
             await col.doc(notificationId).update({
               'status': newStatus,
-              'isRead': true,
-              'daDoc': FieldValue.delete(),
-              'updatedAt': FieldValue.serverTimestamp(),
+              ...notificationReadUpdate(),
             });
             return notificationId;
           }
@@ -642,9 +641,7 @@ class ChatService {
           for (final doc in qMsg.docs) {
             await doc.reference.update({
               'status': newStatus,
-              'isRead': true,
-              'daDoc': FieldValue.delete(),
-              'updatedAt': FieldValue.serverTimestamp(),
+              ...notificationReadUpdate(),
             });
             matchedNotificationId ??= doc.id;
           }
@@ -672,9 +669,7 @@ class ChatService {
               (cleanRoomId.isEmpty || dRoom == cleanRoomId)) {
             await doc.reference.update({
               'status': newStatus,
-              'isRead': true,
-              'daDoc': FieldValue.delete(),
-              'updatedAt': FieldValue.serverTimestamp(),
+              ...notificationReadUpdate(),
             });
             matchedNotificationId ??= doc.id;
           }

@@ -140,7 +140,6 @@ class _HostProposeCheckInDateBottomSheetState
         'hostName': hostName,
         'status': 'pending',
         'isRead': false,
-        'daDoc': false,
         'createdAt': FieldValue.serverTimestamp(),
       });
 

@@ -55,6 +55,39 @@ class CheckinCheckoutItem {
   });
 }
 
+Map<String, dynamic> checkoutOccupiedRoomPatch({
+  required String tenantName,
+  required String tenantPhone,
+}) {
+  return {
+    'status': 'occupied',
+    'isAvailable': FieldValue.delete(),
+    'tenantName': tenantName,
+    'tenantPhone': tenantPhone,
+    'updatedAt': FieldValue.serverTimestamp(),
+  };
+}
+
+Map<String, dynamic> checkoutAvailableRoomPatch() {
+  return {
+    'status': 'available',
+    'isAvailable': FieldValue.delete(),
+    'bookingStatus': 'available',
+    'contractId': '',
+    'contractStart': null,
+    'contractEnd': null,
+    'tenantName': '',
+    'tenantPhone': '',
+    'tenantAvatar': '',
+    'reservedBookingId': FieldValue.delete(),
+    'isHolding': false,
+    'holdingBookingId': FieldValue.delete(),
+    'holdingRenterId': FieldValue.delete(),
+    'holdingExpiresAt': FieldValue.delete(),
+    'updatedAt': FieldValue.serverTimestamp(),
+  };
+}
+
 class CheckinCheckoutRepository {
   final FirebaseFirestore _firestore;
 
@@ -523,31 +556,20 @@ class CheckinCheckoutRepository {
         (r) => r.formId == 'chinh',
         orElse: () => remainingActiveResidents.first,
       );
-      batch.set(roomRef, {
-        'status': 'occupied',
-        'isAvailable': false,
-        'tenantName': primaryRemaining.fullName,
-        'tenantPhone': primaryRemaining.phone,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      batch.set(
+        roomRef,
+        checkoutOccupiedRoomPatch(
+          tenantName: primaryRemaining.fullName,
+          tenantPhone: primaryRemaining.phone,
+        ),
+        SetOptions(merge: true),
+      );
     } else {
-      batch.set(roomRef, {
-        'status': 'available',
-        'isAvailable': true,
-        'bookingStatus': 'available',
-        'contractId': '',
-        'contractStart': null,
-        'contractEnd': null,
-        'tenantName': '',
-        'tenantPhone': '',
-        'tenantAvatar': '',
-        'reservedBookingId': FieldValue.delete(),
-        'isHolding': false,
-        'holdingBookingId': FieldValue.delete(),
-        'holdingRenterId': FieldValue.delete(),
-        'holdingExpiresAt': FieldValue.delete(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      batch.set(
+        roomRef,
+        checkoutAvailableRoomPatch(),
+        SetOptions(merge: true),
+      );
     }
 
     // 4. Cập nhật đơn đặt phòng sang Đã trả phòng (CHỈ áp dụng cho đơn của người rời đi)
@@ -633,12 +655,12 @@ class CheckinCheckoutRepository {
     if (!hasOtherActiveResidents) {
       try {
         await BookingService(firestore: _firestore)
-            .restorePostOnCancelledBooking(roomId);
+            .restorePostOnCancelledBooking(roomId, syncRoomDocuments: false);
       } catch (_) {}
       try {
         await _firestore.collection('rooms').doc(roomId).set({
           'status': 'available',
-          'isAvailable': true,
+          'isAvailable': FieldValue.delete(),
           'bookingStatus': 'available',
           'tenantName': '',
           'tenantPhone': '',

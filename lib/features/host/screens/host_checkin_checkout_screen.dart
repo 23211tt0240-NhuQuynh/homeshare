@@ -32,6 +32,8 @@ class HostCheckinCheckoutScreen extends ConsumerStatefulWidget {
 class _HostCheckinCheckoutScreenState
     extends ConsumerState<HostCheckinCheckoutScreen> {
   late int _selectedTab;
+  int? _selectedFloor;
+  String? _selectedRoomCode;
 
   @override
   void initState() {
