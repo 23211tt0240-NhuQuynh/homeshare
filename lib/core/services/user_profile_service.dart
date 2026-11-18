@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/firestore_collections.dart';
 import '../../features/auth/providers/user_provider.dart';
 import 'image_storage_service.dart';
+import 'user_uniqueness_service.dart';
 
 /// Một tài khoản ngân hàng của một người dùng. Chưa có dữ liệu thì các trường để trống.
 class BankAccount {
@@ -59,9 +60,11 @@ Map<String, dynamic> hostProfileUsersPatch({
   DateTime? birthDate,
   bool clearAvatarUrl = false,
 }) {
+  final normalizedPhone = UserUniquenessService.normalizePhone(phoneNumber);
   final data = <String, dynamic>{
     'displayName': displayName,
-    'phoneNumber': phoneNumber,
+    'phoneNumber': normalizedPhone,
+    'phoneNumberNormalized': normalizedPhone,
     'gender': gender,
     'hometown': hometown,
     'hoTen': FieldValue.delete(),
@@ -89,10 +92,13 @@ Map<String, dynamic> hostBankAccountPatch({
   required String accountHolder,
   required String bankName,
 }) {
+  final normalizedAccount =
+      UserUniquenessService.normalizeBankAccount(accountNumber);
   return {
     'id': uid,
     'userId': uid,
-    'accountNumber': accountNumber,
+    'accountNumber': normalizedAccount,
+    'accountNumberNormalized': normalizedAccount,
     'accountHolder': accountHolder,
     'bankName': bankName,
     'nguoiDungId': FieldValue.delete(),
@@ -194,6 +200,23 @@ class UserProfileService {
     String bankName = '',
     bool updateBankAccount = true,
   }) async {
+    final normalizedPhone =
+        UserUniquenessService.normalizePhone(phoneNumber);
+    if (!RegExp(r'^0\d{9}$').hasMatch(normalizedPhone)) {
+      throw 'Số điện thoại phải gồm đúng 10 số và bắt đầu bằng 0.';
+    }
+    final uniqueness = UserUniquenessService(firestore: _firestore);
+    final existingUser = await _users.doc(uid).get();
+    final previousPhone = UserUniquenessService.normalizePhone(
+      '${existingUser.data()?['phoneNumber'] ?? existingUser.data()?['soDienThoai'] ?? ''}',
+    );
+    final phoneError = await uniqueness.checkPhoneNumberUnique(
+      normalizedPhone,
+      excludeUid: uid,
+    );
+    if (phoneError != null) throw phoneError;
+    await uniqueness.claimPhoneNumber(normalizedPhone, uid: uid);
+
     var uploadedAvatar = false;
     if (avatarBytes != null && avatarBytes.isNotEmpty) {
       await _images.uploadImageBytes(
@@ -207,7 +230,8 @@ class UserProfileService {
     final names = _uniqueNames(interestNames);
     final data = <String, dynamic>{
       'displayName': displayName,
-      'phoneNumber': phoneNumber,
+      'phoneNumber': normalizedPhone,
+      'phoneNumberNormalized': normalizedPhone,
       'gender': gender,
       'hometown': hometown,
       'occupation': occupation,
@@ -239,6 +263,9 @@ class UserProfileService {
       await _users.doc(uid).set(data, SetOptions(merge: true)).timeout(const Duration(seconds: 15));
     } on TimeoutException {
       throw Exception('Lưu hồ sơ quá lâu. Kiểm tra mạng rồi thử lại.');
+    }
+    if (previousPhone.isNotEmpty && previousPhone != normalizedPhone) {
+      await uniqueness.releasePhoneNumber(previousPhone, uid: uid);
     }
 
     try {
@@ -279,6 +306,23 @@ class UserProfileService {
     String bankName = '',
     bool updateBankAccount = true,
   }) async {
+    final normalizedPhone =
+        UserUniquenessService.normalizePhone(phoneNumber);
+    if (!RegExp(r'^0\d{9}$').hasMatch(normalizedPhone)) {
+      throw 'Số điện thoại phải gồm đúng 10 số và bắt đầu bằng 0.';
+    }
+    final uniqueness = UserUniquenessService(firestore: _firestore);
+    final existingUser = await _users.doc(uid).get();
+    final previousPhone = UserUniquenessService.normalizePhone(
+      '${existingUser.data()?['phoneNumber'] ?? existingUser.data()?['soDienThoai'] ?? ''}',
+    );
+    final phoneError = await uniqueness.checkPhoneNumberUnique(
+      normalizedPhone,
+      excludeUid: uid,
+    );
+    if (phoneError != null) throw phoneError;
+    await uniqueness.claimPhoneNumber(normalizedPhone, uid: uid);
+
     var uploadedAvatar = false;
     if (avatarBytes != null && avatarBytes.isNotEmpty) {
       await _images.uploadImageBytes(
@@ -291,7 +335,7 @@ class UserProfileService {
 
     final data = hostProfileUsersPatch(
       displayName: displayName,
-      phoneNumber: phoneNumber,
+      phoneNumber: normalizedPhone,
       gender: gender,
       hometown: hometown,
       birthDate: birthDate,
@@ -302,6 +346,9 @@ class UserProfileService {
       await _users.doc(uid).set(data, SetOptions(merge: true)).timeout(const Duration(seconds: 15));
     } on TimeoutException {
       throw Exception('Lưu hồ sơ quá lâu. Kiểm tra mạng rồi thử lại.');
+    }
+    if (previousPhone.isNotEmpty && previousPhone != normalizedPhone) {
+      await uniqueness.releasePhoneNumber(previousPhone, uid: uid);
     }
 
     if (updateBankAccount) {
@@ -336,6 +383,95 @@ class UserProfileService {
     return BankAccount.fromMap(doc.data() ?? {}, doc.id);
   }
 
+  /// Lưu riêng thông tin bắt buộc sau đăng nhập, không thay đổi sở thích,
+  /// nghề nghiệp, vai trò hoặc các trường hồ sơ khác.
+  Future<void> saveRequiredAccountInfo({
+    required String uid,
+    required String phoneNumber,
+    required String accountNumber,
+    required String accountHolder,
+    required String bankName,
+  }) async {
+    final id = uid.trim();
+    final phone = UserUniquenessService.normalizePhone(phoneNumber);
+    final number = UserUniquenessService.normalizeBankAccount(accountNumber);
+    final holder = accountHolder.trim();
+    final bank = bankName.trim();
+
+    if (id.isEmpty) throw 'Không xác định được tài khoản đăng nhập.';
+    if (!RegExp(r'^0\d{9}$').hasMatch(phone)) {
+      throw 'Số điện thoại phải gồm đúng 10 số và bắt đầu bằng 0.';
+    }
+    if (!RegExp(r'^\d{6,19}$').hasMatch(number)) {
+      throw 'Số tài khoản phải gồm từ 6 đến 19 chữ số.';
+    }
+    if (holder.length < 2) throw 'Vui lòng nhập tên chủ tài khoản.';
+    if (bank.isEmpty) throw 'Vui lòng chọn ngân hàng.';
+
+    final uniqueness = UserUniquenessService(firestore: _firestore);
+    final existingDocs = await Future.wait([
+      _users.doc(id).get(),
+      _bankAccounts.doc(id).get(),
+    ]);
+    final existingUser = existingDocs[0].data() ?? const <String, dynamic>{};
+    final existingBank = existingDocs[1].data() ?? const <String, dynamic>{};
+    final previousPhone = UserUniquenessService.normalizePhone(
+      '${existingUser['phoneNumber'] ?? existingUser['soDienThoai'] ?? ''}',
+    );
+    final previousAccount = UserUniquenessService.normalizeBankAccount(
+      '${existingBank['accountNumber'] ?? existingBank['soTaiKhoan'] ?? ''}',
+    );
+    final phoneError = await uniqueness.checkPhoneNumberUnique(
+      phone,
+      excludeUid: id,
+    );
+    if (phoneError != null) throw phoneError;
+    final bankError = await uniqueness.checkBankAccountUnique(
+      number,
+      excludeUid: id,
+    );
+    if (bankError != null) throw bankError;
+
+    await uniqueness.claimPhoneNumber(phone, uid: id);
+    try {
+      await uniqueness.claimBankAccount(number, uid: id);
+    } catch (_) {
+      if (previousPhone != phone) {
+        await uniqueness.releasePhoneNumber(phone, uid: id);
+      }
+      rethrow;
+    }
+
+    final batch = _firestore.batch();
+    batch.set(
+      _users.doc(id),
+      {
+        'phoneNumber': phone,
+        'phoneNumberNormalized': phone,
+        'soDienThoai': FieldValue.delete(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+    batch.set(
+      _bankAccounts.doc(id),
+      hostBankAccountPatch(
+        uid: id,
+        accountNumber: number,
+        accountHolder: holder,
+        bankName: bank,
+      ),
+      SetOptions(merge: true),
+    );
+    await batch.commit().timeout(const Duration(seconds: 15));
+    if (previousPhone.isNotEmpty && previousPhone != phone) {
+      await uniqueness.releasePhoneNumber(previousPhone, uid: id);
+    }
+    if (previousAccount.isNotEmpty && previousAccount != number) {
+      await uniqueness.releaseBankAccount(previousAccount, uid: id);
+    }
+  }
+
   /// Mỗi người một bản ghi, mã tài liệu trùng mã người dùng.
   /// Cả ba trường trống thì xóa bản ghi nếu đã có, không tạo bản ghi rỗng.
   Future<void> saveBankAccount({
@@ -346,13 +482,32 @@ class UserProfileService {
   }) async {
     final id = uid.trim();
     if (id.isEmpty) return;
-    final number = accountNumber.trim();
+    final number = UserUniquenessService.normalizeBankAccount(accountNumber);
     final holder = accountHolder.trim();
     final bank = bankName.trim();
     final ref = _bankAccounts.doc(id);
+    final existing = await ref.get();
+    final previousAccount = UserUniquenessService.normalizeBankAccount(
+      '${existing.data()?['accountNumber'] ?? existing.data()?['soTaiKhoan'] ?? ''}',
+    );
+    final uniqueness = UserUniquenessService(firestore: _firestore);
+
+    if (number.isNotEmpty) {
+      final bankError = await uniqueness.checkBankAccountUnique(
+        number,
+        excludeUid: id,
+      );
+      if (bankError != null) {
+        throw bankError;
+      }
+      await uniqueness.claimBankAccount(number, uid: id);
+    }
+
     if (number.isEmpty && holder.isEmpty && bank.isEmpty) {
-      final existing = await ref.get();
       if (existing.exists) await ref.delete();
+      if (previousAccount.isNotEmpty) {
+        await uniqueness.releaseBankAccount(previousAccount, uid: id);
+      }
       return;
     }
     await ref.set(
@@ -364,6 +519,9 @@ class UserProfileService {
       ),
       SetOptions(merge: true),
     );
+    if (previousAccount.isNotEmpty && previousAccount != number) {
+      await uniqueness.releaseBankAccount(previousAccount, uid: id);
+    }
   }
 
   Future<void> syncInterests({

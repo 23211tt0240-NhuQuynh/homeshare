@@ -162,10 +162,30 @@ service cloud.firestore {
         && request.time < timestamp.date(2026, 12, 10);
     }
 
+    // Chỉ chủ sở hữu được tạo/cập nhật/xóa khóa giữ chỗ cho SĐT, CCCD và STK.
+    // Không cho phép liệt kê để hạn chế dò tìm dữ liệu định danh.
+    match /user_unique_values/{claimId} {
+      allow get: if hasEmailAccess();
+      allow list: if false;
+      allow create: if hasEmailAccess()
+        && request.resource.data.keys().hasOnly([
+          'ownerUid', 'kind', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.kind in ['phone', 'cccd', 'bank'];
+      allow update: if hasEmailAccess()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.kind == resource.data.kind;
+      allow delete: if hasEmailAccess()
+        && (resource.data.ownerUid == request.auth.uid || admin());
+    }
+
     // Rule đang live: user đã đăng nhập được đọc/ghi đến 10/12/2026, trừ host_reviews ở trên.
     match /{collection}/{document=**} {
       allow read, write: if collection != 'host_reviews'
         && collection != 'users'
+        && collection != 'user_unique_values'
         && hasEmailAccess()
         && request.time < timestamp.date(2026, 12, 10);
     }

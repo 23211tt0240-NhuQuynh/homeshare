@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../features/auth/providers/user_provider.dart';
 import '../../features/auth/services/email_verification_policy.dart';
+import 'user_uniqueness_service.dart';
 import '../utils/host_reputation.dart';
 import 'host_index_service.dart';
 import 'push_notification_service.dart';
@@ -144,6 +145,9 @@ class AuthService {
 
       final user = credential.user;
       if (user != null) {
+        final normalizedPhone = UserUniquenessService.normalizePhone(
+          phoneNumber ?? '',
+        );
         await user.updateDisplayName(displayName);
 
         // Sinh mã người dùng 5 ký tự (3 số đầu + 2 chữ sau)
@@ -157,7 +161,8 @@ class AuthService {
         final pendingProfile = <String, dynamic>{
           'userCode': userCode,
           'displayName': displayName.trim(),
-          'phoneNumber': phoneNumber?.trim() ?? '',
+          'phoneNumber': normalizedPhone,
+          'phoneNumberNormalized': normalizedPhone,
           'role': role,
           'isEmailVerified': false,
           'emailVerificationRequired': true,

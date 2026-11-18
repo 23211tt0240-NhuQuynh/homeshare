@@ -362,7 +362,6 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     final number = _accountNumberController.text.trim();
     final holder = _accountHolderController.text.trim();
     final bank = _bankName.trim();
-    if (number.isEmpty && holder.isEmpty && bank.isEmpty) return const [];
     final issues = <String>[];
     if (!RegExp(r'^\d{6,19}$').hasMatch(number)) {
       issues.add('Số tài khoản gồm từ 6 đến 19 chữ số.');
@@ -1124,7 +1123,6 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                         ? null
                         : (val) {
                             final number = val?.trim() ?? '';
-                            if (_bankFieldsEmpty(number: number)) return null;
                             if (!RegExp(r'^\d{6,19}$').hasMatch(number)) return 'Gồm từ 6 đến 19 chữ số';
                             return null;
                           },
@@ -1140,7 +1138,6 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                         ? null
                         : (val) {
                             final holder = val?.trim() ?? '';
-                            if (_bankFieldsEmpty(holder: holder)) return null;
                             if (holder.length < 2 || !RegExp(r'\p{L}', unicode: true).hasMatch(holder)) {
                               return 'Nhập tên chủ tài khoản';
                             }
@@ -1151,13 +1148,6 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               ],
             ),
     );
-  }
-
-  bool _bankFieldsEmpty({String? number, String? holder, String? bank}) {
-    final accountNumber = number ?? _accountNumberController.text.trim();
-    final accountHolder = holder ?? _accountHolderController.text.trim();
-    final bankName = bank ?? _bankName.trim();
-    return accountNumber.isEmpty && accountHolder.isEmpty && bankName.isEmpty;
   }
 
   Widget _bankDropdown() {
@@ -1191,7 +1181,6 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               ? null
               : (val) {
                   final bank = (val ?? '').trim();
-                  if (_bankFieldsEmpty(bank: bank)) return null;
                   if (bank.isEmpty) return 'Chọn ngân hàng';
                   return null;
                 },

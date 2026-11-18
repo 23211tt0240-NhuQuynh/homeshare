@@ -3963,3 +3963,16 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
    - Build APK debug thành công tại `build/app/outputs/flutter-apk/app-debug.apk`.
 6. **Sửa điều hướng sau khi nhấn Đăng ký:** đóng route `RegisterScreen` sau khi Firebase tạo/khôi phục tài khoản chờ để `AuthGate` hiển thị ngay màn hình xác thực Gmail; trước đây route đăng ký nằm trên cùng và che màn hình xác thực ở dưới.
 7. **Không mở tài khoản trước khi hoàn tất xác thực:** khi hồ sơ vẫn còn `emailVerificationRequired: true`, người dùng luôn bị giữ tại màn hình xác thực—even khi Firebase vừa cập nhật email—cho tới khi app kiểm tra trạng thái, kích hoạt hồ sơ và hiển thị hộp `Đăng ký thành công`.
+
+
+---
+
+### Cập nhật 18/11/2026: Bắt Buộc Hoàn Thiện SĐT/STK và Chống Trùng Thông Tin Tài Khoản
+1. Sau khi email đã xác thực và đăng nhập thành công, `AuthGate` tải dữ liệu thật từ `users/{uid}` và `bank_accounts/{uid}`; người thuê/chủ trọ thiếu SĐT hoặc thông tin ngân hàng sẽ nhận hộp yêu cầu hoàn thiện không thể bỏ qua bằng nút Back/chạm ngoài.
+2. Hộp yêu cầu bắt buộc đủ SĐT Việt Nam 10 số, ngân hàng, STK 6–19 chữ số và tên chủ tài khoản; lưu bằng hàm riêng nên không xóa sở thích, nghề nghiệp hoặc dữ liệu hồ sơ khác.
+3. Chuẩn hóa SĐT, CCCD và STK trước khi lưu; bổ sung trường normalized để truy vấn nhất quán và kiểm tra cả các tên trường legacy đang tồn tại.
+4. Bảo đảm SĐT, CCCD và STK không trùng tài khoản khác bằng hai lớp: truy vấn dữ liệu hiện có và document giữ chỗ `user_unique_values` qua Firestore transaction để tránh hai thiết bị ghi đồng thời.
+5. Luồng CCCD chỉ chấp nhận đúng 12 chữ số, không còn nuốt lỗi ghi Firestore hoặc lưu cache “đã xác thực” khi backend ghi thất bại.
+6. Hai màn chỉnh hồ sơ người thuê/chủ trọ không còn cho xóa trống thông tin ngân hàng; các màn hóa đơn quản trị ghi STK cũng kiểm tra trùng và lưu giá trị chuẩn hóa.
+7. Firestore Rules giới hạn document giữ chỗ: không cho liệt kê, chỉ chủ sở hữu được tạo/cập nhật/xóa (admin có thể xóa để xử lý sự cố). Rules đã kiểm tra cú pháp bằng Firestore Emulator cục bộ; chưa deploy Firebase.
+8. Kiểm thử: toàn bộ `flutter test` **28/28 passed**; `flutter analyze` các file thay đổi **No issues found**.

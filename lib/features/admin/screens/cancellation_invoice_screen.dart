@@ -4,6 +4,7 @@ import '../widgets/admin_page_backdrop.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/utils/vietqr_helper.dart';
+import '../../../../core/services/user_uniqueness_service.dart';
 import '../utils/booking_utils.dart';
 import '../utils/commission_rate_service.dart';
 import '../widgets/admin_branded_title.dart';
@@ -543,7 +544,9 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
     if (saved != true) return;
 
     final bank = bankCtrl.text.trim();
-    final account = accountCtrl.text.trim().replaceAll(RegExp(r'\s+'), '');
+    final account = UserUniquenessService.normalizeBankAccount(
+      accountCtrl.text,
+    );
     if (bank.isEmpty || account.isEmpty || selectedCode == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -556,11 +559,15 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
     }
     try {
       if (userId.isNotEmpty) {
+        final duplicateError = await UserUniquenessService()
+            .checkBankAccountUnique(account, excludeUid: userId);
+        if (duplicateError != null) throw duplicateError;
         await FirebaseFirestore.instance.collection('users').doc(userId).set({
           'bankName': bank,
           'bankCode': selectedCode,
           'bankAccountNumber': account,
           'accountNumber': account,
+          'accountNumberNormalized': account,
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       }

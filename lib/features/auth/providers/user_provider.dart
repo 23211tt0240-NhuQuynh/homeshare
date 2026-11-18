@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/role_resolver.dart';
 import '../../../core/services/host_index_service.dart';
 import '../../../core/services/image_storage_service.dart';
+import '../../../core/services/user_uniqueness_service.dart';
 import '../../../core/utils/host_reputation.dart';
 import '../../../core/utils/id_generator.dart';
 import 'auth_provider.dart';
@@ -374,6 +375,21 @@ Future<void> saveCccdVerificationToBackend({
   final effectiveUid = (uid.isNotEmpty && uid != 'guest_uid')
       ? uid
       : (FirebaseAuth.instance.currentUser?.uid ?? uid);
+  final normalizedCccd = UserUniquenessService.normalizeCccd(cccdNumber);
+  if (!RegExp(r'^\d{12}$').hasMatch(normalizedCccd)) {
+    throw 'Số CCCD phải gồm đúng 12 chữ số.';
+  }
+
+  // Kiểm tra tính độc nhất của CCCD: mỗi số CCCD là duy nhất trên toàn hệ thống
+  final uniqueness = UserUniquenessService(firestore: firestore);
+  final cccdError = await uniqueness.checkCccdUnique(
+    normalizedCccd,
+    excludeUid: effectiveUid,
+  );
+  if (cccdError != null) {
+    throw cccdError;
+  }
+  await uniqueness.claimCccd(normalizedCccd, uid: effectiveUid);
 
   // Bảo toàn tên hiển thị (displayName) của tài khoản:
   // CCCD chỉ ghi nhận họ tên pháp lý (cccdFullName / hoTenCccd).
@@ -405,9 +421,10 @@ Future<void> saveCccdVerificationToBackend({
     'daXacThucCccd': true,
     'trangThaiXacMinh': 'daXacThuc',
     'trangThaiXacMinh_id': 'daXacThuc',
-    'cccdNumber': cccdNumber,
-    'soCccd': cccdNumber,
-    'soGiayTo': cccdNumber,
+    'cccdNumber': normalizedCccd,
+    'cccdNumberNormalized': normalizedCccd,
+    'soCccd': normalizedCccd,
+    'soGiayTo': normalizedCccd,
     'cccdFullName': cccdFullName,
     'hoTenCccd': cccdFullName,
     // Chỉ gán displayName nếu tài khoản chưa có bất kỳ tên nào, không ghi đè tên đã có
@@ -428,17 +445,13 @@ Future<void> saveCccdVerificationToBackend({
   };
 
   if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
-    try {
-      await firestore
-          .collection('users')
-          .doc(effectiveUid)
-          .set(updateData, SetOptions(merge: true));
-      debugPrint(
-        'Đã lưu CCCD eKYC vào Firestore users/$effectiveUid thành công ✓',
-      );
-    } catch (e) {
-      debugPrint('Lỗi ghi CCCD vào Firestore users/$effectiveUid: $e');
-    }
+    await firestore
+        .collection('users')
+        .doc(effectiveUid)
+        .set(updateData, SetOptions(merge: true));
+    debugPrint(
+      'Đã lưu CCCD eKYC vào Firestore users/$effectiveUid thành công ✓',
+    );
 
     // Đã lưu trực tiếp toàn bộ thông tin CCCD vào users/$effectiveUid,
     // Xóa subcollection id_verifications cũ nếu còn tồn tại để tránh dữ liệu phân mảnh
@@ -456,7 +469,7 @@ Future<void> saveCccdVerificationToBackend({
     final prefs = await SharedPreferences.getInstance();
     final cacheKey = effectiveUid.isNotEmpty ? effectiveUid : 'current';
     await prefs.setBool('cccd_verified_$cacheKey', true);
-    await prefs.setString('cccd_number_$cacheKey', cccdNumber);
+    await prefs.setString('cccd_number_$cacheKey', normalizedCccd);
     await prefs.setString('cccd_name_$cacheKey', cccdFullName);
     await prefs.setString('cccd_hometown_$cacheKey', cccdHometown);
     await prefs.setString('cccd_gender_$cacheKey', gender);

@@ -4,6 +4,7 @@ import '../widgets/admin_page_backdrop.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/constants/firestore_collections.dart';
+import '../../../../core/services/user_uniqueness_service.dart';
 import '../../../../core/utils/vietqr_helper.dart';
 import '../utils/booking_utils.dart';
 import '../utils/commission_rate_service.dart';
@@ -514,7 +515,9 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                         ),
                         onPressed: () async {
                           final bank = bankCtrl.text.trim();
-                          final acc = accountCtrl.text.trim();
+                          final acc = UserUniquenessService.normalizeBankAccount(
+                            accountCtrl.text,
+                          );
 
                           if (bank.isEmpty ||
                               acc.isEmpty ||
@@ -526,6 +529,20 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                                 ),
                               ),
                             );
+                            return;
+                          }
+
+                          final duplicateError = await UserUniquenessService()
+                              .checkBankAccountUnique(
+                                acc,
+                                excludeUid: hostId,
+                              );
+                          if (duplicateError != null) {
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text(duplicateError)),
+                              );
+                            }
                             return;
                           }
 
@@ -543,6 +560,7 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                                 'bankCode': selectedCode,
                                 'bankAccountNumber': acc,
                                 'accountNumber': acc,
+                                'accountNumberNormalized': acc,
                                 'updatedAt': FieldValue.serverTimestamp(),
                               }, SetOptions(merge: true));
                             }
