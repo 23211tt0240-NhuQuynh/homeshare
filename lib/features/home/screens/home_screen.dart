@@ -862,6 +862,21 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            if (profile?.isHost != true) ...[
+              _buildFeaturedBlueBox(
+                icon: Icons.calendar_month_outlined,
+                title: tr('view_schedule_bookings'),
+                subtitle: tr('view_schedule_sub'),
+                badgeCount: appointmentCount > 0 ? appointmentCount : null,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const RenterBookingsScreen()),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
             Card(
               margin: EdgeInsets.zero,
               color: cardColor,
@@ -967,21 +982,6 @@ class HomeScreen extends ConsumerWidget {
                         ),
                       ]
                     : [
-                        _buildMenuRow(
-                          icon: Icons.calendar_month_outlined,
-                          title: tr('view_schedule_bookings'),
-                          subtitle: tr('view_schedule_sub'),
-                          textDark: textDark,
-                          textMuted: textMuted,
-                          iconBg: iconBg,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const RenterBookingsScreen()),
-                            );
-                          },
-                        ),
-                        _buildMenuDivider(dividerColor: dividerColor),
                         _buildMenuRow(
                           icon: Icons.favorite_rounded,
                           title: tr('favorite_rooms'),
@@ -1189,6 +1189,114 @@ class HomeScreen extends ConsumerWidget {
       height: 32,
       width: 1,
       color: dividerColor,
+    );
+  }
+
+  Widget _buildFeaturedBlueBox({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    int? badgeCount,
+  }) {
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, size: 22, color: const Color(0xFF1D4ED8)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2563EB),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: Colors.white.withValues(alpha: 0.88),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (badgeCount != null && badgeCount > 0) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$badgeCount',
+                    style: const TextStyle(
+                      color: Color(0xFF1E40AF),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: Color(0xFF64748B),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
