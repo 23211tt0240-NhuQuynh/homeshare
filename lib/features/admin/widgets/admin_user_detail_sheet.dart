@@ -1086,7 +1086,7 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
   Widget _buildRoomsTab() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('rooms')
+          .collection('host_rooms')
           .where('hostId', isEqualTo: _uid)
           .snapshots(),
       builder: (context, snapshot) {

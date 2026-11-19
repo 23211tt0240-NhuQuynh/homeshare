@@ -178,9 +178,8 @@ class RoommateInvitationEligibilityService {
     }
 
     try {
-      // 1. Tìm thông tin phòng từ host_rooms, rooms, posts
+      // 1. Tìm thông tin phòng từ host_rooms hoặc bài đăng posts.
       DocumentSnapshot<Map<String, dynamic>>? hostRoomDoc;
-      DocumentSnapshot<Map<String, dynamic>>? roomDoc;
       DocumentSnapshot<Map<String, dynamic>>? postDoc;
 
       final directHostDoc =
@@ -188,17 +187,12 @@ class RoommateInvitationEligibilityService {
       if (directHostDoc.exists && directHostDoc.data() != null) {
         hostRoomDoc = directHostDoc;
       } else {
-        final dRoom =
-            await _firestore.collection('rooms').doc(cleanRoomId).get();
-        if (dRoom.exists && dRoom.data() != null) roomDoc = dRoom;
         final dPost =
             await _firestore.collection('posts').doc(cleanRoomId).get();
         if (dPost.exists && dPost.data() != null) postDoc = dPost;
 
-        // Nếu doc ở posts/rooms có liên kết tới host_rooms
-        final linkedHostId = (roomDoc?.data()?['hostRoomId'] ??
-                roomDoc?.data()?['roomId'] ??
-                postDoc?.data()?['hostRoomId'] ??
+        // Nếu bài đăng có liên kết tới host_rooms.
+        final linkedHostId = (postDoc?.data()?['hostRoomId'] ??
                 postDoc?.data()?['roomId'])
             ?.toString()
             .trim() ??
@@ -217,15 +211,6 @@ class RoommateInvitationEligibilityService {
       if (hostRoomDoc != null && hostRoomDoc.exists) {
         final rawCap =
             hostRoomDoc.data()?['capacity'] ?? hostRoomDoc.data()?['sucChua'];
-        if (rawCap is num) {
-          capacity = rawCap.toInt();
-        } else if (rawCap != null) {
-          capacity = int.tryParse(rawCap.toString()) ?? 0;
-        }
-      }
-      if (capacity <= 0 && roomDoc != null && roomDoc.exists) {
-        final rawCap =
-            roomDoc.data()?['capacity'] ?? roomDoc.data()?['sucChua'];
         if (rawCap is num) {
           capacity = rawCap.toInt();
         } else if (rawCap != null) {
@@ -596,7 +581,7 @@ class RoommateInvitationEligibilityService {
   Future<RoomModel?> _loadRoom(String roomId) async {
     if (roomId.trim().isEmpty) return null;
     // Đơn thuê thường lưu roomId = document `posts`, không phải `rooms`.
-    for (final collection in const ['posts', 'rooms', 'host_rooms']) {
+    for (final collection in const ['posts', 'host_rooms']) {
       final doc = await _firestore.collection(collection).doc(roomId).get();
       final data = doc.data();
       if (doc.exists && data != null) {
@@ -703,7 +688,7 @@ String _inviteRoomIdentity(InviteRoomCandidate candidate) {
   return canonical.isNotEmpty ? 'id:$canonical' : 'id:${room.id}';
 }
 
-/// Phòng mời ở ghép lấy từ đơn đang ở khi document `rooms`/`posts` thiếu.
+/// Phòng mời ở ghép lấy từ đơn đang ở khi document `posts` thiếu.
 RoomModel? roomFromActiveBooking(Map<String, dynamic> booking, String bookingId) {
   final hostId = [
     booking['hostId'],

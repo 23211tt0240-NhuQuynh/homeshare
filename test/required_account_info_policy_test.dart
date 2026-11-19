@@ -44,5 +44,44 @@ void main() {
         isFalse,
       );
     });
+
+    test('tài khoản đã cập nhật trước đó không bị yêu cầu cập nhật lại', () {
+      expect(
+        RequiredAccountInfoPolicy.shouldPrompt(
+          previouslyCompleted: true,
+          phoneNumber: '',
+          bankName: '',
+          accountNumber: '',
+          accountHolder: '',
+        ),
+        isFalse,
+      );
+    });
+
+    test('tài khoản cũ đủ dữ liệu thật không bị yêu cầu cập nhật lại', () {
+      expect(
+        RequiredAccountInfoPolicy.shouldPrompt(
+          previouslyCompleted: false,
+          phoneNumber: '0912345678',
+          bankName: 'Vietcombank',
+          accountNumber: '123456789',
+          accountHolder: 'NGUYEN VAN AN',
+        ),
+        isFalse,
+      );
+    });
+
+    test('tài khoản chưa cập nhật và còn thiếu dữ liệu vẫn phải bổ sung', () {
+      expect(
+        RequiredAccountInfoPolicy.shouldPrompt(
+          previouslyCompleted: false,
+          phoneNumber: '0912345678',
+          bankName: '',
+          accountNumber: '',
+          accountHolder: '',
+        ),
+        isTrue,
+      );
+    });
   });
 }

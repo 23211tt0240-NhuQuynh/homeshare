@@ -277,6 +277,53 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
 
   bool _isDefaultInterest(String name) => _defaultInterests.any((item) => _sameInterest(item, name));
 
+  IconData _interestIcon(String interest) {
+    final lower = interest.toLowerCase();
+    if (lower.contains('yên tĩnh') || lower.contains('23h') || lower.contains('ngủ')) {
+      return Icons.bedtime_outlined;
+    }
+    if (lower.contains('sạch sẽ') || lower.contains('ngăn nắp')) {
+      return Icons.cleaning_services_outlined;
+    }
+    if (lower.contains('thuốc lá')) {
+      return Icons.smoke_free_outlined;
+    }
+    if (lower.contains('giờ giấc') || lower.contains('tự do')) {
+      return Icons.schedule_outlined;
+    }
+    if (lower.contains('xe máy') || lower.contains('xe')) {
+      return Icons.two_wheeler_outlined;
+    }
+    if (lower.contains('thể thao') || lower.contains('gym')) {
+      return Icons.fitness_center_outlined;
+    }
+    if (lower.contains('ồn ào') || lower.contains('tụ tập')) {
+      return Icons.volume_off_outlined;
+    }
+    if (lower.contains('học') || lower.contains('làm việc') || lower.contains('sách')) {
+      return Icons.menu_book_outlined;
+    }
+    if (lower.contains('nấu') || lower.contains('ăn')) {
+      return Icons.restaurant_outlined;
+    }
+    if (lower.contains('nhạc') || lower.contains('music')) {
+      return Icons.music_note_outlined;
+    }
+    if (lower.contains('game')) {
+      return Icons.sports_esports_outlined;
+    }
+    if (lower.contains('thú cưng') || lower.contains('chó') || lower.contains('mèo')) {
+      return Icons.pets_outlined;
+    }
+    if (lower.contains('du lịch') || lower.contains('phượt')) {
+      return Icons.flight_takeoff_outlined;
+    }
+    if (lower.contains('công nghệ') || lower.contains('code') || lower.contains('it')) {
+      return Icons.code_outlined;
+    }
+    return Icons.check_circle_outline;
+  }
+
   bool _interestSelected(String name) => _interests.any((item) => _sameInterest(item, name));
 
   void _toggleDefaultInterest(String name) {
@@ -931,18 +978,50 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
             else
               Padding(
                 padding: const EdgeInsets.only(bottom: 14),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                child: Column(
                   children: [
                     for (final interest in _interests)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryContainer,
-                          borderRadius: BorderRadius.circular(20),
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
                         ),
-                        child: Text(interest, style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _interestIcon(interest),
+                              size: 20,
+                              color: const Color(0xFF64748B),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                interest,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF1E293B),
+                                ),
+                              ),
+                            ),
+                            Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFCBD5E1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Icon(
+                                Icons.check,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                   ],
                 ),

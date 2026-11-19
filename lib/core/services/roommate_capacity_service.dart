@@ -87,7 +87,7 @@ class RoommateCapacityService {
           if (userId.isNotEmpty) ids.add(userId);
         }
       }
-      for (final collection in const ['posts', 'rooms', 'host_rooms']) {
+      for (final collection in const ['posts', 'host_rooms']) {
         final doc = await _firestore.collection(collection).doc(cleanRoomId).get();
         final tenantIds = doc.data()?['tenantIds'];
         if (tenantIds is List) {
@@ -158,7 +158,7 @@ class RoommateCapacityService {
   Future<int> _roomCapacity(String roomId) async {
     final id = roomId.trim();
     if (id.isEmpty) return 0;
-    for (final collection in const ['posts', 'rooms', 'host_rooms']) {
+    for (final collection in const ['posts', 'host_rooms']) {
       final doc = await _firestore.collection(collection).doc(id).get();
       final raw = doc.data()?['capacity'] ?? doc.data()?['sucChua'];
       final value = (raw as num?)?.toInt() ?? 0;

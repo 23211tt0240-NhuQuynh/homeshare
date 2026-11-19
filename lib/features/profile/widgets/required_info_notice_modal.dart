@@ -30,7 +30,7 @@ class RequiredInfoNoticeModal extends ConsumerStatefulWidget {
   }) {
     return showDialog<bool>(
       context: context,
-      barrierDismissible: false, // Bắt buộc người dùng không được bỏ sót
+      barrierDismissible: false, // Bắt buộc người dùng nhập đầy đủ thông tin
       builder: (ctx) => RequiredInfoNoticeModal(
         profile: profile,
         initialBankAccount: initialBankAccount,
@@ -78,9 +78,7 @@ class _RequiredInfoNoticeModalState extends ConsumerState<RequiredInfoNoticeModa
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedBank.trim().isEmpty) {
-      setState(() {
-        _errorMessage = 'Vui lòng chọn ngân hàng';
-      });
+      setState(() => _errorMessage = 'Vui lòng chọn ngân hàng');
       return;
     }
 
@@ -115,7 +113,6 @@ class _RequiredInfoNoticeModalState extends ConsumerState<RequiredInfoNoticeModa
         throw bankError;
       }
 
-      // 3. Chỉ lưu SĐT và STK, không thay đổi các phần hồ sơ khác.
       await ref.read(userProfileServiceProvider).saveRequiredAccountInfo(
             uid: widget.profile.uid,
             phoneNumber: phone,

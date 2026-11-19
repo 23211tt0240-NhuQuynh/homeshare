@@ -229,12 +229,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             .collection(FirestoreCollections.hostRooms)
             .doc(targetRoomId)
             .get();
-        if (!roomDoc.exists) {
-          roomDoc = await db
-              .collection(FirestoreCollections.publicRooms)
-              .doc(targetRoomId)
-              .get();
-        }
         if (roomDoc.exists && roomDoc.data() != null) {
           loadedRoom = RoomModel.fromMap(roomDoc.data()!, roomDoc.id);
           if (targetPropId.isEmpty) {
@@ -380,12 +374,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             .collection(FirestoreCollections.hostRooms)
             .doc(room.id)
             .get();
-        if (!doc.exists) {
-          doc = await db
-              .collection(FirestoreCollections.publicRooms)
-              .doc(room.id)
-              .get();
-        }
         if (doc.exists && mounted && _selectedRoom?.id == room.id) {
           final data = doc.data() ?? {};
           final firestoreRoomNote = (data['description'] ??
@@ -677,11 +665,11 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
         // Cập nhật collection 'posts'
         await db.collection('posts').doc(postId).update(updateData);
 
-        // Cập nhật sub-collection nếu có
+        // Cập nhật sub-collection của kho phòng chuẩn nếu có.
         if (roomId.isNotEmpty) {
           try {
             await db
-                .collection('rooms')
+                .collection(FirestoreCollections.hostRooms)
                 .doc(roomId)
                 .collection('rental_posts')
                 .doc(postId)

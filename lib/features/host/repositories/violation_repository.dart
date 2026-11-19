@@ -270,7 +270,7 @@ class ViolationRepository {
   Future<List<HostOccupiedRoomItem>> getHostOccupiedRooms(String hostId) async {
     if (hostId.isEmpty) return [];
 
-    // 1. Lấy danh sách phòng thuộc chủ trọ (từ cả host_rooms và rooms)
+    // 1. Lấy danh sách phòng thuộc chủ trọ từ host_rooms.
     final hostRoomsMap = <String, RoomModel>{};
     try {
       final hostRoomsSnap = await _firestore
@@ -279,18 +279,6 @@ class ViolationRepository {
           .get();
       for (final doc in hostRoomsSnap.docs) {
         if (doc.data()['status'] != 'deleted') {
-          hostRoomsMap[doc.id] = RoomModel.fromFirestore(doc);
-        }
-      }
-    } catch (_) {}
-
-    try {
-      final publicRoomsSnap = await _firestore
-          .collection(FirestoreCollections.publicRooms)
-          .where('hostId', isEqualTo: hostId)
-          .get();
-      for (final doc in publicRoomsSnap.docs) {
-        if (doc.data()['status'] != 'deleted' && !hostRoomsMap.containsKey(doc.id)) {
           hostRoomsMap[doc.id] = RoomModel.fromFirestore(doc);
         }
       }

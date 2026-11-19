@@ -142,7 +142,7 @@ class HostPostRepository {
     return null;
   }
 
-  /// 2. Đọc phòng liên quan theo roomId từ host_rooms, public_rooms hoặc phong_tro
+  /// 2. Đọc phòng liên quan theo roomId từ host_rooms hoặc phong_tro
   /// và nạp ảnh từ room_images cùng tiện ích từ room_amenities
   Future<RoomModel?> getRoom(String roomId) async {
     final db = _db;
@@ -153,7 +153,6 @@ class HostPostRepository {
       DocumentSnapshot? doc;
       for (final col in [
         FirestoreCollections.hostRooms,
-        FirestoreCollections.publicRooms,
         FirestoreCollections.phongTro,
       ]) {
         final d = await db.collection(col).doc(roomId).get();
@@ -198,7 +197,6 @@ class HostPostRepository {
         for (final roomCol in [
           FirestoreCollections.phongTro,
           FirestoreCollections.hostRooms,
-          FirestoreCollections.publicRooms,
         ]) {
           final subSnap = await db
               .collection(roomCol)

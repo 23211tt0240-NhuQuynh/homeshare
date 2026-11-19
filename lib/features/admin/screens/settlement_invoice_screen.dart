@@ -560,7 +560,6 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                                 'bankCode': selectedCode,
                                 'bankAccountNumber': acc,
                                 'accountNumber': acc,
-                                'accountNumberNormalized': acc,
                                 'updatedAt': FieldValue.serverTimestamp(),
                               }, SetOptions(merge: true));
                             }

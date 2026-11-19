@@ -209,12 +209,12 @@ class HostPostModel {
   );
 
   /// Đường dẫn Sub-collection trên Firestore theo quan hệ 1-N:
-  /// Path: rooms/{roomId}/rental_posts
+  /// Path: host_rooms/{roomId}/rental_posts
   static String subCollectionPath(String roomId) =>
       HostFirestorePaths.rentalPosts(roomId);
 
   /// Đường dẫn Document trong Sub-collection:
-  /// Path: rooms/{roomId}/rental_posts/{postId}
+  /// Path: host_rooms/{roomId}/rental_posts/{postId}
   static String docPath(String roomId, String postId) =>
       HostFirestorePaths.rentalPostDoc(roomId, postId);
 
@@ -223,7 +223,7 @@ class HostPostModel {
     String roomId, [
     FirebaseFirestore? firestore,
   ]) => (firestore ?? FirebaseFirestore.instance)
-      .collection(FirestoreCollections.rooms)
+      .collection(FirestoreCollections.hostRooms)
       .doc(roomId)
       .collection(FirestoreCollections.rentalPosts);
 

@@ -193,7 +193,6 @@ class BookingService {
     }
 
     await addLinkedFrom('posts');
-    await addLinkedFrom('rooms');
     ids.add(roomId);
 
     final seen = <String>{};
@@ -282,7 +281,7 @@ class BookingService {
     }, SetOptions(merge: true));
   }
 
-  /// Tìm đúng ID phòng thực tế từ collection host_rooms hoặc rooms
+  /// Tìm đúng ID phòng thực tế từ collection host_rooms hoặc từ bài đăng.
   Future<String?> _resolveRealRoomId(String inputId) async {
     if (inputId.trim().isEmpty) return null;
     final cleanId = inputId.trim();
@@ -294,13 +293,7 @@ class BookingService {
       if (hostDoc.exists) return cleanId;
     } catch (_) {}
 
-    // 2. Kiểm tra trực tiếp trong rooms
-    try {
-      final roomDoc = await _firestore.collection('rooms').doc(cleanId).get();
-      if (roomDoc.exists) return cleanId;
-    } catch (_) {}
-
-    // 3. Nếu inputId là postId, tìm trường roomId / phongId từ document posts
+    // 2. Nếu inputId là postId, tìm trường roomId / phongId từ document posts
     try {
       final postDoc = await _firestore.collection('posts').doc(cleanId).get();
       if (postDoc.exists && postDoc.data() != null) {
@@ -413,7 +406,7 @@ class BookingService {
       // Post creation also touches roomRef. A concurrent new listing forces
       // this transaction to retry and collect that listing before hiding it.
       final posts = <String, DocumentReference<Map<String, dynamic>>>{};
-      for (final collection in ['posts', 'bai_dang_cho_thue', 'rooms']) {
+      for (final collection in ['posts', 'bai_dang_cho_thue']) {
         for (final field in [
           'hostRoomId',
           'roomId',
@@ -704,19 +697,6 @@ class BookingService {
     }
     await batch.commit();
 
-    try {
-      if (realRoomId != null && realRoomId.isNotEmpty) {
-        await _firestore.collection('rooms').doc(realRoomId).set({
-          'status': 'occupied',
-          'isAvailable': false,
-          'tenantName': renterName,
-          'tenantPhone': renterPhone,
-          'contractStart': Timestamp.fromDate(now),
-          'updatedAt': Timestamp.fromDate(now),
-        }, SetOptions(merge: true));
-      }
-    } catch (_) {}
-
     // Chỉ đổi trạng thái bài đăng sang đã có người ở — không ẩn bài.
     await markPostsOccupied(
       finalRoomId,
@@ -843,18 +823,6 @@ class BookingService {
         'updatedAt': Timestamp.fromDate(now),
       }, SetOptions(merge: true));
 
-      try {
-        await _firestore.collection('rooms').doc(rId).set({
-          'status': 'available',
-          'isAvailable': true,
-          'bookingStatus': 'available',
-          'isHolding': false,
-          'holdingBookingId': FieldValue.delete(),
-          'holdingRenterId': FieldValue.delete(),
-          'holdingExpiresAt': FieldValue.delete(),
-          'updatedAt': Timestamp.fromDate(now),
-        }, SetOptions(merge: true));
-      } catch (_) {}
     }
 
     // Quét sạch bất kỳ phòng nào đang giữ chỗ bởi đơn bookingId này
@@ -1177,12 +1145,6 @@ class BookingService {
               .doc(realRoomId)
               .set(roomPayload, SetOptions(merge: true));
         } catch (_) {}
-        try {
-          await _firestore
-              .collection('rooms')
-              .doc(realRoomId)
-              .set(roomPayload, SetOptions(merge: true));
-        } catch (_) {}
       }
 
       debugPrint('Đã đánh dấu bài đăng phòng $roomId: đã có người ở');
@@ -1304,17 +1266,6 @@ class BookingService {
             }, SetOptions(merge: true));
           } catch (_) {}
 
-          try {
-            await _firestore.collection('rooms').doc(realRoomId).set({
-              'status': 'available',
-              'isAvailable': true,
-              'bookingStatus': 'available',
-              'tenantName': '',
-              'tenantPhone': '',
-              'contractId': '',
-              'updatedAt': Timestamp.fromDate(now),
-            }, SetOptions(merge: true));
-          } catch (_) {}
         }
       }
 
@@ -1425,7 +1376,7 @@ class BookingService {
     );
   }
 
-  /// Trích xuất tiêu đề phòng thật (live title) từ host_rooms/rooms/posts,
+  /// Trích xuất tiêu đề phòng thật (live title) từ host_rooms/posts,
   /// ưu tiên host_rooms title/roomTitle, chuẩn hóa hậu tố và fallback về bookingTitle.
   @visibleForTesting
   static String resolveLiveRoomTitle({
@@ -1487,8 +1438,8 @@ class BookingService {
       debugPrint('Error loading host_rooms/$roomId: $e');
     }
 
-    // 2. Nếu không có trong host_rooms, có thể roomId là ID bài đăng trong 'posts' hoặc 'rooms'
-    for (final collection in ['posts', 'rooms']) {
+    // 2. Nếu không có trong host_rooms, roomId có thể là ID bài đăng.
+    for (final collection in ['posts']) {
       try {
         final doc = await _firestore.collection(collection).doc(roomId).get();
         if (doc.exists && doc.data() != null) {

@@ -105,7 +105,7 @@ final pastRentalHomesProvider = FutureProvider.autoDispose.family<List<PastRenta
           hostPhone = data['hostPhone'] ?? data['sdtChuNha'] ?? '';
           price = ((data['price'] ?? data['roomPrice'] ?? data['giaThue']) as num?)?.toDouble() ?? 0.0;
         } else {
-          final roomDoc = await firestore.collection('rooms').doc(record.roomId).get();
+          final roomDoc = await firestore.collection('posts').doc(record.roomId).get();
           if (roomDoc.exists) {
             final data = roomDoc.data() ?? {};
             final linkedId = (data['hostRoomId'] ?? data['roomId'] ?? '').toString().trim();
@@ -251,9 +251,6 @@ final pastRentalHomesProvider = FutureProvider.autoDispose.family<List<PastRenta
               await firestore.collection('host_rooms').doc(resolvedRoomId).get();
           if (!roomDoc.exists && resolvedRoomId != rawRoomId) {
             roomDoc = await firestore.collection('host_rooms').doc(rawRoomId).get();
-          }
-          if (!roomDoc.exists) {
-            roomDoc = await firestore.collection('rooms').doc(resolvedRoomId).get();
           }
           if (!roomDoc.exists) {
             roomDoc = await firestore.collection('posts').doc(resolvedRoomId).get();

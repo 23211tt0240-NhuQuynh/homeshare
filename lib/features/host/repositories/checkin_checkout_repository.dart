@@ -657,17 +657,6 @@ class CheckinCheckoutRepository {
         await BookingService(firestore: _firestore)
             .restorePostOnCancelledBooking(roomId, syncRoomDocuments: false);
       } catch (_) {}
-      try {
-        await _firestore.collection('rooms').doc(roomId).set({
-          'status': 'available',
-          'isAvailable': FieldValue.delete(),
-          'bookingStatus': 'available',
-          'tenantName': '',
-          'tenantPhone': '',
-          'contractId': '',
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      } catch (_) {}
     }
   }
 

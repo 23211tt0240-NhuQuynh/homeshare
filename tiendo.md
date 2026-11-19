@@ -3976,3 +3976,40 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
 6. Hai màn chỉnh hồ sơ người thuê/chủ trọ không còn cho xóa trống thông tin ngân hàng; các màn hóa đơn quản trị ghi STK cũng kiểm tra trùng và lưu giá trị chuẩn hóa.
 7. Firestore Rules giới hạn document giữ chỗ: không cho liệt kê, chỉ chủ sở hữu được tạo/cập nhật/xóa (admin có thể xóa để xử lý sự cố). Rules đã kiểm tra cú pháp bằng Firestore Emulator cục bộ; chưa deploy Firebase.
 8. Kiểm thử: toàn bộ `flutter test` **28/28 passed**; `flutter analyze` các file thay đổi **No issues found**.
+
+
+---
+
+### Cập nhật 19/11/2026: Loại Bỏ Collection Gốc `rooms` Khỏi Mã Nguồn
+1. Xóa hai hằng legacy `FirestoreCollections.rooms` và `FirestoreCollections.publicRooms`; kho phòng duy nhất của chủ trọ tiếp tục dùng `host_rooms`, bài đăng công khai dùng `posts`.
+2. Loại bỏ toàn bộ nhánh đọc dự phòng và ghi kép vào collection gốc `rooms` trong các luồng đặt phòng, nhận/trả phòng, hủy đơn, mời ở ghép, báo sự cố, thông báo, quản trị và màn hình nhà đang/đã thuê.
+3. Cập nhật Firestore Rules để không còn kiểm tra document trong collection gốc `rooms`.
+4. Giữ nguyên các subcollection có tên `rooms` nằm dưới `properties/{propertyId}` hoặc `users/{hostId}/properties/{propertyId}`; đổi hằng thành `propertyRooms` để phân biệt rõ với collection gốc đã bỏ.
+5. Thêm `test/no_legacy_rooms_collection_test.dart` để ngăn mã nguồn truy cập lại collection gốc `rooms` trong tương lai.
+6. Không xóa dữ liệu trực tiếp trên Firebase Console và chưa deploy rules; collection cũ có thể xóa thủ công sau khi bản ứng dụng mới đã được kiểm tra trên dữ liệu thật.
+7. Kiểm thử: toàn bộ `flutter test` **29/29 passed**; phân tích file đã sửa lỗi đạt **No issues found**. Phân tích toàn dự án chỉ còn 4 cảnh báo/info cũ không liên quan tại các màn chi tiết phòng.
+
+
+---
+
+### Cập nhật bổ sung 19/11/2026: Không Hỏi Lại Tài Khoản Đã Hoàn Tất Thông Tin
+1. Tài khoản có `requiredInfoCompleted: true` (kể cả các cờ legacy tương đương) được vào thẳng màn hình chính sau đăng nhập, không tải tài khoản ngân hàng chỉ để quyết định mở hộp cập nhật.
+2. Tài khoản cũ chưa có cờ nhưng đã đủ dữ liệu thực tế vẫn được công nhận là hoàn tất; tài khoản chưa hoàn tất và còn thiếu dữ liệu tiếp tục bị yêu cầu bổ sung.
+3. Bổ sung chính sách `RequiredAccountInfoPolicy.shouldPrompt` và ba test hồi quy cho tài khoản đã cập nhật, tài khoản legacy đủ dữ liệu và tài khoản còn thiếu dữ liệu.
+4. Sửa tham số bị lặp trong `UserProfile.copyWith` làm lỗi biên dịch luồng đăng nhập.
+5. Kiểm thử: toàn bộ `flutter test --concurrency=1` **32/32 passed**; `flutter analyze` các file liên quan **No issues found**.
+
+
+---
+
+### Cập nhật 19/11/2026: Danh Sách Sở Thích Dạng List Có Check và Chuẩn Hóa Xóa `accountNumberNormalized`
+1. **Hiển thị danh mục Sở thích dạng List có check ở hồ sơ cá nhân:**
+   - Trong `personal_profile_screen.dart`, khi chưa nhấn vào nút Edit profile, danh sách sở thích được đổi từ dạng thẻ ngang (Wrap) sang dạng danh sách thẻ dọc (Card list bo góc) có icon đại diện phù hợp theo từng chủ đề ở bên trái và ô check box `[✓]` màu xám bo tròn ở bên phải theo đúng ảnh thiết kế bàn giao.
+2. **Chuẩn hóa Database Schema - Xóa bỏ `accountNumberNormalized`:**
+   - Đã loại bỏ hoàn toàn trường `accountNumberNormalized` khỏi payload cập nhật `hostBankAccountPatch`, bộ kiểm tra duy nhất `UserUniquenessService`, và các màn hình hóa đơn quản trị (`cancellation_invoice_screen.dart`, `settlement_invoice_screen.dart`).
+   - Chỉ duy trì trường chuẩn `accountNumber` theo cấu trúc sơ đồ dữ liệu gốc.
+3. **Tối ưu modal yêu cầu thông tin bắt buộc:**
+   - Modal `RequiredInfoNoticeModal` cho phép người tìm phòng (`renter`) đóng hoặc chọn `Để sau (Bỏ qua)` thay vì bị chặn đứng hoàn toàn.
+4. **Kiểm thử tự động & Phân tích tĩnh:**
+   - `dart analyze lib/`: **0 errors, 0 warnings**.
+   - Toàn bộ unit tests liên quan đạt kết quả tốt (**All tests passed**).

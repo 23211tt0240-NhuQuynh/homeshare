@@ -23,6 +23,5 @@ void main() {
     );
 
     expect(patch['accountNumber'], '123456789');
-    expect(patch['accountNumberNormalized'], '123456789');
   });
 }

@@ -67,6 +67,7 @@ Map<String, dynamic> hostProfileUsersPatch({
     'phoneNumberNormalized': normalizedPhone,
     'gender': gender,
     'hometown': hometown,
+    'requiredInfoCompleted': true,
     'hoTen': FieldValue.delete(),
     'soDienThoai': FieldValue.delete(),
     'gioiTinh': FieldValue.delete(),
@@ -98,7 +99,7 @@ Map<String, dynamic> hostBankAccountPatch({
     'id': uid,
     'userId': uid,
     'accountNumber': normalizedAccount,
-    'accountNumberNormalized': normalizedAccount,
+    'accountNumberNormalized': FieldValue.delete(),
     'accountHolder': accountHolder,
     'bankName': bankName,
     'nguoiDungId': FieldValue.delete(),
@@ -238,6 +239,7 @@ class UserProfileService {
       'workplace': workplace,
       'bio': bio,
       'role': role,
+      'requiredInfoCompleted': true,
       'hoTen': FieldValue.delete(),
       'soDienThoai': FieldValue.delete(),
       'gioiTinh': FieldValue.delete(),
@@ -379,8 +381,63 @@ class UserProfileService {
     final id = uid.trim();
     if (id.isEmpty) return const BankAccount();
     final doc = await _bankAccounts.doc(id).get();
-    if (!doc.exists) return BankAccount(id: id, userId: id);
-    return BankAccount.fromMap(doc.data() ?? {}, doc.id);
+    if (doc.exists) {
+      final account = BankAccount.fromMap(doc.data() ?? {}, doc.id);
+      if (account.accountNumber.isNotEmpty || account.bankName.isNotEmpty) {
+        return account;
+      }
+    }
+
+    try {
+      final byUserId = await _bankAccounts
+          .where('userId', isEqualTo: id)
+          .limit(1)
+          .get();
+      if (byUserId.docs.isNotEmpty) {
+        final account = BankAccount.fromMap(
+          byUserId.docs.first.data(),
+          byUserId.docs.first.id,
+        );
+        if (account.accountNumber.isNotEmpty || account.bankName.isNotEmpty) {
+          return account;
+        }
+      }
+      final byHostId = await _bankAccounts
+          .where('hostId', isEqualTo: id)
+          .limit(1)
+          .get();
+      if (byHostId.docs.isNotEmpty) {
+        final account = BankAccount.fromMap(
+          byHostId.docs.first.data(),
+          byHostId.docs.first.id,
+        );
+        if (account.accountNumber.isNotEmpty || account.bankName.isNotEmpty) {
+          return account;
+        }
+      }
+    } catch (_) {}
+
+    // Fallback nếu tài khoản đã lưu thông tin ngân hàng trong users
+    try {
+      final userDoc = await _users.doc(id).get();
+      if (userDoc.exists) {
+        final userData = userDoc.data() ?? const <String, dynamic>{};
+        final acc = '${userData['accountNumber'] ?? userData['bankAccountNumber'] ?? userData['hostAccountNumber'] ?? userData['renterAccountNumber'] ?? userData['soTaiKhoan'] ?? userData['stk'] ?? ''}'.trim();
+        final holder = '${userData['accountHolder'] ?? userData['accountName'] ?? userData['hostAccountHolder'] ?? userData['chuTaiKhoan'] ?? ''}'.trim();
+        final bank = '${userData['bankName'] ?? userData['hostBankName'] ?? userData['tenNganHang'] ?? userData['nganHang'] ?? ''}'.trim();
+        if (acc.isNotEmpty || holder.isNotEmpty || bank.isNotEmpty) {
+          return BankAccount(
+            id: id,
+            userId: id,
+            accountNumber: acc,
+            accountHolder: holder,
+            bankName: bank,
+          );
+        }
+      }
+    } catch (_) {}
+
+    return BankAccount(id: id, userId: id);
   }
 
   /// Lưu riêng thông tin bắt buộc sau đăng nhập, không thay đổi sở thích,
@@ -388,9 +445,9 @@ class UserProfileService {
   Future<void> saveRequiredAccountInfo({
     required String uid,
     required String phoneNumber,
-    required String accountNumber,
-    required String accountHolder,
-    required String bankName,
+    String accountNumber = '',
+    String accountHolder = '',
+    String bankName = '',
   }) async {
     final id = uid.trim();
     final phone = UserUniquenessService.normalizePhone(phoneNumber);
@@ -402,11 +459,15 @@ class UserProfileService {
     if (!RegExp(r'^0\d{9}$').hasMatch(phone)) {
       throw 'Số điện thoại phải gồm đúng 10 số và bắt đầu bằng 0.';
     }
-    if (!RegExp(r'^\d{6,19}$').hasMatch(number)) {
-      throw 'Số tài khoản phải gồm từ 6 đến 19 chữ số.';
+
+    final hasBankInfo = number.isNotEmpty || holder.isNotEmpty || bank.isNotEmpty;
+    if (hasBankInfo) {
+      if (!RegExp(r'^\d{6,19}$').hasMatch(number)) {
+        throw 'Số tài khoản phải gồm từ 6 đến 19 chữ số.';
+      }
+      if (holder.length < 2) throw 'Vui lòng nhập tên chủ tài khoản.';
+      if (bank.isEmpty) throw 'Vui lòng chọn ngân hàng.';
     }
-    if (holder.length < 2) throw 'Vui lòng nhập tên chủ tài khoản.';
-    if (bank.isEmpty) throw 'Vui lòng chọn ngân hàng.';
 
     final uniqueness = UserUniquenessService(firestore: _firestore);
     final existingDocs = await Future.wait([
@@ -426,20 +487,25 @@ class UserProfileService {
       excludeUid: id,
     );
     if (phoneError != null) throw phoneError;
-    final bankError = await uniqueness.checkBankAccountUnique(
-      number,
-      excludeUid: id,
-    );
-    if (bankError != null) throw bankError;
+
+    if (hasBankInfo) {
+      final bankError = await uniqueness.checkBankAccountUnique(
+        number,
+        excludeUid: id,
+      );
+      if (bankError != null) throw bankError;
+    }
 
     await uniqueness.claimPhoneNumber(phone, uid: id);
-    try {
-      await uniqueness.claimBankAccount(number, uid: id);
-    } catch (_) {
-      if (previousPhone != phone) {
-        await uniqueness.releasePhoneNumber(phone, uid: id);
+    if (hasBankInfo) {
+      try {
+        await uniqueness.claimBankAccount(number, uid: id);
+      } catch (_) {
+        if (previousPhone != phone) {
+          await uniqueness.releasePhoneNumber(phone, uid: id);
+        }
+        rethrow;
       }
-      rethrow;
     }
 
     final batch = _firestore.batch();
@@ -449,25 +515,28 @@ class UserProfileService {
         'phoneNumber': phone,
         'phoneNumberNormalized': phone,
         'soDienThoai': FieldValue.delete(),
+        'requiredInfoCompleted': true,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
     );
-    batch.set(
-      _bankAccounts.doc(id),
-      hostBankAccountPatch(
-        uid: id,
-        accountNumber: number,
-        accountHolder: holder,
-        bankName: bank,
-      ),
-      SetOptions(merge: true),
-    );
+    if (hasBankInfo) {
+      batch.set(
+        _bankAccounts.doc(id),
+        hostBankAccountPatch(
+          uid: id,
+          accountNumber: number,
+          accountHolder: holder,
+          bankName: bank,
+        ),
+        SetOptions(merge: true),
+      );
+    }
     await batch.commit().timeout(const Duration(seconds: 15));
     if (previousPhone.isNotEmpty && previousPhone != phone) {
       await uniqueness.releasePhoneNumber(previousPhone, uid: id);
     }
-    if (previousAccount.isNotEmpty && previousAccount != number) {
+    if (hasBankInfo && previousAccount.isNotEmpty && previousAccount != number) {
       await uniqueness.releaseBankAccount(previousAccount, uid: id);
     }
   }

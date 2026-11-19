@@ -567,7 +567,6 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
           'bankCode': selectedCode,
           'bankAccountNumber': account,
           'accountNumber': account,
-          'accountNumberNormalized': account,
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       }

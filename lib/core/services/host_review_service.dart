@@ -152,7 +152,6 @@ class HostReviewService {
             bool hostMatched = false;
             for (final col in [
               FirestoreCollections.hostRooms,
-              FirestoreCollections.rooms,
               FirestoreCollections.posts,
             ]) {
               try {

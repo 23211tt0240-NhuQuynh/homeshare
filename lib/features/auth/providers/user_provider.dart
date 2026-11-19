@@ -50,8 +50,10 @@ class UserProfile {
   final DateTime? cccdVerifiedAt; // ngayXacMinh
   final String cccdFrontImageUrl; // anhMatTruoc / anhGiayTo_id
   final String cccdBackImageUrl; // anhMatSau
+  final bool requiredInfoCompleted; // daCapNhatThongTin
 
   // Vietnamese DrawIO Alias Getters
+  bool get hasCompletedRequiredInfo => requiredInfoCompleted;
   bool get isAccessBlocked {
     return accountDeleted || isBanned || statusId == 2;
   }
@@ -148,6 +150,7 @@ class UserProfile {
     this.cccdVerifiedAt,
     this.cccdFrontImageUrl = '',
     this.cccdBackImageUrl = '',
+    this.requiredInfoCompleted = false,
   }) : _userCode = (userCode != null && isValidUserCode(userCode))
            ? userCode.trim().toUpperCase()
            : generateUserCode(seed: uid, role: role);
@@ -245,6 +248,9 @@ class UserProfile {
           : null,
       cccdFrontImageUrl: data['cccdFrontImageUrl'] ?? data['anhMatTruoc'] ?? '',
       cccdBackImageUrl: data['cccdBackImageUrl'] ?? data['anhMatSau'] ?? '',
+      requiredInfoCompleted: data['requiredInfoCompleted'] == true ||
+          data['daCapNhatThongTin'] == true ||
+          data['hasCompletedRequiredInfo'] == true,
     );
   }
 
@@ -263,6 +269,7 @@ class UserProfile {
       'reputationScore': reputationScore,
       'isEmailVerified': isEmailVerified,
       'emailVerificationRequired': emailVerificationRequired,
+      'requiredInfoCompleted': requiredInfoCompleted,
       if (hostIndex > 0) 'hostIndex': hostIndex,
 
       'occupation': occupation,
@@ -319,6 +326,7 @@ class UserProfile {
     DateTime? cccdVerifiedAt,
     String? cccdFrontImageUrl,
     String? cccdBackImageUrl,
+    bool? requiredInfoCompleted,
   }) {
     return UserProfile(
       uid: uid ?? this.uid,
@@ -339,6 +347,8 @@ class UserProfile {
       isEmailVerified: isEmailVerified ?? this.isEmailVerified,
       emailVerificationRequired:
           emailVerificationRequired ?? this.emailVerificationRequired,
+      requiredInfoCompleted:
+          requiredInfoCompleted ?? this.requiredInfoCompleted,
       suspendedUntil: suspendedUntil ?? this.suspendedUntil,
       suspensionType: suspensionType ?? this.suspensionType,
       occupation: occupation ?? this.occupation,

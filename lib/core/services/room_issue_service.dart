@@ -55,12 +55,6 @@ class RoomIssueService {
         if (hrDoc.exists) {
           cleanHostId = (hrDoc.data()?['hostId'] ?? hrDoc.data()?['chuNhaId'] ?? '').toString().trim();
         }
-        if (cleanHostId.isEmpty) {
-          final rDoc = await _firestore.collection('rooms').doc(cleanRoomId).get();
-          if (rDoc.exists) {
-            cleanHostId = (rDoc.data()?['hostId'] ?? rDoc.data()?['chuNhaId'] ?? '').toString().trim();
-          }
-        }
       } catch (_) {}
     }
     if (cleanHostId.isEmpty && cleanBookingId.isNotEmpty) {

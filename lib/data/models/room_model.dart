@@ -764,7 +764,7 @@ class RoomModel {
   ]) => (firestore ?? FirebaseFirestore.instance)
       .collection(FirestoreCollections.properties)
       .doc(propertyId)
-      .collection(FirestoreCollections.rooms);
+      .collection(FirestoreCollections.propertyRooms);
 
   /// Mapper chuẩn bảng phong_tro theo SQL_NHOM4_CHUYENDEDIDONG.sql (100% trường SQL)
   Map<String, dynamic> toPhongTroSql() => {

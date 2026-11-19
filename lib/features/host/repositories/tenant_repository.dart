@@ -524,7 +524,7 @@ class TenantRepository {
               .where('hostId', isEqualTo: hostId),
         );
         listen(
-          'rooms',
+          'host_rooms',
           _firestore
               .collection(FirestoreCollections.hostRooms)
               .where('hostId', isEqualTo: hostId),

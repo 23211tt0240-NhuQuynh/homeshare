@@ -702,7 +702,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
 
     try {
       if (normalizedId.isNotEmpty) {
-        final roomDoc = await db.collection('rooms').doc(normalizedId).get();
+        final roomDoc = await db.collection('host_rooms').doc(normalizedId).get();
         if (roomDoc.exists) {
           addAllUnique(
             _postImages(roomDoc.data() ?? const <String, dynamic>{}),
@@ -712,7 +712,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
 
         final snapshots = await Future.wait([
           db
-              .collection('rooms')
+              .collection('host_rooms')
               .where('roomId', isEqualTo: normalizedId)
               .limit(1)
               .get(),

@@ -180,7 +180,6 @@ class UserUniquenessService {
     final bankAccounts = _firestore.collection('bank_accounts');
 
     for (final field in const [
-      'accountNumberNormalized',
       'accountNumber',
       'soTaiKhoan',
     ]) {
@@ -196,7 +195,6 @@ class UserUniquenessService {
     // Dữ liệu cũ và các màn quản trị trước đây có thể lưu STK trong users.
     final users = _firestore.collection('users');
     for (final field in const [
-      'accountNumberNormalized',
       'accountNumber',
       'bankAccountNumber',
       'hostAccountNumber',

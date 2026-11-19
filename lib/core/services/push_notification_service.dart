@@ -779,7 +779,7 @@ class PushNotificationService {
         case 'roommate_message':
           final doc = await db.collection('posts').doc(targetId).get();
           if (doc.exists) return true;
-          final roomDoc = await db.collection('rooms').doc(targetId).get();
+          final roomDoc = await db.collection('host_rooms').doc(targetId).get();
           return roomDoc.exists;
         default:
           return true;

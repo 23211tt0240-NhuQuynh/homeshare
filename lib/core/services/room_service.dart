@@ -342,7 +342,6 @@ class RoomService {
   Future<RoomModel?> _readReferencedRoom(String roomId) async {
     if (roomId.trim().isEmpty) return null;
     final collections = <String>{
-      FirestoreCollections.rooms,
       FirestoreCollections.hostRooms,
       FirestoreCollections.phongTro,
     };
@@ -892,8 +891,7 @@ class RoomService {
     return resolveRentedRoom(roomId: id);
   }
 
-  /// Ghép phòng công khai `rooms` + bài `posts` (+ `host_rooms` nếu đọc được).
-  /// Khách thuê thường không đọc được `host_rooms`; `posts` không lưu area/phí.
+  /// Ghép bài đăng `posts` với kho phòng `host_rooms`.
   Future<RoomModel?> resolveRentedRoom({
     String roomId = '',
     String hostId = '',
@@ -964,7 +962,6 @@ class RoomService {
       final pending = candidateIds.where((id) => triedIds.add(id)).toList();
       if (pending.isEmpty) break;
       for (final id in pending) {
-        await absorbDoc(FirestoreCollections.rooms, id);
         await absorbDoc(FirestoreCollections.posts, id);
         await absorbDoc(FirestoreCollections.hostRooms, id);
         await absorbDoc(FirestoreCollections.phongTro, id);
@@ -975,18 +972,14 @@ class RoomService {
           'phong_tro_id',
         ]) {
           await absorbQuery(FirestoreCollections.posts, field, id);
-          await absorbQuery(FirestoreCollections.rooms, field, id);
         }
       }
     }
     if (roomCode.trim().isNotEmpty) {
-      await absorbQuery(FirestoreCollections.rooms, 'roomCode', roomCode);
       await absorbQuery(FirestoreCollections.posts, 'roomCode', roomCode);
       await absorbQuery(FirestoreCollections.hostRooms, 'roomCode', roomCode);
     }
     if (hostId.trim().isNotEmpty) {
-      await absorbQuery(FirestoreCollections.rooms, 'hostId', hostId);
-      await absorbQuery(FirestoreCollections.rooms, 'chuNhaId', hostId);
       await absorbQuery(FirestoreCollections.posts, 'hostId', hostId);
       await absorbQuery(FirestoreCollections.posts, 'chuNhaId', hostId);
     }
@@ -1048,7 +1041,6 @@ class RoomService {
     final bestRoom = bestOf(
       maps.where(
         (item) =>
-            item['_source'] == FirestoreCollections.rooms ||
             item['_source'] == FirestoreCollections.hostRooms ||
             item['_source'] == FirestoreCollections.phongTro,
       ),
@@ -1095,14 +1087,12 @@ class RoomService {
         room.id,
       ]);
       final hostRoomData = await _readDocument(const [
-        FirestoreCollections.rooms,
         FirestoreCollections.hostRooms,
         FirestoreCollections.phongTro,
       ], linkedRoomId);
       final publicRoomData = linkedRoomId == room.id
           ? null
           : await _readDocument(const [
-              FirestoreCollections.rooms,
               FirestoreCollections.hostRooms,
             ], room.id);
 

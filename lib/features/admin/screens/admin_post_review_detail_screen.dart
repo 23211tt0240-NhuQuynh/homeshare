@@ -164,7 +164,7 @@ class _AdminPostReviewDetailScreenState
         } catch (_) {}
       }
 
-      // 2. Bổ sung thông tin phòng (ảnh, tiện ích, mô tả, diện tích, địa chỉ) từ collection 'rooms' và 'room_images' / 'room_amenities'
+      // 2. Bổ sung thông tin phòng từ host_rooms và các bảng ảnh/tiện ích.
       final extraImages = <String>[...updated.images];
       final extraAmenities = <String>[...updated.amenities];
 
@@ -207,12 +207,12 @@ class _AdminPostReviewDetailScreenState
       }
 
       if (roomKey.isNotEmpty) {
-        final rDoc = await db.collection('rooms').doc(roomKey).get();
+        final rDoc = await db.collection('host_rooms').doc(roomKey).get();
         if (rDoc.exists && rDoc.data() != null) {
           mergeRoomDoc(rDoc.data()!);
         } else {
           final byField = await db
-              .collection('rooms')
+              .collection('host_rooms')
               .where('roomId', isEqualTo: roomKey)
               .limit(1)
               .get();

@@ -859,7 +859,7 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: _amenities.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (_, index) {
         final perk = _amenities[index];
         return Container(

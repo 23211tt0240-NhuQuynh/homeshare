@@ -86,7 +86,6 @@ service cloud.firestore {
       }
       function residentRoomMatchesHost(resident) {
         return docHostMatches('posts', residentRoomId(resident), request.resource.data.hostId)
-          || docHostMatches('rooms', residentRoomId(resident), request.resource.data.hostId)
           || docHostMatches('host_rooms', residentRoomId(resident), request.resource.data.hostId);
       }
       function isBookingReview() {

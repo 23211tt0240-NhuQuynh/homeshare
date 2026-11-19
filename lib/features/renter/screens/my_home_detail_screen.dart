@@ -158,7 +158,7 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
       RoomModel? loadedRoom;
       final hostId = widget.booking?.hostId ?? widget.pastItem?.hostId ?? '';
 
-      // 1. Dùng RoomService.resolveRentedRoom - giải quyết thông tin từ posts, host_rooms, rooms, properties
+      // 1. Dùng RoomService.resolveRentedRoom - giải quyết thông tin từ posts, host_rooms, properties
       try {
         loadedRoom = await roomService.resolveRentedRoom(
           roomId: roomId,
@@ -174,7 +174,6 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
       // 2. Tra cứu trực tiếp bổ sung trong Firestore
       Map<String, dynamic>? postData;
       Map<String, dynamic>? hostRoomData;
-      Map<String, dynamic>? publicRoomData;
       Map<String, dynamic>? bookingDocData;
 
       if (roomId.isNotEmpty) {
@@ -188,10 +187,6 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
           if (hrDoc.exists && hrDoc.data() != null) hostRoomData = {...hrDoc.data()!, 'id': hrDoc.id};
         } catch (_) {}
 
-        try {
-          final rDoc = await db.collection(FirestoreCollections.rooms).doc(roomId).get();
-          if (rDoc.exists && rDoc.data() != null) publicRoomData = {...rDoc.data()!, 'id': rDoc.id};
-        } catch (_) {}
       }
 
       // 2b. Nếu chưa có postData, tìm kiếm theo tiêu đề hoặc mã phòng trong posts
@@ -319,7 +314,6 @@ class _MyHomeDetailScreenState extends ConsumerState<MyHomeDetailScreen> {
       }
       extractImages(postData);
       extractImages(hostRoomData);
-      extractImages(publicRoomData);
       extractImages(bookingDocData);
       extractImages(propertyData);
 

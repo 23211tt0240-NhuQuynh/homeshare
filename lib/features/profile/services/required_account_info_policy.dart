@@ -15,19 +15,22 @@ abstract final class RequiredAccountInfoPolicy {
     required String bankName,
     required String accountNumber,
     required String accountHolder,
+    bool requireBankAccount = true,
   }) {
     final missing = <RequiredAccountInfoField>[];
     if (!_vietnamPhone.hasMatch(phoneNumber.trim())) {
       missing.add(RequiredAccountInfoField.phoneNumber);
     }
-    if (bankName.trim().isEmpty) {
-      missing.add(RequiredAccountInfoField.bankName);
-    }
-    if (!_bankAccountNumber.hasMatch(accountNumber.trim())) {
-      missing.add(RequiredAccountInfoField.bankAccountNumber);
-    }
-    if (accountHolder.trim().length < 2) {
-      missing.add(RequiredAccountInfoField.bankAccountHolder);
+    if (requireBankAccount) {
+      if (bankName.trim().isEmpty) {
+        missing.add(RequiredAccountInfoField.bankName);
+      }
+      if (!_bankAccountNumber.hasMatch(accountNumber.trim())) {
+        missing.add(RequiredAccountInfoField.bankAccountNumber);
+      }
+      if (accountHolder.trim().length < 2) {
+        missing.add(RequiredAccountInfoField.bankAccountHolder);
+      }
     }
     return missing;
   }
@@ -37,12 +40,34 @@ abstract final class RequiredAccountInfoPolicy {
     required String bankName,
     required String accountNumber,
     required String accountHolder,
+    bool requireBankAccount = true,
   }) {
     return missingFields(
       phoneNumber: phoneNumber,
       bankName: bankName,
       accountNumber: accountNumber,
       accountHolder: accountHolder,
+      requireBankAccount: requireBankAccount,
     ).isEmpty;
+  }
+
+  /// Tài khoản đã hoàn tất trước đó không bị hỏi lại ở những lần đăng nhập sau.
+  /// Tài khoản cũ chưa có cờ vẫn được công nhận khi dữ liệu thực tế đã đầy đủ.
+  static bool shouldPrompt({
+    required bool previouslyCompleted,
+    required String phoneNumber,
+    required String bankName,
+    required String accountNumber,
+    required String accountHolder,
+    bool requireBankAccount = true,
+  }) {
+    if (previouslyCompleted) return false;
+    return !isComplete(
+      phoneNumber: phoneNumber,
+      bankName: bankName,
+      accountNumber: accountNumber,
+      accountHolder: accountHolder,
+      requireBankAccount: requireBankAccount,
+    );
   }
 }

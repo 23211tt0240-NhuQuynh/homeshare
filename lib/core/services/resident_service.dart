@@ -53,7 +53,7 @@ class ResidentService {
     if ((room.data()?['propertyId'] ?? '').toString().isNotEmpty) {
       return reference;
     }
-    for (final collection in ['posts', 'rooms']) {
+    for (final collection in ['posts']) {
       final linked = await firestore
           .collection(collection)
           .doc(reference)

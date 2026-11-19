@@ -181,16 +181,8 @@ class _UserNotificationsScreenState extends ConsumerState<UserNotificationsScree
         builder: (_) => const Center(child: CircularProgressIndicator()),
       );
 
-      // 1. Tìm hostId của phòng (với các tầng fallback bảo đảm 100% tìm thấy)
+      // 1. Tìm hostId của phòng từ kho phòng chuẩn và bài đăng.
       String hostId = data['hostId']?.toString() ?? '';
-      if (hostId.isEmpty && roomId.isNotEmpty) {
-        try {
-          final roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(roomId).get();
-          if (roomDoc.exists) {
-            hostId = roomDoc.data()?['hostId'] ?? roomDoc.data()?['chuNhaId'] ?? '';
-          }
-        } catch (_) {}
-      }
       if (hostId.isEmpty && roomId.isNotEmpty) {
         try {
           final hostRoomDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(roomId).get();

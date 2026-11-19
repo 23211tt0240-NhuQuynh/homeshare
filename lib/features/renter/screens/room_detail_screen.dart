@@ -1154,7 +1154,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: _room.amenities.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (_, index) {
                       final item = _room.amenities[index];
                       return Container(

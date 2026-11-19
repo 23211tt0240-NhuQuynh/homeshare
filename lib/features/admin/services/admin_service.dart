@@ -499,7 +499,7 @@ class AdminService {
     if (firestore == null || roomId.startsWith('mock_') || roomId.startsWith('p')) return;
 
     try {
-      await firestore.collection('rooms').doc(roomId).update({
+      await firestore.collection('posts').doc(roomId).update({
         'status': 'active',
         'trangThai': 'daDuyet',
         'isAvailable': true,
@@ -517,7 +517,7 @@ class AdminService {
     if (firestore == null || roomId.startsWith('mock_') || roomId.startsWith('p')) return;
 
     try {
-      await firestore.collection('rooms').doc(roomId).update({
+      await firestore.collection('posts').doc(roomId).update({
         'status': 'rejected',
         'trangThai': 'tuChoi',
         'rejectReason': reason,
@@ -534,7 +534,7 @@ class AdminService {
     if (firestore == null || roomId.startsWith('mock_') || roomId.startsWith('p')) return;
 
     try {
-      await firestore.collection('rooms').doc(roomId).update({
+      await firestore.collection('posts').doc(roomId).update({
         'status': 'locked',
         'trangThai': 'daKhoa',
         'isAvailable': false,

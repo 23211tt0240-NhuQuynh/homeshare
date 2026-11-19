@@ -1116,7 +1116,7 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _roomAmenities.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (_, index) {
                         final perk = _roomAmenities[index];
                         return Container(
@@ -1345,19 +1345,7 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
     );
   }
 
-  Widget _buildAmenityBadge(IconData icon, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: AppColors.primary),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
-        ),
-      ],
-    );
-  }
+
 
   IconData _amenityIcon(String name) {
     final lower = name.toLowerCase().trim();

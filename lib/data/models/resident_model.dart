@@ -212,12 +212,12 @@ class ResidentModel {
   }
 
   /// Đường dẫn Sub-collection trên Firestore theo quan hệ 1-N:
-  /// Path: rooms/{roomId}/residents
+  /// Path: host_rooms/{roomId}/residents
   static String subCollectionPath(String roomId) =>
       HostFirestorePaths.residents(roomId);
 
   /// Đường dẫn Document trong Sub-collection:
-  /// Path: rooms/{roomId}/residents/{residentId}
+  /// Path: host_rooms/{roomId}/residents/{residentId}
   static String docPath(String roomId, String residentId) =>
       HostFirestorePaths.residentDoc(roomId, residentId);
 
@@ -226,7 +226,7 @@ class ResidentModel {
     String roomId, [
     FirebaseFirestore? firestore,
   ]) => (firestore ?? FirebaseFirestore.instance)
-      .collection(FirestoreCollections.rooms)
+      .collection(FirestoreCollections.hostRooms)
       .doc(roomId)
       .collection(FirestoreCollections.residents);
 
