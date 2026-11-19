@@ -1,0 +1,357 @@
+import 'dart:typed_data';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import '../models/violation_model.dart';
+import '../models/violation_record_model.dart';
+import '../repositories/violation_repository.dart';
+import 'violation_provider.dart';
+
+/// Đại diện cho tệp bằng chứng vi phạm (ảnh hoặc video)
+/// Tương thích hoàn toàn trên Web, Android, iOS, Windows, macOS.
+/// Sử dụng trực tiếp bytes để hiển thị Image.memory và tải lên Firebase Storage bằng putData.
+class ViolationEvidenceFile {
+  final String name;
+  final String path;
+  final Uint8List bytes;
+  final bool isVideo;
+  final String contentType;
+  final XFile? xFile;
+
+  const ViolationEvidenceFile({
+    required this.name,
+    required this.path,
+    required this.bytes,
+    this.isVideo = false,
+    required this.contentType,
+    this.xFile,
+  });
+
+  int get sizeInBytes => bytes.length;
+
+  static Future<ViolationEvidenceFile> fromXFile(
+    XFile xFile, {
+    bool isVideo = false,
+  }) async {
+    final bytes = await xFile.readAsBytes();
+    final name = xFile.name.isNotEmpty
+        ? xFile.name
+        : (isVideo
+            ? 'video_${DateTime.now().millisecondsSinceEpoch}.mp4'
+            : 'image_${DateTime.now().millisecondsSinceEpoch}.jpg');
+    final ext = name.split('.').last.toLowerCase();
+    String contentType;
+    if (isVideo) {
+      contentType = ext == 'mov' ? 'video/quicktime' : 'video/mp4';
+    } else {
+      contentType = ext == 'png' ? 'image/png' : 'image/jpeg';
+    }
+
+    return ViolationEvidenceFile(
+      name: name,
+      path: xFile.path,
+      bytes: bytes,
+      isVideo: isVideo,
+      contentType: contentType,
+      xFile: xFile,
+    );
+  }
+}
+
+class ViolationFormState {
+  final HostOccupiedRoomItem? selectedRoom;
+  final List<ViolationModel> selectedViolations;
+  final double fineAmount;
+  final String paymentMethod; // 'NEXT_INVOICE', 'CASH', 'DEPOSIT'
+  final List<ViolationEvidenceFile> evidenceFiles; // max 5 files
+  final String note;
+  final bool isSubmitting;
+  final String? errorMessage;
+
+  int get selectedViolationCount => selectedViolations.length;
+  int get evidenceCount => evidenceFiles.length;
+
+  const ViolationFormState({
+    this.selectedRoom,
+    this.selectedViolations = const [],
+    this.fineAmount = 0.0,
+    this.paymentMethod = 'CASH',
+    this.evidenceFiles = const [],
+    this.note = '',
+    this.isSubmitting = false,
+    this.errorMessage,
+  });
+
+  ViolationFormState copyWith({
+    HostOccupiedRoomItem? selectedRoom,
+    bool clearSelectedRoom = false,
+    List<ViolationModel>? selectedViolations,
+    double? fineAmount,
+    String? paymentMethod,
+    List<ViolationEvidenceFile>? evidenceFiles,
+    String? note,
+    bool? isSubmitting,
+    String? errorMessage,
+    bool clearError = false,
+  }) {
+    return ViolationFormState(
+      selectedRoom: clearSelectedRoom ? null : (selectedRoom ?? this.selectedRoom),
+      selectedViolations: selectedViolations ?? this.selectedViolations,
+      fineAmount: fineAmount ?? this.fineAmount,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      evidenceFiles: evidenceFiles ?? this.evidenceFiles,
+      note: note ?? this.note,
+      isSubmitting: isSubmitting ?? this.isSubmitting,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+    );
+  }
+}
+
+class ViolationFormNotifier extends Notifier<ViolationFormState> {
+  final ViolationRepository? _customRepo;
+  ViolationFormState? _localState;
+
+  ViolationFormNotifier([this._customRepo, ViolationFormState? initialState])
+      : _localState = initialState;
+
+  @override
+  ViolationFormState build() {
+    return _localState ?? const ViolationFormState();
+  }
+
+  @override
+  ViolationFormState get state {
+    try {
+      return super.state;
+    } catch (_) {
+      return _localState ?? const ViolationFormState();
+    }
+  }
+
+  @override
+  set state(ViolationFormState value) {
+    _localState = value;
+    try {
+      super.state = value;
+    } catch (_) {
+      // Fallback khi chạy unit test thuần túy không qua container
+    }
+  }
+
+  void selectRoom(HostOccupiedRoomItem? room) {
+    if (room == null) {
+      state = state.copyWith(clearSelectedRoom: true, clearError: true);
+    } else {
+      state = state.copyWith(selectedRoom: room, clearError: true);
+    }
+  }
+
+  void toggleViolation(ViolationModel item) {
+    final list = List<ViolationModel>.from(state.selectedViolations);
+    final exists = list.any((v) => v.id == item.id);
+
+    if (exists) {
+      list.removeWhere((v) => v.id == item.id);
+    } else {
+      list.add(item);
+    }
+
+    // Tự động tính tổng tiền phạt từ danh sách lỗi đã chọn
+    final total = list.fold<double>(0.0, (sum, v) => sum + v.defaultFine);
+
+    state = state.copyWith(
+      selectedViolations: list,
+      fineAmount: total,
+      clearError: true,
+    );
+  }
+
+  void addCustomViolation(String title, {double defaultFine = 0.0}) {
+    final trimmed = title.trim();
+    if (trimmed.isEmpty) return;
+
+    if (state.selectedViolations
+        .any((v) => v.title.toLowerCase() == trimmed.toLowerCase())) {
+      return;
+    }
+
+    final customItem = ViolationModel(
+      id: 'custom__',
+      title: trimmed,
+      description: 'Hành vi vi phạm tự nhập',
+      defaultFine: defaultFine,
+      category: 'Tự nhập',
+      iconName: 'edit_note_rounded',
+      isActive: true,
+      createdAt: DateTime.now(),
+    );
+
+    final list = List<ViolationModel>.from(state.selectedViolations)..add(customItem);
+
+    double newFine = state.fineAmount;
+    if (defaultFine > 0) {
+      newFine += defaultFine;
+    }
+
+    state = state.copyWith(
+      selectedViolations: list,
+      fineAmount: newFine,
+      clearError: true,
+    );
+  }
+
+  void removeViolation(String id) {
+    final list = List<ViolationModel>.from(state.selectedViolations);
+    final itemToRemove = list.firstWhere(
+      (v) => v.id == id,
+      orElse: () => ViolationModel(
+        id: '',
+        title: '',
+        defaultFine: 0,
+        createdAt: DateTime.now(),
+      ),
+    );
+    list.removeWhere((v) => v.id == id);
+
+    double newFine = state.fineAmount;
+    if (itemToRemove.id.isNotEmpty && itemToRemove.defaultFine > 0) {
+      newFine = (newFine - itemToRemove.defaultFine).clamp(0.0, double.infinity);
+    }
+
+    state = state.copyWith(
+      selectedViolations: list,
+      fineAmount: newFine,
+      clearError: true,
+    );
+  }
+
+  void setFineAmount(double amount) {
+    state = state.copyWith(fineAmount: amount, clearError: true);
+  }
+
+  void setPaymentMethod(String method) {
+    state = state.copyWith(paymentMethod: method, clearError: true);
+  }
+
+  String? addEvidenceFile(ViolationEvidenceFile file) {
+    if (state.evidenceFiles.length >= 5) {
+      return 'Chỉ được tải lên tối đa 5 tệp bằng chứng';
+    }
+
+    // Kiểm tra dung lượng < 25MB
+    final sizeInBytes = file.sizeInBytes;
+    if (sizeInBytes > 25 * 1024 * 1024) {
+      return 'Dung lượng tệp vượt quá 25MB cho phép';
+    }
+
+    // Kiểm tra định dạng JPG, PNG, MP4, MOV
+    final ext = file.name.split('.').last.toLowerCase();
+    if (!['jpg', 'jpeg', 'png', 'mp4', 'mov'].contains(ext)) {
+      return 'Chỉ hỗ trợ định dạng ảnh JPG, PNG hoặc video MP4';
+    }
+
+    final updated = List<ViolationEvidenceFile>.from(state.evidenceFiles)..add(file);
+    state = state.copyWith(evidenceFiles: updated, clearError: true);
+    return null;
+  }
+
+  void removeEvidenceFile(int index) {
+    if (index < 0 || index >= state.evidenceFiles.length) return;
+    final updated = List<ViolationEvidenceFile>.from(state.evidenceFiles)..removeAt(index);
+    state = state.copyWith(evidenceFiles: updated, clearError: true);
+  }
+
+  void setNote(String note) {
+    state = state.copyWith(note: note, clearError: true);
+  }
+
+  String? validate() {
+    if (state.selectedRoom == null) {
+      return 'Vui lòng chọn căn hộ / khách thuê vi phạm';
+    }
+    if (state.selectedViolations.isEmpty) {
+      return 'Vui lòng chọn hoặc tự nhập ít nhất một hành vi vi phạm';
+    }
+    if (state.fineAmount <= 0) {
+      return 'Vui lòng nhập mức phạt lớn hơn 0 VNĐ';
+    }
+    if (state.evidenceFiles.length > 5) {
+      return 'Tối đa 5 tệp bằng chứng';
+    }
+    return null;
+  }
+
+  ViolationRepository get _repo {
+    final custom = _customRepo;
+    if (custom != null) return custom;
+    try {
+      return ref.read(violationRepositoryProvider);
+    } catch (_) {
+      return ViolationRepository();
+    }
+  }
+
+  Future<bool> submit(String hostId) async {
+    final error = validate();
+    if (error != null) {
+      state = state.copyWith(errorMessage: error);
+      return false;
+    }
+
+    state = state.copyWith(isSubmitting: true, clearError: true);
+
+    try {
+      final repository = _repo;
+      final room = state.selectedRoom!;
+      final recordId = 'bb_${DateTime.now().millisecondsSinceEpoch}';
+
+      // 1. Tải bằng chứng lên Storage
+      List<String> evidenceUrls = [];
+      if (state.evidenceFiles.isNotEmpty) {
+        evidenceUrls = await repository.uploadEvidenceFiles(
+          hostId: hostId,
+          recordId: recordId,
+          files: state.evidenceFiles,
+        );
+      }
+
+      // 2. Tạo biên bản vi phạm
+      final record = ViolationRecordModel(
+        id: recordId,
+        landlordId: hostId,
+        roomId: room.roomId,
+        roomCode: room.roomCode,
+        propertyName: room.propertyName,
+        periodId: room.periodId,
+        tenantId: room.tenantId,
+        tenantName: room.tenantName,
+        tenantPhone: room.tenantPhone,
+        violationIds: state.selectedViolations.map((v) => v.id).toList(),
+        violationTitles: state.selectedViolations.map((v) => v.title).toList(),
+        totalFine: state.fineAmount,
+        paymentMethod: 'CASH',
+        status: 'PENDING',
+        description: state.note.trim().isNotEmpty
+            ? state.note.trim()
+            : 'Ghi nhận vi phạm ${state.selectedViolations.map((v) => v.title).join(', ')}',
+        evidenceUrls: evidenceUrls,
+        createdAt: DateTime.now(),
+      );
+
+      await repository.createViolationRecord(record);
+
+      state = const ViolationFormState(); // reset form
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isSubmitting: false,
+        errorMessage: 'Lỗi khi lưu biên bản vi phạm: $e',
+      );
+      return false;
+    }
+  }
+}
+
+final violationFormNotifierProvider =
+    NotifierProvider<ViolationFormNotifier, ViolationFormState>(
+  ViolationFormNotifier.new,
+);

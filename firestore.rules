@@ -1,0 +1,193 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function profileExists() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    function hasEmailAccess() {
+      return signedIn() && (
+        request.auth.token.email_verified == true
+        || (
+          profileExists()
+          && get(/databases/$(database)/documents/users/$(request.auth.uid))
+            .data.get('emailVerificationRequired', false) != true
+        )
+      );
+    }
+    function role() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'renter');
+    }
+    function admin() { return profileExists() && role() == 'admin'; }
+    function str(value) { return value is string ? value : ''; }
+
+    // Đánh giá chủ trọ. Document ID = bookingId (người thuê chính) hoặc residentId (ở ghép).
+    // Tách khỏi rule dev còn lại vì rule trùng nhau thì OR — không tách thì host_reviews vẫn mở hết.
+    match /host_reviews/{bookingId} {
+      function hostReviewKeys() {
+        return ['hostId', 'reviewerId', 'reviewerName', 'rating', 'comment', 'bookingId', 'createdAt'];
+      }
+      function hostReviewBooking() {
+        return get(/databases/$(database)/documents/bookings/$(bookingId)).data;
+      }
+      function hostReviewResident() {
+        return get(/databases/$(database)/documents/residents/$(bookingId)).data;
+      }
+      // Rules so khớp nguyên văn; app check-in ghi 'dangO', cọc ghi 'daCoc' / 'approved'.
+      function hostReviewableStatus(status) {
+        return status in [
+          'approved', 'deposit_paid', 'paid', 'completed', 'active',
+          'dacoc', 'daCoc', 'da_coc',
+          'chonhanphong', 'choNhanPhong',
+          'daduyet', 'daDuyet', 'da_duyet',
+          'dango', 'dangO', 'dang_o',
+          'danhanphong', 'daNhanPhong'
+        ];
+      }
+      function bookingBelongsToReviewer(booking) {
+        return str(booking.get('renterId', '')) == request.auth.uid
+          || str(booking.get('userId', '')) == request.auth.uid
+          || str(booking.get('nguoiDung_Id', '')) == request.auth.uid
+          || str(booking.get('nguoiDungId', '')) == request.auth.uid;
+      }
+      function bookingBelongsToHost(booking) {
+        return str(booking.get('hostId', '')) == request.resource.data.hostId
+          || str(booking.get('chuNhaId', '')) == request.resource.data.hostId;
+      }
+      function bookingIsReviewable(booking) {
+        return hostReviewableStatus(str(booking.get('status', '')))
+          || hostReviewableStatus(str(booking.get('trangThai', '')));
+      }
+      function residentBelongsToReviewer(resident) {
+        return str(resident.get('userId', '')) == request.auth.uid
+          || str(resident.get('nguoiDungId', '')) == request.auth.uid;
+      }
+      function residentIsActive(resident) {
+        return str(resident.get('statusId', '')) in ['dangO', 'dango', 'dang_o', 'active']
+          || str(resident.get('status', '')) in ['dangO', 'dango', 'dang_o', 'active']
+          || str(resident.get('trangThai_id', '')) in ['dangO', 'dango', 'dang_o', 'active'];
+      }
+      function residentRoomId(resident) {
+        return str(resident.get('roomId', '')) != ''
+          ? str(resident.get('roomId', ''))
+          : str(resident.get('phongId', '')) != ''
+            ? str(resident.get('phongId', ''))
+            : str(resident.get('phongTroId', ''));
+      }
+      function docHostMatches(col, roomId, hostId) {
+        return roomId.size() > 0
+          && exists(/databases/$(database)/documents/$(col)/$(roomId))
+          && (
+            str(get(/databases/$(database)/documents/$(col)/$(roomId)).data.get('hostId', '')) == hostId
+            || str(get(/databases/$(database)/documents/$(col)/$(roomId)).data.get('chuNhaId', '')) == hostId
+            || str(get(/databases/$(database)/documents/$(col)/$(roomId)).data.get('landlordId', '')) == hostId
+            || str(get(/databases/$(database)/documents/$(col)/$(roomId)).data.get('userId', '')) == hostId
+          );
+      }
+      function residentRoomMatchesHost(resident) {
+        return docHostMatches('posts', residentRoomId(resident), request.resource.data.hostId)
+          || docHostMatches('rooms', residentRoomId(resident), request.resource.data.hostId)
+          || docHostMatches('host_rooms', residentRoomId(resident), request.resource.data.hostId);
+      }
+      function isBookingReview() {
+        return exists(/databases/$(database)/documents/bookings/$(bookingId))
+          && bookingBelongsToReviewer(hostReviewBooking())
+          && bookingBelongsToHost(hostReviewBooking())
+          && bookingIsReviewable(hostReviewBooking());
+      }
+      function isResidentReview() {
+        return exists(/databases/$(database)/documents/residents/$(bookingId))
+          && residentBelongsToReviewer(hostReviewResident())
+          && residentIsActive(hostReviewResident())
+          && residentRoomMatchesHost(hostReviewResident());
+      }
+      allow read: if hasEmailAccess();
+      allow create: if hasEmailAccess()
+        && request.resource.data.keys().hasOnly(hostReviewKeys())
+        && request.resource.data.reviewerId == request.auth.uid
+        && request.resource.data.hostId is string
+        && request.resource.data.hostId.size() > 0
+        && request.resource.data.hostId != request.auth.uid
+        && request.resource.data.reviewerName is string
+        && request.resource.data.bookingId == bookingId
+        && request.resource.data.rating is number
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() <= 500
+        && request.resource.data.createdAt is timestamp
+        && (isBookingReview() || isResidentReview());
+      allow update: if admin();
+      allow delete: if admin();
+    }
+
+    // Tài khoản mới được tạo hồ sơ chờ xác thực và đọc hồ sơ của chính mình.
+    // Mọi cập nhật chỉ được mở sau khi Firebase xác nhận email hoặc với tài khoản legacy.
+    match /users/{uid} {
+      allow read: if signedIn()
+        && (request.auth.uid == uid || hasEmailAccess())
+        && request.time < timestamp.date(2026, 12, 10);
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role in ['renter', 'host']
+        && (
+          request.auth.token.email_verified == true
+          || (
+            request.resource.data.emailVerificationRequired == true
+            && request.resource.data.isEmailVerified == false
+          )
+        )
+        && request.time < timestamp.date(2026, 12, 10);
+      allow update: if (
+          hasEmailAccess()
+          || (
+            signedIn()
+            && request.auth.uid == uid
+            && resource.data.emailVerificationRequired == true
+            && request.resource.data.emailVerificationRequired == true
+            && request.resource.data.isEmailVerified == false
+            && request.resource.data.uid == uid
+            && request.resource.data.email == resource.data.email
+            && request.resource.data.role in ['renter', 'host']
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'userCode', 'displayName', 'phoneNumber', 'role',
+              'isEmailVerified', 'emailVerificationRequired', 'updatedAt'
+            ])
+          )
+        )
+        && request.time < timestamp.date(2026, 12, 10);
+      allow delete: if hasEmailAccess()
+        && request.time < timestamp.date(2026, 12, 10);
+    }
+
+    // Chỉ chủ sở hữu được tạo/cập nhật/xóa khóa giữ chỗ cho SĐT, CCCD và STK.
+    // Không cho phép liệt kê để hạn chế dò tìm dữ liệu định danh.
+    match /user_unique_values/{claimId} {
+      allow get: if hasEmailAccess();
+      allow list: if false;
+      allow create: if hasEmailAccess()
+        && request.resource.data.keys().hasOnly([
+          'ownerUid', 'kind', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.kind in ['phone', 'cccd', 'bank'];
+      allow update: if hasEmailAccess()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.kind == resource.data.kind;
+      allow delete: if hasEmailAccess()
+        && (resource.data.ownerUid == request.auth.uid || admin());
+    }
+
+    // Rule đang live: user đã đăng nhập được đọc/ghi đến 10/12/2026, trừ host_reviews ở trên.
+    match /{collection}/{document=**} {
+      allow read, write: if collection != 'host_reviews'
+        && collection != 'users'
+        && collection != 'user_unique_values'
+        && hasEmailAccess()
+        && request.time < timestamp.date(2026, 12, 10);
+    }
+  }
+}
