@@ -855,26 +855,53 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
   }
 
   Widget _perkGrid() {
-    return GridView.builder(
+    return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: _amenities.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 2.7,
-      ),
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (_, index) {
         final perk = _amenities[index];
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC), // Nền xám nhạt (chìm)
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)), // Viền xám
+          ),
           child: Row(
             children: [
-              Icon(_amenityIcon(perk), size: 18, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Expanded(child: Text(perk, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600))),
+              Icon(
+                _amenityIcon(perk),
+                size: 20,
+                color: const Color(0xFF94A3B8), // Icon màu xám đồng bộ
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  perk,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF64748B), // Chữ xám (chìm)
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBD5E1), // Nền check box xám (disabled)
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                padding: const EdgeInsets.all(2),
+                child: const Icon(
+                  Icons.check,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
             ],
           ),
         );
@@ -883,16 +910,20 @@ class _RoommateRoomDetailScreenState extends ConsumerState<RoommateRoomDetailScr
   }
 
   IconData _amenityIcon(String name) {
-    final lower = name.toLowerCase();
-    if (lower.contains('wifi') || lower.contains('mạng')) return Icons.wifi_rounded;
-    if (lower.contains('máy lạnh') || lower.contains('điều hòa')) return Icons.ac_unit_rounded;
+    final lower = name.toLowerCase().trim();
+    if (lower.contains('wifi') || lower.contains('mạng') || lower.contains('internet')) return Icons.wifi_rounded;
+    if (lower.contains('máy lạnh') || lower.contains('điều hòa') || lower.contains('lạnh')) return Icons.ac_unit_rounded;
+    if (lower.contains('gác') || lower.contains('gác lửng')) return Icons.check_circle_outline;
     if (lower.contains('giặt')) return Icons.local_laundry_service_rounded;
     if (lower.contains('tủ lạnh')) return Icons.kitchen_rounded;
-    if (lower.contains('xe') || lower.contains('đỗ') || lower.contains('parking')) return Icons.local_parking_rounded;
-    if (lower.contains('bảo vệ') || lower.contains('camera')) return Icons.videocam_rounded;
-    if (lower.contains('ban công')) return Icons.balcony_rounded;
-    if (lower.contains('nóng') || lower.contains('nước')) return Icons.water_drop_rounded;
-    if (lower.contains('gym') || lower.contains('tập')) return Icons.fitness_center_rounded;
+    if (lower.contains('xe') || lower.contains('đỗ') || lower.contains('bãi')) return Icons.directions_car_rounded;
+    if (lower.contains('bảo vệ') || lower.contains('camera') || lower.contains('an ninh')) return Icons.security_rounded;
+    if (lower.contains('ban công') || lower.contains('cửa sổ')) return Icons.balcony_rounded;
+    if (lower.contains('nóng') || lower.contains('nước nóng')) return Icons.water_drop_rounded;
+    if (lower.contains('gym') || lower.contains('thể thao')) return Icons.fitness_center_rounded;
+    if (lower.contains('tự do') || lower.contains('giờ giấc')) return Icons.access_time_rounded;
+    if (lower.contains('thú cưng') || lower.contains('chó') || lower.contains('mèo')) return Icons.pets_rounded;
+    if (lower.contains('bếp') || lower.contains('nấu')) return Icons.soup_kitchen_rounded;
     return Icons.check_circle_outline;
   }
 

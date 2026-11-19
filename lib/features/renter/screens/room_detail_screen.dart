@@ -1138,7 +1138,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
           _buildInventorySectionTitle(Icons.checklist_rounded, 'Danh mục trang thiết bị bàn giao'),
           const SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.white,
@@ -1146,31 +1146,61 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
             child: _room.amenities.isEmpty
-                ? const Text('Chưa có danh mục trang thiết bị cụ thể.', style: TextStyle(fontSize: 13, color: AppColors.textMuted))
-                : Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _room.amenities.map((item) {
+                ? const Padding(
+                    padding: EdgeInsets.all(4.0),
+                    child: Text('Chưa có danh mục trang thiết bị cụ thể.', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _room.amenities.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, index) {
+                      final item = _room.amenities[index];
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: const Color(0xFFE2E8F0)),
                         ),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.check_box_outlined, size: 15, color: Color(0xFF16A34A)),
-                            const SizedBox(width: 6),
-                            Text(
-                              _getAmenityLabel(item),
-                              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: Color(0xFF334155)),
+                            Icon(
+                              _getAmenityIcon(item),
+                              size: 16,
+                              color: const Color(0xFF94A3B8),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _getAmenityLabel(item),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF64748B),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFCBD5E1),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              padding: const EdgeInsets.all(1),
+                              child: const Icon(
+                                Icons.check,
+                                size: 12,
+                                color: Colors.white,
+                              ),
                             ),
                           ],
                         ),
                       );
-                    }).toList(),
+                    },
                   ),
           ),
           const SizedBox(height: 20),
@@ -1560,6 +1590,24 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
         ),
       ),
     );
+  }
+
+  IconData _getAmenityIcon(String name) {
+    final lower = name.toLowerCase().trim();
+    if (lower.contains('wifi') || lower.contains('mạng') || lower.contains('internet')) return Icons.wifi_rounded;
+    if (lower.contains('máy lạnh') || lower.contains('điều hòa') || lower.contains('lạnh') || lower.contains('air_conditioner')) return Icons.ac_unit_rounded;
+    if (lower.contains('gác') || lower.contains('gác lửng') || lower.contains('loft')) return Icons.check_circle_outline;
+    if (lower.contains('giặt') || lower.contains('washer')) return Icons.local_laundry_service_rounded;
+    if (lower.contains('tủ lạnh') || lower.contains('fridge')) return Icons.kitchen_rounded;
+    if (lower.contains('xe') || lower.contains('đỗ') || lower.contains('bãi') || lower.contains('parking')) return Icons.directions_car_rounded;
+    if (lower.contains('bảo vệ') || lower.contains('camera') || lower.contains('an ninh') || lower.contains('security')) return Icons.security_rounded;
+    if (lower.contains('ban công') || lower.contains('cửa sổ') || lower.contains('balcony')) return Icons.balcony_rounded;
+    if (lower.contains('nóng') || lower.contains('nước nóng')) return Icons.water_drop_rounded;
+    if (lower.contains('gym') || lower.contains('thể thao')) return Icons.fitness_center_rounded;
+    if (lower.contains('tự do') || lower.contains('giờ giấc')) return Icons.access_time_rounded;
+    if (lower.contains('thú cưng') || lower.contains('chó') || lower.contains('mèo')) return Icons.pets_rounded;
+    if (lower.contains('bếp') || lower.contains('nấu')) return Icons.soup_kitchen_rounded;
+    return Icons.check_circle_outline;
   }
 
   String _getAmenityLabel(String key) {

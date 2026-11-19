@@ -565,7 +565,6 @@ class HomeScreen extends ConsumerWidget {
     final borderColor = const Color(0xFFE2E8F0);
     final textDark = AppColors.textDark;
     final textMuted = AppColors.textMuted;
-    final iconBg = const Color(0xFFF3F4F6);
     final dividerColor = const Color(0xFFF1F3F5);
 
     String tr(String key) => AppTranslations.tr(key, currentLang);
@@ -889,6 +888,8 @@ class HomeScreen extends ConsumerWidget {
                     ? [
                         _buildMenuRow(
                           icon: Icons.post_add_rounded,
+                          iconColor: const Color(0xFF2563EB),
+                          iconBg: const Color(0xFFEFF6FF),
                           title: tr('manage_posts'),
                           subtitle: rejectedPostsCount > 0
                               ? '$rejectedPostsCount bài đăng bị từ chối duyệt'
@@ -896,7 +897,6 @@ class HomeScreen extends ConsumerWidget {
                           badgeCount: rejectedPostsCount,
                           textDark: textDark,
                           textMuted: textMuted,
-                          iconBg: iconBg,
                           onTap: () {
                             Navigator.push(
                               context,
@@ -911,11 +911,12 @@ class HomeScreen extends ConsumerWidget {
                         _buildMenuDivider(dividerColor: dividerColor),
                         _buildMenuRow(
                           icon: Icons.holiday_village_outlined,
+                          iconColor: const Color(0xFF059669),
+                          iconBg: const Color(0xFFECFDF5),
                           title: tr('manage_properties'),
                           subtitle: tr('manage_properties_sub'),
                           textDark: textDark,
                           textMuted: textMuted,
-                          iconBg: iconBg,
                           onTap: () {
                             Navigator.push(
                               context,
@@ -926,11 +927,12 @@ class HomeScreen extends ConsumerWidget {
                         _buildMenuDivider(dividerColor: dividerColor),
                         _buildMenuRow(
                           icon: Icons.people_outline,
+                          iconColor: const Color(0xFF7C3AED),
+                          iconBg: const Color(0xFFF5F3FF),
                           title: tr('manage_tenants'),
                           subtitle: tr('manage_tenants_sub'),
                           textDark: textDark,
                           textMuted: textMuted,
-                          iconBg: iconBg,
                           onTap: () {
                             Navigator.push(
                               context,
@@ -945,11 +947,12 @@ class HomeScreen extends ConsumerWidget {
                         _buildMenuDivider(dividerColor: dividerColor),
                         _buildMenuRow(
                           icon: Icons.assignment_turned_in_outlined,
+                          iconColor: const Color(0xFF0D9488),
+                          iconBg: const Color(0xFFCCFBF1),
                           title: tr('handover_room'),
                           subtitle: tr('handover_room_sub'),
                           textDark: textDark,
                           textMuted: textMuted,
-                          iconBg: iconBg,
                           onTap: () {
                             Navigator.push(
                               context,
@@ -964,11 +967,12 @@ class HomeScreen extends ConsumerWidget {
                         _buildMenuDivider(dividerColor: dividerColor),
                         _buildMenuRow(
                           icon: Icons.warning_amber_rounded,
+                          iconColor: const Color(0xFFD97706),
+                          iconBg: const Color(0xFFFFFBEB),
                           title: tr('incidents_violations'),
                           subtitle: tr('incidents_violations_sub'),
                           textDark: textDark,
                           textMuted: textMuted,
-                          iconBg: iconBg,
                           onTap: () {
                             Navigator.push(
                               context,
@@ -984,11 +988,12 @@ class HomeScreen extends ConsumerWidget {
                     : [
                         _buildMenuRow(
                           icon: Icons.favorite_rounded,
+                          iconColor: const Color(0xFFE11D48),
+                          iconBg: const Color(0xFFFFE4E6),
                           title: tr('favorite_rooms'),
                           subtitle: tr('favorite_rooms_sub'),
                           textDark: textDark,
                           textMuted: textMuted,
-                          iconBg: iconBg,
                           onTap: () {
                             Navigator.push(
                               context,
@@ -1000,6 +1005,8 @@ class HomeScreen extends ConsumerWidget {
                         _buildMenuDivider(dividerColor: dividerColor),
                         _buildMenuRow(
                           icon: Icons.meeting_room_outlined,
+                          iconColor: const Color(0xFF2563EB),
+                          iconBg: const Color(0xFFEFF6FF),
                           title: tr('current_rented_room'),
                           subtitle: activeCount > 0
                               ? (currentLang == 'vi'
@@ -1010,7 +1017,6 @@ class HomeScreen extends ConsumerWidget {
                                   : 'No active rented rooms'),
                           textDark: textDark,
                           textMuted: textMuted,
-                          iconBg: iconBg,
                           onTap: () {
                             Navigator.push(
                               context,
@@ -1022,12 +1028,13 @@ class HomeScreen extends ConsumerWidget {
                         ),
                         _buildMenuDivider(dividerColor: dividerColor),
                         _buildMenuRow(
-                          icon: Icons.build_outlined,
+                          icon: Icons.build_circle_outlined,
+                          iconColor: const Color(0xFFEA580C),
+                          iconBg: const Color(0xFFFFF7ED),
                           title: tr('report_issue'),
                           subtitle: tr('report_issue_sub'),
                           textDark: textDark,
                           textMuted: textMuted,
-                          iconBg: iconBg,
                           onTap: () => _handleReportRoomIssue(context, activeRentals, bookings, tr),
                         ),
                       ],
@@ -1059,38 +1066,42 @@ class HomeScreen extends ConsumerWidget {
                 children: [
                   _buildSettingsItem(
                     icon: Icons.language_rounded,
+                    iconColor: const Color(0xFF0D9488),
+                    iconBg: const Color(0xFFCCFBF1),
                     title: tr('language'),
                     trailingText: currentLang == 'en' ? 'English (US)' : 'Tiếng Việt',
                     textDark: textDark,
                     textMuted: textMuted,
-                    iconBg: iconBg,
                     onTap: () => _showLanguageDialog(context, ref),
                   ),
                   _buildMenuDivider(dividerColor: dividerColor),
                   _buildSettingsItem(
                     icon: Icons.help_outline_rounded,
+                    iconColor: const Color(0xFF7C3AED),
+                    iconBg: const Color(0xFFEDE9FE),
                     title: tr('help_faq'),
                     textDark: textDark,
                     textMuted: textMuted,
-                    iconBg: iconBg,
                     onTap: () => _showHelpFaqDialog(context),
                   ),
                   _buildMenuDivider(dividerColor: dividerColor),
                   _buildSettingsItem(
                     icon: Icons.support_agent_rounded,
+                    iconColor: const Color(0xFF059669),
+                    iconBg: const Color(0xFFD1FAE5),
                     title: tr('contact_support'),
                     textDark: textDark,
                     textMuted: textMuted,
-                    iconBg: iconBg,
                     onTap: () => _showHotlineDialog(context),
                   ),
                   _buildMenuDivider(dividerColor: dividerColor),
                   _buildSettingsItem(
                     icon: Icons.description_outlined,
+                    iconColor: const Color(0xFF4F46E5),
+                    iconBg: const Color(0xFFEEF2FF),
                     title: tr('terms_privacy'),
                     textDark: textDark,
                     textMuted: textMuted,
-                    iconBg: iconBg,
                     onTap: () => _showTermsDialog(context),
                   ),
                 ],
@@ -1224,46 +1235,33 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E293B),
+                        letterSpacing: 0.2,
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2563EB),
-                      borderRadius: BorderRadius.circular(12),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          subtitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: Colors.white.withValues(alpha: 0.88),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  ],
                 ),
               ),
               if (badgeCount != null && badgeCount > 0) ...[
@@ -1307,18 +1305,22 @@ class HomeScreen extends ConsumerWidget {
     required VoidCallback onTap,
     required Color textDark,
     required Color textMuted,
-    required Color iconBg,
+    Color? iconBg,
+    Color? iconColor,
     int? badgeCount,
   }) {
+    final effectiveIconColor = iconColor ?? textDark;
+    final effectiveIconBg = iconBg ?? const Color(0xFFF3F4F6);
     return ListTile(
       onTap: onTap,
       leading: Container(
-        padding: const EdgeInsets.all(8),
+        width: 38,
+        height: 38,
         decoration: BoxDecoration(
-          color: iconBg,
-          borderRadius: BorderRadius.circular(8),
+          color: effectiveIconBg,
+          borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, size: 20, color: textDark),
+        child: Icon(icon, size: 20, color: effectiveIconColor),
       ),
       title: Text(
         title,
@@ -1371,17 +1373,21 @@ class HomeScreen extends ConsumerWidget {
     required VoidCallback onTap,
     required Color textDark,
     required Color textMuted,
-    required Color iconBg,
+    Color? iconBg,
+    Color? iconColor,
   }) {
+    final effectiveIconColor = iconColor ?? textDark;
+    final effectiveIconBg = iconBg ?? const Color(0xFFF3F4F6);
     return ListTile(
       onTap: onTap,
       leading: Container(
-        padding: const EdgeInsets.all(8),
+        width: 38,
+        height: 38,
         decoration: BoxDecoration(
-          color: iconBg,
-          borderRadius: BorderRadius.circular(8),
+          color: effectiveIconBg,
+          borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, size: 20, color: textDark),
+        child: Icon(icon, size: 20, color: effectiveIconColor),
       ),
       title: Text(
         title,

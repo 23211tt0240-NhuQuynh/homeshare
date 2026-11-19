@@ -1104,25 +1104,65 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
 
                   if (post.hasRoom && _roomAmenities.isNotEmpty) ...[
                     const Text(
-                      'TIỆN NGHI CĂN PHÒNG',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF64748B), letterSpacing: 0.5),
+                      'Tiện ích phòng',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1E293B),
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: Wrap(
-                        spacing: 16,
-                        runSpacing: 12,
-                        children: [
-                          for (final amenity in _roomAmenities)
-                            _buildAmenityBadge(Icons.check_circle_outline, amenity),
-                        ],
-                      ),
+                    const SizedBox(height: 10),
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _roomAmenities.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, index) {
+                        final perk = _roomAmenities[index];
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC), // Nền xám nhạt (chìm)
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE2E8F0)), // Viền xám
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _amenityIcon(perk),
+                                size: 20,
+                                color: const Color(0xFF94A3B8), // Icon màu xám đồng bộ
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  perk,
+                                  style: const TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF64748B), // Chữ xám (chìm)
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFCBD5E1), // Nền check box xám (disabled)
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                padding: const EdgeInsets.all(2),
+                                child: const Icon(
+                                  Icons.check,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 18),
                   ],
@@ -1317,5 +1357,23 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
         ),
       ],
     );
+  }
+
+  IconData _amenityIcon(String name) {
+    final lower = name.toLowerCase().trim();
+    if (lower.contains('wifi') || lower.contains('mạng') || lower.contains('internet')) return Icons.wifi_rounded;
+    if (lower.contains('máy lạnh') || lower.contains('điều hòa') || lower.contains('lạnh')) return Icons.ac_unit_rounded;
+    if (lower.contains('gác') || lower.contains('gác lửng')) return Icons.check_circle_outline;
+    if (lower.contains('giặt')) return Icons.local_laundry_service_rounded;
+    if (lower.contains('tủ lạnh')) return Icons.kitchen_rounded;
+    if (lower.contains('xe') || lower.contains('đỗ') || lower.contains('bãi')) return Icons.directions_car_rounded;
+    if (lower.contains('bảo vệ') || lower.contains('camera') || lower.contains('an ninh')) return Icons.security_rounded;
+    if (lower.contains('ban công') || lower.contains('cửa sổ')) return Icons.balcony_rounded;
+    if (lower.contains('nóng') || lower.contains('nước nóng')) return Icons.water_drop_rounded;
+    if (lower.contains('gym') || lower.contains('thể thao')) return Icons.fitness_center_rounded;
+    if (lower.contains('tự do') || lower.contains('giờ giấc')) return Icons.access_time_rounded;
+    if (lower.contains('thú cưng') || lower.contains('chó') || lower.contains('mèo')) return Icons.pets_rounded;
+    if (lower.contains('bếp') || lower.contains('nấu')) return Icons.soup_kitchen_rounded;
+    return Icons.check_circle_outline;
   }
 }

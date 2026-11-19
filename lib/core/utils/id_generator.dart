@@ -96,7 +96,8 @@ class IdGenerator {
     final dateStr = DateFormat('yyyyMMdd').format(DateTime.now());
     final rCode = (renterCode != null && renterCode.isNotEmpty) ? renterCode : 'NT001';
     final pCode = (roomCode != null && roomCode.isNotEmpty && roomCode != 'P001') ? roomCode : '';
-    return pCode.isNotEmpty ? 'DP_${dateStr}_${pCode}_$rCode' : 'DP_${dateStr}_$rCode';
+    final rand = 1000 + Random().nextInt(9000);
+    return pCode.isNotEmpty ? 'DP_${dateStr}_${pCode}_${rCode}_$rand' : 'DP_${dateStr}_${rCode}_$rand';
   }
 
   /// Sinh nội dung chuyển khoản ngắn: `{hostIndex}-{ABCD}`.
