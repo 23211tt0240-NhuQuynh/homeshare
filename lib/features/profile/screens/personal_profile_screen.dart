@@ -644,6 +644,10 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                           children: [
                             _buildHeader(),
+                            if (!_verified) ...[
+                              const SizedBox(height: 14),
+                              _buildCccdVerificationBanner(),
+                            ],
                             if (_isHostProfile) ...[
                               const SizedBox(height: 18),
                               HostReviewsSection(
@@ -775,6 +779,99 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                     if (!_viewOnly && _editing) _buildFooter(),
                   ],
                 ),
+    );
+  }
+
+  Widget _buildCccdVerificationBanner() {
+    final isPending = _cccdPending;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isPending ? const Color(0xFFFFFBEB) : const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isPending ? const Color(0xFFFDE68A) : const Color(0xFFFECACA),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isPending ? Icons.hourglass_top_rounded : Icons.shield_outlined,
+                size: 20,
+                color: isPending ? const Color(0xFFD97706) : const Color(0xFFDC2626),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isPending
+                      ? 'Hồ sơ CCCD đang chờ Admin xét duyệt'
+                      : 'Tài khoản chưa xác thực CCCD (eKYC)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: isPending ? const Color(0xFF92400E) : const Color(0xFF991B1B),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            isPending
+                ? 'Hồ sơ của bạn đã được gửi tới Quản trị viên. Chúng tôi sẽ thông báo ngay khi tài khoản được phê duyệt.'
+                : 'Xác thực căn cước công dân để nhận tích xanh uy tín, tăng tỷ lệ duyệt đặt phòng và ký kết hợp đồng.',
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.4,
+              color: isPending ? const Color(0xFFB45309) : const Color(0xFF7F1D1D),
+            ),
+          ),
+          if (!_viewOnly && !isPending) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 40,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final res = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CccdVerificationScreen(),
+                    ),
+                  );
+                  if (res == true && mounted) {
+                    ref.invalidate(userProfileProvider);
+                    final updated = await ref.read(userProfileProvider.future);
+                    if (updated != null && mounted) {
+                      setState(() {
+                        _hydrate(updated);
+                        _verified = updated.isCccdVerified;
+                        _cccdPending = updated.isCccdPending;
+                      });
+                    }
+                  }
+                },
+                icon: const Icon(Icons.badge_outlined, size: 16),
+                label: const Text(
+                  'Xác thực CCCD ngay',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFDC2626),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 

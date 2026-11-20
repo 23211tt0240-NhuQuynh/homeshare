@@ -721,6 +721,34 @@ class HomeScreen extends ConsumerWidget {
                                   ),
                                 ],
                               )
+                            else if (profile?.isCccdPending == true)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: const Color(0xFFF59E0B)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.hourglass_top_rounded, size: 13, color: Color(0xFFD97706)),
+                                    SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        'Đang chờ duyệt CCCD ⏳',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFB45309),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
                             else
                               InkWell(
                                 onTap: () async {

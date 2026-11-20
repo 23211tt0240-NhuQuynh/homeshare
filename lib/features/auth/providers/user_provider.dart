@@ -59,8 +59,7 @@ class UserProfile {
   bool get hasCompletedRequiredInfo => requiredInfoCompleted;
   bool get isCccdPending =>
       cccdVerificationStatus == 'choDuyet' ||
-      cccdVerificationStatus == 'pending' ||
-      (!isCccdVerified && (cccdFrontImageUrl.isNotEmpty || cccdNumber.isNotEmpty));
+      cccdVerificationStatus == 'pending';
   bool get isAccessBlocked {
     return accountDeleted || isBanned || statusId == 2;
   }
@@ -238,13 +237,12 @@ class UserProfile {
           : (data['ngayTao'] is Timestamp)
           ? (data['ngayTao'] as Timestamp).toDate()
           : null,
-      isCccdVerified:
-          (data['isCccdVerified'] ??
-              (data['cccdVerificationStatus'] == 'approved') ??
-              data['daXacThucCccd'] ??
-              (data['trangThaiXacMinh'] == 'daXacThuc') ??
-              (data['trangThaiXacMinh_id'] == 'daXacThuc')) ??
-          false,
+      isCccdVerified: data['cccdVerificationStatus'] != null
+          ? data['cccdVerificationStatus'] == 'approved'
+          : (data['isCccdVerified'] == true ||
+              data['daXacThucCccd'] == true ||
+              data['trangThaiXacMinh'] == 'daXacThuc' ||
+              data['trangThaiXacMinh_id'] == 'daXacThuc'),
       cccdNumber:
           data['cccdNumber'] ?? data['soCccd'] ?? data['soGiayTo'] ?? '',
       cccdFullName: data['cccdFullName'] ?? data['hoTenCccd'] ?? '',
