@@ -16,6 +16,7 @@ import 'features/auth/screens/email_verification_screen.dart';
 import 'features/auth/services/email_verification_policy.dart';
 import 'features/host/screens/host_main_screen.dart';
 import 'features/profile/services/required_account_info_policy.dart';
+import 'features/profile/widgets/cccd_required_modal.dart';
 import 'features/profile/widgets/required_info_notice_modal.dart';
 import 'features/renter/screens/renter_main_screen.dart';
 
@@ -99,8 +100,10 @@ class _SignedInShell extends ConsumerStatefulWidget {
 class _SignedInShellState extends ConsumerState<_SignedInShell> {
   bool _servicesBound = false;
   bool _requiredInfoPromptOpen = false;
+  bool _cccdPromptOpen = false;
   String? _bankAccountUid;
   String? _lastRequiredInfoSignature;
+  String? _lastCccdPromptSignature;
   Future<({BankAccount bankAccount, bool hasConflict})>?
       _requiredInfoFuture;
 
@@ -261,20 +264,23 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
     BankAccount bankAccount, {
     required bool hasConflict,
   }) {
-    // Cả người thuê và chủ trọ đều phải có đủ SĐT và tài khoản ngân hàng.
-    final shouldPrompt = RequiredAccountInfoPolicy.shouldPrompt(
+    // 1. Kiểm tra SĐT và STK ngân hàng
+    final needsPhoneOrBank = RequiredAccountInfoPolicy.shouldPrompt(
       phoneNumber: profile.phoneNumber,
       bankName: bankAccount.bankName,
       accountNumber: bankAccount.accountNumber,
       accountHolder: bankAccount.accountHolder,
     );
 
-    if (!shouldPrompt) {
-      _lastRequiredInfoSignature = null;
-      return;
-    }
+    // 2. Kiểm tra CCCD (hiện khi chưa xác thực và không trong trạng thái chờ duyệt)
+    final needsCccd = !profile.isCccdVerified && !profile.isCccdPending;
 
-    final signature = [
+    final isHost = profile.isHost ||
+        profile.role == 'host' ||
+        profile.role == 'landlord' ||
+        profile.role == 'chutro';
+
+    final phoneBankSignature = [
       profile.uid,
       profile.phoneNumber,
       bankAccount.bankName,
@@ -282,28 +288,55 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
       bankAccount.accountHolder,
       '$hasConflict',
     ].join('|');
-    if (_requiredInfoPromptOpen || _lastRequiredInfoSignature == signature) {
+
+    final cccdSignature =
+        '${profile.uid}|${profile.isCccdVerified}|${profile.isCccdPending}';
+
+    // A. Nếu thiếu SĐT hoặc STK ngân hàng -> Hiện dialog STK, SĐT trước
+    if (needsPhoneOrBank) {
+      if (_requiredInfoPromptOpen ||
+          _lastRequiredInfoSignature == phoneBankSignature) {
+        return;
+      }
+      _lastRequiredInfoSignature = phoneBankSignature;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted || _requiredInfoPromptOpen) return;
+        _requiredInfoPromptOpen = true;
+        final completed = await RequiredInfoNoticeModal.show(
+          context,
+          profile: profile,
+          initialBankAccount: bankAccount,
+        );
+        _requiredInfoPromptOpen = false;
+        if (!mounted) return;
+        if (completed == true) {
+          ref.invalidate(userProfileProvider);
+          setState(() {
+            _bankAccountUid = null;
+            _requiredInfoFuture = null;
+            _lastRequiredInfoSignature = 'COMPLETED_${profile.uid}';
+          });
+        }
+      });
       return;
     }
-    _lastRequiredInfoSignature = signature;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted || _requiredInfoPromptOpen) return;
-      _requiredInfoPromptOpen = true;
-      final completed = await RequiredInfoNoticeModal.show(
-        context,
-        profile: profile,
-        initialBankAccount: bankAccount,
-      );
-      _requiredInfoPromptOpen = false;
-      if (!mounted) return;
-      if (completed == true) {
-        ref.invalidate(userProfileProvider);
-        setState(() {
-          _bankAccountUid = null;
-          _requiredInfoFuture = null;
-          _lastRequiredInfoSignature = 'COMPLETED_${profile.uid}';
-        });
+
+    // B. Nếu đã có SĐT và STK ngân hàng, nhưng chưa có CCCD -> Hiện dialog CCCD
+    if (needsCccd) {
+      if (_cccdPromptOpen || _lastCccdPromptSignature == cccdSignature) {
+        return;
       }
-    });
+      _lastCccdPromptSignature = cccdSignature;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted || _cccdPromptOpen) return;
+        _cccdPromptOpen = true;
+        await showCccdRequiredModal(
+          context,
+          isHost: isHost,
+          isPending: false,
+        );
+        _cccdPromptOpen = false;
+      });
+    }
   }
 }
