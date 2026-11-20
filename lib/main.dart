@@ -97,7 +97,6 @@ class _SignedInShell extends ConsumerStatefulWidget {
 }
 
 class _SignedInShellState extends ConsumerState<_SignedInShell> {
-  static final Set<String> _completedUids = <String>{};
   bool _servicesBound = false;
   bool _requiredInfoPromptOpen = false;
   String? _bankAccountUid;
@@ -142,14 +141,6 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
             backgroundColor: AppColors.background,
             body: const Center(child: CircularProgressIndicator()),
           );
-        }
-
-        // Hồ sơ đã hoàn tất ở lần trước hoặc vừa nhập xong trong phiên này được vào app ngay;
-        // không tải lại dữ liệu chỉ để quyết định có mở lại hộp nhắc nhở hay không.
-        if (_completedUids.contains(resolvedProfile.uid) ||
-            resolvedProfile.requiredInfoCompleted) {
-          _lastRequiredInfoSignature = null;
-          return _mainScreenForRole(role);
         }
 
         return FutureBuilder<({BankAccount bankAccount, bool hasConflict})>(
@@ -246,7 +237,7 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
           profile.phoneNumber,
           excludeUid: profile.uid,
         ),
-      if (profile.isHost && bankAccount.accountNumber.trim().isNotEmpty)
+      if (bankAccount.accountNumber.trim().isNotEmpty)
         uniqueness.checkBankAccountUnique(
           bankAccount.accountNumber,
           excludeUid: profile.uid,
@@ -270,22 +261,15 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
     BankAccount bankAccount, {
     required bool hasConflict,
   }) {
-    // Tài khoản đã hoàn tất hoặc đã cập nhật trước đó:
-    // 1. Cờ profile.requiredInfoCompleted == true
-    // 2. Người tìm phòng / người thuê (renter) đã có SĐT hợp lệ
-    // 3. Hoặc chủ trọ (host) đã có SĐT và STK ngân hàng hợp lệ
-    final requireBankAccount = profile.isHost;
+    // Cả người thuê và chủ trọ đều phải có đủ SĐT và tài khoản ngân hàng.
     final shouldPrompt = RequiredAccountInfoPolicy.shouldPrompt(
-      previouslyCompleted: profile.requiredInfoCompleted,
       phoneNumber: profile.phoneNumber,
       bankName: bankAccount.bankName,
       accountNumber: bankAccount.accountNumber,
       accountHolder: bankAccount.accountHolder,
-      requireBankAccount: requireBankAccount,
     );
 
-    if (!shouldPrompt || _completedUids.contains(profile.uid)) {
-      _completedUids.add(profile.uid);
+    if (!shouldPrompt) {
       _lastRequiredInfoSignature = null;
       return;
     }
@@ -312,8 +296,7 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
       );
       _requiredInfoPromptOpen = false;
       if (!mounted) return;
-      if (completed == true || (completed == false && profile.isRenter)) {
-        _completedUids.add(profile.uid);
+      if (completed == true) {
         ref.invalidate(userProfileProvider);
         setState(() {
           _bankAccountUid = null;

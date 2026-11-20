@@ -45,23 +45,21 @@ void main() {
       );
     });
 
-    test('tài khoản đã cập nhật trước đó không bị yêu cầu cập nhật lại', () {
+    test('có cờ đã cập nhật nhưng thiếu SĐT hoặc STK vẫn phải bổ sung', () {
       expect(
         RequiredAccountInfoPolicy.shouldPrompt(
-          previouslyCompleted: true,
           phoneNumber: '',
           bankName: '',
           accountNumber: '',
           accountHolder: '',
         ),
-        isFalse,
+        isTrue,
       );
     });
 
     test('tài khoản cũ đủ dữ liệu thật không bị yêu cầu cập nhật lại', () {
       expect(
         RequiredAccountInfoPolicy.shouldPrompt(
-          previouslyCompleted: false,
           phoneNumber: '0912345678',
           bankName: 'Vietcombank',
           accountNumber: '123456789',
@@ -74,7 +72,6 @@ void main() {
     test('tài khoản chưa cập nhật và còn thiếu dữ liệu vẫn phải bổ sung', () {
       expect(
         RequiredAccountInfoPolicy.shouldPrompt(
-          previouslyCompleted: false,
           phoneNumber: '0912345678',
           bankName: '',
           accountNumber: '',

@@ -3993,11 +3993,22 @@ Cách sửa: bài tạo từ form đăng tin đã ghi `authorId` = uid Firebase 
 ---
 
 ### Cập nhật bổ sung 19/11/2026: Không Hỏi Lại Tài Khoản Đã Hoàn Tất Thông Tin
-1. Tài khoản có `requiredInfoCompleted: true` (kể cả các cờ legacy tương đương) được vào thẳng màn hình chính sau đăng nhập, không tải tài khoản ngân hàng chỉ để quyết định mở hộp cập nhật.
+1. Tài khoản có `requiredInfoCompleted: true` từng được cho vào thẳng màn hình chính. Quy tắc này đã được thay thế ngày 20/11/2026 vì có thể bỏ sót tài khoản thực tế vẫn thiếu SĐT/STK.
 2. Tài khoản cũ chưa có cờ nhưng đã đủ dữ liệu thực tế vẫn được công nhận là hoàn tất; tài khoản chưa hoàn tất và còn thiếu dữ liệu tiếp tục bị yêu cầu bổ sung.
 3. Bổ sung chính sách `RequiredAccountInfoPolicy.shouldPrompt` và ba test hồi quy cho tài khoản đã cập nhật, tài khoản legacy đủ dữ liệu và tài khoản còn thiếu dữ liệu.
 4. Sửa tham số bị lặp trong `UserProfile.copyWith` làm lỗi biên dịch luồng đăng nhập.
 5. Kiểm thử: toàn bộ `flutter test --concurrency=1` **32/32 passed**; `flutter analyze` các file liên quan **No issues found**.
+
+
+---
+
+### Cập nhật 20/11/2026: Chỉ Tắt Thông Báo Khi Đủ SĐT và STK
+1. Cả người thuê và chủ trọ đều phải có SĐT Việt Nam hợp lệ và đầy đủ ngân hàng, STK, tên chủ tài khoản.
+2. Không còn bỏ qua hộp cập nhật chỉ vì có cờ `requiredInfoCompleted` hoặc vì người thuê đã đóng hộp trước đó; trạng thái được xác định từ dữ liệu Firestore thực tế.
+3. Nếu thiếu bất kỳ phần nào, hộp yêu cầu cập nhật vẫn hiện và không thể bỏ qua; sau khi lưu thành công, hồ sơ được tải lại rồi mới tắt thông báo.
+4. Kiểm tra trùng STK được áp dụng cho cả người thuê và chủ trọ khi đăng nhập.
+5. Cập nhật test hồi quy: có cờ hoàn tất nhưng thiếu SĐT/STK vẫn phải bổ sung; dữ liệu đầy đủ thì không hỏi lại.
+6. Kiểm thử: toàn bộ `flutter test --concurrency=1` **32/32 passed**; `flutter analyze` các file liên quan **No issues found**.
 
 
 ---
