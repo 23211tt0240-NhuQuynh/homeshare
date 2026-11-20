@@ -52,7 +52,7 @@ class UserProfile {
   final DateTime? cccdVerifiedAt; // ngayXacMinh
   final String cccdFrontImageUrl; // anhMatTruoc / anhGiayTo_id
   final String cccdBackImageUrl; // anhMatSau
-  final String cccdVerificationStatus; // 'chuaXacThuc' | 'choDuyet' | 'daXacThuc' | 'tuChoi'
+  final String cccdVerificationStatus; // 'pending' | 'approved' | 'rejected' | 'unverified'
   final bool requiredInfoCompleted; // daCapNhatThongTin
 
   // Vietnamese DrawIO Alias Getters
@@ -157,7 +157,7 @@ class UserProfile {
     this.cccdVerifiedAt,
     this.cccdFrontImageUrl = '',
     this.cccdBackImageUrl = '',
-    this.cccdVerificationStatus = 'chuaXacThuc',
+    this.cccdVerificationStatus = 'unverified',
     this.requiredInfoCompleted = false,
   }) : _userCode = (userCode != null && isValidUserCode(userCode))
            ? userCode.trim().toUpperCase()
@@ -240,6 +240,7 @@ class UserProfile {
           : null,
       isCccdVerified:
           (data['isCccdVerified'] ??
+              (data['cccdVerificationStatus'] == 'approved') ??
               data['daXacThucCccd'] ??
               (data['trangThaiXacMinh'] == 'daXacThuc') ??
               (data['trangThaiXacMinh_id'] == 'daXacThuc')) ??
@@ -263,8 +264,8 @@ class UserProfile {
                       (data['daXacThucCccd'] == true) ||
                       (data['trangThaiXacMinh'] == 'daXacThuc') ||
                       (data['trangThaiXacMinh_id'] == 'daXacThuc'))
-                  ? 'daXacThuc'
-                  : 'chuaXacThuc'))
+                  ? 'approved'
+                  : 'unverified'))
           .toString(),
       requiredInfoCompleted: data['requiredInfoCompleted'] == true ||
           data['daCapNhatThongTin'] == true ||
@@ -472,9 +473,6 @@ Future<void> submitCccdVerificationRequest({
   // 4. Lưu thông tin và URL Storage vào Firestore users/$effectiveUid
   final updateData = <String, dynamic>{
     'isCccdVerified': false,
-    'daXacThucCccd': false,
-    'trangThaiXacMinh': 'choDuyet',
-    'trangThaiXacMinh_id': 'choDuyet',
     'cccdVerificationStatus': 'pending',
     'cccdNumber': normalizedCccd,
     'soCccd': normalizedCccd,
@@ -519,6 +517,7 @@ Future<void> submitCccdVerificationRequest({
         'hometown': cccdHometown,
         'issueDate': cccdIssueDate,
         'gender': gender,
+        'cccdVerificationStatus': 'pending',
         'status': 'pending',
         'submittedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -674,9 +673,6 @@ Future<void> saveCccdVerificationToBackend({
 
   final updateData = <String, dynamic>{
     'isCccdVerified': true,
-    'daXacThucCccd': true,
-    'trangThaiXacMinh': 'daXacThuc',
-    'trangThaiXacMinh_id': 'daXacThuc',
     'cccdVerificationStatus': 'approved',
     'cccdNumber': normalizedCccd,
     'soCccd': normalizedCccd,
@@ -757,9 +753,7 @@ Future<void> resetCccdVerificationForTesting({
 
   final resetData = <String, dynamic>{
     'isCccdVerified': false,
-    'daXacThucCccd': false,
-    'trangThaiXacMinh': 'chuaXacThuc',
-    'trangThaiXacMinh_id': 'chuaXacThuc',
+    'cccdVerificationStatus': 'unverified',
     'cccdNumber': FieldValue.delete(),
     'soCccd': FieldValue.delete(),
     'soGiayTo': FieldValue.delete(),

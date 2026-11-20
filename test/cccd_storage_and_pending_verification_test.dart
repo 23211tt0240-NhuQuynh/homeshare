@@ -25,12 +25,12 @@ void main() {
       expect(pendingProfile.cccdBackImageUrl.startsWith('https://'), isTrue);
     });
 
-    test('UserProfile cccdVerificationStatus từ Map với trạng thái choDuyet', () {
+    test('UserProfile cccdVerificationStatus từ Map chỉ lưu cccdVerificationStatus pending', () {
       final mapData = <String, dynamic>{
         'displayName': 'Lê Văn Chủ Trọ',
         'role': 'host',
         'isCccdVerified': false,
-        'trangThaiXacMinh': 'choDuyet',
+        'cccdVerificationStatus': 'pending',
         'cccdNumber': '079203009999',
         'cccdFrontImageUrl': 'https://firebasestorage.googleapis.com/v0/b/app/o/users/user_host/cccd_front.jpg',
         'cccdBackImageUrl': 'https://firebasestorage.googleapis.com/v0/b/app/o/users/user_host/cccd_back.jpg',
@@ -40,17 +40,17 @@ void main() {
 
       expect(profile.isCccdVerified, isFalse);
       expect(profile.isCccdPending, isTrue);
-      expect(profile.cccdVerificationStatus, 'choDuyet');
+      expect(profile.cccdVerificationStatus, 'pending');
       expect(profile.cccdFrontImageUrl, contains('firebasestorage'));
       expect(profile.cccdBackImageUrl, contains('firebasestorage'));
     });
 
-    test('UserProfile khi Admin đã phê duyệt thành công', () {
+    test('UserProfile khi Admin đã phê duyệt thành công chỉ lưu cccdVerificationStatus approved', () {
       final approvedMap = <String, dynamic>{
         'displayName': 'Trần Thị B',
         'role': 'renter',
         'isCccdVerified': true,
-        'trangThaiXacMinh': 'daXacThuc',
+        'cccdVerificationStatus': 'approved',
         'cccdNumber': '079203005555',
         'cccdFrontImageUrl': 'https://firebasestorage.googleapis.com/v0/b/app/o/cccd_front_555.jpg',
         'cccdBackImageUrl': 'https://firebasestorage.googleapis.com/v0/b/app/o/cccd_back_555.jpg',
@@ -60,7 +60,7 @@ void main() {
 
       expect(profile.isCccdVerified, isTrue);
       expect(profile.isCccdPending, isFalse);
-      expect(profile.cccdVerificationStatus, 'daXacThuc');
+      expect(profile.cccdVerificationStatus, 'approved');
     });
 
     test('ResidentModel lưu giữ URL ảnh CCCD dẫn sang storage', () {

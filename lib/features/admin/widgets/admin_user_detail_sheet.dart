@@ -271,17 +271,14 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
       final fs = FirebaseFirestore.instance;
       await fs.collection('users').doc(_uid).set({
         'isCccdVerified': true,
-        'daXacThucCccd': true,
-        'trangThaiXacMinh': 'daXacThuc',
-        'trangThaiXacMinh_id': 'daXacThuc',
         'cccdVerificationStatus': 'approved',
         'cccdVerifiedAt': FieldValue.serverTimestamp(),
-        'ngayXacMinh': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
       try {
         await fs.collection('cccd_verifications').doc(_uid).set({
           'status': 'approved',
+          'cccdVerificationStatus': 'approved',
           'approvedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       } catch (_) {}
@@ -306,8 +303,6 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
 
       await _audit('Phê duyệt CCCD', 'Admin đã phê duyệt xác thực CCCD cho "$name"');
       _currentUser['isCccdVerified'] = true;
-      _currentUser['daXacThucCccd'] = true;
-      _currentUser['trangThaiXacMinh'] = 'daXacThuc';
       _currentUser['cccdVerificationStatus'] = 'approved';
       widget.onUserUpdated?.call();
       _snack('Đã phê duyệt CCCD thành công cho $name!');
@@ -364,9 +359,6 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
       final fs = FirebaseFirestore.instance;
       await fs.collection('users').doc(_uid).set({
         'isCccdVerified': false,
-        'daXacThucCccd': false,
-        'trangThaiXacMinh': 'tuChoi',
-        'trangThaiXacMinh_id': 'tuChoi',
         'cccdVerificationStatus': 'rejected',
         'cccdRejectReason': reason,
       }, SetOptions(merge: true));
@@ -374,6 +366,7 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
       try {
         await fs.collection('cccd_verifications').doc(_uid).set({
           'status': 'rejected',
+          'cccdVerificationStatus': 'rejected',
           'rejectReason': reason,
           'rejectedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
@@ -399,8 +392,6 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
 
       await _audit('Từ chối CCCD', 'Admin từ chối CCCD của "$name". Lý do: $reason');
       _currentUser['isCccdVerified'] = false;
-      _currentUser['daXacThucCccd'] = false;
-      _currentUser['trangThaiXacMinh'] = 'tuChoi';
       _currentUser['cccdVerificationStatus'] = 'rejected';
       widget.onUserUpdated?.call();
       _snack('Đã từ chối hồ sơ CCCD của $name');
@@ -1142,12 +1133,13 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
   }
 
   Widget _buildCccdStatusBadge() {
-    final status = (_currentUser['trangThaiXacMinh'] ??
-            _currentUser['trangThaiXacMinh_id'] ??
-            (_currentUser['isCccdVerified'] == true ? 'daXacThuc' : 'chuaXacThuc'))
+    final status = (_currentUser['cccdVerificationStatus'] ??
+            _currentUser['trangThaiXacMinh'] ??
+            (_currentUser['isCccdVerified'] == true ? 'approved' : 'unverified'))
         .toString();
-    final isVerified = _currentUser['isCccdVerified'] == true || status == 'daXacThuc';
-    final isPending = status == 'choDuyet' || status == 'pending';
+    final isVerified = status == 'approved' || status == 'daXacThuc' || _currentUser['isCccdVerified'] == true;
+    final isPending = status == 'pending' || status == 'choDuyet';
+    final isRejected = status == 'rejected' || status == 'tuChoi';
 
     Color bg;
     Color fg;
@@ -1161,7 +1153,7 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
       bg = const Color(0xFFFEF3C7);
       fg = const Color(0xFFD97706);
       label = 'ĐANG CHỜ DUYỆT ⏳';
-    } else if (status == 'tuChoi') {
+    } else if (isRejected) {
       bg = const Color(0xFFFEE2E2);
       fg = _red;
       label = 'BỊ TỪ CHỐI ✕';
@@ -1189,11 +1181,11 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
     final frontUrl = (_currentUser['cccdFrontImageUrl'] ?? _currentUser['anhMatTruoc'] ?? '').toString();
     final backUrl = (_currentUser['cccdBackImageUrl'] ?? _currentUser['anhMatSau'] ?? '').toString();
 
-    final status = (_currentUser['trangThaiXacMinh'] ??
-            _currentUser['trangThaiXacMinh_id'] ??
-            (_currentUser['isCccdVerified'] == true ? 'daXacThuc' : 'chuaXacThuc'))
+    final status = (_currentUser['cccdVerificationStatus'] ??
+            _currentUser['trangThaiXacMinh'] ??
+            (_currentUser['isCccdVerified'] == true ? 'approved' : 'unverified'))
         .toString();
-    final isPending = status == 'choDuyet' || status == 'pending';
+    final isPending = status == 'pending' || status == 'choDuyet';
 
     if (cccdNumber.isEmpty && frontUrl.isEmpty && backUrl.isEmpty) {
       return Container(
