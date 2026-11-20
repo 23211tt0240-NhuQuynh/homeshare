@@ -491,6 +491,7 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
                               hostId: _hostProfileId,
                               hostName: _nameController.text.trim(),
                               showReviewButton: _viewOnly,
+                              isVerified: _verified,
                             ),
                             if (_viewOnly) ...[
                               const SizedBox(height: 12),

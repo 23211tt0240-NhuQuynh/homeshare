@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/services/host_review_service.dart';
 import '../../../core/utils/host_reputation.dart';
 import '../../../data/models/host_review_model.dart';
+import '../../auth/providers/user_provider.dart';
 import 'host_review_sheet.dart';
 import 'host_reputation_bar.dart';
 
@@ -13,18 +14,25 @@ class HostReviewsSection extends ConsumerWidget {
   final String hostId;
   final String hostName;
   final bool showReviewButton;
+  final bool? isVerified;
 
   const HostReviewsSection({
     super.key,
     required this.hostId,
     required this.hostName,
     required this.showReviewButton,
+    this.isVerified,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reviewsAsync = ref.watch(hostReviewsProvider(hostId));
     final eligible = ref.watch(eligibleHostReviewBookingProvider(hostId));
+    final currentUser = ref.watch(userProfileProvider).value;
+    final resolvedIsVerified = isVerified ??
+        (currentUser != null && currentUser.uid == hostId
+            ? currentUser.isCccdVerified
+            : false);
 
     return reviewsAsync.when(
       data: (reviews) {
@@ -34,6 +42,7 @@ class HostReviewsSection extends ConsumerWidget {
           stats: stats,
           reviews: reviews,
           canReview: showReviewButton && eligible != null,
+          isVerified: resolvedIsVerified,
           onReview: eligible == null
               ? null
               : () async {
@@ -62,6 +71,7 @@ class HostReviewsSection extends ConsumerWidget {
         stats: const HostReviewStats(),
         reviews: const [],
         canReview: false,
+        isVerified: resolvedIsVerified,
         loading: true,
       ),
       error: (_, _) => _card(
@@ -69,6 +79,7 @@ class HostReviewsSection extends ConsumerWidget {
         stats: const HostReviewStats(),
         reviews: const [],
         canReview: false,
+        isVerified: resolvedIsVerified,
         errorText: 'Không tải được đánh giá.',
       ),
     );
@@ -79,6 +90,7 @@ class HostReviewsSection extends ConsumerWidget {
     required HostReviewStats stats,
     required List<HostReviewModel> reviews,
     required bool canReview,
+    required bool isVerified,
     VoidCallback? onReview,
     bool loading = false,
     String? errorText,
@@ -93,7 +105,7 @@ class HostReviewsSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!loading && stats.count > 0) ...[
+          if (!loading && isVerified && stats.count > 0) ...[
             HostReputationBar(
               score: HostReputation.fromAverage(stats.average),
             ),
