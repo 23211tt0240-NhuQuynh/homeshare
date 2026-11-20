@@ -538,7 +538,10 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
         }
       } catch (_) {}
 
-      await saveCccdVerificationToBackend(
+      final role = ref.read(userProfileProvider).value?.role ?? 'renter';
+      final isHost = role == 'host' || role == 'landlord' || role == 'chutro';
+
+      await submitCccdVerificationRequest(
         uid: uid,
         cccdNumber: _cccdData!.idNumber,
         cccdFullName: _cccdData!.fullName,
@@ -546,8 +549,9 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
         cccdHometown: _cccdData!.address,
         gender: _cccdData!.gender,
         birthDate: parsedBirth,
-        cccdFrontImageUrl: _frontImage?.path ?? '',
-        cccdBackImageUrl: _backImage?.path ?? '',
+        frontImagePath: _frontImage?.path ?? '',
+        backImagePath: _backImage?.path ?? '',
+        role: role,
       );
 
       await _clearDraft();
@@ -561,9 +565,14 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
-                Icon(Icons.verified, color: AppColors.primary, size: 28),
+                Icon(Icons.hourglass_top_rounded, color: Color(0xFFD97706), size: 28),
                 SizedBox(width: 8),
-                Text('Xác Thực Thành Công!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                Expanded(
+                  child: Text(
+                    'Đã Gửi Hồ Sơ Xác Thực!',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                ),
               ],
             ),
             content: Column(
@@ -571,18 +580,42 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Tài khoản của bạn đã hoàn tất quy trình eKYC định danh điện tử:',
-                  style: TextStyle(fontSize: 14),
+                  'Hồ sơ của bạn đã được gửi sang Quản trị viên xem xét, đang chờ xác thực tài khoản:',
+                  style: TextStyle(fontSize: 13.5, height: 1.4),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 if (_frontImage != null)
-                  const Text('✓ Ảnh mặt trước thẻ CCCD (đã qua thẩm định Google ML Kit)',
-                      style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                  const Text('✓ Ảnh mặt trước thẻ CCCD (lưu trữ Storage an toàn)',
+                      style: TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.w600, fontSize: 12.5)),
                 if (_backImage != null)
-                  const Text('✓ Ảnh mặt sau thẻ CCCD (đã qua thẩm định Google ML Kit)',
-                      style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
-                Text('✓ Dữ liệu CCCD: ${_cccdData!.fullName} - ${_cccdData!.idNumber}',
-                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                  const Text('✓ Ảnh mặt sau thẻ CCCD (lưu trữ Storage an toàn)',
+                      style: TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.w600, fontSize: 12.5)),
+                Text('✓ Dữ liệu trích xuất từ QR: ${_cccdData!.fullName} - ${_cccdData!.idNumber}',
+                    style: const TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.w600, fontSize: 12.5)),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.info_outline, size: 18, color: Color(0xFFB45309)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          isHost
+                              ? 'Tài khoản chủ trọ đang chờ Admin phê duyệt. Sau khi được duyệt, bạn sẽ mở khóa đầy đủ quyền tạo cơ sở, phòng trọ và đăng tin.'
+                              : 'Tài khoản đang chờ Admin phê duyệt. Sau khi được duyệt, bạn có thể thực hiện đặt phòng nhanh chóng.',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF92400E), height: 1.35),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
             actions: [
@@ -596,7 +629,7 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                   Navigator.pop(ctx);
                   Navigator.pop(context, true);
                 },
-                child: const Text('Hoàn Tất'),
+                child: const Text('Đã hiểu & Hoàn tất'),
               ),
             ],
           ),
@@ -1350,13 +1383,13 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          _canSubmit ? Icons.verified_user : Icons.lock_outline,
+                          _canSubmit ? Icons.send_rounded : Icons.lock_outline,
                           size: 18,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           _canSubmit
-                              ? 'XÁC NHẬN & HOÀN TẤT XÁC THỰC (3/3)'
+                              ? 'GỬI HỒ SƠ CHO ADMIN XÉT DUYỆT (3/3)'
                               : 'CHƯA ĐỦ ĐIỀU KIỆN XÁC THỰC ($_completedCount/3)',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,

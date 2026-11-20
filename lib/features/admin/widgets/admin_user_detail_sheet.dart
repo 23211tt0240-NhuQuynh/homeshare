@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -242,6 +243,171 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
       } finally {
         if (mounted) setState(() => _isLoading = false);
       }
+    }
+  }
+
+  Future<void> _approveCccd() async {
+    final name = (_currentUser['displayName'] ?? _currentUser['hoTen'] ?? 'người dùng').toString();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Phê duyệt CCCD?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        content: Text('Xác nhận thông tin và ảnh CCCD của "$name" hợp lệ và phê duyệt định danh (eKYC)?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _green),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Phê duyệt'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final fs = FirebaseFirestore.instance;
+      await fs.collection('users').doc(_uid).set({
+        'isCccdVerified': true,
+        'daXacThucCccd': true,
+        'trangThaiXacMinh': 'daXacThuc',
+        'trangThaiXacMinh_id': 'daXacThuc',
+        'cccdVerificationStatus': 'approved',
+        'cccdVerifiedAt': FieldValue.serverTimestamp(),
+        'ngayXacMinh': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      try {
+        await fs.collection('cccd_verifications').doc(_uid).set({
+          'status': 'approved',
+          'approvedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } catch (_) {}
+
+      // Gửi thông báo cho user
+      final notifRef = fs.collection('notifications').doc();
+      final notifData = {
+        'id': notifRef.id,
+        'userId': _uid,
+        'recipientId': _uid,
+        'receiverId': _uid,
+        'type': 'cccd_verification_approved',
+        'title': 'Xác thực CCCD thành công ✓',
+        'body': 'Hồ sơ định danh CCCD của bạn đã được Quản trị viên phê duyệt thành công!',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+      await notifRef.set(notifData);
+      try {
+        await fs.collection('notification_user').doc(notifRef.id).set(notifData);
+      } catch (_) {}
+
+      await _audit('Phê duyệt CCCD', 'Admin đã phê duyệt xác thực CCCD cho "$name"');
+      _currentUser['isCccdVerified'] = true;
+      _currentUser['daXacThucCccd'] = true;
+      _currentUser['trangThaiXacMinh'] = 'daXacThuc';
+      _currentUser['cccdVerificationStatus'] = 'approved';
+      widget.onUserUpdated?.call();
+      _snack('Đã phê duyệt CCCD thành công cho $name!');
+    } catch (e) {
+      _snack('Lỗi phê duyệt: $e', error: true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _rejectCccd() async {
+    final name = (_currentUser['displayName'] ?? _currentUser['hoTen'] ?? 'người dùng').toString();
+    final reasonCtrl = TextEditingController();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Từ chối xác thực CCCD?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Nhập lý do từ chối hồ sơ CCCD của "$name":'),
+            const SizedBox(height: 10),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 2,
+              decoration: InputDecoration(
+                hintText: 'Ví dụ: Ảnh mờ, bị che góc, không khớp thông tin...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Từ chối'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    final reason = reasonCtrl.text.trim().isNotEmpty
+        ? reasonCtrl.text.trim()
+        : 'Ảnh chụp không đạt tiêu chuẩn hoặc thông tin không trùng khớp';
+
+    setState(() => _isLoading = true);
+    try {
+      final fs = FirebaseFirestore.instance;
+      await fs.collection('users').doc(_uid).set({
+        'isCccdVerified': false,
+        'daXacThucCccd': false,
+        'trangThaiXacMinh': 'tuChoi',
+        'trangThaiXacMinh_id': 'tuChoi',
+        'cccdVerificationStatus': 'rejected',
+        'cccdRejectReason': reason,
+      }, SetOptions(merge: true));
+
+      try {
+        await fs.collection('cccd_verifications').doc(_uid).set({
+          'status': 'rejected',
+          'rejectReason': reason,
+          'rejectedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } catch (_) {}
+
+      // Gửi thông báo cho user
+      final notifRef = fs.collection('notifications').doc();
+      final notifData = {
+        'id': notifRef.id,
+        'userId': _uid,
+        'recipientId': _uid,
+        'receiverId': _uid,
+        'type': 'cccd_verification_rejected',
+        'title': 'Yêu cầu xác thực CCCD bị từ chối',
+        'body': 'Hồ sơ CCCD của bạn chưa được duyệt. Lý do: $reason. Vui lòng chụp lại ảnh rõ nét.',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+      await notifRef.set(notifData);
+      try {
+        await fs.collection('notification_user').doc(notifRef.id).set(notifData);
+      } catch (_) {}
+
+      await _audit('Từ chối CCCD', 'Admin từ chối CCCD của "$name". Lý do: $reason');
+      _currentUser['isCccdVerified'] = false;
+      _currentUser['daXacThucCccd'] = false;
+      _currentUser['trangThaiXacMinh'] = 'tuChoi';
+      _currentUser['cccdVerificationStatus'] = 'rejected';
+      widget.onUserUpdated?.call();
+      _snack('Đã từ chối hồ sơ CCCD của $name');
+    } catch (e) {
+      _snack('Lỗi từ chối CCCD: $e', error: true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -932,6 +1098,18 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
             ),
           ],
 
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('XÁC THỰC DANH TÍNH (CCCD / EKYC)',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: _primary, letterSpacing: 0.5)),
+              _buildCccdStatusBadge(),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildCccdSection(),
+
           if (warningCount > 0) ...[
             const SizedBox(height: 16),
             const Text('THỐNG KÊ CẢNH CÁO & KỶ LUẬT',
@@ -959,6 +1137,250 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildCccdStatusBadge() {
+    final status = (_currentUser['trangThaiXacMinh'] ??
+            _currentUser['trangThaiXacMinh_id'] ??
+            (_currentUser['isCccdVerified'] == true ? 'daXacThuc' : 'chuaXacThuc'))
+        .toString();
+    final isVerified = _currentUser['isCccdVerified'] == true || status == 'daXacThuc';
+    final isPending = status == 'choDuyet' || status == 'pending';
+
+    Color bg;
+    Color fg;
+    String label;
+
+    if (isVerified) {
+      bg = const Color(0xFFD1FAE5);
+      fg = _green;
+      label = 'ĐÃ XÁC THỰC ✓';
+    } else if (isPending) {
+      bg = const Color(0xFFFEF3C7);
+      fg = const Color(0xFFD97706);
+      label = 'ĐANG CHỜ DUYỆT ⏳';
+    } else if (status == 'tuChoi') {
+      bg = const Color(0xFFFEE2E2);
+      fg = _red;
+      label = 'BỊ TỪ CHỐI ✕';
+    } else {
+      bg = const Color(0xFFF1F5F9);
+      fg = _textGrey;
+      label = 'CHƯA XÁC THỰC';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: fg),
+      ),
+    );
+  }
+
+  Widget _buildCccdSection() {
+    final cccdNumber = (_currentUser['cccdNumber'] ?? _currentUser['soCccd'] ?? _currentUser['soGiayTo'] ?? '').toString();
+    final cccdFullName = (_currentUser['cccdFullName'] ?? _currentUser['hoTenCccd'] ?? '').toString();
+    final cccdIssueDate = (_currentUser['cccdIssueDate'] ?? _currentUser['ngayCap'] ?? '').toString();
+    final cccdHometown = (_currentUser['cccdHometown'] ?? _currentUser['queQuanCccd'] ?? '').toString();
+    final frontUrl = (_currentUser['cccdFrontImageUrl'] ?? _currentUser['anhMatTruoc'] ?? '').toString();
+    final backUrl = (_currentUser['cccdBackImageUrl'] ?? _currentUser['anhMatSau'] ?? '').toString();
+
+    final status = (_currentUser['trangThaiXacMinh'] ??
+            _currentUser['trangThaiXacMinh_id'] ??
+            (_currentUser['isCccdVerified'] == true ? 'daXacThuc' : 'chuaXacThuc'))
+        .toString();
+    final isPending = status == 'choDuyet' || status == 'pending';
+
+    if (cccdNumber.isEmpty && frontUrl.isEmpty && backUrl.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.shield_outlined, size: 16, color: _textGrey),
+            SizedBox(width: 8),
+            Text('Người dùng chưa nộp hồ sơ CCCD / eKYC.', style: TextStyle(fontSize: 12, color: _textGrey)),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isPending ? const Color(0xFFF59E0B) : const Color(0xFFE2E8F0), width: isPending ? 1.5 : 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (cccdNumber.isNotEmpty) _infoTile(Icons.credit_card, 'Số CCCD', cccdNumber),
+          if (cccdFullName.isNotEmpty) _infoTile(Icons.person, 'Họ tên CCCD', cccdFullName),
+          if (cccdIssueDate.isNotEmpty) _infoTile(Icons.calendar_today, 'Ngày cấp', cccdIssueDate),
+          if (cccdHometown.isNotEmpty) _infoTile(Icons.location_on_outlined, 'Quê quán', cccdHometown),
+
+          const SizedBox(height: 10),
+          const Text('Ảnh chụp CCCD từ Storage:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _textDark)),
+          const SizedBox(height: 8),
+
+          Row(
+            children: [
+              Expanded(
+                child: _buildCccdImageThumb(
+                  label: 'Mặt trước',
+                  imageUrl: frontUrl,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildCccdImageThumb(
+                  label: 'Mặt sau',
+                  imageUrl: backUrl,
+                ),
+              ),
+            ],
+          ),
+
+          if (isPending) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _red,
+                      side: const BorderSide(color: _red),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    onPressed: _isLoading ? null : _rejectCccd,
+                    icon: const Icon(Icons.close, size: 16),
+                    label: const Text('Từ chối CCCD', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _green,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    onPressed: _isLoading ? null : _approveCccd,
+                    icon: const Icon(Icons.check, size: 16),
+                    label: const Text('Phê duyệt CCCD', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCccdImageThumb({required String label, required String imageUrl}) {
+    final hasUrl = imageUrl.isNotEmpty;
+    return InkWell(
+      onTap: hasUrl ? () => _showImagePreviewDialog(label, imageUrl) : null,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        height: 100,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFD0D5DD)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          alignment: Alignment.center,
+          fit: StackFit.expand,
+          children: [
+            if (hasUrl)
+              (imageUrl.startsWith('data:image')
+                  ? Image.memory(
+                      base64Decode(imageUrl.split(',').last),
+                      fit: BoxFit.cover,
+                    )
+                  : Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const Center(
+                        child: Icon(Icons.broken_image_outlined, color: _textGrey),
+                      ),
+                    ))
+            else
+              const Center(
+                child: Icon(Icons.image_not_supported_outlined, color: _textGrey),
+              ),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.6),
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                alignment: Alignment.center,
+                child: Text(
+                  label,
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showImagePreviewDialog(String title, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppBar(
+              backgroundColor: Colors.black87,
+              foregroundColor: Colors.white,
+              title: Text(title, style: const TextStyle(fontSize: 16)),
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 450),
+              color: Colors.black,
+              child: InteractiveViewer(
+                child: imageUrl.startsWith('data:image')
+                    ? Image.memory(
+                        base64Decode(imageUrl.split(',').last),
+                        fit: BoxFit.contain,
+                      )
+                    : Image.network(
+                        imageUrl,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => const Center(
+                          child: Icon(Icons.broken_image, color: Colors.white, size: 48),
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

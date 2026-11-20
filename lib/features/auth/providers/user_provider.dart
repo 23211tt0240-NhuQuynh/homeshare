@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/role_resolver.dart';
+import '../../../core/constants/firestore_collections.dart';
 import '../../../core/services/host_index_service.dart';
 import '../../../core/services/image_storage_service.dart';
 import '../../../core/services/user_uniqueness_service.dart';
@@ -50,10 +52,15 @@ class UserProfile {
   final DateTime? cccdVerifiedAt; // ngayXacMinh
   final String cccdFrontImageUrl; // anhMatTruoc / anhGiayTo_id
   final String cccdBackImageUrl; // anhMatSau
+  final String cccdVerificationStatus; // 'chuaXacThuc' | 'choDuyet' | 'daXacThuc' | 'tuChoi'
   final bool requiredInfoCompleted; // daCapNhatThongTin
 
   // Vietnamese DrawIO Alias Getters
   bool get hasCompletedRequiredInfo => requiredInfoCompleted;
+  bool get isCccdPending =>
+      cccdVerificationStatus == 'choDuyet' ||
+      cccdVerificationStatus == 'pending' ||
+      (!isCccdVerified && (cccdFrontImageUrl.isNotEmpty || cccdNumber.isNotEmpty));
   bool get isAccessBlocked {
     return accountDeleted || isBanned || statusId == 2;
   }
@@ -150,6 +157,7 @@ class UserProfile {
     this.cccdVerifiedAt,
     this.cccdFrontImageUrl = '',
     this.cccdBackImageUrl = '',
+    this.cccdVerificationStatus = 'chuaXacThuc',
     this.requiredInfoCompleted = false,
   }) : _userCode = (userCode != null && isValidUserCode(userCode))
            ? userCode.trim().toUpperCase()
@@ -248,6 +256,16 @@ class UserProfile {
           : null,
       cccdFrontImageUrl: data['cccdFrontImageUrl'] ?? data['anhMatTruoc'] ?? '',
       cccdBackImageUrl: data['cccdBackImageUrl'] ?? data['anhMatSau'] ?? '',
+      cccdVerificationStatus: (data['cccdVerificationStatus'] ??
+              data['trangThaiXacMinh'] ??
+              data['trangThaiXacMinh_id'] ??
+              (((data['isCccdVerified'] == true) ||
+                      (data['daXacThucCccd'] == true) ||
+                      (data['trangThaiXacMinh'] == 'daXacThuc') ||
+                      (data['trangThaiXacMinh_id'] == 'daXacThuc'))
+                  ? 'daXacThuc'
+                  : 'chuaXacThuc'))
+          .toString(),
       requiredInfoCompleted: data['requiredInfoCompleted'] == true ||
           data['daCapNhatThongTin'] == true ||
           data['hasCompletedRequiredInfo'] == true,
@@ -283,6 +301,7 @@ class UserProfile {
       'cccdHometown': cccdHometown,
       'cccdFrontImageUrl': cccdFrontImageUrl,
       'cccdBackImageUrl': cccdBackImageUrl,
+      'cccdVerificationStatus': cccdVerificationStatus,
       if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate!),
       if (cccdVerifiedAt != null)
         'cccdVerifiedAt': Timestamp.fromDate(cccdVerifiedAt!),
@@ -326,6 +345,7 @@ class UserProfile {
     DateTime? cccdVerifiedAt,
     String? cccdFrontImageUrl,
     String? cccdBackImageUrl,
+    String? cccdVerificationStatus,
     bool? requiredInfoCompleted,
   }) {
     return UserProfile(
@@ -365,8 +385,216 @@ class UserProfile {
       cccdVerifiedAt: cccdVerifiedAt ?? this.cccdVerifiedAt,
       cccdFrontImageUrl: cccdFrontImageUrl ?? this.cccdFrontImageUrl,
       cccdBackImageUrl: cccdBackImageUrl ?? this.cccdBackImageUrl,
+      cccdVerificationStatus:
+          cccdVerificationStatus ?? this.cccdVerificationStatus,
     );
   }
+}
+
+/// Gửi yêu cầu xác thực CCCD sang Quản trị viên xem xét (không duyệt ngay)
+/// 1. Tải ảnh mặt trước & mặt sau thẻ CCCD lên Firebase Storage
+/// 2. Firestore `users/$uid` chỉ lưu download URL dẫn sang Storage, kèm trạng thái 'choDuyet'
+/// 3. Gửi thông báo đến Quản trị viên (recipientRole: 'admin')
+/// 4. Tạo cờ thông báo trên user tương ứng theo role (Chủ trọ / Người thuê):
+///    "Đã gửi sang quản trị viên xem xét, đang chờ xác thực tài khoản"
+Future<void> submitCccdVerificationRequest({
+  required String uid,
+  required String cccdNumber,
+  required String cccdFullName,
+  required String cccdIssueDate,
+  required String cccdHometown,
+  required String gender,
+  DateTime? birthDate,
+  required String frontImagePath,
+  required String backImagePath,
+  String role = 'renter',
+  FirebaseFirestore? firestore,
+  FirebaseStorage? storage,
+}) async {
+  final fs = firestore ?? FirebaseFirestore.instance;
+  final effectiveUid = (uid.isNotEmpty && uid != 'guest_uid')
+      ? uid
+      : (FirebaseAuth.instance.currentUser?.uid ?? uid);
+  final normalizedCccd = UserUniquenessService.normalizeCccd(cccdNumber);
+  if (!RegExp(r'^\d{12}$').hasMatch(normalizedCccd)) {
+    throw 'Số CCCD phải gồm đúng 12 chữ số.';
+  }
+
+  // 1. Kiểm tra tính độc nhất của CCCD
+  final uniqueness = UserUniquenessService(firestore: fs);
+  final cccdError = await uniqueness.checkCccdUnique(
+    normalizedCccd,
+    excludeUid: effectiveUid,
+  );
+  if (cccdError != null) {
+    throw cccdError;
+  }
+  await uniqueness.claimCccd(normalizedCccd, uid: effectiveUid);
+
+  // 2. Tải ảnh mặt trước & mặt sau lên Firebase Storage
+  final storageService = ImageStorageService(storage: storage);
+  final frontUrl = await storageService.uploadCccdImage(
+    filePath: frontImagePath,
+    uid: effectiveUid,
+    isFront: true,
+  );
+  final backUrl = await storageService.uploadCccdImage(
+    filePath: backImagePath,
+    uid: effectiveUid,
+    isFront: false,
+  );
+
+  // 3. Bảo toàn tên hiển thị (displayName)
+  String? existingDisplayName;
+  if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
+    try {
+      final doc = await fs.collection('users').doc(effectiveUid).get();
+      if (doc.exists && doc.data() != null) {
+        final dName = (doc.data()?['displayName'] ?? doc.data()?['hoTen'])
+            ?.toString()
+            .trim();
+        if (dName != null && dName.isNotEmpty) {
+          existingDisplayName = dName;
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (existingDisplayName == null || existingDisplayName.isEmpty) {
+    final authName = FirebaseAuth.instance.currentUser?.displayName?.trim();
+    if (authName != null && authName.isNotEmpty) {
+      existingDisplayName = authName;
+    }
+  }
+
+  final isHost = role == 'host' || role == 'landlord' || role == 'chutro';
+
+  // 4. Lưu thông tin và URL Storage vào Firestore users/$effectiveUid
+  final updateData = <String, dynamic>{
+    'isCccdVerified': false,
+    'daXacThucCccd': false,
+    'trangThaiXacMinh': 'choDuyet',
+    'trangThaiXacMinh_id': 'choDuyet',
+    'cccdVerificationStatus': 'pending',
+    'cccdNumber': normalizedCccd,
+    'soCccd': normalizedCccd,
+    'soGiayTo': normalizedCccd,
+    'cccdFullName': cccdFullName,
+    'hoTenCccd': cccdFullName,
+    if (existingDisplayName == null || existingDisplayName.isEmpty)
+      'displayName': cccdFullName,
+    'cccdIssueDate': cccdIssueDate,
+    'ngayCap': cccdIssueDate,
+    'cccdHometown': cccdHometown,
+    'queQuanCccd': cccdHometown,
+    'gender': gender,
+    'gioiTinh': gender,
+    if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate),
+    if (birthDate != null) 'ngaySinh': Timestamp.fromDate(birthDate),
+    'cccdFrontImageUrl': frontUrl,
+    'cccdBackImageUrl': backUrl,
+    'anhMatTruoc': frontUrl,
+    'anhMatSau': backUrl,
+    'cccdSubmittedAt': FieldValue.serverTimestamp(),
+    'ngayGuiXacMinh': FieldValue.serverTimestamp(),
+  };
+
+  if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
+    await fs
+        .collection('users')
+        .doc(effectiveUid)
+        .set(updateData, SetOptions(merge: true));
+
+    // Lưu vào subcollection id_verifications hoặc cccd_verifications cho Admin
+    try {
+      await fs.collection('cccd_verifications').doc(effectiveUid).set({
+        'uid': effectiveUid,
+        'userId': effectiveUid,
+        'fullName': cccdFullName,
+        'cccdNumber': normalizedCccd,
+        'role': role,
+        'isHost': isHost,
+        'frontImageUrl': frontUrl,
+        'backImageUrl': backUrl,
+        'hometown': cccdHometown,
+        'issueDate': cccdIssueDate,
+        'gender': gender,
+        'status': 'pending',
+        'submittedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (_) {}
+
+    // 5. Gửi thông báo đến Admin trong collection `notifications`
+    try {
+      final adminNotifRef = fs.collection('notifications').doc();
+      await adminNotifRef.set({
+        'id': adminNotifRef.id,
+        'recipientRole': 'admin',
+        'type': 'cccd_verification',
+        'notificationType': 'cccd_verification',
+        'title': isHost ? 'Yêu cầu duyệt CCCD Chủ trọ' : 'Yêu cầu duyệt CCCD Người tìm phòng',
+        'body': 'Người dùng $cccdFullName (${isHost ? "Chủ trọ" : "Người thuê"}) đã gửi ảnh CCCD 2 mặt và mã QR để xác thực tài khoản.',
+        'userId': effectiveUid,
+        'userName': cccdFullName,
+        'userRole': role,
+        'cccdNumber': normalizedCccd,
+        'cccdFrontImageUrl': frontUrl,
+        'cccdBackImageUrl': backUrl,
+        'status': 'pending',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {}
+
+    // 6. Tạo cờ thông báo trên User tương ứng với vai trò (Host vs Renter)
+    try {
+      final userNotifRef = fs.collection('notifications').doc();
+      final userNotifData = {
+        'id': userNotifRef.id,
+        'userId': effectiveUid,
+        'recipientId': effectiveUid,
+        'receiverId': effectiveUid,
+        'nguoiNhanId': effectiveUid,
+        'role': role,
+        'type': 'cccd_verification_pending',
+        'notificationType': 'cccd_verification_pending',
+        'title': isHost
+            ? 'Đã gửi yêu cầu xác thực CCCD Chủ trọ'
+            : 'Đã gửi yêu cầu xác thực CCCD',
+        'body': isHost
+            ? 'Hồ sơ xác thực CCCD chủ trọ của bạn đã được gửi sang Quản trị viên xem xét, đang chờ xác thực tài khoản để kích hoạt đầy đủ quyền tạo phòng và đăng bài.'
+            : 'Hồ sơ xác thực CCCD của bạn đã được gửi sang Quản trị viên xem xét, đang chờ xác thực tài khoản.',
+        'status': 'pending',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+      await userNotifRef.set(userNotifData);
+
+      try {
+        await fs
+            .collection(FirestoreCollections.notificationUser)
+            .doc(userNotifRef.id)
+            .set(userNotifData);
+      } catch (_) {}
+    } catch (_) {}
+  }
+
+  // 7. Cập nhật SharedPreferences
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final cacheKey = effectiveUid.isNotEmpty ? effectiveUid : 'current';
+    await prefs.setBool('cccd_verified_$cacheKey', false);
+    await prefs.setBool('cccd_pending_$cacheKey', true);
+    await prefs.setString('cccd_status_$cacheKey', 'choDuyet');
+    await prefs.setString('cccd_number_$cacheKey', normalizedCccd);
+    await prefs.setString('cccd_name_$cacheKey', cccdFullName);
+    if (frontUrl.isNotEmpty) {
+      await prefs.setString('cccd_front_$cacheKey', frontUrl);
+    }
+    if (backUrl.isNotEmpty) {
+      await prefs.setString('cccd_back_$cacheKey', backUrl);
+    }
+  } catch (_) {}
 }
 
 /// Hàm lưu kết quả xác thực CCCD eKYC vào Firestore và SharedPreferences
@@ -388,6 +616,24 @@ Future<void> saveCccdVerificationToBackend({
   final normalizedCccd = UserUniquenessService.normalizeCccd(cccdNumber);
   if (!RegExp(r'^\d{12}$').hasMatch(normalizedCccd)) {
     throw 'Số CCCD phải gồm đúng 12 chữ số.';
+  }
+
+  // Đảm bảo ảnh CCCD được tải lên Storage nếu là đường dẫn file cục bộ
+  var frontUrl = cccdFrontImageUrl;
+  var backUrl = cccdBackImageUrl;
+  if (frontUrl.isNotEmpty && !frontUrl.startsWith('http') && !frontUrl.startsWith('data:')) {
+    frontUrl = await ImageStorageService().uploadCccdImage(
+      filePath: frontUrl,
+      uid: effectiveUid,
+      isFront: true,
+    );
+  }
+  if (backUrl.isNotEmpty && !backUrl.startsWith('http') && !backUrl.startsWith('data:')) {
+    backUrl = await ImageStorageService().uploadCccdImage(
+      filePath: backUrl,
+      uid: effectiveUid,
+      isFront: false,
+    );
   }
 
   // Kiểm tra tính độc nhất của CCCD: mỗi số CCCD là duy nhất trên toàn hệ thống
@@ -431,8 +677,8 @@ Future<void> saveCccdVerificationToBackend({
     'daXacThucCccd': true,
     'trangThaiXacMinh': 'daXacThuc',
     'trangThaiXacMinh_id': 'daXacThuc',
+    'cccdVerificationStatus': 'approved',
     'cccdNumber': normalizedCccd,
-    'cccdNumberNormalized': normalizedCccd,
     'soCccd': normalizedCccd,
     'soGiayTo': normalizedCccd,
     'cccdFullName': cccdFullName,
@@ -448,8 +694,10 @@ Future<void> saveCccdVerificationToBackend({
     'gioiTinh': gender,
     if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate),
     if (birthDate != null) 'ngaySinh': Timestamp.fromDate(birthDate),
-    if (cccdFrontImageUrl.isNotEmpty) 'cccdFrontImageUrl': cccdFrontImageUrl,
-    if (cccdBackImageUrl.isNotEmpty) 'cccdBackImageUrl': cccdBackImageUrl,
+    if (frontUrl.isNotEmpty) 'cccdFrontImageUrl': frontUrl,
+    if (backUrl.isNotEmpty) 'cccdBackImageUrl': backUrl,
+    if (frontUrl.isNotEmpty) 'anhMatTruoc': frontUrl,
+    if (backUrl.isNotEmpty) 'anhMatSau': backUrl,
     'cccdVerifiedAt': FieldValue.serverTimestamp(),
     'ngayXacMinh': FieldValue.serverTimestamp(),
   };

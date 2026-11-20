@@ -40,6 +40,7 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
   String _gender = '';
   String? _genderError;
   bool _verified = false;
+  bool _cccdPending = false;
   bool _hydrated = false;
   bool _bankLoaded = false;
   bool _bankLoadFailed = false;
@@ -442,6 +443,7 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
     });
     if (profile != null && !viewingOther) {
       _verified = profile.isCccdVerified;
+      _cccdPending = profile.isCccdPending;
       if (!_hydrated) {
         _hydrated = true;
         _hydrate(profile);
@@ -659,6 +661,7 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
                         setState(() {
                           _hydrate(updated);
                           _verified = updated.isCccdVerified;
+                          _cccdPending = updated.isCccdPending;
                         });
                       }
                     }
@@ -668,24 +671,37 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: _verified ? AppColors.successContainer : AppColors.warningContainer,
+              color: _verified
+                  ? AppColors.successContainer
+                  : (_cccdPending ? const Color(0xFFFEF3C7) : AppColors.warningContainer),
               borderRadius: BorderRadius.circular(20),
+              border: _cccdPending ? Border.all(color: const Color(0xFFF59E0B), width: 1.2) : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  _verified ? Icons.verified_rounded : Icons.info_outline,
+                  _verified
+                      ? Icons.verified_rounded
+                      : (_cccdPending ? Icons.hourglass_top_rounded : Icons.info_outline),
                   size: 16,
-                  color: _verified ? AppColors.success : AppColors.warning,
+                  color: _verified
+                      ? AppColors.success
+                      : (_cccdPending ? const Color(0xFFD97706) : AppColors.warning),
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  _verified ? 'Đã xác thực VNeID / CCCD' : 'Chưa xác thực VNeID / CCCD',
+                  _verified
+                      ? 'Đã xác thực VNeID / CCCD'
+                      : (_cccdPending
+                          ? 'Đang chờ duyệt CCCD ⏳'
+                          : 'Chưa xác thực VNeID / CCCD'),
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
-                    color: _verified ? AppColors.success : AppColors.warning,
+                    color: _verified
+                        ? AppColors.success
+                        : (_cccdPending ? const Color(0xFFB45309) : AppColors.warning),
                   ),
                 ),
                 if (_verified && !_viewOnly) ...[

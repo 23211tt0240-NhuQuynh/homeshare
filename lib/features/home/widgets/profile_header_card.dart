@@ -69,6 +69,7 @@ class ProfileHeaderCard extends StatelessWidget {
         : 'Chưa có mã';
 
     final isCccdVerified = profile?.isCccdVerified ?? false;
+    final isCccdPending = profile?.isCccdPending ?? false;
 
     // Vai trò hiển thị
     String roleBadgeText = 'Người thuê';
@@ -261,55 +262,92 @@ class ProfileHeaderCard extends StatelessWidget {
                                       ],
                                     ),
                                   )
-                                : InkWell(
-                                    onTap: onOpenCccdVerification,
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2.5,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.warningContainer
-                                            .withValues(alpha: 0.6),
+                                : isCccdPending
+                                    ? Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2.5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFEF3C7),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: const Color(0xFFF59E0B),
+                                          ),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.hourglass_top_rounded,
+                                              size: 12,
+                                              color: Color(0xFFD97706),
+                                            ),
+                                            SizedBox(width: 3),
+                                            Flexible(
+                                              child: Text(
+                                                'Đang chờ duyệt CCCD ⏳',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFFB45309),
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : InkWell(
+                                        onTap: onOpenCccdVerification,
                                         borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: AppColors.warning.withValues(
-                                            alpha: 0.5,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2.5,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.warningContainer
+                                                .withValues(alpha: 0.6),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: AppColors.warning.withValues(
+                                                alpha: 0.5,
+                                              ),
+                                            ),
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.gpp_maybe_outlined,
+                                                size: 12,
+                                                color: AppColors.warning,
+                                              ),
+                                              SizedBox(width: 3),
+                                              Flexible(
+                                                child: Text(
+                                                  'Chưa xác thực CCCD (Quét ngay)',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppColors.warning,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              SizedBox(width: 2),
+                                              Icon(
+                                                Icons.chevron_right,
+                                                size: 12,
+                                                color: AppColors.warning,
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ),
-                                      child: const Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.gpp_maybe_outlined,
-                                            size: 12,
-                                            color: AppColors.warning,
-                                          ),
-                                          SizedBox(width: 3),
-                                          Flexible(
-                                            child: Text(
-                                              'Chưa xác thực CCCD (Quét ngay)',
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.warning,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          SizedBox(width: 2),
-                                          Icon(
-                                            Icons.chevron_right,
-                                            size: 12,
-                                            color: AppColors.warning,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
                           ),
                         ],
                       );

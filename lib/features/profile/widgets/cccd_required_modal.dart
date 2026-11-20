@@ -9,6 +9,7 @@ Future<bool?> showCccdRequiredModal(
   BuildContext context, {
   required bool isHost,
   String? actionName,
+  bool isPending = false,
 }) {
   return showDialog<bool>(
     context: context,
@@ -16,6 +17,7 @@ Future<bool?> showCccdRequiredModal(
     builder: (ctx) => CccdRequiredDialog(
       isHost: isHost,
       actionName: actionName,
+      isPending: isPending,
     ),
   );
 }
@@ -23,11 +25,13 @@ Future<bool?> showCccdRequiredModal(
 class CccdRequiredDialog extends StatelessWidget {
   final bool isHost;
   final String? actionName;
+  final bool isPending;
 
   const CccdRequiredDialog({
     super.key,
     required this.isHost,
     this.actionName,
+    this.isPending = false,
   });
 
   @override
@@ -37,13 +41,23 @@ class CccdRequiredDialog extends StatelessWidget {
     final textMuted = AppColors.textMuted;
 
     // Tiêu đề dí dỏm
-    final title = isHost
-        ? 'Ủa ủa! Khoan đã chủ trọ ơi! 😱'
-        : 'Ối kìa! Chưa có vé thông hành sao? 😱';
+    final title = isPending
+        ? 'Hồ sơ CCCD đang được xem xét! ⏳'
+        : (isHost
+            ? 'Ủa ủa! Khoan đã chủ trọ ơi! 😱'
+            : 'Ối kìa! Chưa có vé thông hành sao? 😱');
 
     // Nội dung cảnh báo dí dỏm theo ngữ cảnh
     String message;
-    if (isHost) {
+    if (isPending) {
+      if (isHost) {
+        message =
+            'Hồ sơ xác thực CCCD chủ trọ của bạn đã gửi sang Quản trị viên xem xét, đang chờ xác thực tài khoản để mở khóa quyền ${actionName ?? "quản lý trọ"}. BQT đang tích cực kiểm tra, bạn đợi trong giây lát nhé! 🏠';
+      } else {
+        message =
+            'Hồ sơ xác thực CCCD của bạn đã gửi sang Quản trị viên xem xét, đang chờ xác thực tài khoản để ${actionName ?? "đặt phòng"}. Bạn kiên nhẫn đợi trong giây lát nhé! 🪪';
+      }
+    } else if (isHost) {
       if (actionName == 'tạo cơ sở') {
         message =
             'Muốn làm "ông trùm bất động sản" mà chưa cho HomeShare biết danh tính sao nè? 🏢 Mau mau xác thực CCCD để mở khóa tạo cơ sở hoành tráng nhé!';

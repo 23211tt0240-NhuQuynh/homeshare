@@ -114,6 +114,72 @@ class ImageStorageService {
     return 'data:image/jpeg;base64,${base64Encode(prepared)}';
   }
 
+  /// Tải ảnh CCCD (mặt trước / mặt sau) lên Firebase Storage.
+  /// Lưu cố định tại `cccd_verifications/{uid}/cccd_{side}_{timestamp}.jpg`.
+  /// Trả về download URL từ Storage (hoặc Base64 Data URI khi Storage chưa sẵn sàng).
+  Future<String> uploadCccdImage({
+    required String filePath,
+    required String uid,
+    required bool isFront,
+  }) async {
+    final cleanPath = filePath.trim();
+    if (cleanPath.isEmpty) return '';
+
+    // Nếu đã là URL online hoặc Base64 data thì giữ nguyên
+    if (cleanPath.startsWith('http://') ||
+        cleanPath.startsWith('https://') ||
+        cleanPath.startsWith('data:image')) {
+      return cleanPath;
+    }
+
+    final file = File(cleanPath);
+    if (!file.existsSync()) {
+      debugPrint('[ImageStorageService] File CCCD không tồn tại: $cleanPath');
+      return '';
+    }
+
+    final side = isFront ? 'front' : 'back';
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final fileName = 'cccd_${side}_$timestamp.jpg';
+    final folder = 'cccd_verifications/$uid';
+
+    Uint8List prepared;
+    try {
+      final raw = await file.readAsBytes();
+      const maxBytes = 450 * 1024; // 450KB cho ảnh CCCD rõ nét
+      prepared = raw.length <= maxBytes
+          ? raw
+          : await compute(compressJpegToLimit, (raw, maxBytes));
+    } catch (e) {
+      debugPrint('[ImageStorageService] Không đọc được file CCCD $cleanPath: $e');
+      return '';
+    }
+
+    if (!skipRemoteUpload) {
+      try {
+        final storageRef = _storage.ref().child('$folder/$fileName');
+        final metadata = SettableMetadata(
+          contentType: 'image/jpeg',
+          customMetadata: {
+            'uploadedAt': DateTime.now().toIso8601String(),
+            'uid': uid,
+            'side': side,
+          },
+        );
+
+        final uploadTask = storageRef.putData(prepared, metadata);
+        final snapshot = await uploadTask.timeout(const Duration(seconds: 15));
+        final downloadUrl = await snapshot.ref.getDownloadURL();
+        debugPrint('[ImageStorageService] Tải ảnh CCCD lên Storage thành công: $downloadUrl');
+        return downloadUrl;
+      } catch (e) {
+        debugPrint('[ImageStorageService] Lỗi tải CCCD Storage ($e). Lưu Base64 fallback.');
+      }
+    }
+
+    return 'data:image/jpeg;base64,${base64Encode(prepared)}';
+  }
+
   /// Tải danh sách nhiều ảnh cùng lúc cho bài đăng ở ghép / đăng phòng
   Future<List<String>> uploadRoommateImages({
     required List<String> localPaths,

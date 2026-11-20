@@ -465,9 +465,11 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
       }
     } catch (_) {}
 
-    // Lưu vào Firebase và SharedPreferences (áp dụng cho mọi trường hợp, kể cả returnDataOnly)
+    // Lưu vào Firebase và SharedPreferences dưới dạng yêu cầu xác thực chờ duyệt
     try {
-      await saveCccdVerificationToBackend(
+      final profile = ref.read(userProfileProvider).value;
+      final role = profile?.role ?? 'renter';
+      await submitCccdVerificationRequest(
         uid: uid,
         cccdNumber: cccd.idNumber,
         cccdFullName: cccd.fullName,
@@ -475,6 +477,9 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
         cccdHometown: cccd.address,
         gender: cccd.gender,
         birthDate: parsedBirth,
+        frontImagePath: '',
+        backImagePath: '',
+        role: role,
       );
       ref.invalidate(userProfileProvider);
     } catch (e) {
@@ -487,7 +492,7 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Đã cập nhật và lưu thông tin CCCD (${cccd.fullName}) vào hệ thống ✓'),
+          content: Text('Đã gửi thông tin CCCD (${cccd.fullName}) sang Quản trị viên xem xét ✓'),
           backgroundColor: AppColors.primary,
         ),
       );
