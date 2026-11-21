@@ -69,6 +69,8 @@ class PersonalProfileContent extends StatelessWidget {
           ProfileActionsCard(
             isCccdVerified: profile?.isCccdVerified ?? false,
             isCccdPending: profile?.isCccdPending ?? false,
+            isCccdRejected: profile?.isCccdRejected ?? false,
+            cccdRejectedReason: profile?.cccdRejectedReason ?? '',
             onOpenBookings: onOpenBookings,
             onOpenCccdVerification: onOpenCccdVerification,
             onOpenAccountSettings: onOpenAccountSettings,

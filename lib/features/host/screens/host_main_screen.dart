@@ -285,7 +285,7 @@ class _HostMainScreenState extends ConsumerState<HostMainScreen> {
           index: _currentIndex,
           children: [
             HostDashboardScreen(),
-            ChatListScreen(),
+            const ChatListScreen(showNotificationButton: false),
             HostCreatePostScreen(),
             IndexedStack(
               index: _managementIndex,

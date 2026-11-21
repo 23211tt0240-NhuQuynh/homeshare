@@ -6,6 +6,8 @@ import '../../../core/constants/app_colors.dart';
 class ProfileActionsCard extends StatelessWidget {
   final bool isCccdVerified;
   final bool isCccdPending;
+  final bool isCccdRejected;
+  final String cccdRejectedReason;
   final VoidCallback? onOpenBookings;
   final VoidCallback? onOpenCccdVerification;
   final VoidCallback? onOpenAccountSettings;
@@ -15,6 +17,8 @@ class ProfileActionsCard extends StatelessWidget {
     super.key,
     required this.isCccdVerified,
     this.isCccdPending = false,
+    this.isCccdRejected = false,
+    this.cccdRejectedReason = '',
     this.onOpenBookings,
     this.onOpenCccdVerification,
     this.onOpenAccountSettings,
@@ -243,10 +247,16 @@ class ProfileActionsCard extends StatelessWidget {
                     ? 'Hồ sơ đã hoàn tất xác thực eKYC'
                     : (isCccdPending
                         ? 'Đã gửi hồ sơ, đang chờ Quản trị viên duyệt'
-                        : 'Quét CCCD để tăng độ uy tín tài khoản'),
+                        : (isCccdRejected
+                            ? (cccdRejectedReason.trim().isNotEmpty
+                                ? 'Bị từ chối: ${cccdRejectedReason.trim()}'
+                                : 'Hồ sơ bị từ chối — nhấn để chụp & gửi lại')
+                            : 'Quét CCCD để tăng độ uy tín tài khoản')),
                 trailingBadge: isCccdVerified
                     ? 'ĐÃ XÁC THỰC'
-                    : (isCccdPending ? 'CHỜ DUYỆT' : 'CHƯA XÁC THỰC'),
+                    : (isCccdPending
+                        ? 'CHỜ DUYỆT'
+                        : (isCccdRejected ? 'BỊ TỪ CHỐI' : 'CHƯA XÁC THỰC')),
                 isBadgeSuccess: isCccdVerified,
                 onTap: onOpenCccdVerification,
                 semanticsLabel:

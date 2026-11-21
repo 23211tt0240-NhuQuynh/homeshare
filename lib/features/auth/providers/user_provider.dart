@@ -53,13 +53,24 @@ class UserProfile {
   final String cccdFrontImageUrl; // anhMatTruoc / anhGiayTo_id
   final String cccdBackImageUrl; // anhMatSau
   final String cccdVerificationStatus; // 'pending' | 'approved' | 'rejected' | 'unverified'
+  final String cccdRejectedReason;
+  final DateTime? cccdRejectedAt;
+  final DateTime? cccdSubmittedAt;
   final bool requiredInfoCompleted; // daCapNhatThongTin
 
   // Vietnamese DrawIO Alias Getters
   bool get hasCompletedRequiredInfo => requiredInfoCompleted;
+  String get normalizedCccdStatus => cccdVerificationStatus.trim().toLowerCase();
   bool get isCccdPending =>
-      cccdVerificationStatus == 'choDuyet' ||
-      cccdVerificationStatus == 'pending';
+      normalizedCccdStatus == 'choduyet' || normalizedCccdStatus == 'pending';
+  bool get isCccdRejected =>
+      normalizedCccdStatus == 'rejected' ||
+      normalizedCccdStatus == 'tuchoi' ||
+      normalizedCccdStatus == 'bi_tu_choi';
+  bool get isCccdApproved =>
+      isCccdVerified ||
+      normalizedCccdStatus == 'approved' ||
+      normalizedCccdStatus == 'daxacthuc';
   bool get isAccessBlocked {
     return accountDeleted || isBanned || statusId == 2;
   }
@@ -157,6 +168,9 @@ class UserProfile {
     this.cccdFrontImageUrl = '',
     this.cccdBackImageUrl = '',
     this.cccdVerificationStatus = 'unverified',
+    this.cccdRejectedReason = '',
+    this.cccdRejectedAt,
+    this.cccdSubmittedAt,
     this.requiredInfoCompleted = false,
   }) : _userCode = (userCode != null && isValidUserCode(userCode))
            ? userCode.trim().toUpperCase()
@@ -238,7 +252,10 @@ class UserProfile {
           ? (data['ngayTao'] as Timestamp).toDate()
           : null,
       isCccdVerified: data['cccdVerificationStatus'] != null
-          ? data['cccdVerificationStatus'] == 'approved'
+          ? (data['cccdVerificationStatus'].toString().trim().toLowerCase() ==
+                    'approved' ||
+                data['cccdVerificationStatus'].toString().trim().toLowerCase() ==
+                    'daxacthuc')
           : (data['isCccdVerified'] == true ||
               data['daXacThucCccd'] == true ||
               data['trangThaiXacMinh'] == 'daXacThuc' ||
@@ -271,6 +288,14 @@ class UserProfile {
                       ? 'pending'
                       : 'unverified')))
           .toString(),
+      cccdRejectedReason:
+          (data['cccdRejectedReason'] ?? data['cccdRejectReason'] ?? '')
+              .toString()
+              .trim(),
+      cccdRejectedAt: parseModerationDate(data['cccdRejectedAt']),
+      cccdSubmittedAt: parseModerationDate(
+        data['cccdSubmittedAt'] ?? data['ngayGuiXacMinh'],
+      ),
       requiredInfoCompleted: data['requiredInfoCompleted'] == true ||
           data['daCapNhatThongTin'] == true ||
           data['hasCompletedRequiredInfo'] == true,
@@ -308,6 +333,12 @@ class UserProfile {
       'cccdFrontImageUrl': cccdFrontImageUrl,
       'cccdBackImageUrl': cccdBackImageUrl,
       'cccdVerificationStatus': cccdVerificationStatus,
+      if (cccdRejectedReason.isNotEmpty)
+        'cccdRejectedReason': cccdRejectedReason,
+      if (cccdRejectedAt != null)
+        'cccdRejectedAt': Timestamp.fromDate(cccdRejectedAt!),
+      if (cccdSubmittedAt != null)
+        'cccdSubmittedAt': Timestamp.fromDate(cccdSubmittedAt!),
       if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate!),
       if (cccdVerifiedAt != null)
         'cccdVerifiedAt': Timestamp.fromDate(cccdVerifiedAt!),
@@ -352,6 +383,9 @@ class UserProfile {
     String? cccdFrontImageUrl,
     String? cccdBackImageUrl,
     String? cccdVerificationStatus,
+    String? cccdRejectedReason,
+    DateTime? cccdRejectedAt,
+    DateTime? cccdSubmittedAt,
     bool? requiredInfoCompleted,
   }) {
     return UserProfile(
@@ -393,6 +427,9 @@ class UserProfile {
       cccdBackImageUrl: cccdBackImageUrl ?? this.cccdBackImageUrl,
       cccdVerificationStatus:
           cccdVerificationStatus ?? this.cccdVerificationStatus,
+      cccdRejectedReason: cccdRejectedReason ?? this.cccdRejectedReason,
+      cccdRejectedAt: cccdRejectedAt ?? this.cccdRejectedAt,
+      cccdSubmittedAt: cccdSubmittedAt ?? this.cccdSubmittedAt,
     );
   }
 }
@@ -493,6 +530,9 @@ Future<void> submitCccdVerificationRequest({
     'cccdFrontImageUrl': frontUrl,
     'cccdBackImageUrl': backUrl,
     'cccdSubmittedAt': FieldValue.serverTimestamp(),
+    'cccdRejectedReason': FieldValue.delete(),
+    'cccdRejectReason': FieldValue.delete(),
+    'cccdRejectedAt': FieldValue.delete(),
     'ngayGuiXacMinh': FieldValue.delete(),
   };
 
@@ -529,21 +569,26 @@ Future<void> submitCccdVerificationRequest({
       final targetCol =
           isHost ? 'notifications' : FirestoreCollections.notificationUser;
       final userNotifRef = fs.collection(targetCol).doc();
+      final userNotifBody = isHost
+          ? 'Hồ sơ xác thực CCCD chủ trọ của bạn đã được gửi sang Quản trị viên xem xét, đang chờ xác thực tài khoản để kích hoạt đầy đủ quyền tạo phòng và đăng bài.'
+          : 'Hồ sơ xác thực CCCD của bạn đã được gửi sang Quản trị viên xem xét, đang chờ xác thực tài khoản.';
       final userNotifData = {
         'id': userNotifRef.id,
         'userId': effectiveUid,
         'recipientId': effectiveUid,
         'receiverId': effectiveUid,
+        'recipientRole': isHost ? 'host' : 'renter',
         'role': role,
         'type': 'cccd_verification_pending',
         'notificationType': 'cccd_verification_pending',
+        'actionType': 'cccd_verification_pending',
         'title': isHost
             ? 'Đã gửi yêu cầu xác thực CCCD Chủ trọ'
             : 'Đã gửi yêu cầu xác thực CCCD',
-        'body': isHost
-            ? 'Hồ sơ xác thực CCCD chủ trọ của bạn đã được gửi sang Quản trị viên xem xét, đang chờ xác thực tài khoản để kích hoạt đầy đủ quyền tạo phòng và đăng bài.'
-            : 'Hồ sơ xác thực CCCD của bạn đã được gửi sang Quản trị viên xem xét, đang chờ xác thực tài khoản.',
+        'body': userNotifBody,
+        'message': userNotifBody,
         'status': 'pending',
+        'statusId': 'pending',
         'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
       };

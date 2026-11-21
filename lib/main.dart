@@ -290,7 +290,7 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
     ].join('|');
 
     final cccdSignature =
-        '${profile.uid}|${profile.isCccdVerified}|${profile.isCccdPending}';
+        '${profile.uid}|${profile.cccdVerificationStatus}|${profile.isCccdVerified}|${profile.isCccdPending}|${profile.cccdRejectedReason}';
 
     // A. Nếu thiếu SĐT hoặc STK ngân hàng -> Hiện dialog STK, SĐT trước
     if (needsPhoneOrBank) {
@@ -333,7 +333,9 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
         await showCccdRequiredModal(
           context,
           isHost: isHost,
-          isPending: false,
+          isPending: profile.isCccdPending,
+          isRejected: profile.isCccdRejected,
+          rejectedReason: profile.cccdRejectedReason,
         );
         _cccdPromptOpen = false;
       });

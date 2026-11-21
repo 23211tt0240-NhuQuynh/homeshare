@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:home_share/data/models/resident_model.dart';
 import 'package:home_share/features/auth/providers/user_provider.dart';
+import 'package:home_share/features/host/notifications/models/host_notification_model.dart';
+import 'package:home_share/features/host/notifications/notification_types.dart';
+import 'package:home_share/features/host/notifications/providers/host_notification_provider.dart';
 
 void main() {
   group('Kiểm tra logic CCCD Storage và Trạng thái Chờ duyệt Admin', () {
@@ -81,6 +84,88 @@ void main() {
       expect(map['cccdFrontImageUrl'], 'https://firebasestorage.googleapis.com/v0/b/app/o/front.jpg');
       expect(map['cccdBackImageUrl'], 'https://firebasestorage.googleapis.com/v0/b/app/o/back.jpg');
       expect(map['isCccdVerified'], isFalse);
+    });
+
+    test('UserProfile bắt đúng trạng thái rejected và cccdRejectedReason từ Firestore', () {
+      final rejectedMap = <String, dynamic>{
+        'displayName': 'Trần Trà Quốc Mẫn',
+        'role': 'host',
+        'isCccdVerified': false,
+        'cccdVerificationStatus': 'rejected',
+        'cccdRejectedReason': 'Ảnh CCCD chưa rõ hoặc thông tin chưa khớp',
+        'cccdNumber': '079206022867',
+      };
+
+      final profile = UserProfile.fromMap(rejectedMap, 'host_rejected');
+
+      expect(profile.isCccdVerified, isFalse);
+      expect(profile.isCccdPending, isFalse);
+      expect(profile.isCccdRejected, isTrue);
+      expect(profile.cccdVerificationStatus, 'rejected');
+      expect(profile.cccdRejectedReason, 'Ảnh CCCD chưa rõ hoặc thông tin chưa khớp');
+    });
+
+    test('Thông báo CCCD chủ trọ luôn xếp vào tab Đang xử lý và không nhầm với post_rejected', () {
+      final pendingNotif = HostNotificationModel.fromMap({
+        'type': 'cccd_verification_pending',
+        'title': 'Đã gửi yêu cầu xác thực CCCD Chủ trọ',
+        'body': 'Hồ sơ xác thực CCCD chủ trọ của bạn đã được gửi sang Quản trị viên.',
+        'status': 'pending',
+      }, 'n_pending');
+
+      final approvedNotif = HostNotificationModel.fromMap({
+        'type': 'cccd_verification_approved',
+        'title': 'Xác thực CCCD thành công ✓',
+        'body': 'Hồ sơ định danh CCCD của bạn đã được phê duyệt!',
+        'status': 'approved',
+      }, 'n_approved');
+
+      final rejectedNotif = HostNotificationModel.fromMap({
+        'type': 'cccd_verification_rejected',
+        'title': 'Yêu cầu xác thực CCCD bị từ chối',
+        'body': 'Hồ sơ CCCD của bạn chưa được duyệt.',
+        'cccdRejectedReason': 'Ảnh mờ',
+        'status': 'rejected',
+      }, 'n_rejected');
+
+      expect(pendingNotif.type, HostNotificationType.pendingAction);
+      expect(pendingNotif.isCccdNotification, isTrue);
+      expect(pendingNotif.isCccdPendingNotification, isTrue);
+
+      expect(approvedNotif.type, HostNotificationType.pendingAction);
+      expect(approvedNotif.isCccdNotification, isTrue);
+      expect(approvedNotif.isCccdApprovedNotification, isTrue);
+
+      expect(rejectedNotif.type, HostNotificationType.pendingAction);
+      expect(rejectedNotif.isCccdNotification, isTrue);
+      expect(rejectedNotif.isCccdRejectedNotification, isTrue);
+      expect(rejectedNotif.isPostRejected, isFalse);
+      expect(rejectedNotif.rejectReason, 'Ảnh mờ');
+    });
+
+    test('mergeLiveCccdStatusNotification tự động thêm thẻ bị từ chối khi cccdVerificationStatus đổi sang rejected', () {
+      final profile = UserProfile(
+        uid: 'host_1',
+        email: 'host@test.com',
+        displayName: 'Trần Trà Quốc Mẫn',
+        phoneNumber: '0901234567',
+        role: 'host',
+        isCccdVerified: false,
+        cccdVerificationStatus: 'rejected',
+        cccdRejectedReason: 'Ảnh CCCD bị mờ góc',
+        cccdRejectedAt: DateTime(2026, 11, 21, 16, 43),
+      );
+
+      final merged = mergeLiveCccdStatusNotification(
+        items: const [],
+        profile: profile,
+        type: HostNotificationType.pendingAction,
+      );
+
+      expect(merged.length, 1);
+      expect(merged.first.isCccdRejectedNotification, isTrue);
+      expect(merged.first.rejectReason, 'Ảnh CCCD bị mờ góc');
+      expect(merged.first.type, HostNotificationType.pendingAction);
     });
   });
 }

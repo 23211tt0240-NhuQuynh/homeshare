@@ -113,10 +113,60 @@ class HostNotificationModel {
       title.toLowerCase().contains('sự cố') ||
       message.toLowerCase().contains('sự cố');
 
+  bool get isCccdNotification {
+    final act = actionType.toLowerCase();
+    final lowerTitle = title.toLowerCase();
+    final lowerMsg = message.toLowerCase();
+    return act == 'cccd_verification' ||
+        act.startsWith('cccd_') ||
+        lowerTitle.contains('cccd') ||
+        (bookingId.isEmpty &&
+            roomId.isEmpty &&
+            (lowerMsg.contains('cccd') || lowerMsg.contains('định danh')));
+  }
+
+  bool get isCccdRejectedNotification {
+    if (!isCccdNotification) return false;
+    final act = actionType.toLowerCase();
+    final st = statusId.toLowerCase();
+    final lowerTitle = title.toLowerCase();
+    return act.contains('rejected') ||
+        st == 'rejected' ||
+        st == 'tuchoi' ||
+        lowerTitle.contains('từ chối');
+  }
+
+  bool get isCccdApprovedNotification {
+    if (!isCccdNotification || isCccdRejectedNotification) return false;
+    final act = actionType.toLowerCase();
+    final st = statusId.toLowerCase();
+    final lowerTitle = title.toLowerCase();
+    return act.contains('approved') ||
+        st == 'approved' ||
+        st == 'daxacthuc' ||
+        lowerTitle.contains('thành công') ||
+        lowerTitle.contains('phê duyệt');
+  }
+
+  bool get isCccdPendingNotification =>
+      isCccdNotification &&
+      !isCccdRejectedNotification &&
+      !isCccdApprovedNotification;
+
   bool get isPostRejected =>
-      actionType == 'post_rejected' ||
-      title.toLowerCase().contains('bị từ chối') ||
-      message.toLowerCase().contains('bị từ chối');
+      !isCccdNotification &&
+      (actionType == 'post_rejected' ||
+          title.toLowerCase().contains('bị từ chối') ||
+          message.toLowerCase().contains('bị từ chối'));
+
+  bool get isGeneralSystemNotification =>
+      !isCccdNotification &&
+      !isDisbursementNotification &&
+      !isRoomIssue &&
+      !isRoommateApproval &&
+      !isPostRejected &&
+      bookingId.isEmpty &&
+      roomId.isEmpty;
 
   // Chủ trọ - Nhận thông báo giải ngân - Admin quyết toán thành công tạo phiếu này.
   bool get isDisbursementNotification =>
@@ -297,12 +347,27 @@ class HostNotificationModel {
             .trim()
             .toLowerCase();
 
-    final actionType =
-        data['actionType']?.toString() ??
-        (rawType == 'post_rejected'
+    final rawTypeStr = rawType?.toString().trim().toLowerCase() ?? '';
+    final resolvedActionType =
+        data['actionType']?.toString().trim() ??
+        (rawTypeStr == 'post_rejected'
             ? 'post_rejected'
-            : (rawType == 'roommate_approval' ? 'roommate_approval' : ''));
+            : (rawTypeStr == 'roommate_approval'
+                ? 'roommate_approval'
+                : (rawTypeStr.startsWith('cccd') ? rawTypeStr : '')));
+    final actionType = resolvedActionType;
     final newRoommateId = data['newRoommateId']?.toString() ?? '';
+    final bookingIdStr = (data[NotificationFields.bookingId] ??
+            data[NotificationFields.legacyBookingId] ??
+            data['donDatPhongId'] ??
+            '')
+        .toString()
+        .trim();
+    final roomIdStr = (data[NotificationFields.roomId] ??
+            data[NotificationFields.legacyRoomId] ??
+            '')
+        .toString()
+        .trim();
     final title =
         (data[NotificationFields.title] ??
                 data[NotificationFields.legacyTitle] ??
@@ -315,11 +380,21 @@ class HostNotificationModel {
                 '')
             .toString();
 
+    final isCccd =
+        actionType.toLowerCase().startsWith('cccd') ||
+        rawTypeStr.startsWith('cccd') ||
+        title.toLowerCase().contains('cccd') ||
+        (bookingIdStr.isEmpty &&
+            roomIdStr.isEmpty &&
+            (message.toLowerCase().contains('cccd') ||
+                message.toLowerCase().contains('định danh')));
+
     final isRoommate =
-        actionType == 'roommate_approval' ||
-        newRoommateId.isNotEmpty ||
-        title.contains('ở ghép') ||
-        message.contains('ở ghép');
+        !isCccd &&
+        (actionType == 'roommate_approval' ||
+            newRoommateId.isNotEmpty ||
+            title.contains('ở ghép') ||
+            message.contains('ở ghép'));
 
     final paymentOption = (data['paymentOption'] ?? data['paymentType'] ?? '')
         .toString()
@@ -331,7 +406,10 @@ class HostNotificationModel {
 
     final baseType = HostNotificationTypeX.fromString(rawType?.toString());
     HostNotificationType parsedType;
-    if (baseType == HostNotificationType.staying) {
+    if (isCccd) {
+      // Thông báo xác thực CCCD luôn tích hợp vào tab "Đang xử lý" của Chủ trọ
+      parsedType = HostNotificationType.pendingAction;
+    } else if (baseType == HostNotificationType.staying) {
       parsedType = HostNotificationType.staying;
     } else if (isRoommate) {
       // Khi đã duyệt xong -> Lưu / hiển thị ở tab "Đang ở"
@@ -499,18 +577,18 @@ class HostNotificationModel {
       primaryTenantName: data['primaryTenantName']?.toString() ?? '',
       newRoommateId: data['newRoommateId']?.toString() ?? '',
       newRoommateName: data['newRoommateName']?.toString() ?? '',
-      actionType:
-          data['actionType']?.toString() ??
-          (rawType == 'post_rejected'
-              ? 'post_rejected'
-              : (data['notificationType'] == 'roommate_approval'
-                  ? 'roommate_approval'
-                  : '')),
+      actionType: actionType,
       userNotificationId: data['userNotificationId']?.toString() ?? '',
       hostNotificationId: data['hostNotificationId']?.toString() ?? '',
       postId: (data['postId'] ?? data['baiDangId'] ?? '').toString(),
       postTitle: (data['postTitle'] ?? data['tieuDe'] ?? '').toString(),
-      rejectReason: (data['reason'] ?? data['rejectReason'] ?? data['lyDoTuChoi'] ?? '').toString(),
+      rejectReason: (data['cccdRejectedReason'] ??
+              data['cccdRejectReason'] ??
+              data['reason'] ??
+              data['rejectReason'] ??
+              data['lyDoTuChoi'] ??
+              '')
+          .toString(),
       issueId: (data['issueId'] ?? data['reportId'] ?? '').toString(),
       category: (data['category'] ?? data['danhMuc'] ?? '').toString(),
       severity: (data['severity'] ?? data['mucDo'] ?? 'medium').toString(),

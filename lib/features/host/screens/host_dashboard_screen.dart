@@ -12,6 +12,7 @@ import '../data/host_post_repository.dart';
 import '../providers/host_amenity_provider.dart';
 import '../providers/host_home_provider.dart';
 import '../widgets/host_post_card.dart';
+import '../notifications/providers/host_notification_provider.dart';
 import '../notifications/screens/host_notifications_screen.dart';
 
 /// Màn hình Bảng tin Chủ trọ (Host Dashboard):
@@ -413,36 +414,44 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             ],
           ),
         ),
-        Stack(
-          children: [
-            IconButton(
-              tooltip: 'Thông báo',
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const HostNotificationsScreen(),
+        Consumer(
+          builder: (context, ref, _) {
+            final unreadCount =
+                ref.watch(hostUnreadNotificationCountProvider).asData?.value ??
+                    0;
+            return Stack(
+              children: [
+                IconButton(
+                  tooltip: 'Thông báo',
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const HostNotificationsScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.notifications_none_rounded,
+                    color: Color(0xFF475569),
+                    size: 26,
                   ),
-                );
-              },
-              icon: const Icon(
-                Icons.notifications_none_rounded,
-                color: Color(0xFF475569),
-                size: 26,
-              ),
-            ),
-            Positioned(
-              top: 10,
-              right: 12,
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEF4444),
-                  shape: BoxShape.circle,
                 ),
-              ),
-            ),
-          ],
+                if (unreadCount > 0)
+                  Positioned(
+                    top: 10,
+                    right: 12,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEF4444),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
         const SizedBox(width: 4),
         CircleAvatar(

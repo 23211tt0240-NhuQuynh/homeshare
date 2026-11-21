@@ -347,12 +347,13 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
   void _showImagePickerModal(bool isFront) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -653,6 +654,12 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
 
   @override
   Widget build(BuildContext context) {
+    final profile = ref.watch(userProfileProvider).asData?.value;
+    final isVerified = profile?.isCccdVerified == true;
+    final isPending = profile?.isCccdPending == true;
+    final isRejected = profile?.isCccdRejected == true;
+    final rejectedReason = (profile?.cccdRejectedReason ?? '').trim();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -664,6 +671,17 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (isVerified || isPending || isRejected) ...[
+              _buildVerificationStatusBanner(
+                isVerified: isVerified,
+                isPending: isPending,
+                isRejected: isRejected,
+                rejectedReason: rejectedReason,
+                maskedCccd: profile?.maskedCccdNumber ?? '',
+              ),
+              const SizedBox(height: 16),
+            ],
+
             // Thanh tiến độ 3 mục
             _buildProgressCard(),
 
@@ -700,7 +718,102 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomActionBar(),
+      bottomNavigationBar: _buildBottomActionBar(
+        isVerified: isVerified,
+        isPending: isPending,
+        isRejected: isRejected,
+      ),
+    );
+  }
+
+  Widget _buildVerificationStatusBanner({
+    required bool isVerified,
+    required bool isPending,
+    required bool isRejected,
+    required String rejectedReason,
+    required String maskedCccd,
+  }) {
+    final Color bgColor;
+    final Color borderColor;
+    final Color iconColor;
+    final Color titleColor;
+    final Color bodyColor;
+    final IconData icon;
+    final String title;
+    final String body;
+
+    if (isVerified) {
+      bgColor = const Color(0xFFECFDF3);
+      borderColor = const Color(0xFFA6F4C5);
+      iconColor = const Color(0xFF12B76A);
+      titleColor = const Color(0xFF027A48);
+      bodyColor = const Color(0xFF05603A);
+      icon = Icons.verified_user_rounded;
+      title = 'Tài khoản đã xác thực CCCD thành công ✓';
+      body = maskedCccd.isNotEmpty
+          ? 'Hồ sơ CCCD ($maskedCccd) của bạn đã được Quản trị viên phê duyệt.'
+          : 'Hồ sơ CCCD của bạn đã được Quản trị viên phê duyệt.';
+    } else if (isPending) {
+      bgColor = const Color(0xFFFFFBEB);
+      borderColor = const Color(0xFFFDE68A);
+      iconColor = const Color(0xFFD97706);
+      titleColor = const Color(0xFF92400E);
+      bodyColor = const Color(0xFFB45309);
+      icon = Icons.hourglass_top_rounded;
+      title = 'Hồ sơ CCCD đang chờ Admin xét duyệt';
+      body =
+          'Bạn đã gửi hồ sơ xác thực. Vui lòng đợi Quản trị viên kiểm tra và phản hồi kết quả.';
+    } else {
+      bgColor = const Color(0xFFFEF3F2);
+      borderColor = const Color(0xFFFECDCA);
+      iconColor = const Color(0xFFD92D20);
+      titleColor = const Color(0xFFB42318);
+      bodyColor = const Color(0xFF7A271A);
+      icon = Icons.gpp_bad_rounded;
+      title = 'Hồ sơ CCCD trước đó bị từ chối';
+      body = rejectedReason.isNotEmpty
+          ? 'Lý do: $rejectedReason\nVui lòng chụp lại ảnh 2 mặt CCCD rõ nét và quét lại mã QR để gửi Admin duyệt lại.'
+          : 'Ảnh CCCD hoặc thông tin trước đó chưa đạt yêu cầu. Vui lòng chụp lại ảnh 2 mặt rõ nét và quét lại mã QR để gửi Admin duyệt lại.';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor, width: 1.2),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: iconColor, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: titleColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  body,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.4,
+                    color: bodyColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -724,12 +837,16 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Quy trình xác thực định danh',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textDark),
+              const Expanded(
+                child: Text(
+                  'Quy trình xác thực định danh',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppColors.textDark),
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -1257,19 +1374,9 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
           const SizedBox(height: 6),
           _buildInfoRow('Họ và tên:', cccd.fullName, isBold: true),
           const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: _buildInfoRow('Ngày sinh:', cccd.birthDate),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                flex: 2,
-                child: _buildInfoRow('Giới tính:', cccd.gender, labelWidth: 62),
-              ),
-            ],
-          ),
+          _buildInfoRow('Ngày sinh:', cccd.birthDate),
+          const SizedBox(height: 6),
+          _buildInfoRow('Giới tính:', cccd.gender),
           if (cccd.provinceName != null) ...[
             const SizedBox(height: 6),
             _buildInfoRow('Nơi sinh:', cccd.provinceName!),
@@ -1306,7 +1413,13 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
   }
 
   /// Thanh hành động dưới cùng (Khóa nút nếu chưa đủ 3 mục hoặc ảnh không hợp lệ)
-  Widget _buildBottomActionBar() {
+  Widget _buildBottomActionBar({
+    bool isVerified = false,
+    bool isPending = false,
+    bool isRejected = false,
+  }) {
+    final canPressSubmit =
+        _canSubmit && !_isSubmitting && !isPending && !isVerified;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
       decoration: BoxDecoration(
@@ -1373,13 +1486,16 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
             // NÚT XÁC THỰC
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: _canSubmit ? AppColors.primary : Colors.grey.shade300,
-                foregroundColor: _canSubmit ? Colors.white : Colors.grey.shade500,
-                elevation: _canSubmit ? 2 : 0,
-                padding: const EdgeInsets.symmetric(vertical: 15),
+                backgroundColor: canPressSubmit
+                    ? (isRejected ? const Color(0xFFD92D20) : AppColors.primary)
+                    : Colors.grey.shade300,
+                foregroundColor:
+                    canPressSubmit ? Colors.white : Colors.grey.shade500,
+                elevation: canPressSubmit ? 2 : 0,
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: (_canSubmit && !_isSubmitting) ? _submitVerification : null,
+              onPressed: canPressSubmit ? _submitVerification : null,
               child: _isSubmitting
                   ? const SizedBox(
                       height: 20,
@@ -1390,18 +1506,38 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          _canSubmit ? Icons.send_rounded : Icons.lock_outline,
-                          size: 18,
+                          isVerified
+                              ? Icons.verified_rounded
+                              : isPending
+                                  ? Icons.hourglass_top_rounded
+                                  : (_canSubmit
+                                      ? Icons.send_rounded
+                                      : Icons.lock_outline),
+                          size: 17,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _canSubmit
-                              ? 'GỬI HỒ SƠ CHO ADMIN XÉT DUYỆT (3/3)'
-                              : 'CHƯA ĐỦ ĐIỀU KIỆN XÁC THỰC ($_completedCount/3)',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: _canSubmit ? Colors.white : Colors.grey.shade600,
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              isVerified
+                                  ? 'ĐÃ XÁC THỰC CCCD THÀNH CÔNG'
+                                  : isPending
+                                      ? 'HỒ SƠ ĐANG CHỜ ADMIN XÉT DUYỆT'
+                                      : (_canSubmit
+                                          ? (isRejected
+                                              ? 'GỬI LẠI HỒ SƠ CHO ADMIN DUYỆT (3/3)'
+                                              : 'GỬI HỒ SƠ CHO ADMIN XÉT DUYỆT (3/3)')
+                                          : 'CHƯA ĐỦ ĐIỀU KIỆN XÁC THỰC ($_completedCount/3)'),
+                              maxLines: 1,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: canPressSubmit
+                                    ? Colors.white
+                                    : Colors.grey.shade600,
+                              ),
+                            ),
                           ),
                         ),
                       ],
