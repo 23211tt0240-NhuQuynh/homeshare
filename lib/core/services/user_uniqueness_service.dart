@@ -68,23 +68,36 @@ class UserUniquenessService {
     final ref = _firestore
         .collection(claimsCollection)
         .doc('${kind}_$normalizedValue');
-    await _firestore.runTransaction((transaction) async {
-      final existing = await transaction.get(ref);
-      final ownerUid = '${existing.data()?['ownerUid'] ?? ''}'.trim();
-      if (existing.exists && ownerUid.isNotEmpty && ownerUid != uid) {
-        throw _conflictMessage(kind);
-      }
-      transaction.set(
-        ref,
-        {
-          'ownerUid': uid,
-          'kind': kind,
-          'updatedAt': FieldValue.serverTimestamp(),
-          if (!existing.exists) 'createdAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
-    });
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final existing = await transaction.get(ref);
+        final ownerUid = '${existing.data()?['ownerUid'] ?? ''}'.trim();
+        if (existing.exists && ownerUid.isNotEmpty && ownerUid != uid) {
+          final stillOwned = await _isStillOwnedByUser(
+            kind: kind,
+            normalizedValue: normalizedValue,
+            ownerUid: ownerUid,
+          );
+          if (stillOwned) {
+            throw _conflictMessage(kind);
+          }
+        }
+        transaction.set(
+          ref,
+          {
+            'ownerUid': uid,
+            'kind': kind,
+            'updatedAt': FieldValue.serverTimestamp(),
+            if (!existing.exists) 'createdAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      });
+    } on FirebaseException catch (e) {
+      // Nếu user_unique_values còn lưu ownerUid của tài khoản cũ đã bị xóa trên Console
+      // khiến Firestore Rules chặn ghi đè (permission-denied), bỏ qua lỗi khóa mồ côi này.
+      if (e.code != 'permission-denied') rethrow;
+    }
   }
 
   Future<void> _release({
@@ -127,7 +140,6 @@ class UserUniquenessService {
     final users = _firestore.collection('users');
 
     for (final field in const [
-      'phoneNumberNormalized',
       'phoneNumber',
       'soDienThoai',
     ]) {
@@ -187,6 +199,7 @@ class UserUniquenessService {
         bankAccounts.where(field, isEqualTo: clean),
         excludeUid: excludeUid,
         ownerFields: const ['userId', 'nguoiDungId', 'hostId'],
+        verifyOwnerExistsInUsers: true,
       )) {
         return 'Số tài khoản ngân hàng này đã được liên kết với một tài khoản khác.';
       }
@@ -217,18 +230,58 @@ class UserUniquenessService {
     Query<Map<String, dynamic>> query, {
     String? excludeUid,
     List<String> ownerFields = const [],
+    bool verifyOwnerExistsInUsers = false,
   }) async {
     final snapshot = await query.get();
     for (final doc in snapshot.docs) {
-      if (excludeUid == null || excludeUid.isEmpty) return true;
-      if (doc.id == excludeUid) continue;
       final data = doc.data();
-      final belongsToExcludedUser = ownerFields.any(
-        (field) => '${data[field] ?? ''}'.trim() == excludeUid,
-      );
-      if (!belongsToExcludedUser) return true;
+      if (data['accountDeleted'] == true) continue;
+
+      if (excludeUid != null && excludeUid.isNotEmpty) {
+        if (doc.id == excludeUid) continue;
+        final belongsToExcludedUser = ownerFields.any(
+          (field) => '${data[field] ?? ''}'.trim() == excludeUid,
+        );
+        if (belongsToExcludedUser) continue;
+      }
+
+      if (verifyOwnerExistsInUsers) {
+        String candidateOwnerUid = '';
+        for (final field in ownerFields) {
+          final v = '${data[field] ?? ''}'.trim();
+          if (v.isNotEmpty) {
+            candidateOwnerUid = v;
+            break;
+          }
+        }
+        if (candidateOwnerUid.isEmpty) {
+          candidateOwnerUid = doc.id;
+        }
+        final activeUser = await _isActiveUser(candidateOwnerUid);
+        if (!activeUser) {
+          // Tài khoản chủ sở hữu cũ trong `users` đã bị xóa -> dọn luôn bản ghi mồ côi (vd: bank_accounts cũ)
+          try {
+            await doc.reference.delete();
+          } catch (_) {}
+          continue;
+        }
+      }
+
+      return true;
     }
     return false;
+  }
+
+  Future<bool> _isActiveUser(String uid) async {
+    if (uid.trim().isEmpty) return false;
+    try {
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      if (!userDoc.exists || userDoc.data() == null) return false;
+      if (userDoc.data()!['accountDeleted'] == true) return false;
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<bool> _claimedByOther(
@@ -242,6 +295,69 @@ class UserUniquenessService {
         .get();
     if (!claim.exists) return false;
     final ownerUid = '${claim.data()?['ownerUid'] ?? ''}'.trim();
-    return ownerUid.isNotEmpty && ownerUid != excludeUid;
+    if (ownerUid.isEmpty || ownerUid == excludeUid) return false;
+    final stillOwned = await _isStillOwnedByUser(
+      kind: kind,
+      normalizedValue: normalizedValue,
+      ownerUid: ownerUid,
+    );
+    if (!stillOwned) {
+      // Tự động giải phóng khóa mồ côi trong user_unique_values nếu tài khoản cũ đã bị xóa
+      try {
+        await claim.reference.delete();
+      } catch (_) {}
+    }
+    return stillOwned;
+  }
+
+  /// Kiểm tra tài khoản `ownerUid` trong `users` có còn tồn tại và thực sự giữ giá trị này không.
+  /// Nếu tài khoản cũ đã bị xóa trên Firebase Console hoặc đã xóa trường CCCD/SĐT/STK thì khóa trong
+  /// `user_unique_values` là khóa mồ côi (stale) và không được chặn tài khoản mới.
+  Future<bool> _isStillOwnedByUser({
+    required String kind,
+    required String normalizedValue,
+    required String ownerUid,
+  }) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(ownerUid).get();
+      if (!userDoc.exists || userDoc.data() == null) {
+        if (kind == 'bank') {
+          try {
+            await _firestore.collection('bank_accounts').doc(ownerUid).delete();
+          } catch (_) {}
+        }
+        return false;
+      }
+      final data = userDoc.data()!;
+      if (data['accountDeleted'] == true) return false;
+
+      if (kind == 'cccd') {
+        final userCccd = normalizeCccd(
+          '${data['cccdNumber'] ?? data['soCccd'] ?? data['soGiayTo'] ?? ''}',
+        );
+        return userCccd == normalizedValue;
+      } else if (kind == 'phone') {
+        final userPhone = normalizePhone(
+          '${data['phoneNumber'] ?? data['soDienThoai'] ?? ''}',
+        );
+        return userPhone == normalizedValue;
+      } else if (kind == 'bank') {
+        final bankDoc =
+            await _firestore.collection('bank_accounts').doc(ownerUid).get();
+        if (bankDoc.exists && bankDoc.data() != null) {
+          final bankAcc = normalizeBankAccount(
+            '${bankDoc.data()?['accountNumber'] ?? bankDoc.data()?['soTaiKhoan'] ?? ''}',
+          );
+          if (bankAcc == normalizedValue) return true;
+        }
+        final userAcc = normalizeBankAccount(
+          '${data['accountNumber'] ?? data['bankAccountNumber'] ?? data['soTaiKhoan'] ?? ''}',
+        );
+        return userAcc == normalizedValue;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 }

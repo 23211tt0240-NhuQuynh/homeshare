@@ -173,11 +173,18 @@ service cloud.firestore {
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.kind in ['phone', 'cccd', 'bank'];
       allow update: if hasEmailAccess()
-        && resource.data.ownerUid == request.auth.uid
+        && (
+          resource.data.ownerUid == request.auth.uid
+          || !exists(/databases/$(database)/documents/users/$(resource.data.ownerUid))
+        )
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.kind == resource.data.kind;
       allow delete: if hasEmailAccess()
-        && (resource.data.ownerUid == request.auth.uid || admin());
+        && (
+          resource.data.ownerUid == request.auth.uid
+          || !exists(/databases/$(database)/documents/users/$(resource.data.ownerUid))
+          || admin()
+        );
     }
 
     // Rule đang live: user đã đăng nhập được đọc/ghi đến 10/12/2026, trừ host_reviews ở trên.

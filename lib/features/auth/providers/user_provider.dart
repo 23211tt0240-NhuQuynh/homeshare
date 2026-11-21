@@ -263,7 +263,13 @@ class UserProfile {
                       (data['trangThaiXacMinh'] == 'daXacThuc') ||
                       (data['trangThaiXacMinh_id'] == 'daXacThuc'))
                   ? 'approved'
-                  : 'unverified'))
+                  : ((data['cccdSubmittedAt'] != null ||
+                          data['ngayGuiXacMinh'] != null ||
+                          '${data['cccdNumber'] ?? data['soCccd'] ?? data['soGiayTo'] ?? ''}'
+                              .trim()
+                              .isNotEmpty)
+                      ? 'pending'
+                      : 'unverified')))
           .toString(),
       requiredInfoCompleted: data['requiredInfoCompleted'] == true ||
           data['daCapNhatThongTin'] == true ||
@@ -283,9 +289,10 @@ class UserProfile {
       'gender': gender,
       'address': address,
       'hometown': hometown,
-      'reputationScore': reputationScore,
+      if (isHost && isCccdVerified) 'reputationScore': reputationScore,
       'isEmailVerified': isEmailVerified,
-      'emailVerificationRequired': emailVerificationRequired,
+      if (emailVerificationRequired)
+        'emailVerificationRequired': emailVerificationRequired,
       'requiredInfoCompleted': requiredInfoCompleted,
       if (hostIndex > 0) 'hostIndex': hostIndex,
 
@@ -469,30 +476,24 @@ Future<void> submitCccdVerificationRequest({
   final isHost = role == 'host' || role == 'landlord' || role == 'chutro';
 
   // 4. Lưu thông tin và URL Storage vào Firestore users/$effectiveUid
+  // (Chưa cấp reputationScore ở bước pending, chỉ cấp khi được approved)
   final updateData = <String, dynamic>{
     'isCccdVerified': false,
     'cccdVerificationStatus': 'pending',
+    'reputationScore': FieldValue.delete(),
+    'diemUyTin': FieldValue.delete(),
     'cccdNumber': normalizedCccd,
-    'soCccd': normalizedCccd,
-    'soGiayTo': normalizedCccd,
     'cccdFullName': cccdFullName,
-    'hoTenCccd': cccdFullName,
     if (existingDisplayName == null || existingDisplayName.isEmpty)
       'displayName': cccdFullName,
     'cccdIssueDate': cccdIssueDate,
-    'ngayCap': cccdIssueDate,
     'cccdHometown': cccdHometown,
-    'queQuanCccd': cccdHometown,
     'gender': gender,
-    'gioiTinh': gender,
     if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate),
-    if (birthDate != null) 'ngaySinh': Timestamp.fromDate(birthDate),
     'cccdFrontImageUrl': frontUrl,
     'cccdBackImageUrl': backUrl,
-    'anhMatTruoc': frontUrl,
-    'anhMatSau': backUrl,
     'cccdSubmittedAt': FieldValue.serverTimestamp(),
-    'ngayGuiXacMinh': FieldValue.serverTimestamp(),
+    'ngayGuiXacMinh': FieldValue.delete(),
   };
 
   if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
@@ -500,26 +501,6 @@ Future<void> submitCccdVerificationRequest({
         .collection('users')
         .doc(effectiveUid)
         .set(updateData, SetOptions(merge: true));
-
-    // Lưu vào subcollection id_verifications hoặc cccd_verifications cho Admin
-    try {
-      await fs.collection('cccd_verifications').doc(effectiveUid).set({
-        'uid': effectiveUid,
-        'userId': effectiveUid,
-        'fullName': cccdFullName,
-        'cccdNumber': normalizedCccd,
-        'role': role,
-        'isHost': isHost,
-        'frontImageUrl': frontUrl,
-        'backImageUrl': backUrl,
-        'hometown': cccdHometown,
-        'issueDate': cccdIssueDate,
-        'gender': gender,
-        'cccdVerificationStatus': 'pending',
-        'status': 'pending',
-        'submittedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    } catch (_) {}
 
     // 5. Gửi thông báo đến Admin trong collection `notifications`
     try {
@@ -543,15 +524,16 @@ Future<void> submitCccdVerificationRequest({
       });
     } catch (_) {}
 
-    // 6. Tạo cờ thông báo trên User tương ứng với vai trò (Host vs Renter)
+    // 6. Tạo thông báo trên User tương ứng với vai trò (Host -> notifications, Renter -> notification_user)
     try {
-      final userNotifRef = fs.collection('notifications').doc();
+      final targetCol =
+          isHost ? 'notifications' : FirestoreCollections.notificationUser;
+      final userNotifRef = fs.collection(targetCol).doc();
       final userNotifData = {
         'id': userNotifRef.id,
         'userId': effectiveUid,
         'recipientId': effectiveUid,
         'receiverId': effectiveUid,
-        'nguoiNhanId': effectiveUid,
         'role': role,
         'type': 'cccd_verification_pending',
         'notificationType': 'cccd_verification_pending',
@@ -566,13 +548,6 @@ Future<void> submitCccdVerificationRequest({
         'createdAt': FieldValue.serverTimestamp(),
       };
       await userNotifRef.set(userNotifData);
-
-      try {
-        await fs
-            .collection(FirestoreCollections.notificationUser)
-            .doc(userNotifRef.id)
-            .set(userNotifData);
-      } catch (_) {}
     } catch (_) {}
   }
 
@@ -648,6 +623,8 @@ Future<void> saveCccdVerificationToBackend({
   // CCCD chỉ ghi nhận họ tên pháp lý (cccdFullName / hoTenCccd).
   // TUYỆT ĐỐI KHÔNG ghi đè displayName của chủ trọ/người dùng (ví dụ: QA vẫn là QA).
   String? existingDisplayName;
+  int? existingReputationScore;
+  String existingRole = 'renter';
   if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
     try {
       final doc = await firestore.collection('users').doc(effectiveUid).get();
@@ -658,6 +635,12 @@ Future<void> saveCccdVerificationToBackend({
         if (dName != null && dName.isNotEmpty) {
           existingDisplayName = dName;
         }
+        final rep = doc.data()?['reputationScore'] ?? doc.data()?['diemUyTin'];
+        if (rep is num) {
+          existingReputationScore = rep.toInt();
+        }
+        existingRole =
+            RoleResolver.extractRoleFromMap(doc.data()!) ?? 'renter';
       }
     } catch (_) {}
   }
@@ -669,31 +652,24 @@ Future<void> saveCccdVerificationToBackend({
     }
   }
 
+  final isHost = HostReputation.isHostRole(existingRole);
+
   final updateData = <String, dynamic>{
     'isCccdVerified': true,
     'cccdVerificationStatus': 'approved',
+    if (isHost) 'reputationScore': existingReputationScore ?? 100,
     'cccdNumber': normalizedCccd,
-    'soCccd': normalizedCccd,
-    'soGiayTo': normalizedCccd,
     'cccdFullName': cccdFullName,
-    'hoTenCccd': cccdFullName,
     // Chỉ gán displayName nếu tài khoản chưa có bất kỳ tên nào, không ghi đè tên đã có
     if (existingDisplayName == null || existingDisplayName.isEmpty)
       'displayName': cccdFullName,
     'cccdIssueDate': cccdIssueDate,
-    'ngayCap': cccdIssueDate,
     'cccdHometown': cccdHometown,
-    'queQuanCccd': cccdHometown,
     'gender': gender,
-    'gioiTinh': gender,
     if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate),
-    if (birthDate != null) 'ngaySinh': Timestamp.fromDate(birthDate),
     if (frontUrl.isNotEmpty) 'cccdFrontImageUrl': frontUrl,
     if (backUrl.isNotEmpty) 'cccdBackImageUrl': backUrl,
-    if (frontUrl.isNotEmpty) 'anhMatTruoc': frontUrl,
-    if (backUrl.isNotEmpty) 'anhMatSau': backUrl,
     'cccdVerifiedAt': FieldValue.serverTimestamp(),
-    'ngayXacMinh': FieldValue.serverTimestamp(),
   };
 
   if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
@@ -831,7 +807,7 @@ Map<String, dynamic> englishUserFieldPatch(Map<String, dynamic> data) {
   }
 
   move('displayName', ['hoTen']);
-  move('phoneNumber', ['soDienThoai']);
+  move('phoneNumber', ['soDienThoai', 'phoneNumberNormalized']);
   move('userCode', ['maNguoiDung', 'idNguoiDung']);
   move('createdAt', ['ngayTao']);
   move('reputationScore', ['diemUyTin']);
@@ -849,6 +825,7 @@ Map<String, dynamic> englishUserFieldPatch(Map<String, dynamic> data) {
   move('cccdFrontImageUrl', ['anhMatTruoc']);
   move('cccdBackImageUrl', ['anhMatSau']);
   move('cccdVerifiedAt', ['ngayXacMinh']);
+  move('cccdSubmittedAt', ['ngayGuiXacMinh']);
 
   if (_userFieldMissing(data['role'])) {
     final named = data['vaiTro'];
@@ -871,6 +848,44 @@ Map<String, dynamic> englishUserFieldPatch(Map<String, dynamic> data) {
   ]) {
     if (data.containsKey(key)) patch[key] = FieldValue.delete();
   }
+  if (data['emailVerificationRequired'] == false ||
+      (data['isEmailVerified'] == true &&
+          data.containsKey('emailVerificationRequired'))) {
+    patch['emailVerificationRequired'] = FieldValue.delete();
+  }
+
+  // Đối với renter: không lưu trường reputationScore.
+  // Đối với chủ trọ (role = host): chỉ cấp reputationScore: 100 sau khi CCCD đã được duyệt (approved).
+  final resolvedRole = RoleResolver.extractRoleFromMap(data) ?? 'renter';
+  final isHost = HostReputation.isHostRole(resolvedRole);
+  final cccdStatus = (data['cccdVerificationStatus'] ??
+          data['trangThaiXacMinh'] ??
+          data['trangThaiXacMinh_id'] ??
+          '')
+      .toString()
+      .trim();
+  final hasApprovedCccd = cccdStatus.isNotEmpty
+      ? (cccdStatus == 'approved' || cccdStatus == 'daXacThuc')
+      : (data['isCccdVerified'] == true || data['daXacThucCccd'] == true);
+
+  if (!isHost || !hasApprovedCccd) {
+    if (data.containsKey('reputationScore') ||
+        patch.containsKey('reputationScore')) {
+      patch['reputationScore'] = FieldValue.delete();
+      data.remove('reputationScore');
+    }
+    if (data.containsKey('diemUyTin')) {
+      patch['diemUyTin'] = FieldValue.delete();
+      data.remove('diemUyTin');
+    }
+  } else if (isHost &&
+      hasApprovedCccd &&
+      data['reputationScore'] == null &&
+      data['diemUyTin'] == null) {
+    patch['reputationScore'] = 100;
+    data['reputationScore'] = 100;
+  }
+
   return patch;
 }
 

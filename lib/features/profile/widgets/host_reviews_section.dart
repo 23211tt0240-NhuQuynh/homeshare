@@ -105,7 +105,7 @@ class HostReviewsSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!loading && isVerified && stats.count > 0) ...[
+          if (!loading && isVerified) ...[
             HostReputationBar(
               score: HostReputation.fromAverage(stats.average),
             ),

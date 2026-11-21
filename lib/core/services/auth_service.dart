@@ -162,7 +162,6 @@ class AuthService {
           'userCode': userCode,
           'displayName': displayName.trim(),
           'phoneNumber': normalizedPhone,
-          'phoneNumberNormalized': normalizedPhone,
           'role': role,
           'isEmailVerified': false,
           'emailVerificationRequired': true,
@@ -170,13 +169,13 @@ class AuthService {
         if (profile.exists) {
           await profileRef.set({
             ...pendingProfile,
+            'phoneNumberNormalized': FieldValue.delete(),
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
         } else {
           await profileRef.set({
             'uid': user.uid,
             'email': normalizedEmail,
-            'reputationScore': 100,
             ...pendingProfile,
             'createdAt': FieldValue.serverTimestamp(),
           });
@@ -263,7 +262,7 @@ class AuthService {
     final data = snapshot.data();
     await profileRef.set({
       'isEmailVerified': true,
-      'emailVerificationRequired': false,
+      'emailVerificationRequired': FieldValue.delete(),
       'emailVerifiedAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));

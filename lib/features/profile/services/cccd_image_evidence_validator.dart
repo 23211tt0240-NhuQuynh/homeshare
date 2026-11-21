@@ -20,7 +20,7 @@ class CccdImageEvidenceValidator {
   /// - Ngày sinh hợp lệ theo lịch
   CccdData? validateStrictQr(String? qrPayload) {
     if (qrPayload == null) return null;
-    final trimmed = qrPayload.trim().replaceAll('\uFEFF', '');
+    final trimmed = CccdData.fixMojibake(qrPayload).trim().replaceAll('\uFEFF', '');
     if (trimmed.isEmpty) return null;
 
     final parts = trimmed.split('|');
@@ -28,10 +28,10 @@ class CccdImageEvidenceValidator {
 
     final idNum = parts[0].trim();
     final oldId = parts[1].trim();
-    final name = parts[2].trim();
+    final name = CccdData.fixMojibake(parts[2].trim());
     final rawDob = parts[3].trim();
-    final gender = parts[4].trim();
-    final address = parts[5].trim();
+    final gender = CccdData.fixMojibake(parts[4].trim());
+    final address = CccdData.fixMojibake(parts[5].trim());
     final rawIssue = parts.length > 6 ? parts[6].trim() : '';
 
     // 1. Số CCCD: đúng 12 chữ số

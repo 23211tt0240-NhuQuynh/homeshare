@@ -1259,8 +1259,15 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
           const SizedBox(height: 6),
           Row(
             children: [
-              Expanded(child: _buildInfoRow('Ngày sinh:', cccd.birthDate)),
-              Expanded(child: _buildInfoRow('Giới tính:', cccd.gender)),
+              Expanded(
+                flex: 3,
+                child: _buildInfoRow('Ngày sinh:', cccd.birthDate),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: _buildInfoRow('Giới tính:', cccd.gender, labelWidth: 62),
+              ),
             ],
           ),
           if (cccd.provinceName != null) ...[
@@ -1276,12 +1283,12 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
     );
   }
 
-  Widget _buildInfoRow(String label, String value, {bool isHighlight = false, bool isBold = false}) {
+  Widget _buildInfoRow(String label, String value, {bool isHighlight = false, bool isBold = false, double labelWidth = 85}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 85,
+          width: labelWidth,
           child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
         ),
         Expanded(

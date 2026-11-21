@@ -64,7 +64,7 @@ Map<String, dynamic> hostProfileUsersPatch({
   final data = <String, dynamic>{
     'displayName': displayName,
     'phoneNumber': normalizedPhone,
-    'phoneNumberNormalized': normalizedPhone,
+    'phoneNumberNormalized': FieldValue.delete(),
     'gender': gender,
     'hometown': hometown,
     'requiredInfoCompleted': true,
@@ -232,7 +232,7 @@ class UserProfileService {
     final data = <String, dynamic>{
       'displayName': displayName,
       'phoneNumber': normalizedPhone,
-      'phoneNumberNormalized': normalizedPhone,
+      'phoneNumberNormalized': FieldValue.delete(),
       'gender': gender,
       'hometown': hometown,
       'occupation': occupation,
@@ -513,7 +513,7 @@ class UserProfileService {
       _users.doc(id),
       {
         'phoneNumber': phone,
-        'phoneNumberNormalized': phone,
+        'phoneNumberNormalized': FieldValue.delete(),
         'soDienThoai': FieldValue.delete(),
         'requiredInfoCompleted': true,
         'updatedAt': FieldValue.serverTimestamp(),

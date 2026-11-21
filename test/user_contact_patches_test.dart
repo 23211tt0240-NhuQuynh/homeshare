@@ -11,7 +11,6 @@ void main() {
     );
 
     expect(patch['phoneNumber'], '0912345678');
-    expect(patch['phoneNumberNormalized'], '0912345678');
   });
 
   test('hostBankAccountPatch lưu STK theo định dạng chuẩn để kiểm tra trùng', () {

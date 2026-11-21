@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -71,30 +70,12 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
     if (_isProcessing) return;
 
     for (final barcode in capture.barcodes) {
-      String rawValue = barcode.rawValue ?? '';
-
-      // Đọc UTF-8 tiếng Việt từ rawBytes của ML Kit
       // ignore: deprecated_member_use
       final List<int>? rawBytes = barcode.rawBytes;
-      if (rawBytes != null && rawBytes.isNotEmpty) {
-        try {
-          final decoded = utf8.decode(rawBytes, allowMalformed: true);
-          if (decoded.trim().isNotEmpty) {
-            rawValue = decoded;
-          }
-        } catch (_) {}
-      } else if (rawValue.isNotEmpty) {
-        // Fallback: sửa lỗi nếu chuỗi bị nhầm ISO-8859-1 sang UTF-8
-        try {
-          final bytes = latin1.encode(rawValue);
-          final fixedUtf8 = utf8.decode(bytes);
-          if (fixedUtf8.contains('|')) {
-            rawValue = fixedUtf8;
-          }
-        } catch (_) {}
-      }
-
-      final trimmed = rawValue.trim().replaceAll('\uFEFF', '');
+      final trimmed = CccdData.decodeBarcodeString(
+        rawValue: barcode.rawValue,
+        rawBytes: rawBytes,
+      );
       // Chỉ nhận diện nếu chuỗi đúng định dạng CCCD (có dấu | hoặc tối thiểu 12 số)
       if (trimmed.isEmpty || (!trimmed.contains('|') && trimmed.replaceAll(RegExp(r'\D'), '').length < 12)) {
         continue;
@@ -125,23 +106,12 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
       if (capture != null && capture.barcodes.isNotEmpty) {
         var foundValid = false;
         for (final barcode in capture.barcodes) {
-          var rawValue = barcode.rawValue ?? '';
           // ignore: deprecated_member_use
           final List<int>? rawBytes = barcode.rawBytes;
-          if (rawBytes != null && rawBytes.isNotEmpty) {
-            try {
-              final decoded = utf8.decode(rawBytes, allowMalformed: true);
-              if (decoded.trim().isNotEmpty) rawValue = decoded;
-            } catch (_) {}
-          } else if (rawValue.isNotEmpty) {
-            try {
-              final bytes = latin1.encode(rawValue);
-              final fixedUtf8 = utf8.decode(bytes);
-              if (fixedUtf8.contains('|')) rawValue = fixedUtf8;
-            } catch (_) {}
-          }
-
-          final trimmed = rawValue.trim().replaceAll('\uFEFF', '');
+          final trimmed = CccdData.decodeBarcodeString(
+            rawValue: barcode.rawValue,
+            rawBytes: rawBytes,
+          );
           if (trimmed.isEmpty || (!trimmed.contains('|') && trimmed.replaceAll(RegExp(r'\D'), '').length < 12)) {
             continue;
           }
@@ -356,8 +326,15 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        Expanded(child: _buildInfoRow('Ngày sinh:', cccd.birthDate)),
-                        Expanded(child: _buildInfoRow('Giới tính:', cccd.gender)),
+                        Expanded(
+                          flex: 3,
+                          child: _buildInfoRow('Ngày sinh:', cccd.birthDate),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: _buildInfoRow('Giới tính:', cccd.gender, labelWidth: 62),
+                        ),
                       ],
                     ),
                     if (cccd.provinceName != null) ...[
@@ -430,12 +407,12 @@ class _CccdScannerScreenState extends ConsumerState<CccdScannerScreen> with Sing
     }
   }
 
-  Widget _buildInfoRow(String label, String value, {bool isHighlight = false, bool isBold = false}) {
+  Widget _buildInfoRow(String label, String value, {bool isHighlight = false, bool isBold = false, double labelWidth = 95}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 95,
+          width: labelWidth,
           child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
         ),
         Expanded(

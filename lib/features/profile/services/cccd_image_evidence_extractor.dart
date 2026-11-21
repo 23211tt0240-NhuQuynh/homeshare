@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../models/cccd_data.dart';
 import '../models/cccd_validation_models.dart';
 import 'cccd_image_evidence_validator.dart';
 
@@ -158,15 +159,12 @@ class CccdImageEvidenceExtractor {
         for (final barcode in capture.barcodes) {
           // ignore: deprecated_member_use
           final rawBytes = barcode.rawBytes;
-          if (rawBytes != null && rawBytes.isNotEmpty) {
-            try {
-              final decoded = String.fromCharCodes(rawBytes);
-              if (decoded.trim().isNotEmpty) return decoded.trim();
-            } catch (_) {}
-          }
-          final rawVal = barcode.rawValue;
-          if (rawVal != null && rawVal.trim().isNotEmpty) {
-            return rawVal.trim();
+          final decoded = CccdData.decodeBarcodeString(
+            rawValue: barcode.rawValue,
+            rawBytes: rawBytes,
+          );
+          if (decoded.isNotEmpty) {
+            return decoded;
           }
         }
       }

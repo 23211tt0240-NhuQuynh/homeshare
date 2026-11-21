@@ -269,22 +269,20 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
     setState(() => _isLoading = true);
     try {
       final fs = FirebaseFirestore.instance;
+      final role = (_currentUser['role'] ?? '').toString().toLowerCase();
+      final isHost = role == 'host' || role == 'landlord' || role == 'chutro';
+      final existingRep =
+          _currentUser['reputationScore'] ?? _currentUser['diemUyTin'];
       await fs.collection('users').doc(_uid).set({
         'isCccdVerified': true,
         'cccdVerificationStatus': 'approved',
         'cccdVerifiedAt': FieldValue.serverTimestamp(),
+        if (isHost && existingRep == null) 'reputationScore': 100,
       }, SetOptions(merge: true));
 
-      try {
-        await fs.collection('cccd_verifications').doc(_uid).set({
-          'status': 'approved',
-          'cccdVerificationStatus': 'approved',
-          'approvedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      } catch (_) {}
-
-      // Gửi thông báo cho user
-      final notifRef = fs.collection('notifications').doc();
+      // Gửi thông báo cho user theo đúng role (renter -> notification_user, host -> notifications)
+      final targetCol = isHost ? 'notifications' : 'notification_user';
+      final notifRef = fs.collection(targetCol).doc();
       final notifData = {
         'id': notifRef.id,
         'userId': _uid,
@@ -297,9 +295,6 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
         'createdAt': FieldValue.serverTimestamp(),
       };
       await notifRef.set(notifData);
-      try {
-        await fs.collection('notification_user').doc(notifRef.id).set(notifData);
-      } catch (_) {}
 
       await _audit('Phê duyệt CCCD', 'Admin đã phê duyệt xác thực CCCD cho "$name"');
       _currentUser['isCccdVerified'] = true;
@@ -363,17 +358,11 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
         'cccdRejectReason': reason,
       }, SetOptions(merge: true));
 
-      try {
-        await fs.collection('cccd_verifications').doc(_uid).set({
-          'status': 'rejected',
-          'cccdVerificationStatus': 'rejected',
-          'rejectReason': reason,
-          'rejectedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      } catch (_) {}
-
-      // Gửi thông báo cho user
-      final notifRef = fs.collection('notifications').doc();
+      // Gửi thông báo cho user theo đúng role (renter -> notification_user, host -> notifications)
+      final role = (_currentUser['role'] ?? 'renter').toString().toLowerCase();
+      final isHost = role == 'host' || role == 'landlord' || role == 'chutro';
+      final targetCol = isHost ? 'notifications' : 'notification_user';
+      final notifRef = fs.collection(targetCol).doc();
       final notifData = {
         'id': notifRef.id,
         'userId': _uid,
@@ -386,9 +375,6 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
         'createdAt': FieldValue.serverTimestamp(),
       };
       await notifRef.set(notifData);
-      try {
-        await fs.collection('notification_user').doc(notifRef.id).set(notifData);
-      } catch (_) {}
 
       await _audit('Từ chối CCCD', 'Admin từ chối CCCD của "$name". Lý do: $reason');
       _currentUser['isCccdVerified'] = false;
