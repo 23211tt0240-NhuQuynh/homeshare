@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'firebase_options.dart';
 import 'core/constants/app_colors.dart';
 import 'core/services/auth_service.dart';
@@ -341,17 +340,6 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
         ? mData['message'].toString().trim()
         : 'HomeShare đang bảo trì nâng cấp hệ thống. Vui lòng quay lại sau!';
 
-    DateTime? expectedDt;
-    final rawExpected = mData['expected_completion'];
-    if (rawExpected is Timestamp) {
-      expectedDt = rawExpected.toDate();
-    } else if (rawExpected is String && rawExpected.trim().isNotEmpty) {
-      expectedDt = DateTime.tryParse(rawExpected.trim());
-    }
-    final expectedStr = expectedDt != null
-        ? DateFormat('dd/MM/yyyy HH:mm').format(expectedDt.toLocal())
-        : null;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF4F9FF),
       body: Center(
@@ -407,39 +395,6 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
                     height: 1.45,
                   ),
                 ),
-                if (expectedStr != null) ...[
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFFBEB),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFFEC84B)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.schedule_rounded,
-                          size: 16,
-                          color: Color(0xFFB45309),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Hoàn thành dự kiến: $expectedStr',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF92400E),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 22),
                 SizedBox(
                   width: double.infinity,

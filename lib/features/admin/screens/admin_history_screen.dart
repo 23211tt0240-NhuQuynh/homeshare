@@ -716,8 +716,6 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
             'message':
                 currentData['message'] ??
                 'HomeShare đang bảo trì nâng cấp hệ thống. Vui lòng quay lại sau!',
-            'expected_completion':
-                currentData['expected_completion'] ?? '2026-10-27T02:00:00Z',
             'allowed_roles': currentData['allowed_roles'] ?? ['QUAN_TRI_VIEN'],
             'updated_at': FieldValue.serverTimestamp(),
             'updated_by': performer,
@@ -970,12 +968,6 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
       text: (currentData['message'] ?? '').toString(),
     );
 
-    DateTime? expectedCompletion = _parseDateTimeSafe(
-      currentData['expected_completion'],
-    );
-    expectedCompletion ??= DateTime.now().add(const Duration(days: 1));
-
-    // Use StatefulBuilder to update date inside the bottom sheet
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1088,91 +1080,6 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-
-                  // Expected completion date/time
-                  const Text(
-                    'Thời gian hoàn thành dự kiến',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF344054),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () async {
-                      final pickedDate = await showDatePicker(
-                        context: ctx2,
-                        initialDate: expectedCompletion ?? DateTime.now(),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime(2030),
-                      );
-                      if (pickedDate != null) {
-                        if (!ctx2.mounted) return;
-                        final pickedTime = await showTimePicker(
-                          context: ctx2,
-                          initialTime: TimeOfDay.fromDateTime(
-                            expectedCompletion ?? DateTime.now(),
-                          ),
-                        );
-                        if (pickedTime != null) {
-                          setSheetState(() {
-                            expectedCompletion = DateTime(
-                              pickedDate.year,
-                              pickedDate.month,
-                              pickedDate.day,
-                              pickedTime.hour,
-                              pickedTime.minute,
-                            );
-                          });
-                        }
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF4F9FF),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: const Color(0xFFDCEAF5),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.calendar_today_rounded,
-                            size: 20,
-                            color: Color(0xFFF79009),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              expectedCompletion != null
-                                  ? DateFormat(
-                                      'dd/MM/yyyy HH:mm',
-                                    ).format(expectedCompletion!)
-                                  : 'Chọn ngày giờ...',
-                              style: const TextStyle(
-                                fontSize: 15,
-                                color: Color(0xFF101828),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          const Icon(
-                            Icons.chevron_right_rounded,
-                            color: Color(0xFF667085),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: 24),
 
                   SizedBox(
@@ -1193,8 +1100,6 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                               .doc('maintenance_config')
                               .set({
                                 'message': messageCtrl.text.trim(),
-                                'expected_completion':
-                                    expectedCompletion?.toIso8601String() ?? '',
                                 'allowed_roles': const ['ADMIN', 'MANAGER'],
                                 'updated_at': FieldValue.serverTimestamp(),
                                 'updated_by': performer,
@@ -1966,13 +1871,6 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                         ? DateFormat('dd/MM/yyyy HH:mm:ss').format(updatedAtDt)
                         : 'Chưa có thời gian';
 
-                    final expectedDt = _parseDateTimeSafe(
-                      mData['expected_completion'],
-                    );
-                    final expectedStr = expectedDt != null
-                        ? DateFormat('dd/MM/yyyy HH:mm').format(expectedDt)
-                        : 'Chưa xác định';
-
                     return Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -2077,24 +1975,6 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                                             color: Color(0xFF92400E),
                                             height: 1.4,
                                           ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.schedule_rounded,
-                                        size: 14,
-                                        color: Color(0xFF667085),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Hoàn thành dự kiến: $expectedStr',
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          color: Color(0xFF475467),
                                         ),
                                       ),
                                     ],
