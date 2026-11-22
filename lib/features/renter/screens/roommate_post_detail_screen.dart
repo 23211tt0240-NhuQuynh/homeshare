@@ -4,7 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/booking_service.dart';
 import '../../../core/services/favorites_service.dart';
+import '../../../core/services/room_service.dart';
+import '../../../core/services/roommate_listing_facts.dart';
+import '../../../core/utils/map_address_locator.dart';
 import '../../../data/models/roommate_post_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
@@ -27,11 +31,47 @@ class RoommatePostDetailScreen extends ConsumerStatefulWidget {
 class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScreen> {
   int _currentImageIndex = 0;
   late final PageController _pageController;
+  RoommateListingFacts? _facts;
+  bool? _foundOnMap;
+
+  List<String> get _roomAmenities {
+    final fromRoom = _facts?.amenities ?? const <String>[];
+    if (fromRoom.isNotEmpty) return fromRoom;
+    return widget.post.amenities.where((item) => item.trim().isNotEmpty).toList();
+  }
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+    _loadListingFacts();
+    _verifyMapAddress();
+  }
+
+  Future<void> _verifyMapAddress() async {
+    final post = widget.post;
+    if (isMissingMapAddress(post.address) &&
+        storedMapLocation(post.latitude, post.longitude) == null) {
+      return;
+    }
+    final located = await locateAddressOnMap(
+      address: post.address,
+      latitude: post.latitude,
+      longitude: post.longitude,
+    );
+    if (!mounted) return;
+    setState(() => _foundOnMap = located != null);
+  }
+
+  Future<void> _loadListingFacts() async {
+    if (!widget.post.hasRoom) return;
+    final facts = await RoommateListingFacts.resolve(
+      post: widget.post,
+      rooms: ref.read(roomServiceProvider),
+      bookings: ref.read(bookingServiceProvider),
+    );
+    if (!mounted) return;
+    setState(() => _facts = facts);
   }
 
   @override
@@ -820,10 +860,13 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                post.address,
+                                displayedMapAddress(
+                                  address: post.address,
+                                  foundOnMap: _foundOnMap,
+                                ),
                                 style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFF0F172A), height: 1.3),
                               ),
-                              if (post.district.isNotEmpty) ...[
+                              if (_foundOnMap != false && post.district.isNotEmpty) ...[
                                 const SizedBox(height: 2),
                                 Text(
                                   'Khu vực: ${post.district}',
@@ -1059,34 +1102,67 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
 
                   const SizedBox(height: 18),
 
-                  // 6. Tiện Nghi Căn Phòng (nếu có phòng)
-                  if (post.hasRoom) ...[
+                  if (post.hasRoom && _roomAmenities.isNotEmpty) ...[
                     const Text(
-                      'TIỆN NGHI CĂN PHÒNG',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF64748B), letterSpacing: 0.5),
+                      'Tiện ích phòng',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1E293B),
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: Wrap(
-                        spacing: 16,
-                        runSpacing: 12,
-                        children: [
-                          _buildAmenityBadge(Icons.ac_unit_rounded, 'Máy lạnh'),
-                          _buildAmenityBadge(Icons.local_laundry_service_rounded, 'Máy giặt'),
-                          _buildAmenityBadge(Icons.kitchen_rounded, 'Tủ lạnh'),
-                          _buildAmenityBadge(Icons.wifi_rounded, 'Wifi cáp quang'),
-                          _buildAmenityBadge(Icons.two_wheeler_rounded, 'Chỗ để xe'),
-                          _buildAmenityBadge(Icons.security_rounded, 'Bảo vệ an ninh'),
-                          _buildAmenityBadge(Icons.balcony_rounded, 'Ban công'),
-                          _buildAmenityBadge(Icons.water_drop_rounded, 'Nước nóng lạnh'),
-                        ],
-                      ),
+                    const SizedBox(height: 10),
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _roomAmenities.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (_, index) {
+                        final perk = _roomAmenities[index];
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC), // Nền xám nhạt (chìm)
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE2E8F0)), // Viền xám
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _amenityIcon(perk),
+                                size: 20,
+                                color: const Color(0xFF94A3B8), // Icon màu xám đồng bộ
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  perk,
+                                  style: const TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF64748B), // Chữ xám (chìm)
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFCBD5E1), // Nền check box xám (disabled)
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                padding: const EdgeInsets.all(2),
+                                child: const Icon(
+                                  Icons.check,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 18),
                   ],
@@ -1269,17 +1345,23 @@ class _RoommatePostDetailScreenState extends ConsumerState<RoommatePostDetailScr
     );
   }
 
-  Widget _buildAmenityBadge(IconData icon, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: AppColors.primary),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
-        ),
-      ],
-    );
+
+
+  IconData _amenityIcon(String name) {
+    final lower = name.toLowerCase().trim();
+    if (lower.contains('wifi') || lower.contains('mạng') || lower.contains('internet')) return Icons.wifi_rounded;
+    if (lower.contains('máy lạnh') || lower.contains('điều hòa') || lower.contains('lạnh')) return Icons.ac_unit_rounded;
+    if (lower.contains('gác') || lower.contains('gác lửng')) return Icons.check_circle_outline;
+    if (lower.contains('giặt')) return Icons.local_laundry_service_rounded;
+    if (lower.contains('tủ lạnh')) return Icons.kitchen_rounded;
+    if (lower.contains('xe') || lower.contains('đỗ') || lower.contains('bãi')) return Icons.directions_car_rounded;
+    if (lower.contains('bảo vệ') || lower.contains('camera') || lower.contains('an ninh')) return Icons.security_rounded;
+    if (lower.contains('ban công') || lower.contains('cửa sổ')) return Icons.balcony_rounded;
+    if (lower.contains('nóng') || lower.contains('nước nóng')) return Icons.water_drop_rounded;
+    if (lower.contains('gym') || lower.contains('thể thao')) return Icons.fitness_center_rounded;
+    if (lower.contains('tự do') || lower.contains('giờ giấc')) return Icons.access_time_rounded;
+    if (lower.contains('thú cưng') || lower.contains('chó') || lower.contains('mèo')) return Icons.pets_rounded;
+    if (lower.contains('bếp') || lower.contains('nấu')) return Icons.soup_kitchen_rounded;
+    return Icons.check_circle_outline;
   }
 }

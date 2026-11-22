@@ -68,6 +68,7 @@ class PersonalProfileContent extends StatelessWidget {
           // 4. Khu Quản lý tài khoản (4 hành động)
           ProfileActionsCard(
             isCccdVerified: profile?.isCccdVerified ?? false,
+            isCccdPending: profile?.isCccdPending ?? false,
             onOpenBookings: onOpenBookings,
             onOpenCccdVerification: onOpenCccdVerification,
             onOpenAccountSettings: onOpenAccountSettings,

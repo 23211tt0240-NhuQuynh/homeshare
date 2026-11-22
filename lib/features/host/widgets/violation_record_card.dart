@@ -1,18 +1,19 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/violation_record_model.dart';
 
 class ViolationRecordCard extends StatefulWidget {
   final ViolationRecordModel record;
-  final VoidCallback onDeductInvoice;
   final VoidCallback onCollectCash;
   final VoidCallback onSendReminder;
+  final VoidCallback? onDeductInvoice;
 
   const ViolationRecordCard({
     super.key,
     required this.record,
-    required this.onDeductInvoice,
     required this.onCollectCash,
     required this.onSendReminder,
+    this.onDeductInvoice,
   });
 
   @override
@@ -21,6 +22,70 @@ class ViolationRecordCard extends StatefulWidget {
 
 class _ViolationRecordCardState extends State<ViolationRecordCard> {
   bool _isExpanded = false;
+  Timer? _cooldownTimer;
+  int _cooldownSeconds = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkInitialCooldown();
+  }
+
+  @override
+  void didUpdateWidget(ViolationRecordCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.record.lastReminderAt != widget.record.lastReminderAt) {
+      _checkInitialCooldown();
+    }
+  }
+
+  @override
+  void dispose() {
+    _cooldownTimer?.cancel();
+    super.dispose();
+  }
+
+  void _checkInitialCooldown() {
+    final last = widget.record.lastReminderAt;
+    if (last != null) {
+      final elapsed = DateTime.now().difference(last).inSeconds;
+      if (elapsed < 60) {
+        _cooldownSeconds = 60 - elapsed;
+        _startTimer();
+      } else {
+        _cooldownSeconds = 0;
+      }
+    }
+  }
+
+  void _startTimer() {
+    _cooldownTimer?.cancel();
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_cooldownSeconds > 1) {
+        setState(() {
+          _cooldownSeconds--;
+        });
+      } else {
+        timer.cancel();
+        setState(() {
+          _cooldownSeconds = 0;
+        });
+      }
+    });
+  }
+
+  void _triggerReminder() {
+    if (_cooldownSeconds > 0) return;
+    setState(() {
+      _cooldownSeconds = 60;
+    });
+    _startTimer();
+    widget.onSendReminder();
+  }
 
   String _formatCurrency(double amount) {
     final s = amount.toInt().toString();
@@ -81,6 +146,55 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
     );
   }
 
+  Widget _buildReminderButton() {
+    final isCoolingDown = _cooldownSeconds > 0;
+
+    return InkWell(
+      onTap: isCoolingDown ? null : _triggerReminder,
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: isCoolingDown
+              ? const Color(0xFFF1F5F9)
+              : const Color(0xFFEFF6FF),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isCoolingDown
+                ? const Color(0xFFCBD5E1)
+                : const Color(0xFFBFDBFE),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isCoolingDown
+                  ? Icons.hourglass_top_rounded
+                  : Icons.send_rounded,
+              size: 14,
+              color: isCoolingDown
+                  ? const Color(0xFF94A3B8)
+                  : const Color(0xFF2563EB),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              isCoolingDown ? 'Chờ ${_cooldownSeconds}s' : 'Nhắc',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: isCoolingDown
+                    ? const Color(0xFF64748B)
+                    : const Color(0xFF2563EB),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final r = widget.record;
@@ -102,22 +216,22 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. Hàng đầu: Số phòng + Tên người thuê + Status badge
+          // 1. Header: Mã biên bản, Phòng, Người thuê & Trạng thái
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  r.roomCode.isNotEmpty ? r.roomCode : 'P.---',
+                  r.id.length > 12 ? r.id.substring(r.id.length - 12) : r.id,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF1D4ED8),
+                    color: Color(0xFF2563EB),
                   ),
                 ),
               ),
@@ -127,21 +241,20 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      r.tenantName.isNotEmpty ? r.tenantName : 'Cư dân',
+                      r.tenantName,
                       style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F172A),
+                        color: Color(0xFF1E293B),
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: 2),
                     Text(
-                      '${_formatDate(r.createdAt)}${r.propertyName.isNotEmpty ? ' • ${r.propertyName}' : ''}',
+                      '${_formatDate(r.createdAt)}${r.propertyName.isNotEmpty ? " • ${r.propertyName}" : ""}',
                       style: const TextStyle(
                         fontSize: 11.5,
                         color: Color(0xFF64748B),
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -151,78 +264,77 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
           ),
           const SizedBox(height: 12),
 
-          // 2. Danh sách hành vi vi phạm (Chips)
-          if (r.violationTitles.isNotEmpty)
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: r.violationTitles.map((t) {
-                return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.warning_amber_rounded,
-                        size: 13,
-                        color: Color(0xFFD97706),
+          // 2. Danh sách các vi phạm
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: r.violationTitles.map((title) {
+              return Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFFFEDD5)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      size: 13,
+                      color: Color(0xFFEA580C),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFC2410C),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        t,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF334155),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          const SizedBox(height: 8),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 10),
 
-          // 3. Mô tả vi phạm
-          if (r.description.isNotEmpty)
+          // 3. Mô tả vi phạm (nếu có - chạm để xem thêm/thu gọn)
+          if (r.description.isNotEmpty) ...[
             InkWell(
               onTap: () => setState(() => _isExpanded = !_isExpanded),
+              borderRadius: BorderRadius.circular(4),
               child: Text(
                 r.description,
+                maxLines: _isExpanded ? null : 2,
+                overflow: _isExpanded ? null : TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 13,
                   color: Color(0xFF475569),
                   height: 1.4,
                 ),
-                maxLines: _isExpanded ? 10 : 2,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 8),
+          ],
 
-          // 4. Mức phạt & bằng chứng count
+          // 4. Mức phạt & Bằng chứng
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Flexible(
-                child: Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
+              RichText(
+                text: TextSpan(
+                  text: 'Mức phạt: ',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
+                  ),
                   children: [
-                    const Text(
-                      'Mức phạt: ',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                    Text(
-                      _formatCurrency(r.totalFine),
+                    TextSpan(
+                      text: _formatCurrency(r.totalFine),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -258,92 +370,37 @@ class _ViolationRecordCardState extends State<ViolationRecordCard> {
             const SizedBox(height: 10),
             Row(
               children: [
-                // Nút 1: Trừ hóa đơn
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: widget.onDeductInvoice,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        'Trừ hóa đơn',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF334155),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Nút 2: Thu tiền mặt
+                // Nút: Thu tiền mặt
                 Expanded(
                   child: ElevatedButton(
                     onPressed: widget.onCollectCash,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF16A34A),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(vertical: 9),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: const FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text('💵 ', style: TextStyle(fontSize: 12)),
-                          Text(
-                            'Thu tiền mặt',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Nút 3: Gửi nhắc nộp
-                InkWell(
-                  onTap: widget.onSendReminder,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFBFDBFE)),
-                    ),
                     child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.send_rounded,
-                            size: 14, color: Color(0xFF2563EB)),
-                        SizedBox(width: 4),
+                        Text('💵 ', style: TextStyle(fontSize: 13)),
                         Text(
-                          'Nhắc',
+                          'Thu tiền mặt',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF2563EB),
+                            color: Colors.white,
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
+                const SizedBox(width: 8),
+                // Nút: Gửi nhắc nộp kèm Anti-Spam Cooldown
+                _buildReminderButton(),
               ],
             ),
           ] else if (r.isAddedToInvoice) ...[

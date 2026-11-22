@@ -123,8 +123,9 @@ class _AdminPostReviewDetailScreenState
     try {
       final db = FirebaseFirestore.instance;
       var updated = _room;
-      final roomKey = updated.roomCode.trim();
       final postId = (widget.docId ?? updated.id).trim();
+      String resolvedRoomId = updated.roomCode.trim();
+      String resolvedPropId = updated.propertyId.trim();
 
       // 1. Bổ sung thông tin chủ trọ nếu thiếu
       if (updated.hostId.trim().isNotEmpty &&
@@ -206,52 +207,173 @@ class _AdminPostReviewDetailScreenState
         );
       }
 
-      if (roomKey.isNotEmpty) {
-        final rDoc = await db.collection('rooms').doc(roomKey).get();
-        if (rDoc.exists && rDoc.data() != null) {
-          mergeRoomDoc(rDoc.data()!);
-        } else {
+      // Đọc post doc gốc nếu có để lấy đúng roomId, propertyId và ảnh nếu có
+      if (postId.isNotEmpty) {
+        try {
+          final pDoc = await db.collection('posts').doc(postId).get();
+          if (pDoc.exists && pDoc.data() != null) {
+            final pData = pDoc.data()!;
+            for (final img in _extractImages(pData)) {
+              if (!extraImages.contains(img)) extraImages.add(img);
+            }
+            if (resolvedRoomId.isEmpty) {
+              resolvedRoomId = (pData['roomId'] ?? pData['phongId'] ?? pData['roomCode'] ?? '').toString().trim();
+            }
+            if (resolvedPropId.isEmpty) {
+              resolvedPropId = (pData['propertyId'] ?? pData['batDongSanId'] ?? pData['nhaTroId'] ?? '').toString().trim();
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (resolvedRoomId.isNotEmpty) {
+        // A. Tra cứu document phòng từ rooms, host_rooms, phong_tro
+        for (final col in ['rooms', 'host_rooms', 'phong_tro']) {
+          try {
+            final rDoc = await db.collection(col).doc(resolvedRoomId).get();
+            if (rDoc.exists && rDoc.data() != null) {
+              mergeRoomDoc(rDoc.data()!);
+              if (resolvedPropId.isEmpty) {
+                resolvedPropId = (rDoc.data()!['propertyId'] ?? rDoc.data()!['batDongSanId'] ?? '').toString().trim();
+              }
+            }
+          } catch (_) {}
+        }
+
+        try {
           final byField = await db
               .collection('rooms')
-              .where('roomId', isEqualTo: roomKey)
+              .where('roomId', isEqualTo: resolvedRoomId)
               .limit(1)
               .get();
           if (byField.docs.isNotEmpty) {
             mergeRoomDoc(byField.docs.first.data());
           }
+        } catch (_) {}
+
+        try {
+          final byFieldHost = await db
+              .collection('host_rooms')
+              .where('roomId', isEqualTo: resolvedRoomId)
+              .limit(1)
+              .get();
+          if (byFieldHost.docs.isNotEmpty) {
+            mergeRoomDoc(byFieldHost.docs.first.data());
+          }
+        } catch (_) {}
+
+        // B. Bổ sung ảnh từ collection room_images
+        try {
+          final imgSnap = await db
+              .collection('room_images')
+              .where('roomId', isEqualTo: resolvedRoomId)
+              .get();
+          for (final d in imgSnap.docs) {
+            for (final img in _extractImages(d.data())) {
+              if (!extraImages.contains(img)) extraImages.add(img);
+            }
+          }
+        } catch (_) {}
+
+        try {
+          final imgSnap2 = await db
+              .collection('room_images')
+              .where('phongId', isEqualTo: resolvedRoomId)
+              .get();
+          for (final d in imgSnap2.docs) {
+            for (final img in _extractImages(d.data())) {
+              if (!extraImages.contains(img)) extraImages.add(img);
+            }
+          }
+        } catch (_) {}
+
+        // C. Tra cứu subcollections: rooms/{roomId}/room_images, host_rooms/{roomId}/room_images
+        for (final col in ['rooms', 'host_rooms']) {
+          try {
+            final subSnap = await db.collection(col).doc(resolvedRoomId).collection('room_images').get();
+            for (final d in subSnap.docs) {
+              for (final img in _extractImages(d.data())) {
+                if (!extraImages.contains(img)) extraImages.add(img);
+              }
+            }
+          } catch (_) {}
         }
 
-        final imgSnap = await db
-            .collection('room_images')
-            .where('roomId', isEqualTo: roomKey)
-            .get();
-        for (final d in imgSnap.docs) {
-          for (final img in _extractImages(d.data())) {
-            if (!extraImages.contains(img)) extraImages.add(img);
+        // D. Tiện ích từ room_amenities
+        try {
+          final amSnap = await db
+              .collection('room_amenities')
+              .where('roomId', isEqualTo: resolvedRoomId)
+              .get();
+          for (final d in amSnap.docs) {
+            for (final am in _extractAmenities(d.data())) {
+              if (!extraAmenities.contains(am)) extraAmenities.add(am);
+            }
           }
-        }
-
-        final amSnap = await db
-            .collection('room_amenities')
-            .where('roomId', isEqualTo: roomKey)
-            .get();
-        for (final d in amSnap.docs) {
-          for (final am in _extractAmenities(d.data())) {
-            if (!extraAmenities.contains(am)) extraAmenities.add(am);
-          }
-        }
+        } catch (_) {}
       }
 
-      if (extraImages.isEmpty && postId.isNotEmpty) {
-        final postImgSnap = await db
-            .collection('room_images')
-            .where('postId', isEqualTo: postId)
-            .get();
-        for (final d in postImgSnap.docs) {
-          for (final img in _extractImages(d.data())) {
-            if (!extraImages.contains(img)) extraImages.add(img);
+      // 3. Tra cứu từ bài đăng ở ghép: roommate_post_images & room_images theo postId
+      if (postId.isNotEmpty) {
+        try {
+          final postImgSnap = await db
+              .collection('room_images')
+              .where('postId', isEqualTo: postId)
+              .get();
+          for (final d in postImgSnap.docs) {
+            for (final img in _extractImages(d.data())) {
+              if (!extraImages.contains(img)) extraImages.add(img);
+            }
           }
-        }
+        } catch (_) {}
+
+        try {
+          final rmateSnap1 = await db
+              .collection('roommate_post_images')
+              .where('postId', isEqualTo: postId)
+              .get();
+          for (final d in rmateSnap1.docs) {
+            for (final img in _extractImages(d.data())) {
+              if (!extraImages.contains(img)) extraImages.add(img);
+            }
+          }
+        } catch (_) {}
+
+        try {
+          final rmateSnap2 = await db
+              .collection('roommate_post_images')
+              .where('baiDangId', isEqualTo: postId)
+              .get();
+          for (final d in rmateSnap2.docs) {
+            for (final img in _extractImages(d.data())) {
+              if (!extraImages.contains(img)) extraImages.add(img);
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 4. Tra cứu từ cơ sở / tòa nhà: property_images & properties (thuê cả tòa nhà hoặc phòng thiếu ảnh)
+      if (resolvedPropId.isNotEmpty) {
+        try {
+          final propSnap = await db
+              .collection('property_images')
+              .where('propertyId', isEqualTo: resolvedPropId)
+              .get();
+          for (final d in propSnap.docs) {
+            for (final img in _extractImages(d.data())) {
+              if (!extraImages.contains(img)) extraImages.add(img);
+            }
+          }
+        } catch (_) {}
+
+        try {
+          final propDoc = await db.collection('properties').doc(resolvedPropId).get();
+          if (propDoc.exists && propDoc.data() != null) {
+            for (final img in _extractImages(propDoc.data()!)) {
+              if (!extraImages.contains(img)) extraImages.add(img);
+            }
+          }
+        } catch (_) {}
       }
 
       updated = updated.copyWith(

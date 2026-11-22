@@ -1,7 +1,9 @@
+import '../../profile/widgets/host_reputation_stars.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_safe_image.dart';
 import '../../../core/services/favorites_service.dart';
 import '../../../data/models/room_model.dart';
 import '../../../data/models/roommate_post_model.dart';
@@ -174,17 +176,13 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                   borderRadius: BorderRadius.circular(12),
                   child: Stack(
                     children: [
-                      Image.network(
-                        imageUrl,
+                      AppSafeImage(
+                        imageUrl: imageUrl,
                         width: 100,
                         height: 100,
                         fit: BoxFit.cover,
-                        errorBuilder: (ctx, err, stack) => Container(
-                          width: 100,
-                          height: 100,
-                          color: const Color(0xFFF1F5F9),
-                          child: const Icon(Icons.apartment, size: 36, color: Color(0xFF94A3B8)),
-                        ),
+                        fallbackIcon: Icons.apartment,
+                        iconSize: 36,
                       ),
                       Positioned(
                         top: 6,
@@ -297,19 +295,14 @@ class _FavoriteRoomsScreenState extends ConsumerState<FavoriteRoomsScreen>
                               color: AppColors.primary,
                             ),
                           ),
-                          Row(
-                            children: [
-                              const Icon(Icons.star_rounded, size: 15, color: Color(0xFFF59E0B)),
-                              const SizedBox(width: 2),
-                              Text(
-                                '${room.rating}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF334155),
-                                ),
-                              ),
-                            ],
+                          HostReputationStarLabel(
+                            hostId: room.hostId,
+                            iconSize: 15,
+                            textStyle: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF334155),
+                            ),
                           ),
                         ],
                       ),

@@ -1,5 +1,8 @@
+import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/firestore_collections.dart';
+import '../../core/utils/map_address_locator.dart';
+import '../../core/utils/vietnam_address_parser.dart';
 
 /// Model Phòng trọ & Bài đăng chuẩn hóa theo Database homeShare
 /// Bảng: Nhà trọ, Phòng, ẢnhPhong, Tiện ích, Bài đăng
@@ -47,6 +50,9 @@ class RoomModel {
   final int capacity; // sucChua
   final int floor; // tang
   final DateTime createdAt; // ngayTao / ngayDang
+  final double? latitude;
+  final double? longitude;
+  final bool isUnposted; // True nếu là phòng chưa tạo bài đăng công khai
 
   // Vietnamese DrawIO Alias Getters
   String get phongId => id;
@@ -75,12 +81,6 @@ class RoomModel {
     if (clean.isNotEmpty && clean != 'P001') {
       return clean;
     }
-    if (id.isNotEmpty && id != 'P001') {
-      return id.trim().toUpperCase();
-    }
-    if (clean.isNotEmpty && clean != 'P001') {
-      return clean;
-    }
     if (id.startsWith('sample_room_')) {
       final num = id.replaceAll('sample_room_', '');
       return 'P${num.padLeft(3, '0')}';
@@ -98,16 +98,28 @@ class RoomModel {
       final formatted = val.startsWith('P') ? val : 'P$val';
       if (formatted != 'P001') return formatted;
     }
-    return id.isNotEmpty ? id.trim().toUpperCase() : '';
+    final fl = floor > 0 ? floor : 1;
+    return 'P.${fl}01';
   }
 
   String get soPhong => maPhong;
   String get maNhaTro => propertyId;
 
+  bool get canBeListed {
+    final s = status.toLowerCase().trim();
+    if (s == 'occupied' || s == 'dathue' || s == 'da_thue' || s == 'deleted' || s == 'daxoa') {
+      return false;
+    }
+    return isAvailable;
+  }
+
   bool get isApproved {
     final s = status.toLowerCase().trim();
     return s == 'active' ||
         s == 'approved' ||
+        s == 'occupied' ||
+        s == 'dathue' ||
+        s == 'da_thue' ||
         s == 'danghien' ||
         s == 'danghienthi' ||
         s == 'available' ||
@@ -150,6 +162,51 @@ class RoomModel {
         s == 'unavailable';
   }
 
+  bool get isOccupied {
+    final s = status.toLowerCase().trim();
+    // Phòng đã mở lại sau checkout/hủy không còn coi là đang ở.
+    if (s == 'available' ||
+        s == 'conphong' ||
+        s == 'con_phong' ||
+        s == 'empty' ||
+        s == 'vacant') {
+      return false;
+    }
+    return s == 'occupied' ||
+        s == 'dathue' ||
+        s == 'da_thue' ||
+        s == 'dang_o' ||
+        s == 'dango' ||
+        s == 'đang ở' ||
+        s == 'đã thuê' ||
+        s == 'reserved' ||
+        ((tenantName.trim().isNotEmpty || contractId.trim().isNotEmpty) &&
+            s != 'checked_out' &&
+            s != 'cancelled');
+  }
+
+  /// Tên hiển thị ưu tiên title bài đăng/phòng; tránh hiện mã ID thô kiểu QDRG...
+  String get displayListingTitle {
+    final named = title.trim();
+    if (named.isNotEmpty) return named;
+    final code = roomCode.trim();
+    if (code.isNotEmpty && !looksLikeOpaqueRoomId(code)) {
+      return 'Phòng $code';
+    }
+    final legacy = maPhong.trim();
+    if (legacy.isNotEmpty && !looksLikeOpaqueRoomId(legacy)) {
+      return 'Phòng $legacy';
+    }
+    return 'Phòng cho thuê';
+  }
+
+  static bool looksLikeOpaqueRoomId(String value) {
+    final v = value.trim();
+    if (v.length < 10) return false;
+    if (RegExp(r'^P\d{2,}$', caseSensitive: false).hasMatch(v)) return false;
+    return RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(v);
+  }
+
   /// Kiểm tra xem bài đăng có phải bài mẫu hardcode (sample) không
   bool get isSampleOrHardcode {
     if (id.toLowerCase().startsWith('sample')) return true;
@@ -172,20 +229,34 @@ class RoomModel {
     return false;
   }
 
-  /// Chỉ các bài ĐANG HIỂN THỊ (đã duyệt, còn mở, không bị ẩn/gỡ/từ chối/chờ duyệt, không phải bài mẫu hardcode)
+  /// Phòng đã có người ở / đã thuê hoặc không còn nhận khách
+  bool get isRentedOrOccupied {
+    final s = status.toLowerCase().trim();
+    return isOccupied ||
+        !isAvailable ||
+        s == 'occupied' ||
+        s == 'dathue' ||
+        s == 'da_thue' ||
+        s == 'dang_o' ||
+        s == 'dango' ||
+        s == 'đang ở' ||
+        s == 'đã thuê';
+  }
+
+  /// Nhãn trạng thái phòng: 'Còn trống' hoặc 'Đã có người ở'
+  String get occupancyStatusLabel => isRentedOrOccupied ? 'Đã có người ở' : 'Còn trống';
+
+  /// Mặc định hiển thị tất cả các phòng dù chưa đăng hay đã đăng,
+  /// hiển thị cả phòng còn trống và phòng đã có người ở (chỉ trừ bài bị xóa, ẩn, hoặc bài mẫu hardcode).
   bool get isDisplayable {
-    return isApproved &&
-        !isPending &&
-        !isHiddenOrRejected &&
-        isAvailable &&
-        !isSampleOrHardcode;
+    if (isSampleOrHardcode || isDeleted || isHiddenOrRejected) return false;
+    return true;
   }
 
   String get statusDisplayLabel {
     if (isPending) return 'Chờ duyệt';
     if (isHiddenOrRejected) return 'Đã ẩn';
-    final s = status.toLowerCase().trim();
-    if (s == 'occupied' || s == 'dathue') return 'Đã thuê';
+    if (isOccupied) return 'Đã có người ở';
     return 'Đã duyệt';
   }
 
@@ -229,6 +300,9 @@ class RoomModel {
     this.capacity = 2,
     this.floor = 1,
     required this.createdAt,
+    this.latitude,
+    this.longitude,
+    this.isUnposted = false,
   }) : status = status ?? (isAvailable ? 'available' : 'unavailable');
 
   factory RoomModel.fromFirestore(DocumentSnapshot doc) {
@@ -240,9 +314,26 @@ class RoomModel {
       id: id,
       minArea: (data['minArea'] as num?)?.toDouble(),
       maxArea: (data['maxArea'] as num?)?.toDouble(),
-      electricityRate: (data['electricityRate'] as num?)?.toDouble(),
-      waterRate: (data['waterRate'] as num?)?.toDouble(),
-      serviceFee: (data['serviceFee'] as num?)?.toDouble(),
+      electricityRate: _readPositiveDouble(
+        data['electricityRate'] ??
+            data['electricity_rate'] ??
+            data['giaDien'] ??
+            data['gia_dien'],
+      ),
+      waterRate: _readPositiveDouble(
+        data['waterRate'] ??
+            data['water_rate'] ??
+            data['giaNuoc'] ??
+            data['gia_nuoc'],
+      ),
+      serviceFee: _readPositiveDouble(
+        data['serviceFee'] ??
+            data['service_fee'] ??
+            data['wifiRate'] ??
+            data['wifi_rate'] ??
+            data['giaWifi'] ??
+            data['gia_wifi'],
+      ),
       tenantName: data['tenantName'] ?? '',
       tenantPhone: data['tenantPhone'] ?? '',
       tenantAvatar: data['tenantAvatar'] ?? '',
@@ -267,7 +358,28 @@ class RoomModel {
             data['ma_phong'] ??
             data['soPhong'];
         if (explicit != null && explicit.toString().trim().isNotEmpty) {
-          return explicit.toString().trim().toUpperCase();
+          final code = explicit.toString().trim().toUpperCase();
+          // Không lấy ID document / postId làm mã phòng hiển thị.
+          if (!looksLikeOpaqueRoomId(code) &&
+              !code.contains('...') &&
+              !code.toLowerCase().contains('hồi') &&
+              !code.toLowerCase().contains('hoi') &&
+              code.length <= 8) {
+            return code;
+          }
+        }
+        final rawTitle = (data['title'] ?? data['tieuDe'] ?? '').toString().trim();
+        if (!rawTitle.contains('...') &&
+            !rawTitle.toLowerCase().contains('hồi') &&
+            !rawTitle.toLowerCase().contains('hoi')) {
+          final match = RegExp(
+            r'(?:phòng|p\.?|room)?\s*([A-Za-z]?\d{2,4})',
+            caseSensitive: false,
+          ).firstMatch(rawTitle);
+          if (match != null) {
+            final digits = match.group(1)!.toUpperCase();
+            if (digits != 'P001' && digits != '001') return digits;
+          }
         }
         if (id.startsWith('sample_room_')) {
           final num = id.replaceAll('sample_room_', '');
@@ -275,7 +387,6 @@ class RoomModel {
         }
         final match = RegExp(r'P\d{3,}', caseSensitive: false).firstMatch(id);
         if (match != null) return match.group(0)!.toUpperCase();
-        if (id.isNotEmpty) return id.trim().toUpperCase();
         return '';
       }(),
       status: () {
@@ -289,7 +400,19 @@ class RoomModel {
         }
         return (data['isAvailable'] == false) ? 'unavailable' : 'available';
       }(),
-      title: data['title'] ?? data['tieuDe'] ?? '',
+      title: () {
+        final raw = (data['title'] ?? data['tieuDe'] ?? '').toString().trim();
+        if (raw.toLowerCase().contains('đạo hồi') ||
+            raw.toLowerCase().contains('dao hoi') ||
+            raw.contains('....')) {
+          final code = (data['roomCode'] ?? data['maPhong'] ?? '').toString().trim();
+          if (code.isNotEmpty && !looksLikeOpaqueRoomId(code)) {
+            return code.toUpperCase().startsWith('P') ? 'Phòng $code' : 'Phòng $code';
+          }
+          return 'Phòng 103';
+        }
+        return raw.isNotEmpty ? raw : 'Phòng cho thuê';
+      }(),
       description: data['description'] ?? data['noiDung'] ?? data['moTa'] ?? '',
       price: () {
         final val =
@@ -363,7 +486,7 @@ class RoomModel {
           final parsed = double.tryParse(cleaned);
           if (parsed != null) return parsed;
         }
-        return 20.0;
+        return 0.0;
       }(),
       roomType: data['roomType'] ?? data['loaiPhong'] ?? 'Phòng trọ',
       amenities: () {
@@ -529,7 +652,55 @@ class RoomModel {
           : (data['ngayDang'] is Timestamp)
           ? (data['ngayDang'] as Timestamp).toDate()
           : DateTime.now(),
+      latitude: () {
+        final val = data['latitude'] ?? data['lat'] ?? data['viDo'] ?? data['vi_do'];
+        if (val is num) return val.toDouble();
+        if (val is String && val.trim().isNotEmpty) return double.tryParse(val.trim());
+        return null;
+      }(),
+      longitude: () {
+        final val = data['longitude'] ?? data['lng'] ?? data['kinhDo'] ?? data['kinh_do'];
+        if (val is num) return val.toDouble();
+        if (val is String && val.trim().isNotEmpty) return double.tryParse(val.trim());
+        return null;
+      }(),
+      isUnposted: data['isUnposted'] == true ||
+          data['_isUnposted'] == true ||
+          data['status'] == 'unposted',
     );
+  }
+
+  /// Tính khoảng cách (km) giữa vị trí người dùng và phòng trọ (Haversine formula).
+  /// Tự động lấy tọa độ đã lưu hoặc dự phòng theo địa bàn (quận/huyện/thành phố).
+  double? distanceTo(double? userLat, double? userLng) {
+    if (userLat == null || userLng == null) return null;
+    final rLat = latitude ?? _approximateLat();
+    final rLng = longitude ?? _approximateLng();
+    if (rLat == null || rLng == null) return null;
+    return _haversineDistanceKm(userLat, userLng, rLat, rLng);
+  }
+
+  double? _approximateLat() {
+    final bias = knownPlaceBias('$address $district $city');
+    return bias?.latitude;
+  }
+
+  double? _approximateLng() {
+    final bias = knownPlaceBias('$address $district $city');
+    return bias?.longitude;
+  }
+
+  static double _haversineDistanceKm(double lat1, double lon1, double lat2, double lon2) {
+    const double r = 6371.0;
+    final dLat = (lat2 - lat1) * math.pi / 180.0;
+    final dLon = (lon2 - lon1) * math.pi / 180.0;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180.0) *
+            math.cos(lat2 * math.pi / 180.0) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return r * c;
   }
 
   /// Mapper chuẩn ghi Firestore theo Database.docx & ERD (100% tiếng Anh)
@@ -560,6 +731,9 @@ class RoomModel {
       if (electricityRate != null) 'electricityRate': electricityRate,
       if (waterRate != null) 'waterRate': waterRate,
       if (serviceFee != null) 'serviceFee': serviceFee,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (isUnposted) 'isUnposted': true,
       'createdAt': Timestamp.fromDate(createdAt),
       if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
     };
@@ -590,7 +764,7 @@ class RoomModel {
   ]) => (firestore ?? FirebaseFirestore.instance)
       .collection(FirestoreCollections.properties)
       .doc(propertyId)
-      .collection(FirestoreCollections.rooms);
+      .collection(FirestoreCollections.propertyRooms);
 
   /// Mapper chuẩn bảng phong_tro theo SQL_NHOM4_CHUYENDEDIDONG.sql (100% trường SQL)
   Map<String, dynamic> toPhongTroSql() => {
@@ -658,16 +832,12 @@ class RoomModel {
     final roomAddress = room?.address.trim() ?? '';
     final propertyAddress = joinAddress(propertyData);
     final locationAddress = joinAddress(locationData);
-    final hasCurrentAddress = address
-        .replaceAll(RegExp(r'[,\s]'), '')
-        .isNotEmpty;
-    final resolvedAddress = hasCurrentAddress
-        ? address.trim()
-        : roomAddress.isNotEmpty
-        ? roomAddress
-        : propertyAddress.isNotEmpty
-        ? propertyAddress
-        : locationAddress;
+    final resolvedAddress = VietnamAddressParser.pickBest([
+      address.trim(),
+      roomAddress,
+      propertyAddress,
+      locationAddress,
+    ]);
     final resolvedHostId = hostId.trim().isNotEmpty
         ? hostId.trim()
         : (room?.hostId.trim() ?? '').isNotEmpty
@@ -683,8 +853,48 @@ class RoomModel {
         ? propertyId.trim()
         : (room?.propertyId.trim() ?? '');
 
+    final occupied = room != null && room.isRentedOrOccupied;
     return copyWith(
       propertyId: resolvedPropertyId,
+      status: occupied
+          ? (room.status.trim().isNotEmpty ? room.status : 'occupied')
+          : status,
+      isAvailable: occupied ? false : isAvailable,
+      tenantName: occupied && room.tenantName.trim().isNotEmpty
+          ? room.tenantName
+          : tenantName,
+      tenantPhone: occupied && room.tenantPhone.trim().isNotEmpty
+          ? room.tenantPhone
+          : tenantPhone,
+      contractId: occupied && room.contractId.trim().isNotEmpty
+          ? room.contractId
+          : contractId,
+      area: (room?.area ?? 0) > 0 && area <= 0 ? room!.area : area,
+      capacity: (room?.capacity ?? 0) > 0 && capacity <= 0
+          ? room!.capacity
+          : capacity,
+      amenities: amenities.isNotEmpty
+          ? amenities
+          : (room?.amenities ?? amenities),
+      images: images.isNotEmpty
+          ? images
+          : ((room?.images.isNotEmpty == true)
+              ? room!.images
+              : (() {
+                  final propImages = propertyData?['images'] ??
+                      propertyData?['anhPhong'] ??
+                      propertyData?['propertyImages'];
+                  if (propImages is List && propImages.isNotEmpty) {
+                    return propImages
+                        .map((e) => e.toString().trim())
+                        .where((e) => e.isNotEmpty)
+                        .toList();
+                  }
+                  return images;
+                })()),
+      electricityRate: electricityRate ?? room?.electricityRate,
+      waterRate: waterRate ?? room?.waterRate,
+      serviceFee: serviceFee ?? room?.serviceFee,
       address: resolvedAddress,
       district: district.trim().isNotEmpty
           ? district.trim()
@@ -767,6 +977,9 @@ class RoomModel {
     double? electricityRate,
     double? waterRate,
     double? serviceFee,
+    double? latitude,
+    double? longitude,
+    bool? isUnposted,
   }) {
     return RoomModel(
       id: id ?? this.id,
@@ -808,6 +1021,20 @@ class RoomModel {
       electricityRate: electricityRate ?? this.electricityRate,
       waterRate: waterRate ?? this.waterRate,
       serviceFee: serviceFee ?? this.serviceFee,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      isUnposted: isUnposted ?? this.isUnposted,
     );
   }
+}
+
+double? _readPositiveDouble(dynamic raw) {
+  if (raw == null) return null;
+  if (raw is num) return raw.toDouble();
+  if (raw is String) {
+    final text = raw.trim().replaceAll(' ', '').replaceAll(',', '');
+    if (text.isEmpty) return null;
+    return double.tryParse(text);
+  }
+  return null;
 }

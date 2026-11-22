@@ -1,13 +1,17 @@
+import '../../profile/screens/role_aware_profile_screen.dart';
+import '../../profile/widgets/host_reputation_stars.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_safe_image.dart';
 import '../../../data/models/room_model.dart';
 import '../../../core/services/room_service.dart';
 import '../../../core/services/favorites_service.dart';
 import '../../auth/providers/user_provider.dart';
 import 'room_detail_screen.dart';
 import 'search_filter_screen.dart';
+import 'user_notifications_screen.dart';
 
 class RenterDashboardScreen extends ConsumerStatefulWidget {
   const RenterDashboardScreen({super.key});
@@ -51,7 +55,9 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
     final profile = ref.watch(userProfileProvider).value;
     final currencyFormatter = NumberFormat('#,###', 'vi_VN');
 
-    final roomsAsync = ref.watch(roomsStreamProvider(const RoomFilterParams()));
+    final roomsAsync = ref.watch(
+      roomsStreamProvider(const RoomFilterParams(includeUnpostedRooms: false)),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -138,20 +144,111 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      const SearchFilterScreen(initialAdvanced: true),
+                  builder: (_) => const SearchFilterScreen(),
                 ),
               );
             },
           ),
-          IconButton(
-            icon: const Badge(
-              smallSize: 8,
-              backgroundColor: AppColors.danger,
-              child: Icon(Icons.notifications_none_outlined),
+          Center(
+            child: Consumer(
+              builder: (context, ref, _) {
+                final unreadNotifs = ref.watch(userUnreadNotificationCountProvider);
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const UserNotificationsScreen(),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const Icon(
+                            Icons.notifications_none_rounded,
+                            size: 22,
+                            color: Color(0xFF1E293B),
+                          ),
+                          if (unreadNotifs > 0)
+                            Positioned(
+                              top: 7,
+                              right: 7,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFEF4444),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-            onPressed: () {},
           ),
+          const SizedBox(width: 8),
+          Center(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const RoleAwareProfileScreen(),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.all(1.5),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.35),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: CircleAvatar(
+                    radius: 17,
+                    backgroundColor: AppColors.primaryContainer,
+                    backgroundImage: (profile?.avatarUrl.startsWith('http') == true)
+                        ? NetworkImage(profile!.avatarUrl)
+                        : null,
+                    child: (profile?.avatarUrl.startsWith('http') == true)
+                        ? null
+                        : Text(
+                            (profile?.displayName.isNotEmpty ?? false)
+                                ? profile!.displayName[0].toUpperCase()
+                                : 'U',
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
         ],
       ),
       body: RefreshIndicator(
@@ -165,7 +262,7 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
             children: [
               // Greeting row
               Padding(
-                padding: const EdgeInsets.only(bottom: 12.0),
+                padding: const EdgeInsets.only(bottom: 14.0),
                 child: Text(
                   'Xin chào, ${profile?.displayName.isNotEmpty == true ? profile!.displayName : "bạn"} 👋',
                   style: const TextStyle(
@@ -212,7 +309,15 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
               ),
               roomsAsync.when(
                 data: (rawRooms) {
-                  final rooms = rawRooms.where((r) => r.isDisplayable).toList();
+                  // Hiển thị bài đã duyệt/đăng công khai; phòng đã thuê vẫn hiện với badge "Đã có người ở"
+                  final rooms = rawRooms
+                      .where((r) =>
+                          r.isDisplayable &&
+                          !r.isUnposted &&
+                          r.isApproved &&
+                          !r.isPending &&
+                          !r.isHiddenOrRejected)
+                      .toList();
                   if (rooms.isEmpty) {
                     return Container(
                       width: double.infinity,
@@ -273,26 +378,35 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
     final Color bgColor;
     final Color textColor;
     final IconData icon;
-    final String label = room.statusDisplayLabel;
+    final String label;
 
-    if (room.isPending) {
+    if (room.isUnposted) {
+      final isRented = room.isRentedOrOccupied;
+      bgColor = isRented ? const Color(0xFFFEF3F2) : const Color(0xFFFFEDD5);
+      textColor = isRented ? const Color(0xFFD92D20) : const Color(0xFFEA580C);
+      icon = isRented ? Icons.person_off_rounded : Icons.inventory_2_outlined;
+      label = isRented ? 'Chưa đăng • Đã có người' : 'Chưa đăng • Còn trống';
+    } else if (room.isPending) {
       bgColor = const Color(0xFFFEF0C7);
       textColor = const Color(0xFFB54708);
       icon = Icons.schedule_rounded;
+      label = 'Chờ duyệt';
     } else if (room.isHiddenOrRejected) {
       bgColor = const Color(0xFFFEE4E2);
       textColor = const Color(0xFFD92D20);
       icon = Icons.visibility_off_rounded;
+      label = 'Đã ẩn';
     } else {
-      final s = room.status.toLowerCase().trim();
-      if (s == 'occupied' || s == 'dathue') {
-        bgColor = const Color(0xFFF2F4F7);
-        textColor = const Color(0xFF344054);
-        icon = Icons.lock_outline_rounded;
+      if (room.isRentedOrOccupied) {
+        bgColor = const Color(0xFFFEF3F2);
+        textColor = const Color(0xFFD92D20);
+        icon = Icons.person_off_rounded;
+        label = 'Đã có người ở';
       } else {
         bgColor = const Color(0xFFECFDF3);
         textColor = const Color(0xFF027A48);
         icon = Icons.check_circle_rounded;
+        label = 'Còn trống';
       }
     }
 
@@ -360,28 +474,14 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(16),
                     ),
-                    child: room.images.isNotEmpty
-                        ? Image.network(
-                            room.images.first,
-                            width: double.infinity,
-                            height: 140,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Center(
-                                  child: Icon(
-                                    Icons.apartment,
-                                    size: 48,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                          )
-                        : const Center(
-                            child: Icon(
-                              Icons.apartment,
-                              size: 48,
-                              color: Colors.grey,
-                            ),
-                          ),
+                    child: AppSafeImage(
+                      imageUrl: room.images.isNotEmpty ? room.images.first : '',
+                      width: double.infinity,
+                      height: 140,
+                      fit: BoxFit.cover,
+                      fallbackIcon: Icons.apartment,
+                      iconSize: 48,
+                    ),
                   ),
                   if (room.isHiddenOrRejected)
                     Positioned.fill(
@@ -531,22 +631,10 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
+                          color: AppColors.textDark,
                         ),
                       ),
-                      Row(
-                        children: [
-                          const Icon(Icons.star, size: 14, color: Colors.amber),
-                          const SizedBox(width: 2),
-                          Text(
-                            '${room.rating}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
+                      HostReputationStarLabel(hostId: room.hostId),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -610,6 +698,40 @@ class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      () {
+                        final dist = room.distanceTo(10.7769, 106.7009);
+                        if (dist == null) return const SizedBox.shrink();
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF8FF),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFB2DDFF)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.near_me_rounded,
+                                size: 10,
+                                color: Color(0xFF175CD3),
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                '${dist.toStringAsFixed(1)} km',
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF175CD3),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }(),
                     ],
                   ),
                 ],

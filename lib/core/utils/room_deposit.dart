@@ -1,11 +1,11 @@
-// Chủ trọ - Tỷ lệ cọc - Luồng đi: Chỉ chọn các mức 10% đến 100%,
+// Chủ trọ - Tỷ lệ cọc - Luồng đi: Chỉ chọn các mức từ 10% đến 20%,
 // tính theo giá thuê tháng và làm tròn tới đồng khi lưu Firebase.
-const roomDepositPercentages = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+const roomDepositPercentages = [10, 15, 20];
 
 double roomDeposit(num monthlyPrice, int percentage) {
   if (!monthlyPrice.isFinite ||
       monthlyPrice < 0 ||
-      !roomDepositPercentages.contains(percentage)) {
+      percentage <= 0) {
     throw ArgumentError('Giá thuê hoặc tỷ lệ tiền cọc không hợp lệ');
   }
   return (monthlyPrice * percentage / 100).roundToDouble();

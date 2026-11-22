@@ -39,6 +39,14 @@ class CancellationReceiptScreen extends StatelessWidget {
     required this.executedAt,
   });
 
+  String _stripHostPrefixes(String codes) {
+    return codes
+        .split(',')
+        .map((c) => c.trim())
+        .map((c) => c.contains('-') ? c.split('-').last : c)
+        .join(', ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat('#,###', 'vi_VN');
@@ -152,7 +160,7 @@ class CancellationReceiptScreen extends StatelessWidget {
                       'Thời gian ghi nhận',
                       DateFormat('HH:mm - dd/MM/yyyy').format(executedAt),
                     ),
-                    _row('Mã đơn', orderCodes),
+                    _row('Mã đơn', _stripHostPrefixes(orderCodes)),
                     _row('Người nhận', recipientName),
                     _row(
                       'Tài khoản',
@@ -275,7 +283,7 @@ class CancellationReceiptScreen extends StatelessWidget {
                                   'HH:mm - dd/MM/yyyy',
                                 ).format(executedAt),
                               ),
-                              MapEntry('Mã đơn', orderCodes),
+                              MapEntry('Mã đơn', _stripHostPrefixes(orderCodes)),
                               MapEntry('Người nhận', recipientName),
                               MapEntry(
                                 'Tài khoản',

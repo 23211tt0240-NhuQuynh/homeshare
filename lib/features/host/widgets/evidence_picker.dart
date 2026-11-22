@@ -1,10 +1,10 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../providers/violation_form_provider.dart';
 
 class EvidencePicker extends StatelessWidget {
-  final List<File> files;
-  final ValueChanged<File> onFileAdded;
+  final List<ViolationEvidenceFile> files;
+  final ValueChanged<ViolationEvidenceFile> onFileAdded;
   final ValueChanged<int> onFileRemoved;
 
   const EvidencePicker({
@@ -20,12 +20,21 @@ class EvidencePicker extends StatelessWidget {
       if (isVideo) {
         final video = await picker.pickVideo(source: source);
         if (video != null) {
-          onFileAdded(File(video.path));
+          final item = await ViolationEvidenceFile.fromXFile(video, isVideo: true);
+          onFileAdded(item);
+        }
+      } else if (source == ImageSource.gallery) {
+        final images = await picker.pickMultiImage(imageQuality: 85);
+        for (final img in images) {
+          if (files.length >= 5) break;
+          final item = await ViolationEvidenceFile.fromXFile(img, isVideo: false);
+          onFileAdded(item);
         }
       } else {
         final image = await picker.pickImage(source: source, imageQuality: 85);
         if (image != null) {
-          onFileAdded(File(image.path));
+          final item = await ViolationEvidenceFile.fromXFile(image, isVideo: false);
+          onFileAdded(item);
         }
       }
     } catch (e) {
@@ -127,13 +136,10 @@ class EvidencePicker extends StatelessWidget {
     );
   }
 
-  bool _isVideoFile(File file) {
-    final ext = file.path.split('.').last.toLowerCase();
-    return ext == 'mp4' || ext == 'mov';
-  }
+  bool _isVideoFile(ViolationEvidenceFile file) => file.isVideo;
 
-  String _getFileName(File file) {
-    final name = file.path.split(Platform.pathSeparator).last;
+  String _getFileName(ViolationEvidenceFile file) {
+    final name = file.name;
     if (name.length > 14) {
       return '${name.substring(0, 10)}...';
     }
@@ -202,7 +208,56 @@ class EvidencePicker extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                // Danh sách tệp đã chọn
+                // Ô nút + Thêm ảnh (luôn đặt ở đầu tiên, ảnh mới thêm sẽ xếp sau)
+                if (files.length < 5)
+                  Container(
+                    margin: const EdgeInsets.only(right: 12),
+                    child: InkWell(
+                      onTap: () => _showMediaPickerSheet(context),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFF93C5FD),
+                            style: BorderStyle.solid,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFDBEAFE),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.add_photo_alternate_outlined,
+                                color: Color(0xFF2563EB),
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Thêm ảnh',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF2563EB),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Danh sách tệp đã chọn (xếp sau nút Thêm ảnh)
                 ...List.generate(files.length, (index) {
                   final file = files[index];
                   final isVideo = _isVideoFile(file);
@@ -222,8 +277,8 @@ class EvidencePicker extends StatelessWidget {
                       fit: StackFit.expand,
                       children: [
                         if (!isVideo)
-                          Image.file(
-                            file,
+                          Image.memory(
+                            file.bytes,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => const Center(
                               child: Icon(Icons.broken_image, color: Colors.grey),
@@ -295,51 +350,6 @@ class EvidencePicker extends StatelessWidget {
                     ),
                   );
                 }),
-                // Ô nút + Thêm tệp
-                if (files.length < 5)
-                  InkWell(
-                    onTap: () => _showMediaPickerSheet(context),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFF93C5FD),
-                          style: BorderStyle.solid,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFDBEAFE),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.add,
-                              color: Color(0xFF2563EB),
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'Thêm tệp',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF2563EB),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),

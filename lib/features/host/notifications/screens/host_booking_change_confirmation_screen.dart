@@ -48,6 +48,10 @@ class _HostBookingChangeConfirmationScreenState
       await repo.confirmBookingChange(
         bookingId: widget.notification.bookingId,
         notificationId: widget.notification.id,
+        newCheckInDate: widget.notification.newCheckInDate,
+        newRoomId: widget.notification.newRoomId,
+        newRoomTitle: widget.notification.newRoomTitle,
+        hostNotificationId: widget.notification.hostNotificationId,
       );
 
       if (mounted) {
@@ -81,6 +85,7 @@ class _HostBookingChangeConfirmationScreenState
       await repo.rejectBookingChange(
         bookingId: widget.notification.bookingId,
         notificationId: widget.notification.id,
+        hostNotificationId: widget.notification.hostNotificationId,
       );
 
       if (mounted) {
@@ -88,7 +93,7 @@ class _HostBookingChangeConfirmationScreenState
           const SnackBar(
             backgroundColor: Color(0xFFB54708),
             content: Text(
-              'Đã từ chối thay đổi. Yêu cầu hoàn cọc đã được ghi nhận.',
+              'Đã từ chối thay đổi lịch dọn vào.',
             ),
           ),
         );

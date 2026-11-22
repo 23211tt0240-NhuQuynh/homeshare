@@ -8,6 +8,7 @@ import '../widgets/violation_record_card.dart';
 import '../widgets/violation_summary_card.dart';
 import 'host_create_violation_screen.dart';
 import 'host_management_menu.dart';
+import 'host_post_management_screen.dart';
 
 class HostViolationManagementScreen extends ConsumerStatefulWidget {
   final ValueChanged<HostManagementSection>? onSectionChanged;
@@ -32,6 +33,12 @@ class _HostViolationManagementScreenState
       onSelect: (section) {
         if (widget.onSectionChanged != null) {
           widget.onSectionChanged!(section);
+        } else if (section == HostManagementSection.posts) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => const HostPostManagementScreen(),
+            ),
+          );
         } else if (section == HostManagementSection.tenants) {
           Navigator.of(context).pushReplacementNamed('/host/tenants');
         } else if (section == HostManagementSection.checkinCheckout) {
@@ -88,37 +95,6 @@ class _HostViolationManagementScreenState
     }
   }
 
-  Future<void> _handleDeductInvoice(ViolationRecordModel record) async {
-    final confirmed = await PaymentActionSheet.showDeductConfirmation(
-      context: context,
-      record: record,
-    );
-
-    if (confirmed == true && mounted) {
-      try {
-        final repo = ref.read(violationRepositoryProvider);
-        await repo.deductToInvoice(record);
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Đã cộng khoản phạt phòng ${record.roomCode} vào hóa đơn tháng sau!'),
-            backgroundColor: const Color(0xFF2563EB),
-          ),
-        );
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi khi trừ vào hóa đơn: $e'),
-            backgroundColor: const Color(0xFFDC2626),
-          ),
-        );
-      }
-    }
-  }
-
   Future<void> _handleSendReminder(ViolationRecordModel record) async {
     try {
       final repo = ref.read(violationRepositoryProvider);
@@ -134,9 +110,10 @@ class _HostViolationManagementScreenState
       );
     } catch (e) {
       if (!mounted) return;
+      final msg = e.toString().replaceFirst('Bad state: ', '').replaceFirst('Exception: ', '');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Lỗi khi gửi nhắc nộp tiền: $e'),
+          content: Text(msg),
           backgroundColor: const Color(0xFFDC2626),
         ),
       );
@@ -353,11 +330,6 @@ class _HostViolationManagementScreenState
                               'Đã nộp (${stats.paidCount})',
                               'PAID',
                               statusFilter),
-                          const SizedBox(width: 8),
-                          _buildFilterChip(
-                              'Đã trừ tiền thuê',
-                              'ADDED_TO_INVOICE',
-                              statusFilter),
                         ],
                       ),
                     ),
@@ -385,8 +357,6 @@ class _HostViolationManagementScreenState
                           child: ViolationRecordCard(
                             record: record,
                             onCollectCash: () => _handleCollectCash(record),
-                            onDeductInvoice: () =>
-                                _handleDeductInvoice(record),
                             onSendReminder: () =>
                                 _handleSendReminder(record),
                           ),

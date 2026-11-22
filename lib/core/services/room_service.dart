@@ -3,7 +3,51 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/firestore_collections.dart';
+import '../utils/vietnam_address_parser.dart';
 import '../../data/models/room_model.dart';
+
+class HostInfo {
+  final String id;
+  final String name;
+  final String phone;
+  final String avatar;
+  final int roomCount;
+
+  const HostInfo({
+    required this.id,
+    required this.name,
+    this.phone = '',
+    this.avatar = '',
+    this.roomCount = 0,
+  });
+
+  HostInfo copyWith({
+    String? id,
+    String? name,
+    String? phone,
+    String? avatar,
+    int? roomCount,
+  }) {
+    return HostInfo(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      avatar: avatar ?? this.avatar,
+      roomCount: roomCount ?? this.roomCount,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HostInfo &&
+          id == other.id &&
+          name == other.name &&
+          phone == other.phone;
+
+  @override
+  int get hashCode => Object.hash(id, name, phone);
+}
 
 class RoomFilterParams {
   final String city;
@@ -16,7 +60,13 @@ class RoomFilterParams {
   final List<String> amenities;
   final String roomType;
   final String searchQuery;
-  final String sortBy; // 'newest', 'price_asc', 'price_desc', 'rating'
+  final String sortBy; // 'newest', 'price_asc', 'price_desc', 'rating', 'distance'
+  final String hostQuery; // Tên, SĐT hoặc Host ID chủ trọ
+  final String? hostId; // ID định danh chính xác của chủ trọ được chọn
+  final double? userLat;
+  final double? userLng;
+  final double? maxDistanceKm; // Bán kính km tối đa
+  final bool includeUnpostedRooms; // Hiển thị cả phòng chưa đăng bài
 
   const RoomFilterParams({
     this.city = 'Tất cả',
@@ -30,6 +80,12 @@ class RoomFilterParams {
     this.roomType = 'Tất cả',
     this.searchQuery = '',
     this.sortBy = 'newest',
+    this.hostQuery = '',
+    this.hostId,
+    this.userLat,
+    this.userLng,
+    this.maxDistanceKm,
+    this.includeUnpostedRooms = true,
   });
 
   @override
@@ -46,7 +102,13 @@ class RoomFilterParams {
           listEquals(amenities, other.amenities) &&
           roomType == other.roomType &&
           searchQuery == other.searchQuery &&
-          sortBy == other.sortBy;
+          sortBy == other.sortBy &&
+          hostQuery == other.hostQuery &&
+          hostId == other.hostId &&
+          userLat == other.userLat &&
+          userLng == other.userLng &&
+          maxDistanceKm == other.maxDistanceKm &&
+          includeUnpostedRooms == other.includeUnpostedRooms;
 
   @override
   int get hashCode => Object.hash(
@@ -61,28 +123,86 @@ class RoomFilterParams {
     roomType,
     searchQuery,
     sortBy,
+    hostQuery,
+    hostId,
+    userLat,
+    userLng,
+    maxDistanceKm,
+    includeUnpostedRooms,
   );
 }
 
 class RoomService {
   FirebaseFirestore get _firestore => FirebaseFirestore.instance;
 
-  /// `posts` là nguồn dữ liệu công khai duy nhất của Dashboard người thuê.
-  ///
-  /// `rooms` chỉ là bản sao thông tin phòng để quản lý/đặt phòng. Nếu tiếp tục
-  /// ghép bản sao đó vào feed, một bài đã xóa khỏi `posts` có thể xuất hiện lại
-  /// vì document `rooms` cũ vẫn còn trạng thái active/available.
+  /// `posts` là nguồn dữ liệu công khai tiêu chuẩn của Dashboard người thuê.
+  /// Bài đăng đang chờ duyệt (isPending) tuyệt đối không được hiển thị dưới dạng bài đăng.
+  /// Khi [includeUnpostedRooms] = true, hỗ trợ tìm kiếm và hiển thị thêm các
+  /// phòng trống từ kho phòng của chủ trọ (`host_rooms`/`rooms`) chưa tạo bài đăng công khai,
+  /// hoặc các phòng có bài đăng nhưng bài đăng đang chờ duyệt (hiển thị dưới dạng thông tin phòng).
   @visibleForTesting
   static List<RoomModel> mergeDashboardListings({
     required Iterable<RoomModel> roomMirrors,
     required Iterable<RoomModel> posts,
+    bool includeUnpostedRooms = true,
   }) {
-    // Cố ý không đưa roomMirrors vào kết quả. Tham số này giúp kiểm thử và ghi
-    // rõ ranh giới giữa dữ liệu quản lý phòng với dữ liệu bài đăng công khai.
     final listingsById = <String, RoomModel>{};
+
+    // 1. Chỉ đưa các bài đăng ĐÃ ĐƯỢC DUYỆT (isApproved && !isPending) vào làm bài đăng công khai
+    // Bài đăng chờ duyệt TUYỆT ĐỐI KHÔNG ĐƯỢC HIỂN THỊ dưới dạng bài đăng!
     for (final post in posts) {
-      if (post.isDisplayable) listingsById[post.id] = post;
+      if (post.isDisplayable && post.isApproved && !post.isPending) {
+        listingsById[post.id] = post.copyWith(isUnposted: false);
+      }
     }
+
+    if (includeUnpostedRooms) {
+      // Tập hợp các ID phòng / mã phòng đã có bài đăng công khai được duyệt
+      final approvedPostedRoomIds = <String>{};
+      for (final post in listingsById.values) {
+        if (post.id.isNotEmpty) approvedPostedRoomIds.add(post.id);
+        if (post.phongId.isNotEmpty) approvedPostedRoomIds.add(post.phongId);
+        if (post.roomCode.isNotEmpty) approvedPostedRoomIds.add(post.roomCode);
+      }
+
+      // 2. Với các phòng từ kho (roomMirrors):
+      // Nếu phòng chưa có bài đăng đã duyệt (không có bài HOẶC bài đang chờ duyệt):
+      // -> Đưa vào danh sách dưới dạng THÔNG TIN PHÒNG TRỌ (isUnposted = true)!
+      for (final mirror in roomMirrors) {
+        if (mirror.isDeleted) continue;
+        final hasApprovedPost = approvedPostedRoomIds.contains(mirror.id) ||
+            approvedPostedRoomIds.contains(mirror.phongId) ||
+            (mirror.roomCode.isNotEmpty && approvedPostedRoomIds.contains(mirror.roomCode));
+        if (!hasApprovedPost) {
+          listingsById[mirror.id] = mirror.copyWith(
+            isUnposted: true,
+            title: mirror.roomCode.isNotEmpty
+                ? 'Phòng ${mirror.roomCode}'
+                : (mirror.maPhong.isNotEmpty ? 'Phòng ${mirror.maPhong}' : mirror.title),
+          );
+        }
+      }
+
+      // 3. Nếu có bài đăng trong posts đang chờ duyệt (isPending):
+      // Bài đăng chưa duyệt không được hiển thị bài, nhưng phòng của nó vẫn được hiển thị thông tin phòng!
+      for (final post in posts) {
+        if (post.isDisplayable && post.isPending) {
+          final roomId = post.phongId.isNotEmpty ? post.phongId : post.id;
+          final alreadyIncluded = listingsById.containsKey(post.id) ||
+              listingsById.containsKey(roomId) ||
+              (post.roomCode.isNotEmpty && approvedPostedRoomIds.contains(post.roomCode));
+          if (!alreadyIncluded) {
+            listingsById[post.id] = post.copyWith(
+              isUnposted: true,
+              title: post.roomCode.isNotEmpty
+                  ? 'Phòng ${post.roomCode}'
+                  : (post.maPhong.isNotEmpty ? 'Phòng ${post.maPhong}' : 'Phòng trọ'),
+            );
+          }
+        }
+      }
+    }
+
     return listingsById.values.toList();
   }
 
@@ -113,40 +233,157 @@ class RoomService {
     return null;
   }
 
+  /// Gắn trạng thái đã thuê từ phòng gốc lên bài đăng (tránh badge "Còn trống" sai).
+  RoomModel _mergeRoomOccupancy(RoomModel listing, RoomModel? room) {
+    if (room == null || !room.isRentedOrOccupied) return listing;
+    return listing.copyWith(
+      status: room.status.trim().isNotEmpty ? room.status : 'occupied',
+      isAvailable: false,
+      tenantName: room.tenantName.trim().isNotEmpty
+          ? room.tenantName
+          : listing.tenantName,
+      tenantPhone: room.tenantPhone.trim().isNotEmpty
+          ? room.tenantPhone
+          : listing.tenantPhone,
+      contractId: room.contractId.trim().isNotEmpty
+          ? room.contractId
+          : listing.contractId,
+    );
+  }
+
+  Future<List<String>> _fetchImagesForRoom(String roomId) async {
+    if (roomId.trim().isEmpty) return const [];
+    try {
+      final results = <String>[];
+      final targetIds = <String>{
+        roomId,
+        if (roomId.contains('_') && roomId.lastIndexOf('_') > 0)
+          roomId.substring(0, roomId.lastIndexOf('_')),
+      };
+
+      for (final col in [
+        FirestoreCollections.roomImages,
+        FirestoreCollections.hinhAnhPhong,
+        'roomImages',
+        'AnhPhong',
+        'anhPhong',
+        'hinh_anh_phong',
+      ]) {
+        for (final field in const ['roomId', 'phongId', 'phong_tro_id']) {
+          for (final tid in targetIds) {
+            final snap = await _firestore
+                .collection(col)
+                .where(field, isEqualTo: tid)
+                .limit(10)
+                .get();
+            for (final doc in snap.docs) {
+              final data = doc.data();
+              final url = (data['url'] ??
+                      data['url_anh'] ??
+                      data['duongDan'] ??
+                      data['image'] ??
+                      data['imageUrl'] ??
+                      '')
+                  .toString()
+                  .trim();
+              if (url.isNotEmpty && !results.contains(url)) {
+                results.add(url);
+              }
+            }
+            if (results.isNotEmpty) return results;
+          }
+        }
+      }
+      return results;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<List<String>> _fetchImagesForProperty(String propertyId) async {
+    if (propertyId.trim().isEmpty) return const [];
+    try {
+      final results = <String>[];
+      for (final col in [
+        FirestoreCollections.propertyImages,
+        'property_images',
+        'hinh_anh_nha_tro',
+        'anhNhaTro',
+      ]) {
+        for (final field in const ['propertyId', 'nhaTroId', 'maNhaTro', 'batDongSanId']) {
+          final snap = await _firestore
+              .collection(col)
+              .where(field, isEqualTo: propertyId)
+              .limit(10)
+              .get();
+          for (final doc in snap.docs) {
+            final data = doc.data();
+            final url = (data['url'] ??
+                    data['url_anh'] ??
+                    data['duongDan'] ??
+                    data['image'] ??
+                    data['imageUrl'] ??
+                    '')
+                .toString()
+                .trim();
+            if (url.isNotEmpty && !results.contains(url)) {
+              results.add(url);
+            }
+          }
+          if (results.isNotEmpty) return results;
+        }
+      }
+      return results;
+    } catch (_) {
+      return const [];
+    }
+  }
+
   Future<RoomModel?> _readReferencedRoom(String roomId) async {
     if (roomId.trim().isEmpty) return null;
     final collections = <String>{
       FirestoreCollections.hostRooms,
-      FirestoreCollections.rooms,
       FirestoreCollections.phongTro,
     };
 
+    RoomModel? room;
     final directData = await _readDocument(collections, roomId);
-    if (directData != null) return RoomModel.fromMap(directData, roomId);
-
-    for (final collection in collections) {
-      for (final field in const [
-        'roomId',
-        'room_id',
-        'phongId',
-        'phong_tro_id',
-      ]) {
-        try {
-          final result = await _firestore
-              .collection(collection)
-              .where(field, isEqualTo: roomId)
-              .limit(1)
-              .get();
-          if (result.docs.isNotEmpty) {
-            final doc = result.docs.first;
-            return RoomModel.fromMap(doc.data(), doc.id);
+    if (directData != null) {
+      room = RoomModel.fromMap(directData, roomId);
+    } else {
+      for (final collection in collections) {
+        for (final field in const [
+          'roomId',
+          'room_id',
+          'phongId',
+          'phong_tro_id',
+        ]) {
+          try {
+            final result = await _firestore
+                .collection(collection)
+                .where(field, isEqualTo: roomId)
+                .limit(1)
+                .get();
+            if (result.docs.isNotEmpty) {
+              final doc = result.docs.first;
+              room = RoomModel.fromMap(doc.data(), doc.id);
+              break;
+            }
+          } catch (error) {
+            debugPrint('Không thể tìm phòng $roomId theo $field: $error');
           }
-        } catch (error) {
-          debugPrint('Không thể tìm phòng $roomId theo $field: $error');
         }
+        if (room != null) break;
       }
     }
-    return null;
+
+    if (room != null && room.images.isEmpty) {
+      final fallbackImages = await _fetchImagesForRoom(roomId);
+      if (fallbackImages.isNotEmpty) {
+        room = room.copyWith(images: fallbackImages);
+      }
+    }
+    return room;
   }
 
   Future<RoomModel> _enrichPostDocument(
@@ -183,6 +420,7 @@ class RoomService {
           FirestoreCollections.nguoiDung,
         ], hostId),
         _readDocument(const [
+          FirestoreCollections.hostProperties,
           FirestoreCollections.properties,
           FirestoreCollections.batDongSan,
         ], propertyId),
@@ -208,8 +446,21 @@ class RoomService {
         }
       }
 
+      var enrichedRoom = room;
+      if (post.images.isEmpty && (enrichedRoom == null || enrichedRoom.images.isEmpty)) {
+        final roomImgs = await _fetchImagesForRoom(roomId.isNotEmpty ? roomId : post.id);
+        if (roomImgs.isNotEmpty) {
+          enrichedRoom = (enrichedRoom ?? post).copyWith(images: roomImgs);
+        } else if (propertyId.isNotEmpty) {
+          final propImgs = await _fetchImagesForProperty(propertyId);
+          if (propImgs.isNotEmpty) {
+            enrichedRoom = (enrichedRoom ?? post).copyWith(images: propImgs);
+          }
+        }
+      }
+
       return post.enrichWithRelatedData(
-        room: room,
+        room: enrichedRoom,
         propertyData: propertyData,
         hostData: hostData,
         locationData: locationData,
@@ -246,12 +497,29 @@ class RoomService {
       final referencedRoom = await _readReferencedRoom(roomId);
       if (referencedRoom?.isDeleted == true) return null;
 
-      final addressText = listing.address
+      // Đồng bộ occupancy từ phòng thật — post active không đồng nghĩa còn trống.
+      final occupancyAware = _mergeRoomOccupancy(listing, referencedRoom);
+      if (referencedRoom != null &&
+          referencedRoom.isRentedOrOccupied &&
+          listing.isAvailable) {
+        // Heal dữ liệu cũ: phòng đã ở mà post vẫn isAvailable=true.
+        unawaited(
+          document.reference.set({
+            'isAvailable': false,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true)),
+        );
+      }
+
+      final addressText = occupancyAware.address
           .replaceAll(RegExp(r'[,\s]'), '')
           .trim();
-      final normalizedHost = listing.hostName.trim().toLowerCase();
+      final normalizedHost = occupancyAware.hostName.trim().toLowerCase();
       final needsRelatedData =
+          occupancyAware.images.isEmpty ||
+          occupancyAware.amenities.isEmpty ||
           addressText.isEmpty ||
+          VietnamAddressParser.isCityOrProvinceOnly(occupancyAware.address) ||
           normalizedHost.isEmpty ||
           normalizedHost == 'chủ nhà' ||
           normalizedHost == 'chủ trọ';
@@ -260,10 +528,11 @@ class RoomService {
           document,
           referencedRoom: referencedRoom,
         );
-        if (!enriched.isDisplayable) return null;
-        return enriched;
+        final merged = _mergeRoomOccupancy(enriched, referencedRoom);
+        if (!merged.isDisplayable) return null;
+        return merged;
       }
-      return listing;
+      return occupancyAware;
     } catch (error, stackTrace) {
       debugPrint('Không thể đọc phòng/bài đăng ${document.id}: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -272,15 +541,34 @@ class RoomService {
   }
 
   /// Theo dõi trực tiếp một bài đăng trong collection `posts`.
-  ///
-  /// Màn chi tiết dùng stream này để luôn phản ánh dữ liệu mới nhất trên
-  /// Firestore thay vì tiếp tục hiển thị snapshot được truyền từ danh sách.
+  /// Nếu không tìm thấy bài đăng (phòng trong kho hoặc chưa có bài đăng),
+  /// tự động fallback sang theo dõi thông tin phòng trong collection `host_rooms`.
   Stream<RoomModel?> watchPostById(String postOrRoomId) {
     if (postOrRoomId.trim().isEmpty) return Stream.value(null);
 
     late StreamController<RoomModel?> controller;
     StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? directSub;
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? roomIdSub;
+    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? hostRoomSub;
+
+    void startHostRoomFallback() {
+      if (hostRoomSub != null) return;
+      hostRoomSub = _firestore
+          .collection(FirestoreCollections.hostRooms)
+          .doc(postOrRoomId)
+          .snapshots()
+          .listen((doc) {
+            if (controller.isClosed) return;
+            if (doc.exists && doc.data() != null) {
+              final room = RoomModel.fromFirestore(doc).copyWith(isUnposted: true);
+              controller.add(room);
+            } else {
+              controller.add(null);
+            }
+          }, onError: (err) {
+            if (!controller.isClosed) controller.add(null);
+          });
+    }
 
     void startRoomIdFallback() {
       if (roomIdSub != null) return;
@@ -292,12 +580,20 @@ class RoomService {
           .listen((snapshot) async {
             if (controller.isClosed) return;
             if (snapshot.docs.isEmpty) {
-              controller.add(null);
+              startHostRoomFallback();
               return;
             }
             final post = await _readListingDocument(snapshot.docs.first);
-            if (!controller.isClosed) controller.add(post);
-          }, onError: controller.addError);
+            if (!controller.isClosed) {
+              if (post != null) {
+                controller.add(post);
+              } else {
+                startHostRoomFallback();
+              }
+            }
+          }, onError: (err) {
+            startHostRoomFallback();
+          });
     }
 
     controller = StreamController<RoomModel?>(
@@ -310,6 +606,8 @@ class RoomService {
               if (doc.exists) {
                 await roomIdSub?.cancel();
                 roomIdSub = null;
+                await hostRoomSub?.cancel();
+                hostRoomSub = null;
                 if (!controller.isClosed) {
                   final post = await _readListingDocument(doc);
                   if (!controller.isClosed) controller.add(post);
@@ -322,6 +620,7 @@ class RoomService {
       onCancel: () async {
         await directSub?.cancel();
         await roomIdSub?.cancel();
+        await hostRoomSub?.cancel();
       },
     );
     return controller.stream;
@@ -341,13 +640,21 @@ class RoomService {
     String? roomType,
     String? searchQuery,
     String? sortBy,
+    String? hostQuery,
+    String? hostId,
+    double? userLat,
+    double? userLng,
+    double? maxDistanceKm,
+    bool includeUnpostedRooms = true,
   }) {
     late StreamController<List<RoomModel>> controller;
     StreamSubscription? postsSub;
+    StreamSubscription? hostRoomsSub;
     List<RoomModel> latestPosts = [];
+    List<RoomModel> latestRoomMirrors = [];
 
     List<RoomModel> filterAndSort(List<RoomModel> rawList) {
-      // Chỉ giữ lại những bài đang hiển thị hợp lệ (đã duyệt, còn mở, không bị ẩn/gỡ, không phải bài mẫu hardcode)
+      // Giữ lại tất cả các phòng hiển thị hợp lệ (cả phòng còn trống lẫn đã có người ở)
       var list = rawList.where((r) => r.isDisplayable).toList();
 
       // 1. Lọc theo Thành phố
@@ -448,7 +755,41 @@ class RoomService {
             .toList();
       }
 
-      // 8. Sắp xếp kết quả
+      // 8. Lọc theo thông tin chủ trọ (Host ID chính xác, Tên, hoặc SĐT)
+      if ((hostId != null && hostId.isNotEmpty) ||
+          (hostQuery != null && hostQuery.trim().isNotEmpty)) {
+        final targetHostId = hostId?.toLowerCase().trim() ?? '';
+        final hq = hostQuery?.toLowerCase().trim() ?? '';
+        final cleanHq = hq.replaceAll(RegExp(r'\s+'), '');
+        list = list.where((r) {
+          final rHostId = r.hostId.toLowerCase().trim();
+          final rHostName = r.hostName.toLowerCase().trim();
+          final rHostPhone = r.hostPhone.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+
+          // Nếu có chọn hostId cụ thể, ưu tiên khớp chính xác hostId
+          if (targetHostId.isNotEmpty && rHostId == targetHostId) {
+            return true;
+          }
+          if (hq.isNotEmpty) {
+            return rHostName.contains(hq) ||
+                (cleanHq.isNotEmpty && rHostPhone.contains(cleanHq)) ||
+                (targetHostId.isNotEmpty && rHostId.contains(targetHostId)) ||
+                rHostId.contains(hq);
+          }
+          return false;
+        }).toList();
+      }
+
+      // 9. Lọc theo khoảng cách tối đa (so với vị trí người dùng)
+      if (userLat != null && userLng != null && maxDistanceKm != null && maxDistanceKm > 0) {
+        list = list.where((r) {
+          final dist = r.distanceTo(userLat, userLng);
+          if (dist == null) return false;
+          return dist <= maxDistanceKm;
+        }).toList();
+      }
+
+      // 10. Sắp xếp kết quả
       switch (sortBy) {
         case 'price_asc':
           list.sort((a, b) => a.price.compareTo(b.price));
@@ -458,6 +799,15 @@ class RoomService {
           break;
         case 'rating':
           list.sort((a, b) => b.rating.compareTo(a.rating));
+          break;
+        case 'distance':
+          if (userLat != null && userLng != null) {
+            list.sort((a, b) {
+              final distA = a.distanceTo(userLat, userLng) ?? double.infinity;
+              final distB = b.distanceTo(userLat, userLng) ?? double.infinity;
+              return distA.compareTo(distB);
+            });
+          }
           break;
         case 'newest':
         default:
@@ -471,8 +821,9 @@ class RoomService {
     void emitMerged() {
       if (controller.isClosed) return;
       final publicListings = mergeDashboardListings(
-        roomMirrors: const <RoomModel>[],
+        roomMirrors: latestRoomMirrors,
         posts: latestPosts,
+        includeUnpostedRooms: includeUnpostedRooms,
       );
       final merged = filterAndSort(publicListings);
       controller.add(merged);
@@ -497,9 +848,31 @@ class RoomService {
                 emitMerged();
               },
             );
+
+        if (includeUnpostedRooms) {
+          hostRoomsSub = _firestore
+              .collection(FirestoreCollections.hostRooms)
+              .snapshots()
+              .listen(
+                (snapshot) {
+                  if (controller.isClosed) return;
+                  latestRoomMirrors = snapshot.docs
+                      .where((d) => !d.id.toLowerCase().startsWith('sample'))
+                      .map((d) => RoomModel.fromFirestore(d))
+                      .where((r) => r.isAvailable && !r.isDeleted)
+                      .toList();
+                  emitMerged();
+                },
+                onError: (err) {
+                  debugPrint('Firestore hostRooms stream error: $err');
+                  emitMerged();
+                },
+              );
+        }
       },
       onCancel: () async {
         await postsSub?.cancel();
+        await hostRoomsSub?.cancel();
       },
     );
 
@@ -508,25 +881,667 @@ class RoomService {
 
   // Lấy chi tiết 1 phòng
   Future<RoomModel?> getRoomById(String id) async {
-    final cleanId = id.trim();
-    if (cleanId.isEmpty || cleanId.toLowerCase().startsWith('sample')) {
-      return null;
+    final room = await getRoomRecordById(id);
+    if (room == null || !room.isDisplayable) return null;
+    return room;
+  }
+
+  /// Đọc phòng đang thuê kể cả khi đã occupied, không lọc bài đang hiển thị.
+  Future<RoomModel?> getRoomRecordById(String id) {
+    return resolveRentedRoom(roomId: id);
+  }
+
+  /// Ghép bài đăng `posts` với kho phòng `host_rooms`.
+  Future<RoomModel?> resolveRentedRoom({
+    String roomId = '',
+    String hostId = '',
+    String roomCode = '',
+    String title = '',
+    double price = 0,
+  }) async {
+    final candidateIds = <String>{
+      if (roomId.trim().isNotEmpty &&
+          !roomId.trim().toLowerCase().startsWith('sample'))
+        roomId.trim(),
+    };
+    final maps = <Map<String, dynamic>>[];
+    final seenDocs = <String>{};
+
+    Future<void> absorbMap(Map<String, dynamic>? data, String sourceId) async {
+      if (data == null || data.isEmpty) return;
+      final key = '$sourceId/${data['id'] ?? ''}';
+      if (!seenDocs.add(key)) return;
+      maps.add({...data, '_source': sourceId});
+      for (final linked in [
+        _readReference(data, const [
+          'roomId',
+          'room_id',
+          'phongId',
+          'phong_tro_id',
+        ]),
+        _readReference(data, const ['id']),
+        _readReference(data, const ['roomCode', 'maPhong']),
+      ]) {
+        if (linked.isNotEmpty &&
+            !linked.toLowerCase().startsWith('sample')) {
+          candidateIds.add(linked);
+        }
+      }
     }
+
+    Future<void> absorbDoc(String collection, String id) async {
+      if (id.isEmpty) return;
+      final cacheKey = '$collection/$id';
+      if (!seenDocs.add('try:$cacheKey')) return;
+      final data = await _readDocument([collection], id);
+      await absorbMap(data, collection);
+    }
+
+    Future<void> absorbQuery(
+      String collection,
+      String field,
+      String value,
+    ) async {
+      if (value.trim().isEmpty) return;
+      try {
+        final snap = await _firestore
+            .collection(collection)
+            .where(field, isEqualTo: value.trim())
+            .limit(10)
+            .get();
+        for (final doc in snap.docs) {
+          await absorbMap({...doc.data(), 'id': doc.id}, collection);
+        }
+      } catch (error) {
+        debugPrint('Không thể truy vấn $collection.$field=$value: $error');
+      }
+    }
+
+    final triedIds = <String>{};
+    while (true) {
+      final pending = candidateIds.where((id) => triedIds.add(id)).toList();
+      if (pending.isEmpty) break;
+      for (final id in pending) {
+        await absorbDoc(FirestoreCollections.posts, id);
+        await absorbDoc(FirestoreCollections.hostRooms, id);
+        await absorbDoc(FirestoreCollections.phongTro, id);
+        for (final field in const [
+          'roomId',
+          'room_id',
+          'phongId',
+          'phong_tro_id',
+        ]) {
+          await absorbQuery(FirestoreCollections.posts, field, id);
+        }
+      }
+    }
+    if (roomCode.trim().isNotEmpty) {
+      await absorbQuery(FirestoreCollections.posts, 'roomCode', roomCode);
+      await absorbQuery(FirestoreCollections.hostRooms, 'roomCode', roomCode);
+    }
+    if (hostId.trim().isNotEmpty) {
+      await absorbQuery(FirestoreCollections.posts, 'hostId', hostId);
+      await absorbQuery(FirestoreCollections.posts, 'chuNhaId', hostId);
+    }
+
+    if (maps.isEmpty) return null;
+
+    int score(Map<String, dynamic> data) {
+      var value = 0;
+      final dataPrice = _readNumber(data, const [
+            'price',
+            'giaThue',
+            'rentalPrice',
+            'gia',
+          ]) ??
+          0;
+      final dataCode = _readReference(data, const ['roomCode', 'maPhong']);
+      final dataTitle = _readReference(data, const ['title', 'tieuDe']);
+      if ((_readArea(data) ?? 0) > 0) value += 30;
+      if ((_readElectricity(data) ?? 0) > 0) value += 20;
+      if ((_readWater(data) ?? 0) > 0) value += 10;
+      if ((_readServiceFee(data) ?? 0) > 0) value += 10;
+      if (_readAmenityList(data).isNotEmpty) value += 15;
+      if (price > 0 && dataPrice > 0 && (dataPrice - price).abs() < 1) {
+        value += 40;
+      }
+      if (roomCode.trim().isNotEmpty &&
+          dataCode.toLowerCase() == roomCode.trim().toLowerCase()) {
+        value += 35;
+      }
+      if (title.trim().isNotEmpty &&
+          dataTitle.isNotEmpty &&
+          (dataTitle.toLowerCase().contains(title.trim().toLowerCase()) ||
+              title.trim().toLowerCase().contains(dataTitle.toLowerCase()))) {
+        value += 15;
+      }
+      return value;
+    }
+
+    Map<String, dynamic>? bestOf(Iterable<Map<String, dynamic>> items) {
+      Map<String, dynamic>? best;
+      var bestScore = -1;
+      for (final item in items) {
+        final value = score(item);
+        if (best == null || value >= bestScore) {
+          best = item;
+          bestScore = value;
+        }
+      }
+      return best;
+    }
+
+    final bestPost = bestOf(
+      maps.where(
+        (item) =>
+            item['_source'] == FirestoreCollections.posts ||
+            item['_source'] == FirestoreCollections.baiDangChoThue,
+      ),
+    );
+    final bestRoom = bestOf(
+      maps.where(
+        (item) =>
+            item['_source'] == FirestoreCollections.hostRooms ||
+            item['_source'] == FirestoreCollections.phongTro,
+      ),
+    );
+    final merged = <String, dynamic>{};
+    void absorb(Map<String, dynamic>? data) {
+      if (data == null) return;
+      data.forEach((key, value) {
+        if (key == '_source') return;
+        if (value == null) return;
+        if (value is String && value.trim().isEmpty) return;
+        if (value is List && value.isEmpty) return;
+        if (value is num && value == 0 && merged[key] != null) return;
+        merged[key] = value;
+      });
+    }
+
+    absorb(bestPost);
+    absorb(bestRoom);
+    if (maps.isEmpty && merged.isEmpty) return null;
+
+    final bestId = _firstNonEmpty([
+      _readReference(bestRoom ?? const {}, const ['id', 'roomId', 'phongId']),
+      _readReference(bestPost ?? const {}, const ['roomId', 'phongId']),
+      _readReference(merged, const ['roomId', 'phongId', 'id']),
+      roomId,
+    ]);
+    if (bestId.isEmpty) return null;
+    var room = RoomModel.fromMap(merged, bestId);
+    if (room.isSampleOrHardcode) return null;
+    return _withHostListingDetails(room);
+  }
+
+  Future<RoomModel> _withHostListingDetails(RoomModel room) async {
     try {
-      final doc = await _firestore.collection('rooms').doc(cleanId).get();
-      if (doc.exists) {
-        final room = RoomModel.fromFirestore(doc);
-        if (room.isDisplayable) return room;
+      final postData = await _readHostPostData(room);
+      final linkedRoomId = _firstNonEmpty([
+        _readReference(postData ?? const {}, const [
+          'roomId',
+          'room_id',
+          'phongId',
+          'phong_tro_id',
+        ]),
+        room.id,
+      ]);
+      final hostRoomData = await _readDocument(const [
+        FirestoreCollections.hostRooms,
+        FirestoreCollections.phongTro,
+      ], linkedRoomId);
+      final publicRoomData = linkedRoomId == room.id
+          ? null
+          : await _readDocument(const [
+              FirestoreCollections.hostRooms,
+            ], room.id);
+
+      final propertyId = _firstNonEmpty([
+        room.propertyId,
+        _readReference(postData ?? const {}, const [
+          'propertyId',
+          'property_id',
+          'nhaTroId',
+          'maNhaTro',
+        ]),
+        _readReference(hostRoomData ?? const {}, const [
+          'propertyId',
+          'property_id',
+          'nhaTroId',
+        ]),
+      ]);
+      final hostId = _firstNonEmpty([
+        room.hostId,
+        _readReference(postData ?? const {}, const ['hostId', 'chuNhaId']),
+        _readReference(hostRoomData ?? const {}, const ['hostId', 'chuNhaId']),
+      ]);
+      var propertyData = await _readDocument(const [
+        FirestoreCollections.properties,
+        FirestoreCollections.batDongSan,
+      ], propertyId);
+      if (propertyData == null && hostId.isNotEmpty && propertyId.isNotEmpty) {
+        try {
+          final nested = await _firestore
+              .collection(FirestoreCollections.users)
+              .doc(hostId)
+              .collection(FirestoreCollections.properties)
+              .doc(propertyId)
+              .get();
+          if (nested.exists && nested.data() != null) {
+            propertyData = {...nested.data()!, 'id': nested.id};
+          }
+        } catch (error) {
+          debugPrint('Không thể đọc nhà trọ $propertyId của $hostId: $error');
+        }
       }
-      final postDoc = await _firestore.collection('posts').doc(cleanId).get();
-      if (postDoc.exists) {
-        final post = RoomModel.fromFirestore(postDoc);
-        if (post.isDisplayable) return post;
+
+      final sources = <Map<String, dynamic>?>[
+        postData,
+        hostRoomData,
+        publicRoomData,
+        propertyData,
+      ];
+      final area = _firstPositive(sources.map(_readArea));
+      final electricity = _firstPositive(sources.map(_readElectricity));
+      final water = _firstPositive(sources.map(_readWater));
+      final service = _firstPositive(sources.map(_readServiceFee));
+      final capacity = _firstPositive(sources.map(_readCapacity))?.toInt();
+      final amenities = _uniqueNames([
+        ..._readAmenityList(postData),
+        ..._readAmenityList(hostRoomData),
+        ..._readAmenityList(publicRoomData),
+        ...await _loadAmenityNames(linkedRoomId),
+        ...await _loadAmenityNames(room.id),
+        ...room.amenities,
+      ]);
+
+      final bestAddress = VietnamAddressParser.pickBest([
+        _joinStoredAddress(postData),
+        _joinStoredAddress(propertyData),
+        _joinStoredAddress(hostRoomData),
+        VietnamAddressParser.composeParts(
+          street: room.address,
+          district: room.district,
+          city: room.city,
+        ),
+      ]);
+      final district = _firstNonEmpty([
+        _readReference(postData ?? const {}, const ['district', 'quanHuyen']),
+        _readReference(hostRoomData ?? const {}, const ['district', 'quanHuyen']),
+        _readReference(propertyData ?? const {}, const ['district', 'quanHuyen']),
+        room.district,
+      ]);
+      final city = _firstNonEmpty([
+        _readReference(postData ?? const {}, const ['city', 'thanhPho', 'province']),
+        _readReference(hostRoomData ?? const {}, const ['city', 'thanhPho']),
+        _readReference(propertyData ?? const {}, const ['city', 'thanhPho', 'tinh_thanh']),
+        room.city,
+      ]);
+
+      return room.copyWith(
+        address: bestAddress.isNotEmpty ? bestAddress : room.address,
+        district: district.isNotEmpty ? district : room.district,
+        city: city.isNotEmpty ? city : room.city,
+        area: area ?? (room.area > 0 ? room.area : 0),
+        capacity: capacity ?? room.capacity,
+        amenities: amenities.isNotEmpty ? amenities : room.amenities,
+        electricityRate: electricity ?? room.electricityRate,
+        waterRate: water ?? room.waterRate,
+        serviceFee: service ?? room.serviceFee,
+      );
+    } catch (error) {
+      debugPrint('Không thể ghép dữ liệu bài đăng chủ nhà ${room.id}: $error');
+      return room;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _readHostPostData(RoomModel room) async {
+    final direct = await _readDocument(const [
+      FirestoreCollections.posts,
+      FirestoreCollections.baiDangChoThue,
+    ], room.id);
+    if (direct != null) return direct;
+
+    for (final field in const ['roomId', 'room_id', 'phongId', 'phong_tro_id']) {
+      try {
+        final result = await _firestore
+            .collection(FirestoreCollections.posts)
+            .where(field, isEqualTo: room.id)
+            .limit(1)
+            .get();
+        if (result.docs.isNotEmpty) {
+          final doc = result.docs.first;
+          return {...doc.data(), 'id': doc.id};
+        }
+      } catch (error) {
+        debugPrint('Không thể tìm bài đăng chủ nhà theo $field=${room.id}: $error');
       }
-    } catch (e) {
-      debugPrint('Error getting room from firestore $id: $e');
     }
     return null;
+  }
+
+  String _joinStoredAddress(Map<String, dynamic>? data) {
+    if (data == null) return '';
+    return VietnamAddressParser.composeParts(
+      street: _readReference(data, const [
+        'address',
+        'diaChi',
+        'dia_chi_chi_tiet',
+      ]),
+      ward: _readReference(data, const ['ward', 'phuongXa', 'phuong_xa']),
+      district: _readReference(data, const [
+        'district',
+        'quanHuyen',
+        'quan_huyen',
+      ]),
+      city: _readReference(data, const [
+        'city',
+        'province',
+        'thanhPho',
+        'tinh_thanh',
+      ]),
+    );
+  }
+
+  String _firstNonEmpty(Iterable<String> values) {
+    for (final value in values) {
+      if (value.trim().isNotEmpty) return value.trim();
+    }
+    return '';
+  }
+
+  double? _firstPositive(Iterable<double?> values) {
+    for (final value in values) {
+      if (value != null && value > 0) return value;
+    }
+    return null;
+  }
+
+  double? _readNumber(Map<String, dynamic>? data, List<String> keys) {
+    if (data == null) return null;
+    for (final key in keys) {
+      final parsed = _parsePositive(data[key]);
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  double? _parsePositive(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is num) {
+      final value = raw.toDouble();
+      return value > 0 ? value : null;
+    }
+    if (raw is String) {
+      final text = raw
+          .trim()
+          .replaceAll(' ', '')
+          .replaceAll('đ', '')
+          .replaceAll('₫', '')
+          .replaceAll(',', '');
+      if (text.isEmpty) return null;
+      final parsed = double.tryParse(text);
+      if (parsed != null && parsed > 0) return parsed;
+    }
+    return null;
+  }
+
+  double? _readArea(Map<String, dynamic>? data) => _readNumber(data, const [
+        'area',
+        'roomArea',
+        'dienTich',
+        'dienTichM2',
+        'dien_tich',
+        'minArea',
+      ]);
+
+  double? _readElectricity(Map<String, dynamic>? data) =>
+      _readNumber(data, const [
+        'electricityRate',
+        'electricity_rate',
+        'giaDien',
+        'gia_dien',
+        'tienDien',
+      ]);
+
+  double? _readWater(Map<String, dynamic>? data) => _readNumber(data, const [
+        'waterRate',
+        'water_rate',
+        'giaNuoc',
+        'gia_nuoc',
+        'tienNuoc',
+      ]);
+
+  double? _readServiceFee(Map<String, dynamic>? data) =>
+      _readNumber(data, const [
+        'serviceFee',
+        'service_fee',
+        'wifiRate',
+        'wifi_rate',
+        'giaWifi',
+        'gia_wifi',
+        'phiDichVu',
+      ]);
+
+  double? _readCapacity(Map<String, dynamic>? data) =>
+      _readNumber(data, const ['capacity', 'sucChua', 'suc_chua']);
+
+  List<String> _readAmenityList(Map<String, dynamic>? data) {
+    if (data == null) return const [];
+    final raw =
+        data['amenities'] ??
+        data['tienIch'] ??
+        data['danhSachTienIch'] ??
+        data['tien_ich'] ??
+        data['roomAmenities'];
+    if (raw is String) {
+      return raw
+          .split(RegExp(r'[,;|]'))
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+    if (raw is! List) return const [];
+    final names = <String>[];
+    for (final item in raw) {
+      if (item is String && item.trim().isNotEmpty) {
+        names.add(item.trim());
+      } else if (item is Map) {
+        final name = (item['amenityName'] ??
+                item['tenTienIch'] ??
+                item['ten_tien_ich'] ??
+                item['name'] ??
+                item['ten'] ??
+                '')
+            .toString()
+            .trim();
+        if (name.isNotEmpty) names.add(name);
+      }
+    }
+    return names;
+  }
+
+  List<String> _uniqueNames(Iterable<String> names) {
+    final seen = <String>{};
+    final result = <String>[];
+    for (final name in names) {
+      final clean = name.trim();
+      if (clean.isEmpty) continue;
+      if (seen.add(clean.toLowerCase())) result.add(clean);
+    }
+    return result;
+  }
+
+  Future<List<String>> _loadAmenityNames(String roomId) async {
+    if (roomId.trim().isEmpty) return const [];
+    final targetIds = <String>{
+      roomId.trim(),
+      if (roomId.contains('_') && roomId.lastIndexOf('_') > 0)
+        roomId.substring(0, roomId.lastIndexOf('_')),
+    };
+    final names = <String>[];
+    final pendingCatalogIds = <String>{};
+    for (final col in [
+      FirestoreCollections.roomAmenities,
+      FirestoreCollections.tienIchPhongTro,
+      FirestoreCollections.tienIchPhong,
+      'room_amenities',
+      'tien_ich_phong_tro',
+    ]) {
+      for (final field in const ['roomId', 'phongId', 'phong_tro_id']) {
+        for (final targetId in targetIds) {
+          try {
+            final snap = await _firestore
+                .collection(col)
+                .where(field, isEqualTo: targetId)
+                .get();
+            for (final doc in snap.docs) {
+              final data = doc.data();
+              final name = (data['amenityName'] ??
+                      data['name'] ??
+                      data['ten_tien_ich'] ??
+                      data['tenTienIch'] ??
+                      '')
+                  .toString()
+                  .trim();
+              if (name.isNotEmpty) {
+                names.add(name);
+                continue;
+              }
+              final amenityId = (data['amenityId'] ??
+                      data['tienIchId'] ??
+                      data['tien_ich_id'] ??
+                      '')
+                  .toString()
+                  .trim();
+              if (amenityId.isNotEmpty) pendingCatalogIds.add(amenityId);
+            }
+          } catch (error) {
+            debugPrint('Không thể đọc tiện ích $col.$field=$targetId: $error');
+          }
+        }
+      }
+    }
+    for (final amenityId in pendingCatalogIds) {
+      final catalog = await _readDocument(const [
+        FirestoreCollections.amenities,
+        FirestoreCollections.danhMucTienIch,
+      ], amenityId);
+      final name = _readReference(catalog ?? const {}, const [
+        'name',
+        'amenityName',
+        'tenTienIch',
+        'ten_tien_ich',
+      ]);
+      if (name.isNotEmpty) names.add(name);
+    }
+    return _uniqueNames(names);
+  }
+
+  // Lấy danh sách các chủ trọ có sẵn (từ users + posts + host_rooms)
+  Future<List<HostInfo>> getAvailableHosts() async {
+    final Map<String, HostInfo> hostMap = {};
+
+    // 1. Quét từ collection users (những người có vai trò host/landlord)
+    try {
+      final userSnap = await _firestore.collection(FirestoreCollections.users).get();
+      for (final doc in userSnap.docs) {
+        final data = doc.data();
+        final role = (data['role'] ?? data['vaiTro'] ?? '').toString().toLowerCase();
+        final isHost = role == 'host' || role == 'landlord' || role == 'chutro' || role == 'chu_tro';
+        if (isHost) {
+          final name = (data['displayName'] ?? data['name'] ?? data['hoTen'] ?? 'Chủ trọ').toString().trim();
+          final phone = (data['phoneNumber'] ?? data['phone'] ?? data['sdt'] ?? '').toString().trim();
+          final avatar = (data['photoURL'] ?? data['avatarUrl'] ?? data['avatar'] ?? '').toString().trim();
+          if (name.isNotEmpty && name != 'Chủ trọ') {
+            hostMap[doc.id] = HostInfo(
+              id: doc.id,
+              name: name,
+              phone: phone,
+              avatar: avatar,
+              roomCount: 0,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading hosts from users: $e');
+    }
+
+    // 2. Quét từ collection posts để cập nhật số phòng và bổ sung chủ trọ
+    try {
+      final postsSnap = await _firestore.collection(FirestoreCollections.posts).get();
+      for (final doc in postsSnap.docs) {
+        final data = doc.data();
+        final hostId = (data['hostId'] ?? data['authorId'] ?? data['userId'] ?? '').toString().trim();
+        final hostName = (data['hostName'] ?? data['authorName'] ?? data['userName'] ?? data['hoTen'] ?? '').toString().trim();
+        final hostPhone = (data['hostPhone'] ?? data['phone'] ?? data['sdt'] ?? data['contactPhone'] ?? '').toString().trim();
+        final hostAvatar = (data['hostAvatar'] ?? data['authorAvatar'] ?? '').toString().trim();
+
+        final key = hostId.isNotEmpty ? hostId : hostName;
+        if (key.isNotEmpty) {
+          if (hostMap.containsKey(key)) {
+            final old = hostMap[key]!;
+            hostMap[key] = old.copyWith(
+              roomCount: old.roomCount + 1,
+              phone: old.phone.isNotEmpty ? old.phone : hostPhone,
+              avatar: old.avatar.isNotEmpty ? old.avatar : hostAvatar,
+            );
+          } else if (hostName.isNotEmpty) {
+            hostMap[key] = HostInfo(
+              id: hostId.isNotEmpty ? hostId : key,
+              name: hostName,
+              phone: hostPhone,
+              avatar: hostAvatar,
+              roomCount: 1,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading hosts from posts: $e');
+    }
+
+    // 3. Quét từ collection host_rooms
+    try {
+      final hrSnap = await _firestore.collection(FirestoreCollections.hostRooms).get();
+      for (final doc in hrSnap.docs) {
+        final data = doc.data();
+        final hostId = (data['hostId'] ?? data['userId'] ?? '').toString().trim();
+        final hostName = (data['hostName'] ?? data['userName'] ?? data['hoTen'] ?? '').toString().trim();
+        final hostPhone = (data['hostPhone'] ?? data['phone'] ?? data['sdt'] ?? '').toString().trim();
+
+        final key = hostId.isNotEmpty ? hostId : hostName;
+        if (key.isNotEmpty) {
+          if (hostMap.containsKey(key)) {
+            final old = hostMap[key]!;
+            hostMap[key] = old.copyWith(
+              roomCount: old.roomCount + 1,
+              phone: old.phone.isNotEmpty ? old.phone : hostPhone,
+            );
+          } else if (hostName.isNotEmpty) {
+            hostMap[key] = HostInfo(
+              id: hostId.isNotEmpty ? hostId : key,
+              name: hostName,
+              phone: hostPhone,
+              roomCount: 1,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading hosts from host_rooms: $e');
+    }
+
+    final hosts = hostMap.values.toList();
+    hosts.sort((a, b) {
+      if (b.roomCount != a.roomCount) {
+        return b.roomCount.compareTo(a.roomCount);
+      }
+      return a.name.compareTo(b.name);
+    });
+
+    return hosts;
   }
 
   // Đã gỡ bỏ toàn bộ bài mẫu hardcode
@@ -547,6 +1562,10 @@ final roomPostDetailProvider = StreamProvider.autoDispose
       return ref.watch(roomServiceProvider).watchPostById(postId);
     });
 
+final availableHostsProvider = FutureProvider.autoDispose<List<HostInfo>>((ref) {
+  return ref.watch(roomServiceProvider).getAvailableHosts();
+});
+
 final roomsStreamProvider = StreamProvider.autoDispose
     .family<List<RoomModel>, RoomFilterParams>((ref, filters) {
       final service = ref.watch(roomServiceProvider);
@@ -562,5 +1581,11 @@ final roomsStreamProvider = StreamProvider.autoDispose
         roomType: filters.roomType,
         searchQuery: filters.searchQuery,
         sortBy: filters.sortBy,
+        hostQuery: filters.hostQuery,
+        hostId: filters.hostId,
+        userLat: filters.userLat,
+        userLng: filters.userLng,
+        maxDistanceKm: filters.maxDistanceKm,
+        includeUnpostedRooms: filters.includeUnpostedRooms,
       );
     });

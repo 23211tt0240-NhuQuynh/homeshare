@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/firestore_collections.dart';
-import '../../../core/utils/vietnamese_utils.dart';
+import '../../../core/utils/room_deposit.dart';
 import '../../../core/utils/vnd_input.dart';
 import '../../../data/models/room_model.dart';
+import '../../../data/models/host_post_model.dart';
 import '../../auth/providers/user_provider.dart';
+import '../../profile/widgets/cccd_required_modal.dart';
 import '../data/host_property.dart';
 import '../providers/host_dashboard_provider.dart';
 import '../providers/host_management_provider.dart';
@@ -27,10 +30,16 @@ class HostCreatePostScreen extends ConsumerStatefulWidget {
     super.key,
     this.initialProperty,
     this.initialRoom,
+    this.postToEdit,
+    this.editPostId,
+    this.isResubmitting = false,
   });
 
   final HostProperty? initialProperty;
   final RoomModel? initialRoom;
+  final HostPostModel? postToEdit;
+  final String? editPostId;
+  final bool isResubmitting;
 
   @override
   ConsumerState<HostCreatePostScreen> createState() =>
@@ -57,22 +66,209 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
   RoomModel? _selectedRoom;
   bool _saving = false;
   bool _picking = false;
-  bool _amenitiesExpanded = false;
+
+  bool _isRoomOccupied(RoomModel room) {
+    if (room.isOccupied) return true;
+    final s = room.status.toLowerCase().trim();
+    if (s == 'occupied' ||
+        s == 'dathue' ||
+        s == 'da_thue' ||
+        s == 'dang_o' ||
+        s == 'dango' ||
+        s == 'đang ở' ||
+        s == 'đã thuê') {
+      return true;
+    }
+    if (room.tenantName.trim().isNotEmpty ||
+        room.contractId.trim().isNotEmpty) {
+      return true;
+    }
+    return false;
+  }
 
   @override
   void initState() {
     super.initState();
+    if (widget.postToEdit != null) {
+      final p = widget.postToEdit!;
+      if (!p.canEdit) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'Bài đăng đã được duyệt không thể chỉnh sửa.',
+              ),
+              backgroundColor: const Color(0xFFDC2626),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        });
+        return;
+      }
+      _title.text = p.title;
+      _price.text = p.rentalPrice > 0 ? p.rentalPrice.toInt().toString() : '';
+      _depositController.text =
+          p.depositAmount > 0 ? p.depositAmount.toInt().toString() : '';
+      _areaController.text = p.roomArea > 0 ? p.roomArea.toString() : '25';
+      _address.text = p.address;
+      _phone.text = p.contactPhone;
+      _description.text = p.description;
+      _existingImageUrls.addAll(p.images);
+      _selectedAmenities.addAll(p.amenities);
+      if (p.joinedRoom != null) {
+        _selectedRoom = p.joinedRoom;
+      }
+      _loadPropertyAndRoomForEdit(
+        roomId: p.roomId,
+        propertyId: p.propertyId,
+        postId: p.id,
+      );
+    } else if (widget.editPostId != null && widget.editPostId!.isNotEmpty) {
+      FirebaseFirestore.instance
+          .collection('posts')
+          .doc(widget.editPostId)
+          .get()
+          .then((doc) {
+        if (!mounted || !doc.exists || doc.data() == null) return;
+        final p = HostPostModel.fromFirestore(doc);
+        if (!p.canEdit) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'Bài đăng đã được duyệt không thể chỉnh sửa.',
+              ),
+              backgroundColor: const Color(0xFFDC2626),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          return;
+        }
+        setState(() {
+          _title.text = p.title;
+          _price.text = p.rentalPrice > 0 ? p.rentalPrice.toInt().toString() : '';
+          _depositController.text =
+              p.depositAmount > 0 ? p.depositAmount.toInt().toString() : '';
+          _areaController.text = p.roomArea > 0 ? p.roomArea.toString() : '25';
+          _address.text = p.address;
+          _phone.text = p.contactPhone;
+          _description.text = p.description;
+          _existingImageUrls.addAll(p.images);
+          _selectedAmenities.addAll(p.amenities);
+        });
+        _loadPropertyAndRoomForEdit(
+          roomId: p.roomId,
+          propertyId: p.propertyId,
+          postId: p.id,
+        );
+      });
+    }
     if (widget.initialProperty != null) {
       _property = widget.initialProperty;
       _address.text = widget.initialProperty!.fullAddress;
     }
     if (widget.initialRoom != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _onRoomSelected(widget.initialRoom);
-        }
+        if (!mounted) return;
+        _onRoomSelected(widget.initialRoom);
       });
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final p = ref.read(userProfileProvider).value;
+      if (p != null &&
+          !p.isCccdVerified &&
+          !p.isCccdPending &&
+          !p.isCccdRejected) {
+        showCccdRequiredModal(
+          context,
+          isHost: true,
+          actionName: 'đăng bài',
+        );
+      }
+    });
+  }
+
+  Future<void> _loadPropertyAndRoomForEdit({
+    required String roomId,
+    required String propertyId,
+    required String postId,
+  }) async {
+    final db = FirebaseFirestore.instance;
+    String targetRoomId = roomId.trim();
+    String targetPropId = propertyId.trim();
+
+    if ((targetRoomId.isEmpty || targetPropId.isEmpty) && postId.isNotEmpty) {
+      try {
+        final postDoc = await db.collection('posts').doc(postId).get();
+        if (postDoc.exists && postDoc.data() != null) {
+          final data = postDoc.data()!;
+          if (targetRoomId.isEmpty) {
+            targetRoomId = (data['roomId'] ??
+                    data['phongId'] ??
+                    data['phong_tro_id'] ??
+                    '')
+                .toString()
+                .trim();
+          }
+          if (targetPropId.isEmpty) {
+            targetPropId = (data['propertyId'] ??
+                    data['nhaTroId'] ??
+                    data['nha_tro_id'] ??
+                    '')
+                .toString()
+                .trim();
+          }
+        }
+      } catch (_) {}
+    }
+
+    RoomModel? loadedRoom;
+    if (targetRoomId.isNotEmpty) {
+      try {
+        var roomDoc = await db
+            .collection(FirestoreCollections.hostRooms)
+            .doc(targetRoomId)
+            .get();
+        if (roomDoc.exists && roomDoc.data() != null) {
+          loadedRoom = RoomModel.fromMap(roomDoc.data()!, roomDoc.id);
+          if (targetPropId.isEmpty) {
+            targetPropId = loadedRoom.propertyId;
+          }
+        }
+      } catch (_) {}
+    }
+
+    HostProperty? loadedProp;
+    if (targetPropId.isNotEmpty) {
+      try {
+        var propDoc = await db
+            .collection(FirestoreCollections.hostProperties)
+            .doc(targetPropId)
+            .get();
+        if (!propDoc.exists) {
+          propDoc = await db
+              .collection(FirestoreCollections.properties)
+              .doc(targetPropId)
+              .get();
+        }
+        if (propDoc.exists && propDoc.data() != null) {
+          loadedProp = HostProperty.fromMap(propDoc.id, propDoc.data()!);
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    setState(() {
+      if (loadedRoom != null) {
+        _selectedRoom = loadedRoom;
+      }
+      if (loadedProp != null) {
+        _property = loadedProp;
+      }
+    });
   }
 
   @override
@@ -109,7 +305,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       _existingImageUrls.clear();
       _selectedAmenities.clear();
       _customAmenities.clear();
-      _amenitiesExpanded = false;
     });
   }
 
@@ -133,8 +328,11 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     if (room == null) return;
     setState(() {
       _selectedRoom = room;
-      // Tiêu đề thuộc bài đăng, không sao chép từ dữ liệu phòng.
-      _title.clear();
+      // Tự động lấy ghi chú / quy định của phòng gắn vào Mô tả chi tiết bài đăng (vẫn cho phép sửa)
+      final roomNote = room.description.trim();
+      if (roomNote.isNotEmpty) {
+        _description.text = roomNote;
+      }
       _areaController.text = room.area > 0
           ? room.area.round().toString()
           : '25';
@@ -168,7 +366,6 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
         room.amenities.map((a) => a.trim()).where((a) => a.isNotEmpty),
       );
       if (_selectedAmenities.isNotEmpty) {
-        _amenitiesExpanded = true;
       }
     });
 
@@ -180,14 +377,24 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             .collection(FirestoreCollections.hostRooms)
             .doc(room.id)
             .get();
-        if (!doc.exists) {
-          doc = await db
-              .collection(FirestoreCollections.publicRooms)
-              .doc(room.id)
-              .get();
-        }
         if (doc.exists && mounted && _selectedRoom?.id == room.id) {
           final data = doc.data() ?? {};
+          final firestoreRoomNote = (data['description'] ??
+                  data['notes'] ??
+                  data['ghiChu'] ??
+                  data['ghi_chu'] ??
+                  data['moTa'] ??
+                  data['noiDung'] ??
+                  '')
+              .toString()
+              .trim();
+          if (firestoreRoomNote.isNotEmpty &&
+              (_description.text.trim().isEmpty ||
+                  _description.text.trim() == room.description.trim())) {
+            setState(() {
+              _description.text = firestoreRoomNote;
+            });
+          }
           final rawDeposit =
               data['deposit'] ??
               data['tienCoc'] ??
@@ -310,6 +517,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       final files = await ref
           .read(hostImagePickerProvider)
           .pickMultiImage(imageQuality: 88);
+      if (files.isEmpty) return;
       final selected = <HostUpload>[];
       for (final file in files) {
         if (_existingImageUrls.length + _images.length + selected.length >=
@@ -317,97 +525,26 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           break;
         }
         final size = await file.length();
-        if (size > 5 * 1024 * 1024) {
-          throw StateError('Mỗi ảnh không được vượt quá 5 MB.');
+        if (size > 10 * 1024 * 1024) {
+          throw StateError('Mỗi ảnh không được vượt quá 10 MB.');
         }
         final bytes = await file.readAsBytes();
-        final contentType = HostImageUtils.detectContentType(bytes);
-        if (contentType == null) {
-          throw StateError('Chỉ hỗ trợ ảnh JPG hoặc PNG.');
+        if (bytes.isEmpty) continue;
+        var contentType = HostImageUtils.detectContentType(bytes);
+        if (contentType == null && file.mimeType != null && file.mimeType!.isNotEmpty) {
+          contentType = file.mimeType;
         }
+        contentType ??= 'image/jpeg';
         selected.add(HostUpload(bytes, contentType));
       }
-      if (mounted) setState(() => _images.addAll(selected));
+      if (mounted && selected.isNotEmpty) {
+        setState(() => _images.addAll(selected));
+      }
     } catch (error) {
       if (mounted) _message(hostErrorMessage(error));
     } finally {
       if (mounted) setState(() => _picking = false);
     }
-  }
-
-  void _addCustomAmenity(List<Map<String, String>> catalogItems) {
-    final raw = _customAmenity.text;
-    final normalized = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
-    if (normalized.isEmpty) {
-      _message('Vui lòng nhập tên tiện ích.');
-      return;
-    }
-
-    // 1. Chống trùng với danh mục tiện ích từ Firestore (không phân biệt dấu tiếng Việt, hoa/thường)
-    final catalogMatch = catalogItems
-        .where(
-          (item) =>
-              normalizeVietnameseComparison(item['name']!) ==
-              normalizeVietnameseComparison(normalized),
-        )
-        .firstOrNull;
-
-    if (catalogMatch != null) {
-      setState(() {
-        _selectedAmenities.add(catalogMatch['name']!);
-        _customAmenity.clear();
-        _amenitiesExpanded = true;
-      });
-      _message(
-        'Tiện ích "${catalogMatch['name']}" đã có trong danh mục (đã tự động chọn).',
-      );
-      return;
-    }
-
-    // 2. Chống trùng với tiện ích sẵn có của phòng (không phân biệt dấu tiếng Việt, hoa/thường)
-    final roomMatch = (_selectedRoom?.amenities ?? [])
-        .where(
-          (item) =>
-              normalizeVietnameseComparison(item) ==
-              normalizeVietnameseComparison(normalized),
-        )
-        .firstOrNull;
-    if (roomMatch != null) {
-      setState(() {
-        _selectedAmenities.add(roomMatch);
-        _customAmenity.clear();
-        _amenitiesExpanded = true;
-      });
-      _message('Tiện ích "$roomMatch" đã có sẵn trong phòng.');
-      return;
-    }
-
-    // 3. Chống trùng với tiện ích tùy chọn local (không phân biệt dấu tiếng Việt, hoa/thường)
-    final customMatch = _customAmenities
-        .where(
-          (item) =>
-              normalizeVietnameseComparison(item) ==
-              normalizeVietnameseComparison(normalized),
-        )
-        .firstOrNull;
-
-    if (customMatch != null) {
-      setState(() {
-        _selectedAmenities.add(customMatch);
-        _customAmenity.clear();
-        _amenitiesExpanded = true;
-      });
-      _message('Tiện ích tùy chọn "$customMatch" đã tồn tại.');
-      return;
-    }
-
-    // 4. Thêm vào list local dưới dạng checkbox đã chọn (CHỈ LƯU LOCAL TRONG FORM, CHƯA GHI FIREBASE)
-    setState(() {
-      _customAmenities.add(normalized);
-      _selectedAmenities.add(normalized);
-      _customAmenity.clear();
-      _amenitiesExpanded = true;
-    });
   }
 
   void _toggleAmenity(String name) {
@@ -420,14 +557,16 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     });
   }
 
-  void _removeCustomAmenity(String name) {
-    setState(() {
-      _customAmenities.remove(name);
-      _selectedAmenities.remove(name);
-    });
-  }
-
   Future<void> _save(String uid, UserProfile? profile) async {
+    if (profile?.isCccdVerified != true) {
+      await showCccdRequiredModal(
+        context,
+        isHost: true,
+        actionName: 'đăng bài',
+      );
+      return;
+    }
+
     if (_property == null) {
       _message('Vui lòng chọn khu nhà.');
       return;
@@ -471,23 +610,88 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       if (parsedPrice > 0 && parsedDeposit > 0) {
         depositPercent = ((parsedDeposit / parsedPrice) * 100).round();
       }
-      if (!const [
-        10,
-        20,
-        30,
-        40,
-        50,
-        60,
-        70,
-        80,
-        90,
-        100,
-      ].contains(depositPercent)) {
-        const allowed = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-        depositPercent = allowed.reduce(
+      if (!roomDepositPercentages.contains(depositPercent)) {
+        depositPercent = roomDepositPercentages.reduce(
           (a, b) =>
               (depositPercent - a).abs() < (depositPercent - b).abs() ? a : b,
         );
+      }
+
+      final currentPostId = widget.postToEdit?.id ?? widget.editPostId;
+      if (currentPostId != null && currentPostId.isNotEmpty) {
+        final newUrls = <String>[];
+        for (final img in _images) {
+          if (img.bytes.isNotEmpty) {
+            newUrls.add('data:${img.contentType};base64,${base64Encode(img.bytes)}');
+          }
+        }
+        final finalImages = [..._existingImageUrls, ...newUrls];
+
+        final updateData = <String, dynamic>{
+          'title': _title.text.trim(),
+          'description': _description.text.trim(),
+          'rentalPrice': parsedPrice,
+          'depositAmount': parsedDeposit,
+          'depositPercentage': depositPercent,
+          'address': _address.text.trim(),
+          'contactPhone': accountPhone,
+          'roomArea': parsedArea,
+          'amenities': _selectedAmenities.toList(),
+          'images': finalImages,
+          'status': 'pending',
+          if (widget.isResubmitting) 'hostResubmittedAt': FieldValue.serverTimestamp(),
+          // Giữ lại lý do từ chối chuẩn để Admin nắm được lịch sử vi phạm khi duyệt lại
+          if (widget.isResubmitting && (widget.postToEdit?.rejectReason ?? '').isNotEmpty)
+            'rejectReason': widget.postToEdit!.rejectReason,
+          'lyDoTuChoi': FieldValue.delete(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          // Xóa triệt để các trường tiếng Việt và trường thừa cũ trên Firestore
+          'statusId': FieldValue.delete(),
+          'trang_thai': FieldValue.delete(),
+          'trangThai': FieldValue.delete(),
+          'trangThai_id': FieldValue.delete(),
+          'tieuDe': FieldValue.delete(),
+          'moTa': FieldValue.delete(),
+          'giaThue': FieldValue.delete(),
+          'tienCoc': FieldValue.delete(),
+          'phanTramTienCoc': FieldValue.delete(),
+          'diaChi': FieldValue.delete(),
+          'soDienThoaiLienHe': FieldValue.delete(),
+          'hiddenReason': FieldValue.delete(),
+          'isAvailable': FieldValue.delete(),
+        };
+
+        final db = FirebaseFirestore.instance;
+        final postId = currentPostId;
+        final roomId = _selectedRoom?.id ?? widget.postToEdit?.roomId ?? '';
+
+        // Cập nhật collection 'posts'
+        await db.collection('posts').doc(postId).update(updateData);
+
+        // Cập nhật sub-collection của kho phòng chuẩn nếu có.
+        if (roomId.isNotEmpty) {
+          try {
+            await db
+                .collection(FirestoreCollections.hostRooms)
+                .doc(roomId)
+                .collection('rental_posts')
+                .doc(postId)
+                .update(updateData);
+          } catch (_) {}
+        }
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.isResubmitting
+                  ? 'Đã gửi lại bài đăng! Bài đăng đang chờ Admin duyệt lại.'
+                  : 'Cập nhật bài đăng thành công!',
+            ),
+          ),
+        );
+        Navigator.of(context).pop(true);
+        return;
       }
 
       final roomToSave = RoomModel(
@@ -559,6 +763,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
             phongId: _selectedRoom!.id,
           );
 
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -604,10 +809,64 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     final properties = propertiesAsync.value ?? [];
     final allRooms = allRoomsAsync.value ?? [];
 
+    // Tự động đối chiếu và liên kết Khu nhà & Phòng khi sửa bài đăng (postToEdit)
+    if (widget.postToEdit != null ||
+        (widget.editPostId != null && widget.editPostId!.isNotEmpty)) {
+      final editPost = widget.postToEdit;
+      final targetRoomId = _selectedRoom?.id ?? editPost?.roomId ?? '';
+      final targetPropId = _property?.id ??
+          _selectedRoom?.propertyId ??
+          editPost?.propertyId ??
+          '';
+
+      if (_selectedRoom == null &&
+          targetRoomId.isNotEmpty &&
+          allRooms.isNotEmpty) {
+        final r = allRooms.where((room) => room.id == targetRoomId).firstOrNull;
+        if (r != null) {
+          _selectedRoom = r;
+        }
+      }
+
+      if (_property == null && properties.isNotEmpty) {
+        final effectivePropId = targetPropId.isNotEmpty
+            ? targetPropId
+            : (_selectedRoom?.propertyId ?? '');
+        final p = properties.where((prop) {
+          if (effectivePropId.isNotEmpty) {
+            return prop.id == effectivePropId;
+          }
+          if (_address.text.isNotEmpty && prop.fullAddress.isNotEmpty) {
+            return prop.fullAddress.contains(_address.text) ||
+                _address.text.contains(prop.fullAddress);
+          }
+          return false;
+        }).firstOrNull;
+        if (p != null) {
+          _property = p;
+        }
+      }
+    }
+
+    if (_property != null &&
+        _selectedRoom == null &&
+        widget.postToEdit != null) {
+      final rId = widget.postToEdit!.roomId;
+      if (rId.isNotEmpty) {
+        _selectedRoom = allRooms.where((r) => r.id == rId).firstOrNull;
+      }
+    }
+
     // Lọc danh sách phòng theo nhaTroId đã chọn
     final propertyRooms = _property != null
         ? allRooms.where((r) => r.propertyId == _property!.id).toList()
         : <RoomModel>[];
+
+    // Đảm bảo phòng đang sửa luôn có mặt trong danh sách lựa chọn
+    if (_selectedRoom != null &&
+        !propertyRooms.any((r) => r.id == _selectedRoom!.id)) {
+      propertyRooms.insert(0, _selectedRoom!);
+    }
 
     return PopScope(
       canPop: !_saving,
@@ -634,21 +893,27 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               ),
             ),
           ),
-          title: const Column(
+          title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Tạo bài đăng',
-                style: TextStyle(
+                widget.isResubmitting
+                    ? 'Sửa & Gửi duyệt lại'
+                    : (widget.postToEdit != null
+                        ? 'Chỉnh sửa bài đăng'
+                        : 'Tạo bài đăng'),
+                style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
                   color: Color(0xFF0F172A),
                 ),
               ),
               Text(
-                'Dành cho chủ nhà & đối tác uy tín',
-                style: TextStyle(fontSize: 11, color: HostTheme.textSecondary),
+                widget.isResubmitting
+                    ? 'Cập nhật lại bài đăng bị từ chối'
+                    : 'Dành cho chủ nhà & đối tác',
+                style: const TextStyle(fontSize: 11, color: HostTheme.textSecondary),
               ),
             ],
           ),
@@ -680,7 +945,9 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                 child: ElevatedButton(
                   key: const ValueKey('submit_post_button'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: HostTheme.primary,
+                    backgroundColor: widget.isResubmitting
+                        ? const Color(0xFFDC2626)
+                        : HostTheme.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: HostTheme.radius16,
@@ -699,19 +966,23 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : const Row(
+                      : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              'ĐĂNG BÀI NGAY',
-                              style: TextStyle(
+                              widget.isResubmitting
+                                  ? 'GỬI DUYỆT LẠI'
+                                  : (widget.postToEdit != null
+                                      ? 'LƯU THAY ĐỔI'
+                                      : 'ĐĂNG BÀI NGAY'),
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.5,
                               ),
                             ),
-                            SizedBox(width: 8),
-                            Icon(Icons.arrow_forward_rounded, size: 20),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.arrow_forward_rounded, size: 20),
                           ],
                         ),
                 ),
@@ -730,6 +1001,60 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (widget.postToEdit != null &&
+                        (widget.isResubmitting ||
+                            widget.postToEdit!.isRejected)) ...[
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFECDD3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.cancel_outlined,
+                                    color: Color(0xFFDC2626), size: 20),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Bài đăng trước đó bị từ chối duyệt',
+                                  style: TextStyle(
+                                    color: Color(0xFFDC2626),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              widget.postToEdit!.rejectReason.isNotEmpty
+                                  ? 'Lý do từ chối: ${widget.postToEdit!.rejectReason}'
+                                  : 'Lý do: Thông tin bài đăng chưa đạt yêu cầu kiểm duyệt.',
+                              style: const TextStyle(
+                                color: Color(0xFF991B1B),
+                                fontSize: 13,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Vui lòng chỉnh sửa lại thông tin bài viết theo lý do trên và bấm "GỬI DUYỆT LẠI" để Ban quản trị xem xét duyệt lại.',
+                              style: TextStyle(
+                                color: Color(0xFF7F1D1D),
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
                     // PHẦN 1: CHỌN DỮ LIỆU CÓ SẴN (Khu nhà & Phòng)
                     _propertyAndRoomSection(
                       propertiesAsync: propertiesAsync,
@@ -761,7 +1086,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                     const SizedBox(height: 12),
                     _textField(
                       _areaController,
-                      'Diện tích (m²)',
+                      'Diện tích (m²) (Cố định từ phòng) *',
                       '25',
                       key: const ValueKey('area_input'),
                       keyboard: TextInputType.number,
@@ -794,7 +1119,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                     const SizedBox(height: 10),
                     _contactField(
                       _address,
-                      'Địa chỉ *',
+                      'Địa chỉ (Cố định theo phòng/nhà) *',
                       Icons.location_on_outlined,
                       '18 Đường số 6, Tăng Nhơn Phú B, TP. Thủ Đức',
                       key: const ValueKey('address_input'),
@@ -807,7 +1132,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                         Expanded(
                           child: _contactField(
                             _phone,
-                            'Số điện thoại *',
+                            'Số điện thoại (Cố định tài khoản) *',
                             Icons.phone_outlined,
                             '0987 654 321',
                             key: const ValueKey('phone_input'),
@@ -877,6 +1202,18 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       roomEnabled = true;
     }
 
+    final dropdownProperties = List<HostProperty>.from(properties);
+    if (_property != null &&
+        !dropdownProperties.any((p) => p.id == _property!.id)) {
+      dropdownProperties.insert(0, _property!);
+    }
+
+    final dropdownRooms = List<RoomModel>.from(propertyRooms);
+    if (_selectedRoom != null &&
+        !dropdownRooms.any((r) => r.id == _selectedRoom!.id)) {
+      dropdownRooms.insert(0, _selectedRoom!);
+    }
+
     return HostCardSection(
       title: 'CHỌN DỮ LIỆU CÓ SẴN',
       icon: Icons.apartment_rounded,
@@ -886,7 +1223,10 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           // Dropdown Khu nhà
           DropdownButtonFormField<HostProperty>(
             key: const ValueKey('property_select'),
-            initialValue: _property,
+            // ignore: deprecated_member_use
+            value: dropdownProperties
+                .where((p) => p.id == _property?.id)
+                .firstOrNull,
             isExpanded: true,
             hint: Text(propertyHint, style: const TextStyle(fontSize: 14)),
             decoration: HostTheme.inputDecoration(
@@ -898,7 +1238,7 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
               ),
               fillColor: HostTheme.background,
             ),
-            items: properties
+            items: dropdownProperties
                 .map(
                   (prop) => DropdownMenuItem(
                     value: prop,
@@ -916,9 +1256,10 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
           // Dropdown Phòng
           DropdownButtonFormField<RoomModel>(
             key: const ValueKey('room_select'),
-            initialValue: propertyRooms.any((r) => r.id == _selectedRoom?.id)
-                ? propertyRooms.firstWhere((r) => r.id == _selectedRoom?.id)
-                : null,
+            // ignore: deprecated_member_use
+            value: dropdownRooms
+                .where((r) => r.id == _selectedRoom?.id)
+                .firstOrNull,
             isExpanded: true,
             hint: Text(roomHint, style: const TextStyle(fontSize: 14)),
             decoration: HostTheme.inputDecoration(
@@ -933,37 +1274,138 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                   : HostTheme.disabledBackground,
             ),
             items: roomEnabled
-                ? propertyRooms
+                ? dropdownRooms
                       .map(
-                        (room) => DropdownMenuItem(
-                          value: room,
-                          child: Text(
-                            room.title.isNotEmpty
-                                ? '${room.roomCode} - ${room.title}'
-                                : room.roomCode,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+                        (room) {
+                          final isOccupied = _isRoomOccupied(room);
+                          return DropdownMenuItem<RoomModel>(
+                            value: room,
+                            enabled: true,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    room.title.isNotEmpty
+                                        ? '${room.roomCode} - ${room.title}'
+                                        : room.roomCode,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                                if (isOccupied)
+                                  Container(
+                                    margin: const EdgeInsets.only(left: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.danger.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: AppColors.danger.withValues(alpha: 0.3),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Đang ở',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.danger,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
                       )
                       .toList()
                 : null,
-            onChanged: roomEnabled ? _onRoomSelected : null,
-            validator: (val) => val == null && _selectedRoom == null
-                ? 'Vui lòng chọn phòng'
+            onChanged: roomEnabled
+                ? (room) {
+                    if (room == null) return;
+                    _onRoomSelected(room);
+                  }
                 : null,
+            validator: (val) {
+              if (val == null && _selectedRoom == null) {
+                return 'Vui lòng chọn phòng';
+              }
+              return null;
+            },
           ),
+          // Banner thông báo nếu phòng đang có người ở
+          if (_selectedRoom != null && _isRoomOccupied(_selectedRoom!)) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFFD97706)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Lưu ý: Phòng này hiện đang có người ở. Bài đăng sẽ hiển thị cho mục đích quảng bá / giới thiệu phòng; người xem sẽ không thể đặt phòng cho đến khi phòng trống.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF92400E),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
   /// Bố cục: [ Giá thuê ] [ Tiền cọc ]
-  Widget _priceAndDepositRow() => Row(
+  Widget _priceAndDepositRow() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Expanded(child: _priceInput()),
-      const SizedBox(width: 10),
-      Expanded(child: _depositInput()),
+      Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.lock_outline, size: 14, color: Color(0xFF64748B)),
+            SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Giá thuê & tiền cọc được khóa cứng cố định theo dữ liệu phòng trọ.',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFF475569),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: _priceInput()),
+          const SizedBox(width: 10),
+          Expanded(child: _depositInput()),
+        ],
+      ),
     ],
   );
 
@@ -974,21 +1416,24 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     keyboardType: TextInputType.number,
     inputFormatters: [VndInputFormatter()],
     style: const TextStyle(
-      fontSize: 17,
+      fontSize: 16,
       fontWeight: FontWeight.w700,
-      color: HostTheme.primary,
+      color: Color(0xFF334155),
     ),
     decoration: HostTheme.inputDecoration(
-      labelText: 'Tiền cọc *',
+      labelText: 'Tiền cọc (Cố định từ phòng) *',
       suffixText: 'đ',
+      suffixIcon: const Icon(Icons.lock_outline, size: 16, color: Color(0xFF64748B)),
+      fillColor: const Color(0xFFF1F5F9),
+      filled: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      enabledBorderColor: HostTheme.inputEnabledBorder,
-      enabledBorderWidth: 1.2,
-      focusedBorderColor: HostTheme.primary,
-      focusedBorderWidth: 2.0,
+      enabledBorderColor: const Color(0xFFCBD5E1),
+      enabledBorderWidth: 1.0,
+      focusedBorderColor: const Color(0xFF94A3B8),
+      focusedBorderWidth: 1.0,
     ),
     validator: (value) {
-      if (value == null || value.trim().isEmpty) return 'Nhập tiền cọc';
+      if (value == null || value.trim().isEmpty) return 'Chưa có tiền cọc từ phòng';
       final parsed = double.tryParse(vndDigits(value.trim()));
       if (parsed == null || parsed < 0) return 'Tiền cọc không hợp lệ';
       return null;
@@ -1002,21 +1447,24 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     keyboardType: TextInputType.number,
     inputFormatters: [VndInputFormatter()],
     style: const TextStyle(
-      fontSize: 17,
+      fontSize: 16,
       fontWeight: FontWeight.w700,
-      color: HostTheme.primary,
+      color: Color(0xFF334155),
     ),
     decoration: HostTheme.inputDecoration(
-      labelText: 'Giá thuê / tháng *',
+      labelText: 'Giá thuê (Cố định từ phòng) *',
       suffixText: 'đ/tháng',
+      suffixIcon: const Icon(Icons.lock_outline, size: 16, color: Color(0xFF64748B)),
+      fillColor: const Color(0xFFF1F5F9),
+      filled: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      enabledBorderColor: HostTheme.inputEnabledBorder,
-      enabledBorderWidth: 1.2,
-      focusedBorderColor: HostTheme.primary,
-      focusedBorderWidth: 2.0,
+      enabledBorderColor: const Color(0xFFCBD5E1),
+      enabledBorderWidth: 1.0,
+      focusedBorderColor: const Color(0xFF94A3B8),
+      focusedBorderWidth: 1.0,
     ),
     validator: (value) {
-      if (value == null || value.trim().isEmpty) return 'Nhập giá thuê';
+      if (value == null || value.trim().isEmpty) return 'Chưa có giá thuê từ phòng';
       final parsed = double.tryParse(vndDigits(value.trim()));
       if (parsed == null || parsed <= 0) return 'Giá thuê phải lớn hơn 0';
       return null;
@@ -1084,10 +1532,17 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       inputFormatters: keyboard == TextInputType.phone
           ? [FilteringTextInputFormatter.digitsOnly]
           : null,
+      style: readOnly
+          ? const TextStyle(color: Color(0xFF334155), fontWeight: FontWeight.w600)
+          : null,
       decoration: HostTheme.inputDecoration(
         labelText: label,
         hintText: hint,
-        prefixIcon: Icon(icon, color: HostTheme.primary, size: 20),
+        prefixIcon: Icon(icon, color: readOnly ? const Color(0xFF64748B) : HostTheme.primary, size: 20),
+        suffixIcon: readOnly ? const Icon(Icons.lock_outline, size: 16, color: Color(0xFF64748B)) : null,
+        fillColor: readOnly ? const Color(0xFFF1F5F9) : null,
+        filled: readOnly,
+        enabledBorderColor: readOnly ? const Color(0xFFCBD5E1) : HostTheme.inputEnabledBorder,
       ),
       validator: (value) =>
           label.contains('*') && (value == null || value.trim().isEmpty)
@@ -1098,6 +1553,8 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
 
   Widget _photoSection() {
     final totalImages = _existingImageUrls.length + _images.length;
+    final hasRoomImages = _selectedRoom != null && _existingImageUrls.isNotEmpty;
+
     return HostCardSection(
       title: 'HÌNH ẢNH & VIDEO PHÒNG',
       icon: Icons.image_outlined,
@@ -1112,6 +1569,33 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (hasRoomImages) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.lock_outline, size: 14, color: Color(0xFF64748B)),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Ảnh phòng được đồng bộ cố định từ dữ liệu phòng (Khóa cứng, không thể xóa).',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF475569),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           SizedBox(
             height: 94,
             child: SingleChildScrollView(
@@ -1120,19 +1604,20 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                 children: [
                   HostAddImageButton(
                     onTap: _pickImages,
-                    disabled: _picking || _selectedRoom != null,
+                    disabled: _picking || totalImages >= 10,
                   ),
-                  // Hiển thị ảnh phòng đã nạp từ trước
+                  // Hiển thị ảnh phòng đã nạp từ trước (Khóa cứng nếu lấy từ phòng)
                   ..._existingImageUrls.asMap().entries.map(
                     (entry) => HostImageThumbnail(
                       index: entry.key,
                       rawUrl: entry.value,
                       isCover: entry.key == 0,
-                      onRemove: _selectedRoom == null
-                          ? () => setState(
+                      isLocked: _selectedRoom != null,
+                      onRemove: _selectedRoom != null
+                          ? null
+                          : () => setState(
                               () => _existingImageUrls.removeAt(entry.key),
-                            )
-                          : null,
+                            ),
                     ),
                   ),
                   // Hiển thị ảnh mới chọn qua ImagePicker
@@ -1141,9 +1626,8 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
                       index: entry.key,
                       upload: entry.value,
                       isCover: _existingImageUrls.isEmpty && entry.key == 0,
-                      onRemove: _selectedRoom == null
-                          ? () => setState(() => _images.removeAt(entry.key))
-                          : null,
+                      isLocked: false,
+                      onRemove: () => setState(() => _images.removeAt(entry.key)),
                     ),
                   ),
                 ],
@@ -1192,10 +1676,17 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       inputFormatters: inputFormatters,
       maxLines: maxLines,
       maxLength: maxLength,
+      style: readOnly
+          ? const TextStyle(color: Color(0xFF334155), fontWeight: FontWeight.w600)
+          : null,
       decoration: HostTheme.inputDecoration(
         labelText: label,
         hintText: hint,
         suffixText: suffixText,
+        suffixIcon: readOnly ? const Icon(Icons.lock_outline, size: 16, color: Color(0xFF64748B)) : null,
+        fillColor: readOnly ? const Color(0xFFF1F5F9) : null,
+        filled: readOnly,
+        enabledBorderColor: readOnly ? const Color(0xFFCBD5E1) : HostTheme.inputEnabledBorder,
       ),
       validator: (value) =>
           label.contains('*') && (value == null || value.trim().isEmpty)
@@ -1205,51 +1696,13 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
   );
 
   Widget _amenitySection(List<Map<String, String>> catalogItems) {
-    final catalogNames = catalogItems.map((item) => item['name']!).toList();
-    final allItems = <String>[];
-
-    // 1. Tiện ích thực tế từ chính phòng đã chọn
-    if (_selectedRoom != null) {
-      for (final a in _selectedRoom!.amenities) {
-        final trimmed = a.trim();
-        if (trimmed.isNotEmpty && !allItems.contains(trimmed)) {
-          allItems.add(trimmed);
-        }
-      }
-    }
-
-    // 2. Tiện ích từ bảng TienIch_Phong của phòng
-    for (final a in _selectedAmenities) {
-      final trimmed = a.trim();
-      if (trimmed.isNotEmpty && !allItems.contains(trimmed)) {
-        allItems.add(trimmed);
-      }
-    }
-
-    // 3. Tiện ích từ danh mục Firestore catalog
-    for (final a in catalogNames) {
-      if (!allItems.contains(a)) {
-        allItems.add(a);
-      }
-    }
-
-    // 4. Tiện ích tùy chọn do chủ trọ thêm riêng (chỉ lưu local trong form)
-    for (final a in _customAmenities) {
-      if (!allItems.contains(a)) {
-        allItems.add(a);
-      }
-    }
-
-    // Thu gọn chỉ giữ item đã chọn; Xem thêm hiện toàn bộ
-    final visible = _amenitiesExpanded
-        ? allItems
-        : allItems.where((name) => _selectedAmenities.contains(name)).toList();
+    final isRoomSelected = _selectedRoom != null;
 
     return HostCardSection(
       title: 'Tiện ích & Yêu cầu',
       icon: Icons.format_list_bulleted_rounded,
       trailing: Text(
-        '${_selectedAmenities.length} đang chọn',
+        '${_selectedAmenities.length} tiện ích',
         style: const TextStyle(
           fontSize: 12,
           color: HostTheme.primary,
@@ -1259,113 +1712,86 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: HostTheme.background,
-              borderRadius: HostTheme.radius14,
-              border: Border.all(color: HostTheme.inputBorder),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.add_circle_outline,
-                  color: HostTheme.primary,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    key: const ValueKey('custom_amenity_input'),
-                    controller: _customAmenity,
-                    decoration: const InputDecoration(
-                      hintText: 'Thêm tiện ích, yêu cầu riêng...',
-                      hintStyle: TextStyle(
-                        fontSize: 13,
-                        color: HostTheme.textMuted,
+          if (isRoomSelected) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.lock_outline, size: 14, color: Color(0xFF64748B)),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Tiện ích được đồng bộ cố định từ cấu hình phòng trọ (Khóa cứng, không thể thay đổi).',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF475569),
+                        fontWeight: FontWeight.w600,
                       ),
-                      border: InputBorder.none,
-                      isDense: true,
                     ),
-                    onSubmitted: (_) => _addCustomAmenity(catalogItems),
                   ),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton(
-                  key: const ValueKey('add_custom_amenity_button'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: HostTheme.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    elevation: 0,
-                    minimumSize: const Size(60, 34),
-                  ),
-                  onPressed: () => _addCustomAmenity(catalogItems),
-                  child: const Text(
-                    'Thêm',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          if (visible.isEmpty && !_amenitiesExpanded)
+          ] else ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, size: 14, color: Color(0xFFD97706)),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Vui lòng chọn phòng ở phía trên để tải danh sách tiện ích cố định.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF92400E),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          if (isRoomSelected && _selectedAmenities.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Center(
                 child: Text(
-                  'Chưa chọn tiện ích nào. Nhấn "Xem thêm" để chọn.',
+                  'Phòng này chưa được cấu hình tiện ích trong mục Quản lý phòng.',
                   style: TextStyle(
                     fontSize: 12,
                     color: HostTheme.textSecondary,
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
               ),
             ),
-          ...visible.map((name) {
-            final isCustom = _customAmenities.contains(name);
-            final isSelected = _selectedAmenities.contains(name);
-            return HostAmenityTile(
-              name: name,
-              isCustom: isCustom,
-              isSelected: isSelected,
-              onTap: () => _toggleAmenity(name),
-              onDeleteCustom: isCustom
-                  ? () => _removeCustomAmenity(name)
-                  : null,
-            );
-          }),
-          const SizedBox(height: 6),
-          InkWell(
-            key: const ValueKey('amenities_toggle_button'),
-            borderRadius: HostTheme.radius12,
-            onTap: () =>
-                setState(() => _amenitiesExpanded = !_amenitiesExpanded),
-            child: Container(
-              width: double.infinity,
-              height: 38,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F5FF),
-                borderRadius: HostTheme.radius12,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                _amenitiesExpanded ? 'Thu gọn ^' : 'Xem thêm v',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: HostTheme.primary,
-                ),
-              ),
-            ),
-          ),
+
+          if (_selectedAmenities.isNotEmpty) ...[
+            ..._selectedAmenities.map((name) {
+              return HostAmenityTile(
+                name: name,
+                isCustom: false,
+                isSelected: true,
+                isLocked: isRoomSelected,
+                onTap: isRoomSelected ? null : () => _toggleAmenity(name),
+              );
+            }),
+          ],
         ],
       ),
     );

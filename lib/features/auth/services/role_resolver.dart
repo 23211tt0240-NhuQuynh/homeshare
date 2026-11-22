@@ -44,8 +44,9 @@ class RoleResolver {
       return host;
     }
 
-    // Nhóm 3: Admin / Quản trị viên
+    // Nhóm 3: Admin / Quản trị viên / Manager
     if (lower == 'admin' ||
+        lower == 'manager' ||
         lower == 'administrator' ||
         lower == 'quantri' ||
         lower == 'quan_tri' ||

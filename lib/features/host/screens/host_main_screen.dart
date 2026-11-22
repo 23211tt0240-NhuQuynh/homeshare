@@ -1,36 +1,56 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/localization/app_translations.dart';
+import '../../../core/providers/app_settings_provider.dart';
 import '../../chat/screens/chat_list_screen.dart';
 import '../../home/screens/home_screen.dart';
 import 'host_dashboard_screen.dart';
 import 'host_property_management_screen.dart';
 import 'host_create_screen.dart';
 import 'host_create_post_screen.dart';
+import '../../auth/providers/user_provider.dart';
+import '../../profile/widgets/cccd_required_modal.dart';
 import 'host_tenant_management_screen.dart';
 import 'host_checkin_checkout_screen.dart';
 import 'host_violation_management_screen.dart';
+import 'host_post_management_screen.dart';
 import 'host_management_menu.dart';
+import 'host_finance_screen.dart';
 
 // Chủ trọ - Khung điều hướng - Luồng đi: Mở Dashboard và giữ trạng thái
 // của 5 tab; các tab chưa triển khai hiển thị màn hình tạm.
-class HostMainScreen extends StatefulWidget {
-  const HostMainScreen({super.key});
+class HostMainScreen extends ConsumerStatefulWidget {
+  const HostMainScreen({
+    super.key,
+    this.initialManagementIndex,
+    this.initialSection,
+  });
+  final int? initialManagementIndex;
+  final HostManagementSection? initialSection;
 
   @override
-  State<HostMainScreen> createState() => _HostMainScreenState();
+  ConsumerState<HostMainScreen> createState() => _HostMainScreenState();
 }
 
-class _HostMainScreenState extends State<HostMainScreen> {
+class _HostMainScreenState extends ConsumerState<HostMainScreen> {
   int _currentIndex = 0;
   int _managementIndex = 0;
   HostManagementSection _hostManagementSection = HostManagementSection.tenants;
-  static const _labels = [
-    'Trang chủ',
-    'Tin nhắn',
-    'Tạo mới',
-    'Quản lý',
-    'Cá nhân',
-  ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialManagementIndex != null) {
+      _currentIndex = 3;
+      _managementIndex = widget.initialManagementIndex!;
+    }
+    if (widget.initialSection != null) {
+      _currentIndex = 3;
+      _managementIndex = 1;
+      _hostManagementSection = widget.initialSection!;
+    }
+  }
   static const _icons = [
     Icons.home_outlined,
     Icons.chat_bubble_outline,
@@ -54,6 +74,15 @@ class _HostMainScreenState extends State<HostMainScreen> {
 
   // Chủ trọ - Mở màn Tạo bài đăng
   Future<void> _openCreatePost() async {
+    final profile = ref.read(userProfileProvider).value;
+    if (profile?.isCccdVerified != true) {
+      await showCccdRequiredModal(
+        context,
+        isHost: true,
+        actionName: 'đăng bài',
+      );
+      return;
+    }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => const HostCreatePostScreen()),
     );
@@ -84,6 +113,15 @@ class _HostMainScreenState extends State<HostMainScreen> {
   // Chủ trọ - Mở màn tạo nhà/phòng - Luồng đi: Dấu cộng trong bottom
   // nav quản lý mở route riêng; lưu xong trở về Thông tin chung.
   Future<void> _openCreate() async {
+    final profile = ref.read(userProfileProvider).value;
+    if (profile?.isCccdVerified != true) {
+      await showCccdRequiredModal(
+        context,
+        isHost: true,
+        actionName: 'tạo cơ sở hoặc phòng',
+      );
+      return;
+    }
     final saved = await Navigator.of(
       context,
     ).push<bool>(MaterialPageRoute(builder: (_) => const HostCreateScreen()));
@@ -97,6 +135,13 @@ class _HostMainScreenState extends State<HostMainScreen> {
   }
 
   Widget _buildActiveManagementSection() {
+    if (_hostManagementSection == HostManagementSection.posts) {
+      return HostPostManagementScreen(
+        onSectionChanged: (sec) {
+          setState(() => _hostManagementSection = sec);
+        },
+      );
+    }
     if (_hostManagementSection == HostManagementSection.checkinCheckout) {
       return HostCheckinCheckoutScreen(
         onSectionChanged: (sec) {
@@ -120,13 +165,13 @@ class _HostMainScreenState extends State<HostMainScreen> {
 
   // Chủ trọ - Bottom nav quản lý - Luồng đi: Thông tin chung mở danh
   // sách cơ sở; dấu cộng mở tạo nhà/phòng; nút cuối về Dashboard.
-  Widget _buildManagementNavigation() {
-    const labels = [
-      'Thông tin chung',
-      'QL người thuê',
-      'Thêm mới',
-      'QL Tiền tệ',
-      'Quay lại',
+  Widget _buildManagementNavigation(BuildContext context, String currentLang) {
+    final labels = [
+      AppTranslations.tr('nav_general_info', currentLang),
+      AppTranslations.tr('nav_tenant_mgmt', currentLang),
+      AppTranslations.tr('nav_create', currentLang),
+      AppTranslations.tr('nav_finance_mgmt', currentLang),
+      AppTranslations.tr('nav_back', currentLang),
     ];
     const icons = [
       Icons.home_outlined,
@@ -135,10 +180,11 @@ class _HostMainScreenState extends State<HostMainScreen> {
       Icons.credit_card,
       Icons.arrow_back,
     ];
+    final colors = AppColors.of(context);
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(top: BorderSide(color: colors.border)),
       ),
       child: SafeArea(
         top: false,
@@ -147,9 +193,7 @@ class _HostMainScreenState extends State<HostMainScreen> {
           child: Row(
             children: List.generate(labels.length, (index) {
               final selected = index == _managementIndex;
-              final color = selected
-                  ? const Color(0xFF2563EB)
-                  : const Color(0xFF64748B);
+              final color = selected ? colors.primary : colors.textMuted;
               return Expanded(
                 child: Semantics(
                   selected: selected,
@@ -164,17 +208,17 @@ class _HostMainScreenState extends State<HostMainScreen> {
                               width: 48,
                               height: 48,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB),
+                                color: colors.primary,
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: Colors.white,
+                                  color: colors.surface,
                                   width: 2,
                                 ),
-                                boxShadow: const [
+                                boxShadow: [
                                   BoxShadow(
-                                    color: Color(0x662563EB),
+                                    color: colors.primary.withValues(alpha: 0.4),
                                     blurRadius: 12,
-                                    offset: Offset(0, 4),
+                                    offset: const Offset(0, 4),
                                   ),
                                 ],
                               ),
@@ -220,6 +264,17 @@ class _HostMainScreenState extends State<HostMainScreen> {
   // IndexedStack giữ trạng thái giao diện khi chuyển qua lại giữa các tab.
   @override
   Widget build(BuildContext context) {
+    AppColors.bind();
+    final currentLang = ref.watch(appLanguageProvider);
+    final colors = AppColors.of(context);
+    final labels = [
+      AppTranslations.tr('nav_home', currentLang),
+      AppTranslations.tr('nav_messages', currentLang),
+      AppTranslations.tr('nav_create', currentLang),
+      AppTranslations.tr('nav_management', currentLang),
+      AppTranslations.tr('nav_profile', currentLang),
+    ];
+
     return PopScope(
       canPop: _currentIndex != 3,
       onPopInvokedWithResult: (didPop, result) {
@@ -229,44 +284,46 @@ class _HostMainScreenState extends State<HostMainScreen> {
         body: IndexedStack(
           index: _currentIndex,
           children: [
-            const HostDashboardScreen(),
-            const ChatListScreen(),
-            const HostCreatePostScreen(),
+            HostDashboardScreen(),
+            ChatListScreen(),
+            HostCreatePostScreen(),
             IndexedStack(
               index: _managementIndex,
               children: [
-                const HostPropertyManagementScreen(),
+                HostPropertyManagementScreen(
+                  onManagementSelected: _selectManagementTab,
+                ),
                 _buildActiveManagementSection(),
                 const _HostPlaceholderScreen(
                   title: 'Thêm mới',
                   icon: Icons.add_home_outlined,
                 ),
-                const _HostPlaceholderScreen(
-                  title: 'Tiền tệ',
-                  icon: Icons.credit_card,
-                ),
+                HostFinanceScreen(),
               ],
             ),
-            const HomeScreen(),
+            HomeScreen(),
           ],
         ),
         bottomNavigationBar: _currentIndex == 3
-            ? _buildManagementNavigation()
+            ? _buildManagementNavigation(context, currentLang)
             : Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(top: BorderSide(color: Color(0xFFE5EBF1))),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  border: Border(top: BorderSide(color: colors.border)),
                 ),
                 child: SafeArea(
                   top: false,
                   child: Row(
-                    children: List.generate(_labels.length, (index) {
+                    children: List.generate(labels.length, (index) {
                       final selected = _currentIndex == index;
+                      final primaryColor = colors.primary;
+                      final unselectedColor = colors.textMuted;
+
                       return Expanded(
                         child: Semantics(
                           selected: selected,
                           button: true,
-                          label: _labels[index],
+                          label: labels[index],
                           child: InkWell(
                             onTap: () => _selectTab(index),
                             child: Padding(
@@ -278,12 +335,12 @@ class _HostMainScreenState extends State<HostMainScreen> {
                                     Container(
                                       width: 46,
                                       height: 46,
-                                      decoration: const BoxDecoration(
+                                      decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         gradient: LinearGradient(
                                           colors: [
-                                            Color(0xFF1673C8),
-                                            AppColors.primary,
+                                            colors.primaryDark,
+                                            primaryColor,
                                           ],
                                         ),
                                       ),
@@ -296,21 +353,17 @@ class _HostMainScreenState extends State<HostMainScreen> {
                                   else
                                     Icon(
                                       _icons[index],
-                                      color: selected
-                                          ? AppColors.primary
-                                          : const Color(0xFF92A4BE),
+                                      color: selected ? primaryColor : unselectedColor,
                                     ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    _labels[index],
+                                    labels[index],
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: selected
                                           ? FontWeight.w700
                                           : FontWeight.w400,
-                                      color: selected
-                                          ? AppColors.primary
-                                          : const Color(0xFF92A4BE),
+                                      color: selected ? primaryColor : unselectedColor,
                                     ),
                                   ),
                                 ],

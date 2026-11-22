@@ -1,14 +1,18 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_safe_image.dart';
 import '../../../core/services/booking_service.dart';
-import '../../../core/utils/id_generator.dart';
+import '../../../core/services/resident_service.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
+import '../../profile/widgets/cccd_required_modal.dart';
 import 'booking_payment_screen.dart';
 
 String _genderFromAccount(String? value) {
@@ -57,7 +61,6 @@ class _RoomBookingDetailScreenState
   // Kế hoạch dọn vào & ở
   DateTime _moveInDate = DateTime.now().add(const Duration(days: 1));
   int _rentalMonths = 6;
-  int _occupantCount = 1;
   String _renterGender = 'nam'; // 'nam' | 'nu' | 'khac'
 
   // Phương thức thanh toán: 'deposit' (Cọc giữ phòng) hoặc 'full' (Toàn bộ)
@@ -87,6 +90,17 @@ class _RoomBookingDetailScreenState
       now.month,
       now.day,
     ).add(const Duration(days: 1));
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final p = ref.read(userProfileProvider).value;
+      if (p != null && !p.isCccdVerified) {
+        showCccdRequiredModal(
+          context,
+          isHost: false,
+          actionName: 'đặt phòng',
+        );
+      }
+    });
   }
 
   @override
@@ -135,14 +149,26 @@ class _RoomBookingDetailScreenState
     });
   }
 
-  /// Ngày rời đi dự kiến = Ngày dọn đến + Thời hạn thuê (tháng)
-  DateTime get _calculatedMoveOutDate {
-    return DateTime(
-      _moveInDate.year,
-      _moveInDate.month + _rentalMonths,
-      _moveInDate.day,
-    );
+  /// Cộng tháng an toàn, không bị tràn ngày khi rơi vào ngày cuối tháng (VD: 31/01 + 1 tháng -> 28/02)
+  DateTime _addMonthsSafe(DateTime date, int months) {
+    var newYear = date.year;
+    var newMonth = date.month + months;
+    while (newMonth > 12) {
+      newYear += 1;
+      newMonth -= 12;
+    }
+    while (newMonth < 1) {
+      newYear -= 1;
+      newMonth += 12;
+    }
+    // Ngày 0 của tháng kế tiếp = ngày cuối cùng của newMonth
+    final daysInTargetMonth = DateTime(newYear, newMonth + 1, 0).day;
+    final safeDay = date.day > daysInTargetMonth ? daysInTargetMonth : date.day;
+    return DateTime(newYear, newMonth, safeDay, date.hour, date.minute, date.second);
   }
+
+  /// Ngày rời đi dự kiến = Ngày dọn đến + Thời hạn thuê (tháng)
+  DateTime get _calculatedMoveOutDate => _addMonthsSafe(_moveInDate, _rentalMonths);
 
   /// Tiền cọc giữ phòng tạm tính
   double get _depositAmount =>
@@ -171,8 +197,68 @@ class _RoomBookingDetailScreenState
   }
 
   Future<void> _onSubmitBooking() async {
+    final user = ref.read(currentUserProvider);
+
+    // Yêu cầu xác thực CCCD: Renter chưa xác thực CCCD không được đặt phòng
+    bool isCccdVerified = false;
+    final profile = ref.read(userProfileProvider).value;
+    if (profile != null) {
+      isCccdVerified = profile.isCccdVerified;
+    } else if (user != null) {
+      try {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (doc.exists && doc.data() != null) {
+          final data = doc.data()!;
+          isCccdVerified = data['isCccdVerified'] == true ||
+              data['daXacThucCccd'] == true ||
+              data['trangThaiXacMinh'] == 'daXacThuc' ||
+              data['trangThaiXacMinh_id'] == 'daXacThuc';
+        }
+      } catch (_) {}
+    }
+
+    if (!isCccdVerified && user != null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        if (prefs.getBool('cccd_verified_${user.uid}') == true) {
+          isCccdVerified = true;
+        }
+      } catch (_) {}
+    }
+
+    if (!isCccdVerified) {
+      if (mounted) {
+        await showCccdRequiredModal(
+          context,
+          isHost: false,
+          actionName: 'đặt phòng',
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    // 1. Kiểm tra chủ nhà không thể tự đặt phòng của chính mình (Self-Booking Check)
+    if (user != null &&
+        widget.room.hostId.isNotEmpty &&
+        user.uid == widget.room.hostId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Đây là phòng do chính bạn quản lý, không thể tự đặt phòng của mình!',
+          ),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
     final name = _nameController.text.trim();
-    final phone = _phoneController.text.trim().replaceAll(RegExp(r'\s+'), '');
+    // Làm sạch số điện thoại: loại bỏ khoảng trắng, dấu chấm, gạch nối, dấu ngoặc
+    final cleanPhone = _phoneController.text
+        .trim()
+        .replaceAll(RegExp(r'[\s\.\-\(\)]+'), '');
 
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -188,8 +274,9 @@ class _RoomBookingDetailScreenState
       return;
     }
 
-    final phoneRegex = RegExp(r'^(0|\+84)[3|5|7|8|9][0-9]{8}$');
-    if (!phoneRegex.hasMatch(phone)) {
+    // Kiểm tra định dạng số điện thoại Việt Nam (10 số, bắt đầu bằng 03, 05, 07, 08, 09 hoặc +84)
+    final phoneRegex = RegExp(r'^(0|\+84)[35789][0-9]{8}$');
+    if (!phoneRegex.hasMatch(cleanPhone)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -204,27 +291,197 @@ class _RoomBookingDetailScreenState
     setState(() => _isSubmitting = true);
 
     try {
-      final user = ref.read(currentUserProvider);
+      // 2. Kiểm tra trạng thái phòng THẬT trên host_rooms (room.id có thể là postId)
+      final bookingService = ref.read(bookingServiceProvider);
+      String hostRoomDocId = widget.room.id;
+      try {
+        hostRoomDocId = await ResidentService(
+          FirebaseFirestore.instance,
+        ).resolveRoomId(widget.room.id);
+      } catch (_) {}
+
+      final hostRoomSnap = await FirebaseFirestore.instance
+          .collection('host_rooms')
+          .doc(hostRoomDocId)
+          .get();
+
+      if (hostRoomSnap.exists) {
+        final rData = hostRoomSnap.data() ?? {};
+        final rStatus = (rData['status'] ?? '').toString().toLowerCase();
+        var isAvail = rData['isAvailable'];
+        // Phòng checkout cũ có thể còn isAvailable=false dù status đã available.
+        if ((rStatus == 'available' ||
+                rStatus == 'conphong' ||
+                rStatus == 'empty') &&
+            isAvail == false) {
+          try {
+            await FirebaseFirestore.instance
+                .collection('host_rooms')
+                .doc(hostRoomDocId)
+                .set({
+                  'isAvailable': true,
+                  'bookingStatus': 'available',
+                  'tenantName': '',
+                  'tenantPhone': '',
+                  'contractId': '',
+                  'reservedBookingId': FieldValue.delete(),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                }, SetOptions(merge: true));
+            isAvail = true;
+          } catch (_) {}
+        }
+        if (rStatus == 'occupied' ||
+            rStatus == 'dango' ||
+            rStatus == 'rented' ||
+            rStatus == 'full' ||
+            rStatus == 'reserved' ||
+            isAvail == false) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Phòng trọ này hiện đã có người thuê hoặc đang tạm ngưng nhận khách!',
+                ),
+                backgroundColor: AppColors.danger,
+              ),
+            );
+          }
+          return;
+        }
+
+        // Kiểm tra giữ chỗ tạm thời (Giai đoạn 1 - 15 phút quét mã QR)
+        final isHolding = rData['isHolding'] == true;
+        final holdingExpiresAt = (rData['holdingExpiresAt'] as Timestamp?)?.toDate();
+        final holdingRenterId = (rData['holdingRenterId'] ?? '').toString();
+        final holdingBookingId = (rData['holdingBookingId'] ?? '').toString();
+        final currentUid = user?.uid ?? '';
+        final now = DateTime.now();
+
+        if (isHolding && holdingExpiresAt != null && holdingExpiresAt.isAfter(now)) {
+          // Kiểm tra xem đơn giữ chỗ trước đó đã bị hủy chưa:
+          // "khi đang thanh toán khách hàng đang chờ mà hủy đơn thì ng khác không cần chờ 15p"
+          bool isBookingCancelled = false;
+          if (holdingBookingId.isNotEmpty) {
+            try {
+              final bSnap = await FirebaseFirestore.instance.collection('bookings').doc(holdingBookingId).get();
+              if (bSnap.exists) {
+                final bData = bSnap.data() ?? {};
+                final bStatus = (bData['status'] ?? '').toString().toLowerCase();
+                if (bStatus == 'cancelled' ||
+                    bStatus == 'rejected' ||
+                    bStatus == 'checked_out' ||
+                    bData['daHuy'] == true) {
+                  isBookingCancelled = true;
+                }
+              } else {
+                isBookingCancelled = true;
+              }
+            } catch (_) {}
+          }
+
+          if (isBookingCancelled) {
+            // Đơn giữ chỗ đã hủy! Giải phóng phòng ngay lập tức cho người mới đặt
+            try {
+              await FirebaseFirestore.instance.collection('host_rooms').doc(hostRoomDocId).update({
+                'isHolding': false,
+                'holdingBookingId': FieldValue.delete(),
+                'holdingRenterId': FieldValue.delete(),
+                'holdingExpiresAt': FieldValue.delete(),
+              });
+            } catch (_) {}
+          } else if (holdingRenterId.isNotEmpty && holdingRenterId != currentUid) {
+            final diffMinutes = holdingExpiresAt.difference(now).inMinutes + 1;
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    '⚠️ Phòng đang có khách quét mã QR thanh toán giữ chỗ (còn khoảng $diffMinutes phút). Vui lòng thử lại sau nếu khách không thanh toán!',
+                  ),
+                  backgroundColor: const Color(0xFFB54708),
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            }
+            return;
+          }
+        }
+
+        // Kiểm tra phòng đang chờ duyệt chuyển khoản cọc (Giai đoạn 2)
+        if (rStatus == 'pending_confirmation') {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Phòng này vừa có khách chuyển khoản cọc và đang chờ xác nhận. Vui lòng chọn phòng khác!',
+                ),
+                backgroundColor: Color(0xFFB54708),
+              ),
+            );
+          }
+          return;
+        }
+
+      }
+
+      // Chặn 1 người thuê trùng cùng phòng vật lý qua bài đăng khác.
+      try {
+        await bookingService.assertNoActiveBookingForSameRoom(
+          renterId: user?.uid ?? '',
+          roomReference: hostRoomDocId,
+        );
+      } on StateError catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.message),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
+        return;
+      }
+
       final profile = ref.read(userProfileProvider).value;
       final renterCode =
           profile?.userCode ??
           (user != null
               ? UserProfile.generateUserCode(seed: user.uid, role: 'renter')
               : 'NT001');
-      // Nội dung chuyển khoản chỉ cần lấy ID của phòng
-      final roomId = widget.room.id;
-      final transferContent = IdGenerator.transferContent(
-        renterCode: renterCode,
-        roomCode: roomId,
-      );
 
+      // Tên và SĐT của tài khoản người đặt hộ (nếu chọn đặt hộ người thân)
+      final accountHolderName = profile?.displayName.isNotEmpty == true
+          ? profile!.displayName
+          : (profile?.cccdFullName.isNotEmpty == true
+              ? profile!.cccdFullName
+              : (user?.displayName ?? 'Chủ tài khoản'));
+      final accountPhone = profile?.phoneNumber.isNotEmpty == true
+          ? profile!.phoneNumber
+          : '';
+
+      // Parse tuổi người ở nếu có nhập
+      final ageText = _ageController.text.trim();
+      final parsedAge = int.tryParse(ageText);
+
+      // Ghi chú đơn: Thêm rõ thông tin người đặt hộ nếu đặt hộ người thân
+      final rawNote = _noteController.text.trim();
+      final fullNote = _isBookingForSelf
+          ? rawNote
+          : (rawNote.isEmpty
+              ? '[Đặt hộ người thân bởi: $accountHolderName - SĐT: $accountPhone]'
+              : '[Đặt hộ người thân bởi: $accountHolderName - SĐT: $accountPhone] - $rawNote');
+
+      // transferNote / orderCode dạng hostIndex-ABCD được createBooking ghi lên Firestore.
       final booking = BookingRequestModel(
         id: '',
         renterId: user?.uid ?? 'guest',
         renterUserCode: renterCode,
         renterName: name,
-        renterPhone: phone,
+        renterPhone: cleanPhone,
         renterGender: _renterGender,
+        renterAge: parsedAge,
+        isBookingForSelf: _isBookingForSelf,
+        bookedByUserName: _isBookingForSelf ? null : accountHolderName,
+        bookedByUserPhone: _isBookingForSelf ? null : accountPhone,
         roomId: widget.room.id,
         roomTitle: widget.room.title,
         roomAddress: widget.room.address,
@@ -236,20 +493,64 @@ class _RoomBookingDetailScreenState
         hostName: widget.room.hostName,
         status: 'pending_payment',
         paymentOption: _paymentOption,
-        transferNote: transferContent,
         moveInDate: _moveInDate,
-        note: _noteController.text.trim(),
+        moveOutDate: _calculatedMoveOutDate,
+        note: fullNote,
         createdAt: DateTime.now(),
       );
 
       // Lưu booking vào Firestore và thu nhận Document ID
       final createdBookingId = await ref
           .read(bookingServiceProvider)
-          .createBooking(booking);
-      final finalBooking = booking.copyWith(id: createdBookingId);
+          .createBooking(booking, propertyId: widget.room.propertyId);
+
+      String? savedTransferNote;
+      try {
+        final saved = await FirebaseFirestore.instance
+            .collection('bookings')
+            .doc(createdBookingId)
+            .get();
+        savedTransferNote =
+            (saved.data()?['transferNote'] ?? saved.data()?['orderCode'])
+                ?.toString()
+                .trim();
+      } catch (_) {}
+
+      final finalBooking = booking.copyWith(
+        id: createdBookingId,
+        transferNote: (savedTransferNote != null && savedTransferNote.isNotEmpty)
+            ? savedTransferNote
+            : null,
+      );
+
+      // Cập nhật trạng thái giữ chỗ 15 phút trên host_rooms (phòng thật)
+      try {
+        final holdingExpires = DateTime.now().add(const Duration(minutes: 15));
+        await FirebaseFirestore.instance.collection('host_rooms').doc(hostRoomDocId).set({
+          'isHolding': true,
+          'holdingBookingId': createdBookingId,
+          'holdingRenterId': user?.uid ?? 'guest',
+          'holdingExpiresAt': Timestamp.fromDate(holdingExpires),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } catch (e) {
+        debugPrint('Error marking host_room as holding: $e');
+      }
+
+      // Cập nhật trạng thái giữ phòng tạm thời 15 phút trên host_rooms
+      if (widget.room.id.isNotEmpty) {
+        final holdingDeadline = DateTime.now().add(const Duration(minutes: 15));
+        await FirebaseFirestore.instance.collection('host_rooms').doc(widget.room.id).set({
+          'isHolding': true,
+          'holdingBookingId': createdBookingId,
+          'holdingRenterId': user?.uid ?? 'guest',
+          'holdingExpiresAt': Timestamp.fromDate(holdingDeadline),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
 
       if (mounted) {
-        // Chuyển sang Màn hình thanh toán chuẩn Figma với mã QR VietQR MBBank 0382542737
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -297,7 +598,7 @@ class _RoomBookingDetailScreenState
 
             const SizedBox(height: 14),
 
-            // 2. Kế hoạch chuyển đến (Ngày dọn đến, ngày rời đi, thời hạn, số người)
+            // 2. Kế hoạch chuyển đến (Ngày dọn đến, ngày rời đi, thời hạn)
             _buildMoveInPlanCard(),
 
             const SizedBox(height: 14),
@@ -441,16 +742,12 @@ class _RoomBookingDetailScreenState
                   width: 80,
                   height: 80,
                   color: const Color(0xFFF1F5F9),
-                  child:
-                      widget.room.images.isNotEmpty &&
-                          widget.room.images.first.isNotEmpty
-                      ? Image.network(
-                          widget.room.images.first,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Icon(Icons.home, color: AppColors.primary),
-                        )
-                      : const Icon(Icons.home, color: AppColors.primary),
+                  child: AppSafeImage(
+                    imageUrl: widget.room.images.isNotEmpty ? widget.room.images.first : '',
+                    fit: BoxFit.cover,
+                    fallbackIcon: Icons.home,
+                    iconSize: 36,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -607,7 +904,7 @@ class _RoomBookingDetailScreenState
     );
   }
 
-  /// Card 2: Kế hoạch chuyển đến (đã bỏ mục phương tiện theo yêu cầu)
+  /// Card 2: Kế hoạch chuyển đến (đã bỏ mục phương tiện và số lượng người ở theo yêu cầu)
   Widget _buildMoveInPlanCard() {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -858,107 +1155,6 @@ class _RoomBookingDetailScreenState
                       Icons.add,
                       size: 16,
                       color: _rentalMonths < 24
-                          ? const Color(0xFF334155)
-                          : const Color(0xFF94A3B8),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Số lượng người ở (Thanh ngang gọn gàng)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.group_outlined,
-                  size: 16,
-                  color: Color(0xFF64748B),
-                ),
-                const SizedBox(width: 6),
-                const Expanded(
-                  child: Text(
-                    'Số lượng người ở:',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF334155),
-                    ),
-                  ),
-                ),
-                InkWell(
-                  onTap: _occupantCount > 1
-                      ? () => setState(() => _occupantCount--)
-                      : null,
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: _occupantCount > 1
-                          ? Colors.white
-                          : const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFCBD5E1)),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.remove,
-                      size: 16,
-                      color: _occupantCount > 1
-                          ? const Color(0xFF334155)
-                          : const Color(0xFF94A3B8),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDBEAFE),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '$_occupantCount người',
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1D4ED8),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap: _occupantCount < 5
-                      ? () => setState(() => _occupantCount++)
-                      : null,
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: _occupantCount < 5
-                          ? Colors.white
-                          : const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFCBD5E1)),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.add,
-                      size: 16,
-                      color: _occupantCount < 5
                           ? const Color(0xFF334155)
                           : const Color(0xFF94A3B8),
                     ),

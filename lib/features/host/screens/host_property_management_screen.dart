@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_safe_image.dart';
+import '../../auth/providers/user_provider.dart';
+import '../../profile/widgets/cccd_required_modal.dart';
 import '../data/host_property.dart';
 import '../providers/host_management_provider.dart';
 import 'host_create_screen.dart';
@@ -12,7 +15,8 @@ enum _PropertyAction { edit, delete }
 // Chủ trọ - Quản lý cơ sở Firebase - Luồng đi: Mở từ Dashboard;
 // properties và rooms của tài khoản cập nhật danh sách và tổng quan tự động.
 class HostPropertyManagementScreen extends ConsumerWidget {
-  const HostPropertyManagementScreen({super.key});
+  const HostPropertyManagementScreen({super.key, this.onManagementSelected});
+  final ValueChanged<int>? onManagementSelected;
   static const _blue = AppColors.primary;
   static const _muted = AppColors.textSecondary;
   String _money(num value) => NumberFormat.decimalPattern('vi').format(value);
@@ -99,7 +103,7 @@ class HostPropertyManagementScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   FilledButton(
-                    onPressed: () => _openCreate(context),
+                    onPressed: () => _openCreate(context, ref),
                     child: const Text('Tạo cơ sở đầu tiên'),
                   ),
                 ],
@@ -143,16 +147,6 @@ class HostPropertyManagementScreen extends ConsumerWidget {
                       color: _blue,
                     ),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: 'Thông báo',
-                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Thông báo sẽ được bổ sung sau.'),
-                      ),
-                    ),
-                    icon: const Icon(Icons.notifications_none, color: _muted),
-                  ),
                 ],
               ),
             ),
@@ -165,7 +159,20 @@ class HostPropertyManagementScreen extends ConsumerWidget {
 
   // Chủ trọ - Mở form tạo - Luồng đi: Dấu cộng hoặc thẻ nhà mở form;
   // sau khi lưu phòng quay lại danh sách và hiện phản hồi thành công.
-  Future<void> _openCreate(BuildContext context, {String? propertyId}) async {
+  Future<void> _openCreate(
+    BuildContext context,
+    WidgetRef ref, {
+    String? propertyId,
+  }) async {
+    final profile = ref.read(userProfileProvider).value;
+    if (profile?.isCccdVerified != true) {
+      await showCccdRequiredModal(
+        context,
+        isHost: true,
+        actionName: propertyId != null ? 'tạo phòng' : 'tạo cơ sở',
+      );
+      return;
+    }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => HostCreateScreen(
@@ -390,121 +397,181 @@ class HostPropertyManagementScreen extends ConsumerWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: p.images.isEmpty
-                      ? _imageFallback()
-                      : Image.network(
-                          p.images.first,
-                          webHtmlElementStrategy:
-                              WebHtmlElementStrategy.fallback,
-                          width: 64,
-                          height: 64,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stack) =>
-                              _imageFallback(),
-                        ),
+                  child: AppSafeImage(
+                    imageUrl: p.images.isNotEmpty ? p.images.first : '',
+                    width: 88,
+                    height: 88,
+                    fit: BoxFit.cover,
+                    placeholder: _imageFallback(),
+                    errorWidget: _imageFallback(),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              p.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
+                  child: SizedBox(
+                    height: 88,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                p.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textDark,
+                                ),
                               ),
                             ),
+                            SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: PopupMenuButton<_PropertyAction>(
+                                key: ValueKey('property_menu_${p.id}'),
+                                tooltip: 'Tùy chọn cơ sở',
+                                padding: EdgeInsets.zero,
+                                icon: const Icon(
+                                  Icons.more_vert,
+                                  size: 20,
+                                  color: _muted,
+                                ),
+                                onSelected: (action) async {
+                                  switch (action) {
+                                    case _PropertyAction.edit:
+                                      await _openEdit(context, p);
+                                      break;
+                                    case _PropertyAction.delete:
+                                      await _deleteProperty(
+                                        context,
+                                        ref,
+                                        summary,
+                                      );
+                                      break;
+                                  }
+                                },
+                                itemBuilder: (context) => const [
+                                  PopupMenuItem(
+                                    value: _PropertyAction.edit,
+                                    child: ListTile(
+                                      dense: true,
+                                      leading: Icon(Icons.edit_outlined),
+                                      title: Text('Sửa cơ sở'),
+                                    ),
+                                  ),
+                                  PopupMenuItem(
+                                    value: _PropertyAction.delete,
+                                    child: ListTile(
+                                      dense: true,
+                                      leading: Icon(
+                                        Icons.delete_outline,
+                                        color: AppColors.danger,
+                                      ),
+                                      title: Text(
+                                        'Xóa cơ sở',
+                                        style: TextStyle(
+                                          color: AppColors.danger,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.location_on_outlined,
+                              size: 13,
+                              color: _muted,
+                            ),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                p.fullAddress,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: _muted,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
                           ),
-                          const SizedBox(width: 4),
-                          PopupMenuButton<_PropertyAction>(
-                            key: ValueKey('property_menu_${p.id}'),
-                            tooltip: 'Tùy chọn cơ sở',
-                            icon: const Icon(Icons.more_vert, size: 20),
-                            onSelected: (action) async {
-                              switch (action) {
-                                case _PropertyAction.edit:
-                                  await _openEdit(context, p);
-                                  break;
-                                case _PropertyAction.delete:
-                                  await _deleteProperty(context, ref, summary);
-                                  break;
-                              }
-                            },
-                            itemBuilder: (context) => const [
-                              PopupMenuItem(
-                                value: _PropertyAction.edit,
-                                child: ListTile(
-                                  dense: true,
-                                  leading: Icon(Icons.edit_outlined),
-                                  title: Text('Sửa cơ sở'),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${summary.rooms.length}/${p.plannedRooms} phòng',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textDark,
                                 ),
                               ),
-                              PopupMenuItem(
-                                value: _PropertyAction.delete,
-                                child: ListTile(
-                                  dense: true,
-                                  leading: Icon(
-                                    Icons.delete_outline,
-                                    color: AppColors.danger,
-                                  ),
-                                  title: Text(
-                                    'Xóa cơ sở',
-                                    style: TextStyle(color: AppColors.danger),
-                                  ),
+                              Container(
+                                width: 1,
+                                height: 10,
+                                color: const Color(0xFFCBD5E1),
+                              ),
+                              Text(
+                                '${summary.rented} đã thuê',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF059669),
                                 ),
                               ),
+                              Container(
+                                width: 1,
+                                height: 10,
+                                color: const Color(0xFFCBD5E1),
+                              ),
+                              Text(
+                                '${summary.vacant} trống',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFD97706),
+                                ),
+                              ),
+                              if (summary.other > 0) ...[
+                                Container(
+                                  width: 1,
+                                  height: 10,
+                                  color: const Color(0xFFCBD5E1),
+                                ),
+                                Text(
+                                  '${summary.other} khác',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: _muted,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        p.fullAddress,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 11, color: _muted),
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          _badge(
-                            '${summary.rooms.length}/${p.plannedRooms} phòng đã tạo',
-                            const Color(0xFFF1F5F9),
-                            AppColors.textDark,
-                          ),
-                          Text(
-                            '${summary.rented} thuê',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Color(0xFF059669),
-                            ),
-                          ),
-                          Text(
-                            '${summary.vacant} trống',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Color(0xFFD97706),
-                            ),
-                          ),
-                          if (summary.other > 0)
-                            Text(
-                              '${summary.other} khác',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: _muted,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -553,7 +620,10 @@ class HostPropertyManagementScreen extends ConsumerWidget {
   void _showRooms(BuildContext context, PropertySummary summary) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => HostRoomListScreen(propertyId: summary.property.id),
+        builder: (_) => HostRoomListScreen(
+          propertyId: summary.property.id,
+          onManagementSelected: onManagementSelected,
+        ),
       ),
     );
   }
@@ -561,29 +631,15 @@ class HostPropertyManagementScreen extends ConsumerWidget {
   // Chủ trọ - Thành phần thẻ quản lý - Luồng đi: Dùng nền trắng,
   // viền mảnh và nhãn trạng thái thống nhất với giao diện HomeShare.
   Widget _imageFallback() => Container(
-    width: 64,
-    height: 64,
+    width: 88,
+    height: 88,
     color: const Color(0xFFEFF6FF),
-    child: const Icon(Icons.apartment, color: _blue),
+    child: const Icon(Icons.apartment, color: _blue, size: 32),
   );
   BoxDecoration _decoration() => BoxDecoration(
     color: Colors.white,
     borderRadius: BorderRadius.circular(16),
     border: Border.all(color: const Color(0xFFE9EEF5)),
   );
-  Widget _badge(String text, Color background, Color foreground) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-    decoration: BoxDecoration(
-      color: background,
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Text(
-      text,
-      style: TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
-        color: foreground,
-      ),
-    ),
-  );
+
 }

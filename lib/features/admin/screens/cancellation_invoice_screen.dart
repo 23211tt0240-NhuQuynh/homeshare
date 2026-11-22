@@ -47,6 +47,18 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
     'SHB': '970443',
     'VIB': '970441',
     'HDB': '970437',
+    'MSB': '970426',
+    'OCB': '970448',
+    'EIB': '970431',
+    'SCB': '970429',
+    'LPB': '970449',
+    'SEAB': '970440',
+    'NAB': '970428',
+    'BVB': '970438',
+    'ABB': '970425',
+    'BAB': '970409',
+    'TIMO': '963388',
+    'CAKE': '546034',
   };
 
   @override
@@ -193,6 +205,21 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
           break;
         }
       }
+      if (bankData == null) {
+        final holderName = _pick(
+          [profile],
+          ['displayName', 'cccdFullName', 'fullName', 'name'],
+        );
+        if (holderName.isNotEmpty) {
+          final byHolder = await accounts
+              .where('accountHolder', isEqualTo: holderName)
+              .limit(1)
+              .get();
+          if (byHolder.docs.isNotEmpty) {
+            bankData = byHolder.docs.first.data();
+          }
+        }
+      }
       if (bankData == null) return profile;
 
       String value(List<String> keys, String fallback) {
@@ -266,19 +293,31 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
   }
 
   static const Map<String, List<String>> _bankAliases = {
-    'MB': ['mb', 'mbb'],
-    'VCB': ['vcb', 'vietcombank'],
-    'TCB': ['tcb', 'techcombank'],
-    'ACB': ['acb'],
-    'BIDV': ['bidv'],
-    'ICB': ['icb', 'ctg', 'vietinbank'],
-    'VPB': ['vpb', 'vpbank'],
-    'TPB': ['tpb', 'tpbank'],
-    'STB': ['stb', 'sacombank'],
-    'VBA': ['vba', 'agribank'],
-    'SHB': ['shb'],
-    'VIB': ['vib'],
-    'HDB': ['hdb', 'hdbank'],
+    'MB': ['mb', 'mbb', 'mbbank', 'quandoi'],
+    'VCB': ['vcb', 'vietcombank', 'ngoaithuong'],
+    'TCB': ['tcb', 'techcombank', 'kythuong'],
+    'ACB': ['acb', 'achau'],
+    'BIDV': ['bidv', 'dautuvaphattrien'],
+    'ICB': ['icb', 'ctg', 'vietinbank', 'vietin', 'congthuong'],
+    'VPB': ['vpb', 'vpbank', 'thinhvuong'],
+    'TPB': ['tpb', 'tpbank', 'tienphong'],
+    'STB': ['stb', 'sacombank', 'saigonthuongtin'],
+    'VBA': ['vba', 'agribank', 'agri', 'nongnghiep'],
+    'SHB': ['shb', 'saigonhanoi'],
+    'VIB': ['vib', 'quocte'],
+    'HDB': ['hdb', 'hdbank', 'phattrientphcm'],
+    'MSB': ['msb', 'hanghai', 'maritime', 'maritimebank'],
+    'OCB': ['ocb', 'phuongdong'],
+    'EIB': ['eib', 'eximbank', 'xuatnhapkhau'],
+    'SCB': ['scb', 'saigon'],
+    'LPB': ['lpb', 'lpbank', 'lienvietpostbank', 'buudienlienviet'],
+    'SEAB': ['seab', 'seabank', 'dongnama'],
+    'NAB': ['nab', 'namabank', 'nama'],
+    'BVB': ['bvb', 'baoviet', 'baovietbank', 'banviet', 'vietcapital'],
+    'ABB': ['abb', 'abbank', 'anbinh'],
+    'BAB': ['bab', 'bacabank', 'baca'],
+    'TIMO': ['timo'],
+    'CAKE': ['cake'],
   };
 
   String? _findBankCode(String input) {
@@ -356,29 +395,8 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
   }
 
   String _shortOrderCode(Map<String, dynamic> booking, {int maxLen = 4}) {
-    final rawOrder = (booking['orderCode'] ?? '').toString().trim();
-    final docId = (booking['id'] ?? '').toString().trim();
-    final raw = (rawOrder.isNotEmpty ? rawOrder : docId).toUpperCase();
-    if (raw.contains('_')) {
-      final parts = raw
-          .split('_')
-          .where(
-            (p) =>
-                p.isNotEmpty &&
-                p != 'DP' &&
-                !RegExp(r'^20\d{6}$').hasMatch(p) &&
-                !RegExp(r'^(NT|CT)[A-Z0-9]+$').hasMatch(p),
-          )
-          .toList();
-      if (parts.isNotEmpty) {
-        final mid = parts.first.replaceAll(RegExp(r'[^A-Z0-9]'), '');
-        if (mid.isNotEmpty) {
-          return mid.length > maxLen ? mid.substring(mid.length - maxLen) : mid;
-        }
-      }
-    }
-    final clean = raw.replaceAll(RegExp(r'[^A-Z0-9]'), '');
-    return clean.length > maxLen ? clean.substring(clean.length - maxLen) : clean;
+    final code = BookingUtils.shortCode(booking);
+    return code.length > maxLen ? code.substring(code.length - maxLen) : code;
   }
 
   String _transferMemo(String prefix, String reference) {
@@ -419,7 +437,6 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
 
   Widget _buildMissingBankCard({
     required String message,
-    required VoidCallback onPressed,
   }) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -428,170 +445,53 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFFEDF89)),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12.5, color: Color(0xFFB54708)),
+          const Icon(
+            Icons.qr_code_scanner_rounded,
+            size: 22,
+            color: Color(0xFFB54708),
           ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: onPressed,
-            icon: const Icon(Icons.account_balance_rounded, size: 18),
-            label: const Text('NHẬP TÀI KHOẢN ĐỂ TẠO QR'),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFB54708),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _editBankAccount({
-    required String role,
-    required String userId,
-    required String currentBank,
-    required String currentAccount,
-  }) async {
-    final bankCtrl = TextEditingController(text: currentBank);
-    final accountCtrl = TextEditingController(text: currentAccount);
-    String? selectedCode = _findBankCode(currentBank);
-    final saved = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            20,
-            20,
-            MediaQuery.of(context).viewInsets.bottom + 20,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Tài khoản nhận chuyển khoản',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF101828),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Chọn đúng ngân hàng và nhập STK. Không cần nhập tên; app ngân hàng sẽ hiện người nhận khi quét.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF667085)),
-                ),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 7,
-                  runSpacing: 6,
-                  children: _bankBins.keys
-                      .map(
-                        (code) => ChoiceChip(
-                          label: Text(code),
-                          selected: selectedCode == code,
-                          onSelected: (_) => setSheetState(() {
-                            selectedCode = code;
-                            bankCtrl.text = code;
-                          }),
-                        ),
-                      )
-                      .toList(),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: bankCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Tên ngân hàng',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (v) =>
-                      setSheetState(() => selectedCode = _findBankCode(v)),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: accountCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Số tài khoản',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: selectedCode == null
-                        ? null
-                        : () => Navigator.pop(sheetContext, true),
-                    child: const Text('LƯU THÔNG TIN & TẠO QR'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    if (saved != true) return;
-
-    final bank = bankCtrl.text.trim();
-    final account = accountCtrl.text.trim().replaceAll(RegExp(r'\s+'), '');
-    if (bank.isEmpty || account.isEmpty || selectedCode == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Nhập ngân hàng và STK hợp lệ trước khi tạo QR.'),
-          ),
-        );
-      }
-      return;
+  bool _isTransientFirestoreError(Object error) {
+    if (error is FirebaseException) {
+      final code = error.code.toLowerCase();
+      if (code == 'unavailable' || code == 'deadline-exceeded') return true;
     }
+    final msg = error.toString().toLowerCase();
+    return msg.contains('unavailable') ||
+        msg.contains('shutdownnow') ||
+        msg.contains('channel shutdown');
+  }
+
+  Future<T> _retryFirestoreOp<T>(
+    FirebaseFirestore db,
+    Future<T> Function() action,
+  ) async {
     try {
-      if (userId.isNotEmpty) {
-        await FirebaseFirestore.instance.collection('users').doc(userId).set({
-          'bankName': bank,
-          'bankCode': selectedCode,
-          'bankAccountNumber': account,
-          'accountNumber': account,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      }
-      if (mounted) {
-        setState(() {
-          final updated = {
-            ...?(role == 'host' ? _hostProfile : _renterProfile),
-          };
-          updated['bankName'] = bank;
-          updated['bankCode'] = selectedCode;
-          updated['bankAccountNumber'] = account;
-          updated['accountNumber'] = account;
-          if (role == 'host') {
-            _hostProfile = updated;
-          } else {
-            _renterProfile = updated;
-          }
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đã lưu tài khoản. QR chuyển khoản đã được tạo.'),
-            backgroundColor: Color(0xFF12B76A),
-          ),
-        );
-      }
+      return await action();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Không lưu được tài khoản: $e')));
-      }
+      if (!_isTransientFirestoreError(e)) rethrow;
+      try {
+        await db.enableNetwork();
+      } catch (_) {}
+      await Future<void>.delayed(const Duration(milliseconds: 450));
+      return await action();
     }
   }
 
@@ -625,73 +525,121 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
         for (final booking in _bookingDataList)
           (booking['id'] ?? '').toString(): _rateForBooking(booking),
       };
-      final shouldComplete = await db.runTransaction<bool>((tx) async {
-        final snapshots = <DocumentSnapshot<Map<String, dynamic>>>[];
-        for (final ref in refs) {
-          final snap = await tx.get(ref);
-          if (!snap.exists) throw StateError('Không tìm thấy đơn ${ref.id}.');
-          snapshots.add(snap);
+
+      Map<String, dynamic> buildBookingUpdate(
+        String bookingId,
+        Map<String, dynamic> data,
+      ) {
+        final fullPayment = [
+          'full',
+          'toanbo',
+          'trahet',
+        ].contains((data['paymentOption'] ?? '').toString().toLowerCase());
+        final orderAmount = BookingUtils.amount(data);
+        final hostShare = fullPayment
+            ? (orderAmount / 2).round()
+            : orderAmount.round();
+        final storedRate =
+            data['cancellationCommissionRate'] ??
+            data['commissionRateAtBooking'] ??
+            data['platformFeeRate'];
+        final orderRate = storedRate is num
+            ? storedRate.toDouble().clamp(0, 50) / 100
+            : (rateByBookingId[bookingId] ?? _commissionRate);
+        // Đơn trả hết: phí sàn được trừ từ tổng tiền trước khi chia phần
+        // hoàn khách; phần 50% của chủ trọ không bị trừ phí lần nữa.
+        final orderPlatformFee =
+            ((fullPayment ? orderAmount : hostShare) * orderRate).round();
+        return {
+          targetRole == 'host'
+                  ? 'cancellationHostPaid'
+                  : 'cancellationRenterRefunded':
+              true,
+          targetRole == 'host'
+                  ? 'cancellationHostPaidAt'
+                  : 'cancellationRenterRefundedAt':
+              FieldValue.serverTimestamp(),
+          'cancellationPlatformFee': orderPlatformFee,
+          'cancellationCommissionRate': orderRate * 100,
+          'isRefunded': true,
+          'refundedAt': FieldValue.serverTimestamp(),
+          'isCancellationSettled': true,
+          'subTag': 'Đã tất toán',
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+      }
+
+      void validateBookingData(String bookingId, Map<String, dynamic> data) {
+        if (BookingUtils.canonical(data)['status'] != 'cancelled') {
+          throw StateError(
+            'Đơn $bookingId không còn ở trạng thái hủy.',
+          );
         }
-        for (var i = 0; i < refs.length; i++) {
-          final data = snapshots[i].data() ?? {};
-          if (BookingUtils.canonical(data)['status'] != 'cancelled') {
-            throw StateError(
-              'Đơn ${refs[i].id} không còn ở trạng thái hủy.',
-            );
+        final alreadyHandled = targetRole == 'host'
+            ? data['cancellationHostPaid'] == true
+            : data['cancellationRenterRefunded'] == true;
+        if (alreadyHandled) {
+          throw StateError(
+            'Đơn đã được ghi nhận chuyển tiền trước đó.',
+          );
+        }
+      }
+
+      bool shouldComplete = false;
+      try {
+        shouldComplete = await db.runTransaction<bool>((tx) async {
+          final snapshots = <DocumentSnapshot<Map<String, dynamic>>>[];
+          for (final ref in refs) {
+            final snap = await tx.get(ref);
+            if (!snap.exists) throw StateError('Không tìm thấy đơn ${ref.id}.');
+            snapshots.add(snap);
           }
-          final alreadyHandled = targetRole == 'host'
-              ? data['cancellationHostPaid'] == true
-              : data['cancellationRenterRefunded'] == true;
-          if (alreadyHandled || data['isRefunded'] == true) {
-            throw StateError(
-              'Đơn đã được ghi nhận chuyển tiền, không thể xác nhận lần nữa.',
-            );
+          for (var i = 0; i < refs.length; i++) {
+            final data = snapshots[i].data() ?? {};
+            validateBookingData(refs[i].id, data);
           }
-        }
+          for (var i = 0; i < refs.length; i++) {
+            final data = snapshots[i].data() ?? {};
+            tx.update(refs[i], buildBookingUpdate(refs[i].id, data));
+          }
+          return true;
+        });
+      } catch (txError) {
+        if (!_isTransientFirestoreError(txError)) rethrow;
+        // Khôi phục kết nối gRPC khi bị "Channel shutdownNow invoked"
+        // và fallback sang WriteBatch để không bị kẹt bởi gRPC stream của Transaction.
+        try {
+          await db.enableNetwork();
+        } catch (_) {}
+        await Future<void>.delayed(const Duration(milliseconds: 450));
+
+        final batch = db.batch();
         for (var i = 0; i < refs.length; i++) {
-          final data = snapshots[i].data() ?? {};
-          final fullPayment = [
-            'full',
-            'toanbo',
-            'trahet',
-          ].contains((data['paymentOption'] ?? '').toString().toLowerCase());
-          final otherSideDone = targetRole == 'host'
-              ? data['cancellationRenterRefunded'] == true
-              : data['cancellationHostPaid'] == true;
-          final completesOrder = !fullPayment || otherSideDone;
-          final orderAmount = BookingUtils.amount(data);
-          final hostShare = fullPayment
-              ? (orderAmount / 2).round()
-              : orderAmount.round();
-          final storedRate =
-              data['cancellationCommissionRate'] ??
-              data['commissionRateAtBooking'] ??
-              data['platformFeeRate'];
-          final orderRate = storedRate is num
-              ? storedRate.toDouble().clamp(0, 50) / 100
-              : (rateByBookingId[refs[i].id] ?? _commissionRate);
-          // Đơn trả hết: phí sàn được trừ từ tổng tiền trước khi chia phần
-          // hoàn khách; phần 50% của chủ trọ không bị trừ phí lần nữa.
-          final orderPlatformFee =
-              ((fullPayment ? orderAmount : hostShare) * orderRate).round();
-          tx.update(refs[i], {
-            targetRole == 'host'
-                    ? 'cancellationHostPaid'
-                    : 'cancellationRenterRefunded':
-                true,
-            targetRole == 'host'
-                    ? 'cancellationHostPaidAt'
-                    : 'cancellationRenterRefundedAt':
-                FieldValue.serverTimestamp(),
-            'cancellationPlatformFee': orderPlatformFee,
-            'cancellationCommissionRate': orderRate * 100,
-            if (completesOrder) 'isRefunded': true,
-            if (completesOrder) 'refundedAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+          DocumentSnapshot<Map<String, dynamic>>? snap;
+          try {
+            snap = await refs[i].get();
+          } catch (_) {
+            snap = await refs[i].get(const GetOptions(source: Source.cache));
+          }
+          final Map<String, dynamic> data;
+          if (snap.exists && snap.data() != null) {
+            data = snap.data()!;
+          } else {
+            final localMatch = _bookingDataList.where(
+              (b) => (b['id'] ?? '').toString() == refs[i].id,
+            );
+            if (localMatch.isEmpty) {
+              throw StateError('Không tìm thấy đơn ${refs[i].id}.');
+            }
+            data = localMatch.first;
+          }
+          validateBookingData(refs[i].id, data);
+          batch.update(refs[i], buildBookingUpdate(refs[i].id, data));
         }
-        return true;
-      });
+        await _retryFirestoreOp(db, () => batch.commit());
+        shouldComplete = true;
+      }
+
       if (mounted) {
         setState(() {
           for (final booking in _bookingDataList) {
@@ -699,29 +647,28 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                     ? 'cancellationHostPaid'
                     : 'cancellationRenterRefunded'] =
                 true;
-            final full = ['full', 'toanbo', 'trahet'].contains(
-              (booking['paymentOption'] ?? '').toString().toLowerCase(),
-            );
-            final otherDone = targetRole == 'host'
-                ? booking['cancellationRenterRefunded'] == true
-                : booking['cancellationHostPaid'] == true;
-            if (!full || otherDone) booking['isRefunded'] = true;
+            booking['isRefunded'] = true;
+            booking['isCancellationSettled'] = true;
+            booking['subTag'] = 'Đã tất toán';
           }
         });
       }
 
       if (recipientId.isNotEmpty && recipientId != 'guest' && shouldComplete) {
-        await db.collection('notifications').add({
-          'recipientId': recipientId,
-          'recipientRole': targetRole,
-          'title': title,
-          'body': body,
-          'notificationType': 'cancellation_invoice',
-          'bookingIds': widget.bookingIds,
-          'amount': amount,
-          'isRead': false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+        await _retryFirestoreOp(
+          db,
+          () => db.collection('notifications').add({
+            'recipientId': recipientId,
+            'recipientRole': targetRole,
+            'title': title,
+            'body': body,
+            'notificationType': 'cancellation_invoice',
+            'bookingIds': widget.bookingIds,
+            'amount': amount,
+            'isRead': false,
+            'createdAt': FieldValue.serverTimestamp(),
+          }),
+        );
       }
 
       final auditRef = db.collection('audit_logs').doc();
@@ -729,19 +676,34 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
       final receiptCode =
           '#CXL-${DateFormat('yyyyMMdd-HHmmss').format(executedAt)}-${auditRef.id.substring(0, 4).toUpperCase()}';
       final actorFields = await AdminAuditIdentity.currentActorFields();
-      await auditRef.set({
-        ...actorFields,
-        'action': targetRole == 'host'
-            ? 'Quyết toán bồi thường đơn hủy cho Chủ trọ'
-            : 'Hoàn tiền đơn hủy cho Người thuê',
-        'category': 'taiChinh',
-        'details': body,
-        'bookingIds': widget.bookingIds,
-        'receiptCode': receiptCode,
-        'amount': amount,
-        'recipientRole': targetRole,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      final adminAuditDetails = targetRole == 'host'
+          ? 'Đã chuyển bồi thường đơn hủy $orderCodes cho chủ trọ '
+              '${recipientName.isNotEmpty ? recipientName : 'Chủ trọ'}'
+              '${bankDetails.isNotEmpty ? ' ($bankDetails)' : ''} '
+              'số tiền ${currencyFormatter.format(amount)}đ '
+              '(hoa hồng sàn ${currencyFormatter.format(platformFee)}đ).'
+          : 'Đã hoàn tiền đơn hủy $orderCodes cho người thuê '
+              '${recipientName.isNotEmpty ? recipientName : 'Người thuê'}'
+              '${bankDetails.isNotEmpty ? ' ($bankDetails)' : ''} '
+              'số tiền ${currencyFormatter.format(amount)}đ '
+              '(phần chủ trọ ${currencyFormatter.format(hostCompensation)}đ, '
+              'hoa hồng sàn ${currencyFormatter.format(platformFee)}đ).';
+      await _retryFirestoreOp(
+        db,
+        () => auditRef.set({
+          ...actorFields,
+          'action': targetRole == 'host'
+              ? 'Quyết toán bồi thường đơn hủy cho Chủ trọ'
+              : 'Hoàn tiền đơn hủy cho Người thuê',
+          'category': 'taiChinh',
+          'details': adminAuditDetails,
+          'bookingIds': widget.bookingIds,
+          'receiptCode': receiptCode,
+          'amount': amount,
+          'recipientRole': targetRole,
+          'createdAt': FieldValue.serverTimestamp(),
+        }),
+      );
 
       if (mounted) {
         await Navigator.push(
@@ -905,7 +867,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
         : _findBankCode(renterBank);
 
     final orderCodes = _bookingDataList
-        .map((e) => (e['orderCode'] ?? e['transferNote'] ?? e['id']).toString())
+        .map((e) => _shortOrderCode(e))
         .join(', ');
     final hostTransferRef = _extractHostCode(first);
     final renterTransferRef = _extractRenterCode(first);
@@ -1128,21 +1090,6 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
                         ),
                       ),
                     ),
-                    TextButton.icon(
-                      onPressed: () => _editBankAccount(
-                        role: 'host',
-                        userId: hostId,
-                        currentBank: hostBank,
-                        currentAccount: hostAcc,
-                      ),
-                      icon: const Icon(Icons.edit_rounded, size: 14),
-                      label: Text(hostAcc.isEmpty ? 'Nhập STK' : 'Đổi STK'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF398FC0),
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -1270,12 +1217,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
             final gross = full ? (amount / 2).round() : amount;
             final fee = (amount * rate).round();
             final hostReceives = full ? gross : gross - fee;
-            final code =
-                (booking['orderCode'] ??
-                        booking['transferNote'] ??
-                        booking['id'] ??
-                        '')
-                    .toString();
+            final code = _shortOrderCode(booking);
             return Container(
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(12),
@@ -1537,14 +1479,8 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
           if (qrPayload == null) ...[
             _buildMissingBankCard(
               message: hostAcc.isEmpty
-                  ? 'Chủ trọ chưa có tài khoản nhận tiền.'
-                  : 'Chưa nhận diện được ngân hàng để tạo QR.',
-              onPressed: () => _editBankAccount(
-                role: 'host',
-                userId: hostId,
-                currentBank: hostBank,
-                currentAccount: hostAcc,
-              ),
+                  ? 'Chủ trọ chưa cập nhật số tài khoản nhận tiền nên chưa thể tạo mã QR.'
+                  : 'Chưa nhận diện được ngân hàng của chủ trọ để tạo mã QR.',
             ),
             const SizedBox(height: 16),
           ],
@@ -1553,6 +1489,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
           ElevatedButton.icon(
             onPressed:
                 _isProcessing ||
+                    qrPayload == null ||
                     _bookingDataList.any(
                       (b) => b['cancellationHostPaid'] == true,
                     )
@@ -1850,14 +1787,8 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
           if (qrPayload == null) ...[
             _buildMissingBankCard(
               message: renterAcc.isEmpty
-                  ? 'Người thuê chưa có tài khoản nhận tiền hoàn.'
-                  : 'Chưa nhận diện được ngân hàng để tạo QR.',
-              onPressed: () => _editBankAccount(
-                role: 'renter',
-                userId: renterId,
-                currentBank: renterBank,
-                currentAccount: renterAcc,
-              ),
+                  ? 'Người thuê chưa cập nhật số tài khoản nhận tiền hoàn nên chưa thể tạo mã QR.'
+                  : 'Chưa nhận diện được ngân hàng của người thuê để tạo mã QR.',
             ),
             const SizedBox(height: 16),
           ],
@@ -1866,6 +1797,7 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
           ElevatedButton.icon(
             onPressed:
                 _isProcessing ||
+                    qrPayload == null ||
                     _bookingDataList.any(
                       (b) => b['cancellationRenterRefunded'] == true,
                     )
@@ -1921,8 +1853,10 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
     Color? color,
   }) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
+          flex: 5,
           child: Text(
             label,
             maxLines: 2,
@@ -1934,11 +1868,12 @@ class _CancellationInvoiceScreenState extends State<CancellationInvoiceScreen>
             ),
           ),
         ),
-        const SizedBox(width: 8),
-        Flexible(
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 5,
           child: Text(
             value,
-            textAlign: TextAlign.end,
+            textAlign: TextAlign.right,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(

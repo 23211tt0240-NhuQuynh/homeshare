@@ -1,7 +1,88 @@
 import 'package:flutter/material.dart';
 import '../theme/phong_sang_theme.dart';
 
+/// Palette giao diện sáng (Phòng Sáng).
+class AppPalette {
+  const AppPalette({
+    required this.primary,
+    required this.primaryLight,
+    required this.primaryDark,
+    required this.primaryContainer,
+    required this.primarySurface,
+    required this.textDark,
+    required this.textMuted,
+    required this.background,
+    required this.surface,
+    required this.surfaceVariant,
+    required this.border,
+    required this.danger,
+    required this.dangerContainer,
+    required this.warning,
+    required this.warningContainer,
+    required this.success,
+  });
+
+  final Color primary;
+  final Color primaryLight;
+  final Color primaryDark;
+  final Color primaryContainer;
+  final Color primarySurface;
+  final Color textDark;
+  final Color textMuted;
+  final Color background;
+  final Color surface;
+  final Color surfaceVariant;
+  final Color border;
+  final Color danger;
+  final Color dangerContainer;
+  final Color warning;
+  final Color warningContainer;
+  final Color success;
+
+  Color get textPrimary => textDark;
+  Color get textSecondary => textMuted;
+  Color get onPrimary => const Color(0xFFF8FAFC);
+
+  static const light = AppPalette(
+    primary: PhongSangColors.accent,
+    primaryLight: Color(0xFF2E90FA),
+    primaryDark: Color(0xFF175CD3),
+    primaryContainer: PhongSangColors.accentSoft,
+    primarySurface: Color(0xFFE8F5E9),
+    textDark: PhongSangColors.ink,
+    textMuted: PhongSangColors.muted,
+    background: PhongSangColors.paper,
+    surface: PhongSangColors.card,
+    surfaceVariant: PhongSangColors.priceSoft,
+    border: PhongSangColors.line,
+    danger: Color(0xFFD92D20),
+    dangerContainer: Color(0xFFFEE4E2),
+    warning: PhongSangColors.hold,
+    warningContainer: Color(0xFFFEF0C7),
+    success: PhongSangColors.live,
+  );
+}
+
+/// Màu app giao diện.
 class AppColors {
+  static AppPalette palette = AppPalette.light;
+
+  static void bind() {
+    palette = AppPalette.light;
+  }
+
+  static AppPalette of(BuildContext context) {
+    return AppPalette.light;
+  }
+
+  // Dynamic getters theo theme đang chạy:
+  static Color get currentBackground => palette.background;
+  static Color get currentSurface => palette.surface;
+  static Color get currentTextDark => palette.textDark;
+  static Color get currentTextMuted => palette.textMuted;
+  static Color get currentBorder => palette.border;
+  static Color get currentPrimary => palette.primary;
+
   // Bảng màu chuẩn theo moodboard Phòng Sáng (phong_sang_theme.dart)
   static const Color primary = PhongSangColors.accent;         // Nút chính, xanh hành động (--accent #155EEF)
   static const Color primaryLight = Color(0xFF2E90FA);        // Xanh sáng phụ trợ
@@ -40,6 +121,8 @@ class AppColors {
 
   static const Color success = PhongSangColors.live;
   static const Color successContainer = Color(0xFFD1FADF);
+
+  static const Color onPrimary = Color(0xFFF8FAFC);
 
   // Gradient ảnh phòng đặc trưng Phòng Sáng
   static const LinearGradient photoA = PhongSangColors.photoA;

@@ -7,11 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/booking_service.dart';
+import '../../../core/services/host_index_service.dart';
 import '../../../core/utils/id_generator.dart';
+import '../../../core/utils/transfer_order_code.dart';
 import '../../../core/utils/vietqr_helper.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/room_model.dart';
-import '../../auth/providers/user_provider.dart';
 import 'renter_bookings_screen.dart';
 
 /// Màn hình Thanh toán đặt phòng / cọc phòng chuẩn Figma
@@ -39,92 +41,116 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
   late String _qrImageUrl;
   late String _emvcoPayload;
 
+  static const int timeoutMinutes = 15; // Giai đoạn 1: 15 phút đếm ngược quét QR giữ chỗ
   Timer? _countdownTimer;
-  int _secondsRemaining = 15 * 60; // 15 phút đếm ngược giữ phòng
+  int _secondsRemaining = timeoutMinutes * 60; // 15 phút đếm ngược giữ phòng
   bool _isConfirming = false;
+  bool _isAutoCancelling = false;
   bool _useVectorQrFallback = false;
 
   @override
   void initState() {
     super.initState();
-    final profile = ref.read(userProfileProvider).value;
-    final rCode = (widget.booking.renterUserCode.isNotEmpty)
-        ? widget.booking.renterUserCode
-        : ((profile?.userCode.isNotEmpty == true)
-            ? profile!.userCode
-            : UserProfile.generateUserCode(seed: widget.booking.renterId, role: 'renter'));
-    // Nội dung chuyển khoản chỉ cần lấy ID của phòng
-    final roomId = widget.room.id.isNotEmpty
-        ? widget.room.id
-        : widget.booking.roomId;
+    final existingNote = (widget.booking.transferNote ?? '').trim();
+    _transferContent = _looksLikeShortTransferCode(existingNote)
+        ? existingNote.toUpperCase()
+        : TransferOrderCode.build(
+            hostIndex: 1,
+            bookingId: widget.booking.id,
+          );
+    _applyTransferContentToQr(_transferContent);
 
-    _transferContent = IdGenerator.transferContent(
-      renterCode: rCode,
-      roomCode: roomId,
-    );
-
-    // Tạo link ảnh VietQR.io và chuỗi EMVCo Napas247 thật
-    _qrImageUrl = VietQRHelper.buildVietQrImageUrl(
-      amount: widget.paymentAmount,
-      addInfo: _transferContent,
-      accountNo: VietQRHelper.defaultAccountNo,
-      accountName: VietQRHelper.defaultAccountName,
-    );
-
-    _emvcoPayload = VietQRHelper.generateNapasEmvcoPayload(
-      amount: widget.paymentAmount,
-      addInfo: _transferContent,
-      accountNo: VietQRHelper.defaultAccountNo,
-      bankBin: VietQRHelper.defaultBankBin,
-    );
+    // Tính toán thời gian còn lại (15 phút tính từ lúc tạo đơn)
+    final created = widget.booking.createdAt;
+    final expiresAt = created.add(const Duration(minutes: timeoutMinutes));
+    final diff = expiresAt.difference(DateTime.now()).inSeconds;
+    _secondsRemaining = diff > 0 ? diff : 0;
 
     // Kích hoạt đồng hồ đếm ngược
     _startTimer();
 
-    // Nếu ID phòng còn trống thì mới truy vấn ID từ Firestore
-    if (roomId.isEmpty) {
-      _resolveRoomCodeFromFirestore(rCode);
+    if (_secondsRemaining <= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handleExpired();
+      });
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _resolveShortTransferContent();
+    });
+  }
+
+  bool _looksLikeShortTransferCode(String value) {
+    return RegExp(r'^\d+-[A-Z0-9]{3,8}$', caseSensitive: false).hasMatch(value.trim());
+  }
+
+  void _applyTransferContentToQr(String content) {
+    _qrImageUrl = VietQRHelper.buildVietQrImageUrl(
+      amount: widget.paymentAmount,
+      addInfo: content,
+      accountNo: VietQRHelper.defaultAccountNo,
+      accountName: VietQRHelper.defaultAccountName,
+    );
+    _emvcoPayload = VietQRHelper.generateNapasEmvcoPayload(
+      amount: widget.paymentAmount,
+      addInfo: content,
+      accountNo: VietQRHelper.defaultAccountNo,
+      bankBin: VietQRHelper.defaultBankBin,
+    );
+  }
+
+  /// Lấy hostIndex của chủ + 4 ký tự cuối orderCode → ghi transferNote lên booking.
+  Future<void> _resolveShortTransferContent() async {
+    final bookingId = widget.booking.id.trim();
+    if (bookingId.isEmpty) return;
+
+    try {
+      final bookingRef =
+          FirebaseFirestore.instance.collection('bookings').doc(bookingId);
+      final bookingSnap = await bookingRef.get();
+      final data = bookingSnap.data() ?? {};
+
+      final orderCode = (data['orderCode'] ?? '').toString().trim();
+      final savedNote = (data['transferNote'] ?? '').toString().trim();
+      final hostId = (data['hostId'] ??
+              data['chuNhaId'] ??
+              widget.booking.hostId ??
+              widget.room.hostId)
+          .toString()
+          .trim();
+
+      var hostIndex = ((data['hostIndex'] as num?)?.toInt() ?? 0);
+      if (hostIndex <= 0 && hostId.isNotEmpty) {
+        hostIndex = await HostIndexService().ensureHostIndex(hostId);
+      }
+      if (hostIndex <= 0) hostIndex = 1;
+
+      final memo = TransferOrderCode.build(
+        hostIndex: hostIndex,
+        orderCode: orderCode.isNotEmpty ? orderCode : savedNote,
+        bookingId: bookingId,
+      );
+
+      await bookingRef.set({
+        'orderCode': memo,
+        'transferNote': memo,
+        'hostIndex': hostIndex,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (!mounted) return;
+      if (_transferContent == memo) return;
+      setState(() {
+        _transferContent = memo;
+        _applyTransferContentToQr(memo);
+      });
+    } catch (e) {
+      debugPrint('Không tạo được nội dung CK ngắn: $e');
     }
   }
 
-  Future<void> _resolveRoomCodeFromFirestore(String renterCode) async {
-    try {
-      final targetDocId = widget.room.id.isNotEmpty
-          ? widget.room.id
-          : widget.booking.roomId;
-      if (targetDocId.isNotEmpty) {
-        var roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(targetDocId).get();
-        if (!roomDoc.exists) {
-          roomDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(targetDocId).get();
-        }
-        if (roomDoc.exists) {
-          final newContent = IdGenerator.transferContent(
-            renterCode: renterCode,
-            roomCode: roomDoc.id,
-          );
-          if (mounted && _transferContent != newContent) {
-            setState(() {
-              _transferContent = newContent;
-              _qrImageUrl = VietQRHelper.buildVietQrImageUrl(
-                amount: widget.paymentAmount,
-                addInfo: _transferContent,
-                accountNo: VietQRHelper.defaultAccountNo,
-                accountName: VietQRHelper.defaultAccountName,
-              );
-              _emvcoPayload = VietQRHelper.generateNapasEmvcoPayload(
-                amount: widget.paymentAmount,
-                addInfo: _transferContent,
-                accountNo: VietQRHelper.defaultAccountNo,
-                bankBin: VietQRHelper.defaultBankBin,
-              );
-            });
-          }
-        }
-      }
-    } catch (_) {}
-  }
-
   void _startTimer() {
+    _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsRemaining > 0) {
         if (mounted) {
@@ -132,8 +158,89 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
         }
       } else {
         timer.cancel();
+        if (mounted) {
+          _handleExpired();
+        }
       }
     });
+  }
+
+  Future<void> _handleExpired() async {
+    if (_isAutoCancelling) return;
+    _isAutoCancelling = true;
+    _countdownTimer?.cancel();
+
+    try {
+      if (widget.booking.id.isNotEmpty) {
+        await FirebaseFirestore.instance.collection('bookings').doc(widget.booking.id).set({
+          'status': 'cancelled',
+          'cancelReason': 'Tự động hủy do quá thời hạn quét mã QR giữ chỗ 15 phút',
+          'subTag': 'Đã hủy',
+          'description': 'Quá hạn quét mã QR 15 phút',
+          'cancelledAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'daHuy': true,
+        }, SetOptions(merge: true));
+
+        // Giải phóng giữ phòng trên host_rooms để người khác có thể đặt ngay
+        final roomId = widget.room.id.isNotEmpty ? widget.room.id : widget.booking.roomId;
+        if (roomId.isNotEmpty) {
+          await FirebaseFirestore.instance.collection('host_rooms').doc(roomId).set({
+            'status': 'available',
+            'isHolding': false,
+            'holdingBookingId': FieldValue.delete(),
+            'holdingRenterId': FieldValue.delete(),
+            'holdingExpiresAt': FieldValue.delete(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
+      }
+    } catch (e) {
+      debugPrint('Error auto cancelling booking: $e');
+    }
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.timer_off_outlined, color: AppColors.danger),
+            SizedBox(width: 8),
+            Text(
+              'Hết thời gian thanh toán',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Đã quá thời hạn 15 phút để hoàn tất quét mã QR thanh toán. Đơn đặt phòng này đã tự động hủy để giải phóng phòng cho người khác.',
+          style: TextStyle(fontSize: 13.5, height: 1.4),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const RenterBookingsScreen(initialStatusFilter: 'Đã hủy'),
+                ),
+              );
+            },
+            child: const Text('Xem danh sách đơn'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -143,9 +250,11 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
   }
 
   String _formatDuration(int seconds) {
-    final m = seconds ~/ 60;
+    if (seconds <= 0) return '00:00:00';
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
     final s = seconds % 60;
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   void _copyToClipboard(String text, String label) {
@@ -165,10 +274,11 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
     if (_secondsRemaining <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Thời gian giữ phòng đã hết. Vui lòng tạo đơn đặt phòng mới!'),
+          content: Text('Thời gian quét mã QR 15 phút đã hết. Đơn đã tự động hủy!'),
           backgroundColor: AppColors.danger,
         ),
       );
+      _handleExpired();
       return;
     }
 
@@ -181,6 +291,7 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
       final amountFormatted = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(widget.paymentAmount);
 
       // 1. Cập nhật trạng thái booking thành chờ Admin xác nhận trong Firestore (100% tiếng Anh)
+      final confirmationExpiresAt = DateTime.now().add(const Duration(hours: 6));
       if (widget.booking.id.isNotEmpty) {
         await FirebaseFirestore.instance.collection('bookings').doc(widget.booking.id).set({
           'status': 'pending_confirmation',
@@ -188,12 +299,19 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           'isPaid': false,
           'paymentType': widget.paymentType,
           'paymentAmount': widget.paymentAmount,
+          'orderCode': _transferContent,
           'transferNote': _transferContent,
           'userCode': _transferContent,
           'durationText': durationText,
           'note': isFullPayment ? 'Thanh toán toàn bộ tiền phòng (không tính cọc)' : 'Đặt cọc giữ phòng',
           'confirmedAt': FieldValue.serverTimestamp(),
+          'confirmationDeadline': Timestamp.fromDate(confirmationExpiresAt),
           'updatedAt': FieldValue.serverTimestamp(),
+          // Hết giai đoạn 15 phút QR CK → sang chờ Admin 6h; không để expiresAt cũ kéo đơn về pending_payment.
+          'expiresAt': FieldValue.delete(),
+          'deadline': FieldValue.delete(),
+          'approvedAt': FieldValue.delete(),
+          'subTag': FieldValue.delete(),
           // Xóa triệt để các trường tiếng Việt trên Firebase
           'trangThai': FieldValue.delete(),
           'moTa': FieldValue.delete(),
@@ -206,6 +324,36 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
           'ghiChu': FieldValue.delete(),
           'ngayXacNhan': FieldValue.delete(),
           'ngayCapNhat': FieldValue.delete(),
+        }, SetOptions(merge: true));
+
+        // Chuyển phòng sang trạng thái pending_confirmation (Khóa chính thức 6 tiếng chờ Admin/Host duyệt)
+        final targetRoomId = widget.room.id.isNotEmpty ? widget.room.id : widget.booking.roomId;
+        if (targetRoomId.isNotEmpty) {
+          await FirebaseFirestore.instance.collection('host_rooms').doc(targetRoomId).set({
+            'isHolding': false,
+            'status': 'pending_confirmation',
+            'depositStatus': 'pending_confirmation',
+            'holdingBookingId': FieldValue.delete(),
+            'holdingRenterId': FieldValue.delete(),
+            'holdingExpiresAt': FieldValue.delete(),
+            'confirmationDeadline': Timestamp.fromDate(DateTime.now().add(const Duration(hours: 6))),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
+      }
+
+      // 1b. Giai đoạn 2: Chuyển host_rooms sang pending_confirmation (khóa phòng 6 tiếng chờ Admin/Host đối soát)
+      final targetRoomId = widget.room.id.isNotEmpty ? widget.room.id : widget.booking.roomId;
+      if (targetRoomId.isNotEmpty) {
+        await FirebaseFirestore.instance.collection('host_rooms').doc(targetRoomId).set({
+          'isHolding': false,
+          'status': 'pending_confirmation',
+          'depositStatus': 'pending_confirmation',
+          'holdingBookingId': FieldValue.delete(),
+          'holdingRenterId': FieldValue.delete(),
+          'holdingExpiresAt': FieldValue.delete(),
+          'confirmationDeadline': Timestamp.fromDate(confirmationExpiresAt),
+          'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       }
 
@@ -265,19 +413,12 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
         'id': logId,
         'action': 'Khách xác nhận chuyển khoản',
         'actor': widget.booking.renterName,
-        'actorRole': 'renter',
-        'actorUid': widget.booking.renterId,
-        'actorId': widget.booking.renterId,
-        'performer': widget.booking.renterName,
-        'performerId': widget.booking.renterId,
         'category': 'taiChinh',
-        'details':
-            'Khách ${widget.booking.renterName} (Mã: $_transferContent) báo đã chuyển khoản ngoài app số tiền $amountFormatted ($typeTitle). Ghi chú CK: "$_transferContent". Đang chờ Admin đối soát.',
+        'details': 'Khách ${widget.booking.renterName} (Mã: $_transferContent) báo đã chuyển khoản ngoài app số tiền $amountFormatted ($typeTitle). Ghi chú CK: "$_transferContent". Đang chờ Admin đối soát.',
         'target': 'Đơn ${widget.booking.id}',
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // 4. Thông báo hoàn tất thanh toán
       if (mounted) {
         showDialog(
           context: context,
@@ -350,16 +491,137 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
     }
   }
 
+  /// Hủy đơn đặt phòng ngay lập tức và giải phóng phòng để người khác có thể đặt phòng ngay
+  Future<void> _cancelBookingImmediately() async {
+    _countdownTimer?.cancel();
+    try {
+      if (widget.booking.id.isNotEmpty) {
+        await ref.read(bookingServiceProvider).cancelBooking(
+              widget.booking.id,
+              reason: 'Khách hàng chủ động hủy khi đang chờ chuyển khoản',
+            );
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã hủy đơn đặt phòng và giải phóng phòng thành công.'),
+            backgroundColor: Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi hủy đơn: $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Hộp thoại xác nhận hủy đơn khi đang chờ thanh toán
+  Future<void> _confirmAndCancelBooking() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.cancel_outlined, color: Color(0xFFDC2626)),
+            SizedBox(width: 8),
+            Text('Hủy đơn đặt phòng?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: const Text(
+          'Nếu bạn hủy đơn này, phòng sẽ được giải phóng ngay lập tức để người khác có thể đặt phòng (không cần phải chờ 15 phút).\n\nBạn có chắc chắn muốn hủy đơn không?',
+          style: TextStyle(fontSize: 13.5, height: 1.45),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Giữ lại đơn', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xác nhận hủy đơn'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _cancelBookingImmediately();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currencyFmt = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('Thanh Toán Đặt Phòng'),
-        elevation: 0,
-      ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final action = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('Rời khỏi trang thanh toán?'),
+            content: const Text(
+              'Bạn có muốn hủy đơn đặt phòng này để giải phóng phòng cho người khác không?\n\n'
+              '• Hủy đơn: Phòng được giải phóng ngay lập tức (người khác không cần chờ 15 phút).\n'
+              '• Giữ đơn: Đơn vẫn giữ chỗ và tiếp tục đếm ngược thời gian.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, 'cancel_booking'),
+                child: const Text(
+                  'Hủy đơn đặt phòng',
+                  style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, 'leave_keep'),
+                child: const Text('Giữ đơn & Rời đi'),
+              ),
+            ],
+          ),
+        );
+        if (action == 'cancel_booking') {
+          await _cancelBookingImmediately();
+        } else if (action == 'leave_keep') {
+          if (context.mounted) Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          title: const Text('Thanh Toán Đặt Phòng'),
+          elevation: 0,
+          actions: [
+            TextButton.icon(
+              onPressed: _confirmAndCancelBooking,
+              icon: const Icon(Icons.close_rounded, size: 16, color: Color(0xFFDC2626)),
+              label: const Text(
+                'Hủy đơn',
+                style: TextStyle(
+                  color: Color(0xFFDC2626),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Column(
@@ -388,8 +650,9 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
         ),
       ),
       bottomNavigationBar: _buildBottomActionBar(),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildCountdownBanner() {
     final isExpiringSoon = _secondsRemaining < 300; // Dưới 5 phút
@@ -416,11 +679,13 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Phòng đang được tạm giữ cho bạn',
+                  'Phòng đang được tạm giữ (Thời hạn 15 phút)',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textDark),
                 ),
                 Text(
-                  'Vui lòng chuyển khoản trong thời gian để giữ phòng',
+                  _secondsRemaining > 0
+                      ? 'Vui lòng chuyển khoản trong 15 phút để hoàn tất giữ chỗ'
+                      : 'Đơn đặt phòng đã hết thời hạn giữ phòng',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 ),
               ],
@@ -636,13 +901,13 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
 
           // Nội dung chuyển khoản
           _buildCopyableTile(
-            label: 'Nội dung chuyển khoản (Mã người dùng & ID phòng)',
+            label: 'Nội dung chuyển khoản (Bắt buộc chính xác)',
             value: _transferContent,
             copyText: _transferContent,
             isBold: true,
             isHighlight: true,
             highlightColor: AppColors.primary,
-            subtitle: 'Chỉ gồm mã người dùng và ID phòng (Ví dụ: $_transferContent)',
+            subtitle: 'Ghi đúng mã ngắn này khi chuyển khoản (ví dụ: $_transferContent)',
           ),
         ],
       ),
@@ -789,33 +1054,58 @@ class _BookingPaymentScreenState extends ConsumerState<BookingPaymentScreen> {
         ],
       ),
       child: SafeArea(
-        child: SizedBox(
-          height: 48,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isExpired ? Colors.grey : AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            onPressed: (_isConfirming || isExpired) ? null : _onConfirmPayment,
-            child: _isConfirming
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(isExpired ? Icons.timer_off : Icons.check_circle_outline, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        isExpired ? 'Hết Hạn Giữ Phòng (Đặt Lại)' : 'Tôi Đã Chuyển Khoản Thành Công',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 48,
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isExpired ? Colors.grey : AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: (_isConfirming || isExpired) ? null : _onConfirmPayment,
+                child: _isConfirming
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(isExpired ? Icons.timer_off : Icons.check_circle_outline, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            isExpired ? 'Hết Hạn Giữ Phòng (Đặt Lại)' : 'Tôi Đã Chuyển Khoản Thành Công',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-          ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 40,
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: const ValueKey('cancel_booking_payment_button'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFDC2626),
+                  side: const BorderSide(color: Color(0xFFFCA5A5)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: _isConfirming ? null : _confirmAndCancelBooking,
+                icon: const Icon(Icons.cancel_outlined, size: 16),
+                label: const Text(
+                  'Hủy đơn đặt phòng này (Giải phóng phòng ngay)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

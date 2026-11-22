@@ -6,13 +6,18 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/vietnam_banks.dart';
 import '../../../core/services/user_profile_service.dart';
+import '../../../core/utils/host_reputation.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
+import '../../renter/screens/report_host_screen.dart';
+import '../widgets/host_reviews_section.dart';
 import '../widgets/user_avatar.dart';
 import 'cccd_verification_screen.dart';
 
 /// Hồ sơ cá nhân của role người dùng.
 /// Tên, ảnh, mã, điện thoại, email và trạng thái VNeID/CCCD lấy từ tài khoản.
-/// Giới thiệu để trống cho người dùng tự viết. Sở thích mặc định không có.
+/// Giới thiệu để trống cho người dùng tự viết.
+/// Sở thích có sẵn một danh sách chọn, cộng thêm mục tự gõ.
 class PersonalProfileScreen extends ConsumerStatefulWidget {
   final String? userId;
 
@@ -38,12 +43,12 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   final _picker = ImagePicker();
 
   final _emailController = TextEditingController();
-  String _userCode = '';
   String _avatarUrl = '';
   String _role = 'renter';
   String _gender = '';
   String? _genderError;
   bool _verified = false;
+  bool _cccdPending = false;
   bool _hydrated = false;
   bool _loadingInterests = true;
   bool _bankLoaded = false;
@@ -51,11 +56,25 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   String _bankName = '';
   bool _saving = false;
   bool _viewOnly = false;
+  bool _editing = false;
   bool _loadingUser = false;
+
+  bool get _locked => _viewOnly || !_editing;
   String? _loadError;
   Uint8List? _pickedAvatar;
   DateTime? _birthDate;
   final List<String> _interests = [];
+  static const List<String> _defaultInterests = [
+    'Yên tĩnh sau 23h',
+    'Sạch sẽ, ngăn nắp cao',
+    'Tuyệt đối không thuốc lá',
+    'Giờ giấc tự do',
+    'Có xe máy riêng',
+    'Thích thể thao/Gym',
+    'Không ồn ào/tụ tập',
+    'Chăm học/Làm việc',
+    'Nấu ăn thường xuyên',
+  ];
 
   @override
   void initState() {
@@ -111,6 +130,57 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     super.dispose();
   }
 
+  bool get _isHostProfile => HostReputation.isHostRole(_role);
+
+  String get _hostProfileId {
+    final requested = widget.userId?.trim() ?? '';
+    if (requested.isNotEmpty) return requested;
+    return ref.read(userProfileProvider).value?.uid ?? '';
+  }
+
+  void _startEditing() {
+    setState(() => _editing = true);
+  }
+
+  void _cancelEditing() {
+    final profile = ref.read(userProfileProvider).value;
+    if (profile != null) {
+      _hydrate(profile);
+      _loadInterests(profile);
+      _loadBankAccount(profile.uid);
+    }
+    setState(() {
+      _editing = false;
+      _pickedAvatar = null;
+      _genderError = null;
+    });
+  }
+
+  void _openHostReport() {
+    final user = ref.read(currentUserProvider);
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng đăng nhập để báo cáo.')),
+      );
+      return;
+    }
+    if (user.uid == _hostProfileId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bạn không thể báo cáo chính mình.')),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReportHostScreen(
+          hostId: _hostProfileId,
+          hostName: _nameController.text.trim(),
+        ),
+      ),
+    );
+  }
+
   void _hydrate(UserProfile profile) {
     _nameController.text = profile.displayName;
     _phoneController.text = _normalizePhone(profile.phoneNumber);
@@ -119,7 +189,6 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     _workplaceController.text = profile.workplace;
     _bioController.text = profile.bio;
     _emailController.text = profile.email;
-    _userCode = profile.userCode;
     _avatarUrl = profile.avatarUrl;
     _role = profile.role.isEmpty ? 'renter' : profile.role;
     _gender = _normalizeGender(profile.gender);
@@ -205,6 +274,72 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     }
   }
 
+  bool _sameInterest(String left, String right) => left.trim().toLowerCase() == right.trim().toLowerCase();
+
+  bool _isDefaultInterest(String name) => _defaultInterests.any((item) => _sameInterest(item, name));
+
+  IconData _interestIcon(String interest) {
+    final lower = interest.toLowerCase();
+    if (lower.contains('yên tĩnh') || lower.contains('23h') || lower.contains('ngủ')) {
+      return Icons.bedtime_outlined;
+    }
+    if (lower.contains('sạch sẽ') || lower.contains('ngăn nắp')) {
+      return Icons.cleaning_services_outlined;
+    }
+    if (lower.contains('thuốc lá')) {
+      return Icons.smoke_free_outlined;
+    }
+    if (lower.contains('giờ giấc') || lower.contains('tự do')) {
+      return Icons.schedule_outlined;
+    }
+    if (lower.contains('xe máy') || lower.contains('xe')) {
+      return Icons.two_wheeler_outlined;
+    }
+    if (lower.contains('thể thao') || lower.contains('gym')) {
+      return Icons.fitness_center_outlined;
+    }
+    if (lower.contains('ồn ào') || lower.contains('tụ tập')) {
+      return Icons.volume_off_outlined;
+    }
+    if (lower.contains('học') || lower.contains('làm việc') || lower.contains('sách')) {
+      return Icons.menu_book_outlined;
+    }
+    if (lower.contains('nấu') || lower.contains('ăn')) {
+      return Icons.restaurant_outlined;
+    }
+    if (lower.contains('nhạc') || lower.contains('music')) {
+      return Icons.music_note_outlined;
+    }
+    if (lower.contains('game')) {
+      return Icons.sports_esports_outlined;
+    }
+    if (lower.contains('thú cưng') || lower.contains('chó') || lower.contains('mèo')) {
+      return Icons.pets_outlined;
+    }
+    if (lower.contains('du lịch') || lower.contains('phượt')) {
+      return Icons.flight_takeoff_outlined;
+    }
+    if (lower.contains('công nghệ') || lower.contains('code') || lower.contains('it')) {
+      return Icons.code_outlined;
+    }
+    return Icons.check_circle_outline;
+  }
+
+  bool _interestSelected(String name) => _interests.any((item) => _sameInterest(item, name));
+
+  void _toggleDefaultInterest(String name) {
+    final index = _interests.indexWhere((item) => _sameInterest(item, name));
+    if (index >= 0) {
+      setState(() => _interests.removeAt(index));
+      return;
+    }
+    if (_interests.length >= 12) {
+      _showResult(title: 'Đã đủ sở thích', message: 'Chỉ lưu tối đa 12 sở thích.', success: false);
+      return;
+    }
+    setState(() => _interests.add(name));
+  }
+
   void _addInterest() {
     final name = _interestController.text.trim();
     if (name.isEmpty) {
@@ -275,7 +410,6 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     final number = _accountNumberController.text.trim();
     final holder = _accountHolderController.text.trim();
     final bank = _bankName.trim();
-    if (number.isEmpty && holder.isEmpty && bank.isEmpty) return const [];
     final issues = <String>[];
     if (!RegExp(r'^\d{6,19}$').hasMatch(number)) {
       issues.add('Số tài khoản gồm từ 6 đến 19 chữ số.');
@@ -382,7 +516,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
             : 'Thông tin cá nhân, tài khoản ngân hàng và sở thích đã được cập nhật.',
         success: true,
       );
-      if (mounted) Navigator.pop(context);
+      if (mounted) setState(() => _editing = false);
     } catch (e) {
       if (!mounted) return;
       await _showResult(
@@ -395,14 +529,79 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     }
   }
 
+  void _showCccdVerificationDetails() {
+    final profile = ref.read(userProfileProvider).value;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.verified, color: AppColors.primary, size: 24),
+            SizedBox(width: 8),
+            Text('Thông Tin Đã Xác Thực', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDialogRow('Họ và tên:', profile?.cccdFullName.isNotEmpty == true ? profile!.cccdFullName : _nameController.text),
+            const SizedBox(height: 6),
+            _buildDialogRow('Số CCCD:', profile?.cccdNumber.isNotEmpty == true ? profile!.cccdNumber : 'Đã xác thực'),
+            if (profile?.cccdHometown.isNotEmpty == true) ...[
+              const SizedBox(height: 6),
+              _buildDialogRow('Quê quán:', profile!.cccdHometown),
+            ],
+            if (profile?.cccdIssueDate.isNotEmpty == true) ...[
+              const SizedBox(height: 6),
+              _buildDialogRow('Ngày cấp:', profile!.cccdIssueDate),
+            ],
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDialogRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(width: 80, child: Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted))),
+        Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark))),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
     final profile = profileAsync.value;
     final requested = widget.userId?.trim() ?? '';
     final viewingOther = requested.isNotEmpty && requested != profile?.uid;
+
+    ref.listen<AsyncValue<UserProfile?>>(userProfileProvider, (prev, next) {
+      final updated = next.value;
+      if (updated != null && !viewingOther && !_editing && mounted) {
+        setState(() {
+          _hydrate(updated);
+        });
+      }
+    });
     if (profile != null && !viewingOther) {
       _verified = profile.isCccdVerified;
+      _cccdPending = profile.isCccdPending;
       if (!_hydrated) {
         _hydrated = true;
         _hydrate(profile);
@@ -416,9 +615,17 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(_viewOnly ? 'Hồ sơ' : 'Hồ sơ cá nhân'),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         foregroundColor: AppColors.textDark,
         elevation: 0,
+        actions: [
+          if (!_viewOnly && !_editing)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Chỉnh sửa hồ sơ',
+              onPressed: _startEditing,
+            ),
+        ],
       ),
       body: waiting
           ? const Center(child: CircularProgressIndicator())
@@ -431,25 +638,61 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                     Expanded(
                       child: Form(
                         key: _formKey,
-                        autovalidateMode: _viewOnly ? AutovalidateMode.disabled : AutovalidateMode.onUserInteraction,
+                        autovalidateMode: _locked ? AutovalidateMode.disabled : AutovalidateMode.onUserInteraction,
                         child: ListView(
                           controller: _scrollController,
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                           children: [
                             _buildHeader(),
+                            if (!_verified) ...[
+                              const SizedBox(height: 14),
+                              _buildCccdVerificationBanner(),
+                            ],
+                            if (_isHostProfile) ...[
+                              const SizedBox(height: 18),
+                              HostReviewsSection(
+                                hostId: _hostProfileId,
+                                hostName: _nameController.text.trim(),
+                                showReviewButton: _viewOnly,
+                                isVerified: _verified,
+                              ),
+                              if (_viewOnly) ...[
+                                const SizedBox(height: 12),
+                                OutlinedButton.icon(
+                                  onPressed: _openHostReport,
+                                  icon: const Icon(Icons.flag_outlined, size: 18, color: Color(0xFFDC2626)),
+                                  label: const Text(
+                                    'Báo cáo chủ trọ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFFDC2626),
+                                    ),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size.fromHeight(44),
+                                    side: BorderSide(color: AppColors.danger.withValues(alpha: 0.45)),
+                                    backgroundColor: AppColors.dangerContainer,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                             const SizedBox(height: 18),
                             _buildSection(
                               icon: Icons.badge_outlined,
                               title: 'Thông tin cơ bản & Liên hệ',
-                              subtitle: 'Thông tin dùng để xác minh danh tính và hồ sơ ở ghép',
+                              subtitle: _locked ? '' : 'Thông tin dùng để xác minh danh tính và hồ sơ ở ghép',
                               child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   _textField(
                                     controller: _nameController,
                                     label: 'Họ và tên *',
                                     hint: 'Họ và tên trên tài khoản',
-                                    readOnly: _viewOnly,
-                                    validator: _viewOnly
+                                    readOnly: _locked,
+                                    validator: _locked
                                         ? null
                                         : (val) {
                                             final name = val?.trim() ?? '';
@@ -469,8 +712,8 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                                     hint: '10 số, bắt đầu bằng 0',
                                     keyboardType: TextInputType.phone,
                                     inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-                                    readOnly: _viewOnly,
-                                    validator: _viewOnly
+                                    readOnly: _locked,
+                                    validator: _locked
                                         ? null
                                         : (val) {
                                             if (!RegExp(r'^0\d{9}$').hasMatch(val?.trim() ?? '')) {
@@ -491,8 +734,8 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                                     controller: _hometownController,
                                     label: 'Quê quán / Tỉnh thành *',
                                     hint: 'Nhập quê quán',
-                                    readOnly: _viewOnly,
-                                    validator: _viewOnly ? null : (val) => (val?.trim().length ?? 0) < 2 ? 'Nhập quê quán / tỉnh thành' : null,
+                                    readOnly: _locked,
+                                    validator: _locked ? null : (val) => (val?.trim().length ?? 0) < 2 ? 'Nhập quê quán / tỉnh thành' : null,
                                   ),
                                 ],
                               ),
@@ -501,23 +744,24 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                             _buildSection(
                               icon: Icons.work_outline,
                               title: 'Nghề nghiệp & Đơn vị công tác',
-                              subtitle: 'Giúp bạn cùng phòng hiểu về lịch trình công việc và thời gian biểu của bạn',
+                              subtitle: _locked ? '' : 'Giúp bạn cùng phòng hiểu về lịch trình công việc và thời gian biểu của bạn',
                               child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   _textField(
                                     controller: _occupationController,
                                     label: 'Nghề nghiệp / Vị trí *',
                                     hint: 'Ví dụ: Sinh viên, Kỹ sư',
-                                    readOnly: _viewOnly,
-                                    validator: _viewOnly ? null : (val) => (val?.trim().length ?? 0) < 2 ? 'Nhập nghề nghiệp / vị trí' : null,
+                                    readOnly: _locked,
+                                    validator: _locked ? null : (val) => (val?.trim().length ?? 0) < 2 ? 'Nhập nghề nghiệp / vị trí' : null,
                                   ),
                                   const SizedBox(height: 12),
                                   _textField(
                                     controller: _workplaceController,
                                     label: 'Nơi làm việc / Công ty',
                                     hint: 'Trường hoặc nơi làm việc',
-                                    readOnly: _viewOnly,
-                                    validator: _viewOnly ? null : (val) => (val?.trim().length ?? 0) > 80 ? 'Tối đa 80 ký tự' : null,
+                                    readOnly: _locked,
+                                    validator: _locked ? null : (val) => (val?.trim().length ?? 0) > 80 ? 'Tối đa 80 ký tự' : null,
                                   ),
                                 ],
                               ),
@@ -532,9 +776,102 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                         ),
                       ),
                     ),
-                    if (!_viewOnly) _buildFooter(),
+                    if (!_viewOnly && _editing) _buildFooter(),
                   ],
                 ),
+    );
+  }
+
+  Widget _buildCccdVerificationBanner() {
+    final isPending = _cccdPending;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isPending ? const Color(0xFFFFFBEB) : const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isPending ? const Color(0xFFFDE68A) : const Color(0xFFFECACA),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isPending ? Icons.hourglass_top_rounded : Icons.shield_outlined,
+                size: 20,
+                color: isPending ? const Color(0xFFD97706) : const Color(0xFFDC2626),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isPending
+                      ? 'Hồ sơ CCCD đang chờ Admin xét duyệt'
+                      : 'Tài khoản chưa xác thực CCCD (eKYC)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: isPending ? const Color(0xFF92400E) : const Color(0xFF991B1B),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            isPending
+                ? 'Hồ sơ của bạn đã được gửi tới Quản trị viên. Chúng tôi sẽ thông báo ngay khi tài khoản được phê duyệt.'
+                : 'Xác thực căn cước công dân để nhận tích xanh uy tín, tăng tỷ lệ duyệt đặt phòng và ký kết hợp đồng.',
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.4,
+              color: isPending ? const Color(0xFFB45309) : const Color(0xFF7F1D1D),
+            ),
+          ),
+          if (!_viewOnly && !isPending) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 40,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final res = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CccdVerificationScreen(),
+                    ),
+                  );
+                  if (res == true && mounted) {
+                    ref.invalidate(userProfileProvider);
+                    final updated = await ref.read(userProfileProvider.future);
+                    if (updated != null && mounted) {
+                      setState(() {
+                        _hydrate(updated);
+                        _verified = updated.isCccdVerified;
+                        _cccdPending = updated.isCccdPending;
+                      });
+                    }
+                  }
+                },
+                icon: const Icon(Icons.badge_outlined, size: 16),
+                label: const Text(
+                  'Xác thực CCCD ngay',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFDC2626),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -550,7 +887,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               localBytes: _pickedAvatar,
               radius: 48,
             ),
-            if (!_viewOnly)
+            if (!_locked)
               Positioned(
                 right: -2,
                 bottom: -2,
@@ -569,7 +906,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               ),
           ],
         ),
-        if (!_viewOnly) ...[
+        if (!_locked) ...[
           const SizedBox(height: 8),
           TextButton(
             onPressed: _pickAvatar,
@@ -578,40 +915,76 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
         ] else
           const SizedBox(height: 8),
         Text(
-          'ID #$_userCode',
-          style: const TextStyle(fontSize: 13, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+          _nameController.text.trim().isEmpty ? 'Chưa cập nhật tên' : _nameController.text.trim(),
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 18, color: AppColors.textDark, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
         InkWell(
-          onTap: _viewOnly || _verified
+          onTap: _viewOnly
               ? null
-              : () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const CccdVerificationScreen()));
+              : () async {
+                  if (_verified) {
+                    _showCccdVerificationDetails();
+                  } else {
+                    final res = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CccdVerificationScreen()),
+                    );
+                    if (res == true && mounted) {
+                      ref.invalidate(userProfileProvider);
+                      final updated = await ref.read(userProfileProvider.future);
+                      if (updated != null && mounted) {
+                        setState(() {
+                          _hydrate(updated);
+                          _verified = updated.isCccdVerified;
+                          _cccdPending = updated.isCccdPending;
+                        });
+                      }
+                    }
+                  }
                 },
           borderRadius: BorderRadius.circular(20),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: _verified ? AppColors.successContainer : AppColors.warningContainer,
+              color: _verified
+                  ? AppColors.successContainer
+                  : (_cccdPending ? const Color(0xFFFEF3C7) : AppColors.warningContainer),
               borderRadius: BorderRadius.circular(20),
+              border: _cccdPending ? Border.all(color: const Color(0xFFF59E0B), width: 1.2) : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  _verified ? Icons.verified_rounded : Icons.info_outline,
+                  _verified
+                      ? Icons.verified_rounded
+                      : (_cccdPending ? Icons.hourglass_top_rounded : Icons.info_outline),
                   size: 16,
-                  color: _verified ? AppColors.success : AppColors.warning,
+                  color: _verified
+                      ? AppColors.success
+                      : (_cccdPending ? const Color(0xFFD97706) : AppColors.warning),
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  _verified ? 'Đã xác thực VNeID / CCCD' : 'Chưa xác thực VNeID / CCCD',
+                  _verified
+                      ? 'Đã xác thực VNeID / CCCD'
+                      : (_cccdPending
+                          ? 'Đang chờ duyệt CCCD ⏳'
+                          : 'Chưa xác thực VNeID / CCCD'),
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
-                    color: _verified ? AppColors.success : AppColors.warning,
+                    color: _verified
+                        ? AppColors.success
+                        : (_cccdPending ? const Color(0xFFB45309) : AppColors.warning),
                   ),
                 ),
+                if (_verified && !_viewOnly) ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.info_outline, size: 14, color: AppColors.success),
+                ],
               ],
             ),
           ),
@@ -629,7 +1002,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
@@ -641,12 +1014,14 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               Icon(icon, size: 18, color: AppColors.primary),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textDark)),
+                child: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textDark)),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.35)),
+          if (subtitle.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(subtitle, style: TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.35)),
+          ],
           const SizedBox(height: 14),
           child,
         ],
@@ -654,19 +1029,134 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     );
   }
 
+  Widget _profileLine(String label, String raw) {
+    final value = raw.trim();
+    final empty = value.isEmpty;
+    return SizedBox(
+      width: double.infinity,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 3),
+            Text(
+              empty ? 'Chưa cập nhật' : value,
+              style: TextStyle(
+                fontSize: 15.5,
+                height: 1.35,
+                fontWeight: FontWeight.w700,
+                color: empty ? AppColors.textMuted : AppColors.textDark,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildIntroSection() {
+    if (_locked) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.notes_rounded, size: 18, color: AppColors.primary),
+                SizedBox(width: 8),
+                Text('Giới thiệu & Sở thích', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textDark)),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _profileLine('Giới thiệu', _bioController.text),
+            Text('Sở thích', style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            if (_loadingInterests)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 14),
+                child: LinearProgressIndicator(minHeight: 2),
+              )
+            else if (_interests.isEmpty)
+              Padding(
+                padding: EdgeInsets.only(bottom: 14),
+                child: Text('Chưa có sở thích.', style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: AppColors.textMuted)),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Column(
+                  children: [
+                    for (final interest in _interests)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _interestIcon(interest),
+                              size: 20,
+                              color: const Color(0xFF64748B),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                interest,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF1E293B),
+                                ),
+                              ),
+                            ),
+                            Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFCBD5E1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Icon(
+                                Icons.check,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
     final length = _bioController.text.characters.length;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.notes_rounded, size: 18, color: AppColors.primary),
               SizedBox(width: 8),
@@ -679,17 +1169,17 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               const Expanded(
                 child: Text('Đoạn giới thiệu ngắn', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               ),
-              Text('$length/500', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+              Text('$length/500', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
             ],
           ),
           const SizedBox(height: 6),
           TextFormField(
             controller: _bioController,
-            readOnly: _viewOnly,
+            readOnly: _locked,
             maxLines: 4,
             maxLength: 500,
             buildCounter: (_, {required currentLength, required isFocused, maxLength}) => const SizedBox.shrink(),
-            onChanged: _viewOnly ? null : (_) => setState(() {}),
+            onChanged: _locked ? null : (_) => setState(() {}),
             decoration: _decoration('Viết vài dòng về bạn'),
           ),
           const SizedBox(height: 8),
@@ -700,47 +1190,24 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
               padding: EdgeInsets.symmetric(vertical: 8),
               child: LinearProgressIndicator(minHeight: 2),
             )
-          else if (_interests.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                _viewOnly ? 'Chưa có sở thích.' : 'Chưa có sở thích nào. Hãy thêm sở thích của bạn.',
-                style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted),
-              ),
-            )
-          else if (_viewOnly)
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _interests.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.favorite_border_rounded, color: AppColors.primary),
-                  title: Text(_interests[index], style: const TextStyle(fontWeight: FontWeight.w600)),
-                );
-              },
-            )
           else
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final interest in _interests)
-                    InputChip(
-                      label: Text(interest),
-                      onDeleted: () => setState(() => _interests.remove(interest)),
-                      backgroundColor: AppColors.primaryContainer,
-                      deleteIconColor: AppColors.primary,
-                      labelStyle: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
-                    ),
-                ],
-              ),
+            Column(
+              children: [
+                for (final interest in _defaultInterests)
+                  _interestCheckRow(
+                    name: interest,
+                    selected: _interestSelected(interest),
+                    onChanged: () => _toggleDefaultInterest(interest),
+                  ),
+                for (final interest in _interests.where((item) => !_isDefaultInterest(item)))
+                  _interestCheckRow(
+                    name: interest,
+                    selected: true,
+                    onChanged: () => setState(() => _interests.remove(interest)),
+                  ),
+              ],
             ),
-          if (!_viewOnly)
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -764,75 +1231,122 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     );
   }
 
+  Widget _interestCheckRow({
+    required String name,
+    required bool selected,
+    required VoidCallback onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: selected ? AppColors.primaryContainer : AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onChanged,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 4, 6, 4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: selected ? AppColors.primary : AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    name,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: selected ? AppColors.primary : AppColors.textDark,
+                    ),
+                  ),
+                ),
+                Checkbox(
+                  value: selected,
+                  activeColor: AppColors.primary,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  onChanged: (_) => onChanged(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBankSection() {
     return _buildSection(
       icon: Icons.account_balance_outlined,
       title: 'Tài khoản ngân hàng',
-      subtitle: 'Dùng khi nhận hoặc chuyển tiền. Chưa có thì để trống.',
+      subtitle: _locked ? '' : 'Dùng khi nhận hoặc chuyển tiền. Chưa có thì để trống.',
       child: !_bankLoaded
           ? const LinearProgressIndicator(minHeight: 2)
           : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (_bankLoadFailed)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
                       'Không tải được tài khoản ngân hàng. Lần lưu này không đổi thông tin ngân hàng.',
                       style: TextStyle(fontSize: 12.5, color: AppColors.danger, height: 1.35),
                     ),
                   ),
-                _textField(
-                  controller: _accountNumberController,
-                  label: 'Số tài khoản',
-                  hint: 'Nhập số tài khoản',
-                  readOnly: _bankLoadFailed,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(19),
-                  ],
-                  validator: _bankLoadFailed
-                      ? null
-                      : (val) {
-                          final number = val?.trim() ?? '';
-                          if (_bankFieldsEmpty(number: number)) return null;
-                          if (!RegExp(r'^\d{6,19}$').hasMatch(number)) return 'Gồm từ 6 đến 19 chữ số';
-                          return null;
-                        },
-                ),
-                const SizedBox(height: 12),
-                _textField(
-                  controller: _accountHolderController,
-                  label: 'Chủ tài khoản',
-                  hint: 'Tên chủ tài khoản',
-                  readOnly: _bankLoadFailed,
-                  inputFormatters: [LengthLimitingTextInputFormatter(70)],
-                  validator: _bankLoadFailed
-                      ? null
-                      : (val) {
-                          final holder = val?.trim() ?? '';
-                          if (_bankFieldsEmpty(holder: holder)) return null;
-                          if (holder.length < 2 || !RegExp(r'\p{L}', unicode: true).hasMatch(holder)) {
-                            return 'Nhập tên chủ tài khoản';
-                          }
-                          return null;
-                        },
-                ),
-                const SizedBox(height: 12),
-                _bankDropdown(),
+                if (_locked) ...[
+                  _profileLine('Ngân hàng', _bankName),
+                  _profileLine('Số tài khoản', _accountNumberController.text),
+                  _profileLine('Chủ tài khoản', _accountHolderController.text),
+                ] else ...[
+                  _bankDropdown(),
+                  const SizedBox(height: 12),
+                  _textField(
+                    controller: _accountNumberController,
+                    label: 'Số tài khoản',
+                    hint: 'Nhập số tài khoản',
+                    readOnly: _bankLoadFailed,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(19),
+                    ],
+                    validator: _bankLoadFailed
+                        ? null
+                        : (val) {
+                            final number = val?.trim() ?? '';
+                            if (!RegExp(r'^\d{6,19}$').hasMatch(number)) return 'Gồm từ 6 đến 19 chữ số';
+                            return null;
+                          },
+                  ),
+                  const SizedBox(height: 12),
+                  _textField(
+                    controller: _accountHolderController,
+                    label: 'Chủ tài khoản',
+                    hint: 'Tên chủ tài khoản',
+                    readOnly: _bankLoadFailed,
+                    inputFormatters: [LengthLimitingTextInputFormatter(70)],
+                    validator: _bankLoadFailed
+                        ? null
+                        : (val) {
+                            final holder = val?.trim() ?? '';
+                            if (holder.length < 2 || !RegExp(r'\p{L}', unicode: true).hasMatch(holder)) {
+                              return 'Nhập tên chủ tài khoản';
+                            }
+                            return null;
+                          },
+                  ),
+                ],
               ],
             ),
     );
   }
 
-  bool _bankFieldsEmpty({String? number, String? holder, String? bank}) {
-    final accountNumber = number ?? _accountNumberController.text.trim();
-    final accountHolder = holder ?? _accountHolderController.text.trim();
-    final bankName = bank ?? _bankName.trim();
-    return accountNumber.isEmpty && accountHolder.isEmpty && bankName.isEmpty;
-  }
-
   Widget _bankDropdown() {
+    if (_locked) {
+      return _profileLine('Ngân hàng', _bankName.trim());
+    }
     final selected = _bankName.trim();
     final choices = selected.isNotEmpty && !vietnamBanks.contains(selected)
         ? [selected, ...vietnamBanks]
@@ -840,7 +1354,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Ngân hàng', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+        Text('Ngân hàng', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           key: const ValueKey('bank-account-name'),
@@ -854,13 +1368,12 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
                 child: Text(name, overflow: TextOverflow.ellipsis),
               ),
           ],
-          onChanged: _bankLoadFailed ? null : (value) => setState(() => _bankName = value ?? ''),
+          onChanged: (_bankLoadFailed || _locked) ? null : (value) => setState(() => _bankName = value ?? ''),
           decoration: _decoration('Chọn ngân hàng'),
-          validator: _bankLoadFailed
+          validator: (_bankLoadFailed || _locked)
               ? null
               : (val) {
                   final bank = (val ?? '').trim();
-                  if (_bankFieldsEmpty(bank: bank)) return null;
                   if (bank.isEmpty) return 'Chọn ngân hàng';
                   return null;
                 },
@@ -871,21 +1384,26 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
 
   Widget _yearField() {
     final age = _age();
+    if (_locked) {
+      final year = _yearController.text.trim();
+      final shown = year.isEmpty ? '' : (age == null ? year : '$year · $age tuổi');
+      return _profileLine('Năm sinh', shown);
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Năm sinh / Tuổi *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+        Text('Năm sinh / Tuổi *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
         const SizedBox(height: 6),
         TextFormField(
           controller: _yearController,
-          readOnly: _viewOnly,
+          readOnly: _locked,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)],
           onChanged: (_) => setState(() {}),
           decoration: _decoration('Năm sinh').copyWith(
             suffixText: age == null ? null : '$age tuổi',
           ),
-          validator: _viewOnly
+          validator: _locked
               ? null
               : (val) {
                   final year = int.tryParse(val?.trim() ?? '');
@@ -902,10 +1420,11 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   }
 
   Widget _genderField() {
+    if (_locked) return _profileLine('Giới tính', _gender);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Giới tính *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+        Text('Giới tính *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -917,7 +1436,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
         ),
         if (_genderError != null) ...[
           const SizedBox(height: 6),
-          Text(_genderError!, style: const TextStyle(color: AppColors.danger, fontSize: 12)),
+          Text(_genderError!, style: TextStyle(color: AppColors.danger, fontSize: 12)),
         ],
       ],
     );
@@ -926,7 +1445,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   Widget _genderChip(String label) {
     final selected = _gender == label;
     return InkWell(
-      onTap: _viewOnly
+      onTap: _locked
           ? null
           : () => setState(() {
                 _gender = label;
@@ -937,7 +1456,7 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
         height: 42,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary : Colors.white,
+          color: selected ? AppColors.primary : AppColors.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: selected ? AppColors.primary : AppColors.border),
         ),
@@ -961,10 +1480,13 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
+    if (_locked) {
+      return _profileLine(label.replaceAll(' *', ''), controller?.text ?? '');
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
@@ -982,13 +1504,13 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
     return InputDecoration(
       hintText: hint,
       filled: true,
-      fillColor: const Color(0xFFF8FAFC),
+      fillColor: AppColors.background,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.4)),
-      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.danger)),
-      focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.danger, width: 1.4)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.primary, width: 1.4)),
+      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.danger)),
+      focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.danger, width: 1.4)),
       errorMaxLines: 2,
     );
   }
@@ -996,8 +1518,8 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
   Widget _buildFooter() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
       child: SafeArea(
@@ -1006,13 +1528,13 @@ class _PersonalProfileScreenState extends ConsumerState<PersonalProfileScreen> {
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: _saving ? null : () => Navigator.pop(context),
+                onPressed: _saving ? null : _cancelEditing,
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: const BorderSide(color: AppColors.border),
+                  side: BorderSide(color: AppColors.border),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Hủy bỏ', style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.w700)),
+                child: Text('Hủy bỏ', style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.w700)),
               ),
             ),
             const SizedBox(width: 12),

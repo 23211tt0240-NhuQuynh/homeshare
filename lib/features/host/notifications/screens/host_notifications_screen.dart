@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../filters/host_notification_filter.dart';
 import '../models/host_notification_model.dart';
 import '../notification_types.dart';
 import '../providers/host_notification_provider.dart';
+import '../widgets/host_notification_filter_sheet.dart';
 import '../widgets/notification_card.dart';
 
 /// Màn hình Quản lý Thông báo Chủ trọ (Figma Image 2 & Image 4)
@@ -43,6 +45,7 @@ class _HostNotificationsScreenState
         };
 
     final notificationsAsync = ref.watch(filteredHostNotificationsProvider);
+    final activeFilter = ref.watch(hostNotificationFilterProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
@@ -91,7 +94,7 @@ class _HostNotificationsScreenState
 
                   const SizedBox(height: 16),
 
-                  // Thanh tìm kiếm theo mã booking
+                  // Thanh tìm kiếm và nút mở bộ lọc
                   Container(
                     decoration: BoxDecoration(
                       color: const Color(0xFFF9FAFB),
@@ -114,8 +117,10 @@ class _HostNotificationsScreenState
                               fontSize: 14,
                               color: Color(0xFF101828),
                             ),
+                            textInputAction: TextInputAction.search,
+                            autocorrect: false,
                             decoration: const InputDecoration(
-                              hintText: 'Tìm kiếm theo mã booking...',
+                              hintText: 'Mã booking, phòng, khách thuê...',
                               hintStyle: TextStyle(
                                 fontSize: 13,
                                 color: Color(0xFF98A2B3),
@@ -155,14 +160,77 @@ class _HostNotificationsScreenState
                               ),
                             ),
                           ),
-                        const Icon(
-                          Icons.tune_rounded,
-                          color: Color(0xFF667085),
-                          size: 20,
+                        const SizedBox(width: 2),
+                        Container(
+                          width: 1,
+                          height: 24,
+                          color: const Color(0xFFE4E7EC),
+                        ),
+                        IconButton(
+                          key: const Key('host_notification_filter_button'),
+                          tooltip: 'Bộ lọc thông báo',
+                          onPressed: () => _openFilterSheet(activeFilter),
+                          icon: Badge(
+                            isLabelVisible: activeFilter.activeCount > 0,
+                            label: Text(activeFilter.activeCount.toString()),
+                            child: Icon(
+                              Icons.tune_rounded,
+                              color: activeFilter.isActive
+                                  ? AppColors.primary
+                                  : const Color(0xFF667085),
+                              size: 21,
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
+
+                  if (activeFilter.isActive) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(12, 7, 6, 7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFBFDBFE)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.filter_alt_outlined,
+                            size: 17,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 7),
+                          Expanded(
+                            child: Text(
+                              _filterSummary(activeFilter),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF175CD3),
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => ref
+                                .read(hostNotificationFilterProvider.notifier)
+                                .clear(),
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                            ),
+                            child: const Text('Xóa lọc'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 14),
 
@@ -374,6 +442,42 @@ class _HostNotificationsScreenState
         ),
       ),
     );
+  }
+
+  Future<void> _openFilterSheet(HostNotificationFilter currentFilter) async {
+    final selected = await showHostNotificationFilterSheet(
+      context,
+      initialFilter: currentFilter,
+    );
+    if (!mounted || selected == null) return;
+    ref.read(hostNotificationFilterProvider.notifier).setFilter(selected);
+  }
+
+  String _filterSummary(HostNotificationFilter filter) {
+    final parts = <String>[];
+    if (filter.hasDateRange) {
+      parts.add(
+        '${_formatDate(filter.startDate)} – ${_formatDate(filter.endDate)}',
+      );
+    }
+    switch (filter.readFilter) {
+      case HostNotificationReadFilter.all:
+        break;
+      case HostNotificationReadFilter.unread:
+        parts.add('Chưa đọc');
+      case HostNotificationReadFilter.read:
+        parts.add('Đã đọc');
+    }
+    if (filter.sortOrder == HostNotificationSortOrder.oldest) {
+      parts.add('Cũ nhất trước');
+    }
+    return parts.join(' · ');
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return '...';
+    String twoDigits(int value) => value.toString().padLeft(2, '0');
+    return '${twoDigits(date.day)}/${twoDigits(date.month)}/${date.year}';
   }
 
   Widget _buildFilterChip({

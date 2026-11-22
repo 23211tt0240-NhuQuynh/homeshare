@@ -699,29 +699,58 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
     final db = FirebaseFirestore.instance;
 
     try {
-      if (normalizedId.isNotEmpty) {
-        final roomDoc = await db.collection('rooms').doc(normalizedId).get();
-        if (roomDoc.exists) {
-          addAllUnique(
-            _postImages(roomDoc.data() ?? const <String, dynamic>{}),
-          );
-          if (results.isNotEmpty) return results;
+      String resolvedRoomId = normalizedId;
+      String resolvedPropId = normalizedPropId;
+
+      // 1. Nếu có postId, tra cứu bài đăng gốc để lấy đúng roomId, propertyId và ảnh nếu có
+      if (normalizedPostId.isNotEmpty) {
+        try {
+          final pDoc = await db.collection('posts').doc(normalizedPostId).get();
+          if (pDoc.exists && pDoc.data() != null) {
+            final pData = pDoc.data()!;
+            addAllUnique(_postImages(pData));
+            if (resolvedRoomId.isEmpty) {
+              resolvedRoomId = (pData['roomId'] ?? pData['phongId'] ?? pData['roomCode'] ?? '').toString().trim();
+            }
+            if (resolvedPropId.isEmpty) {
+              resolvedPropId = (pData['propertyId'] ?? pData['batDongSanId'] ?? pData['nhaTroId'] ?? '').toString().trim();
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 2. Tra cứu từ bảng phòng (rooms, host_rooms, phong_tro) và collection room_images
+      if (resolvedRoomId.isNotEmpty) {
+        for (final col in ['rooms', 'host_rooms', 'phong_tro']) {
+          try {
+            final rDoc = await db.collection(col).doc(resolvedRoomId).get();
+            if (rDoc.exists && rDoc.data() != null) {
+              addAllUnique(_postImages(rDoc.data()!));
+              if (resolvedPropId.isEmpty) {
+                resolvedPropId = (rDoc.data()!['propertyId'] ?? rDoc.data()!['batDongSanId'] ?? '').toString().trim();
+              }
+            }
+          } catch (_) {}
         }
 
         final snapshots = await Future.wait([
           db
               .collection('rooms')
-              .where('roomId', isEqualTo: normalizedId)
+              .where('roomId', isEqualTo: resolvedRoomId)
               .limit(1)
               .get(),
           db
-              .collection('posts')
-              .where('roomId', isEqualTo: normalizedId)
+              .collection('host_rooms')
+              .where('roomId', isEqualTo: resolvedRoomId)
               .limit(1)
               .get(),
           db
               .collection('room_images')
-              .where('roomId', isEqualTo: normalizedId)
+              .where('roomId', isEqualTo: resolvedRoomId)
+              .get(),
+          db
+              .collection('room_images')
+              .where('phongId', isEqualTo: resolvedRoomId)
               .get(),
         ]);
 
@@ -735,18 +764,78 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
           final u = extractImageDocUrl(d.data());
           if (u != null) addAllUnique([u]);
         }
-        if (results.isNotEmpty) return results;
-      }
-
-      if (normalizedPostId.isNotEmpty) {
-        final snap = await db
-            .collection('room_images')
-            .where('postId', isEqualTo: normalizedPostId)
-            .get();
-        for (final d in snap.docs) {
+        for (final d in snapshots[3].docs) {
           final u = extractImageDocUrl(d.data());
           if (u != null) addAllUnique([u]);
         }
+
+        // Subcollections: rooms/{roomId}/room_images, host_rooms/{roomId}/room_images
+        for (final col in ['rooms', 'host_rooms']) {
+          try {
+            final subSnap = await db.collection(col).doc(resolvedRoomId).collection('room_images').get();
+            for (final d in subSnap.docs) {
+              final u = extractImageDocUrl(d.data());
+              if (u != null) addAllUnique([u]);
+            }
+          } catch (_) {}
+        }
+      }
+
+      // 3. Tra cứu từ bài đăng ở ghép: roommate_post_images & room_images theo postId
+      if (normalizedPostId.isNotEmpty) {
+        try {
+          final snap1 = await db
+              .collection('room_images')
+              .where('postId', isEqualTo: normalizedPostId)
+              .get();
+          for (final d in snap1.docs) {
+            final u = extractImageDocUrl(d.data());
+            if (u != null) addAllUnique([u]);
+          }
+        } catch (_) {}
+
+        try {
+          final snap2 = await db
+              .collection('roommate_post_images')
+              .where('postId', isEqualTo: normalizedPostId)
+              .get();
+          for (final d in snap2.docs) {
+            final u = extractImageDocUrl(d.data());
+            if (u != null) addAllUnique([u]);
+          }
+        } catch (_) {}
+
+        try {
+          final snap3 = await db
+              .collection('roommate_post_images')
+              .where('baiDangId', isEqualTo: normalizedPostId)
+              .get();
+          for (final d in snap3.docs) {
+            final u = extractImageDocUrl(d.data());
+            if (u != null) addAllUnique([u]);
+          }
+        } catch (_) {}
+      }
+
+      // 4. Tra cứu từ cơ sở / tòa nhà: property_images & properties (khi thuê cả tòa nhà hoặc phòng thiếu ảnh)
+      if (resolvedPropId.isNotEmpty) {
+        try {
+          final propSnap = await db
+              .collection('property_images')
+              .where('propertyId', isEqualTo: resolvedPropId)
+              .get();
+          for (final d in propSnap.docs) {
+            final u = extractImageDocUrl(d.data());
+            if (u != null) addAllUnique([u]);
+          }
+        } catch (_) {}
+
+        try {
+          final propDoc = await db.collection('properties').doc(resolvedPropId).get();
+          if (propDoc.exists && propDoc.data() != null) {
+            addAllUnique(_postImages(propDoc.data()!));
+          }
+        } catch (_) {}
       }
     } catch (_) {
       // Ignore room image fetch errors and keep the post card usable.
@@ -906,10 +995,22 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
             data['tienDatCoc'],
       );
 
+      final propId = (data['propertyId'] ??
+              data['batDongSanId'] ??
+              data['nhaTroId'] ??
+              '')
+          .toString();
+      final rCode = (data['roomId'] ??
+              data['phongId'] ??
+              data['roomCode'] ??
+              data['maPhong'] ??
+              '')
+          .toString();
+
       return RoomModel(
         id: doc.id,
-        roomCode: (data['roomCode'] ?? data['maPhong'] ?? data['roomId'] ?? '')
-            .toString(),
+        propertyId: propId,
+        roomCode: rCode,
         title: _postText(data, const ['title', 'tieuDe'], 'Bài đăng phòng trọ'),
         description: _postText(data, const [
           'description',
@@ -1535,7 +1636,6 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
     final isPending = status == 'pending';
     final isActive = status == 'active';
     final isRejected = status == 'rejected';
-    final canReviewAgain = isRejected && _isHostResubmitted(data);
     final reviewReasons = isPending
         ? PostContentScreeningService.reviewReasons(data)
         : const <String>[];
@@ -1634,14 +1734,17 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                 ),
               ),
             ],
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final leftWidth = (constraints.maxWidth - 12) / 2;
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    width: 84,
-                    height: 84,
+                    width: leftWidth,
+                    height: 112,
                     color: const Color(0xFFE6F1F8),
                     child: _buildPostThumbWidget(
                       images,
@@ -1738,71 +1841,84 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF101828),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.person_outline,
-                            size: 13,
-                            color: Color(0xFF667085),
-                          ),
-                          const SizedBox(width: 4),
-                          FutureBuilder<Map<String, dynamic>?>(
-                            future: _hostProfile(hostId),
-                            builder: (context, snapshot) {
-                              final profile = snapshot.data;
-                              final name =
-                                  (hostName ??
-                                          profile?['displayName'] ??
-                                          profile?['hoTen'] ??
-                                          profile?['fullName'] ??
-                                          'Chủ trọ')
-                                      .toString();
-                              return Text(
-                                name,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF667085),
-                                ),
-                              );
-                            },
-                          ),
-                          if (phone.isNotEmpty) ...[
-                            const SizedBox(width: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEAF6FC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFD6EAF7)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              '• $phone',
+                              title,
                               style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF98A2B3),
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF101828),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.person_outline,
+                                  size: 13,
+                                  color: Color(0xFF398FC0),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: FutureBuilder<Map<String, dynamic>?>(
+                                    future: _hostProfile(hostId),
+                                    builder: (context, snapshot) {
+                                      final profile = snapshot.data;
+                                      final name =
+                                          (hostName ??
+                                                  profile?['displayName'] ??
+                                                  profile?['hoTen'] ??
+                                                  profile?['fullName'] ??
+                                                  'Chủ trọ')
+                                              .toString();
+                                      return Text(
+                                        '$name${phone.isNotEmpty ? ' • $phone' : ''}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF287AA8),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _formatMoney(price),
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF175CD3),
                               ),
                             ),
                           ],
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _formatMoney(price),
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF155EEF),
                         ),
                       ),
                     ],
                   ),
                 ),
               ],
-            ),
+            );
+          },
+        ),
 
             if (reviewReasons.isNotEmpty || imageReasons.isNotEmpty) ...[
               const SizedBox(height: 10),
@@ -2006,20 +2122,12 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: canReviewAgain ? () => _approvePost(id) : null,
+                  onPressed: null,
                   icon: const Icon(Icons.check_circle_outline, size: 16),
-                  label: Text(
-                    canReviewAgain
-                        ? 'Duyệt lại / Hiện bài'
-                        : 'Chờ chủ trọ chỉnh sửa bài',
-                  ),
+                  label: const Text('Chờ chủ trọ chỉnh sửa bài'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: canReviewAgain
-                        ? const Color(0xFF398FC0)
-                        : const Color(0xFFE4E7EC),
-                    foregroundColor: canReviewAgain
-                        ? Colors.white
-                        : const Color(0xFF667085),
+                    backgroundColor: const Color(0xFFE4E7EC),
+                    foregroundColor: const Color(0xFF667085),
                     disabledBackgroundColor: const Color(0xFFE4E7EC),
                     disabledForegroundColor: const Color(0xFF667085),
                   ),

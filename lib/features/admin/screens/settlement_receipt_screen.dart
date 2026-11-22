@@ -14,6 +14,7 @@ class SettlementReceiptScreen extends StatelessWidget {
   final String
   receiptCode; // mã biên lai đã lưu trong Firestore (collection disbursements)
   final DateTime? executedAt; // thời điểm admin xác nhận
+  final String? reconciliationNotice;
 
   const SettlementReceiptScreen({
     super.key,
@@ -24,7 +25,16 @@ class SettlementReceiptScreen extends StatelessWidget {
     this.settlementItems = const [],
     this.receiptCode = '',
     this.executedAt,
+    this.reconciliationNotice,
   });
+
+  String _cleanOrderCode(dynamic code) {
+    final str = (code ?? '').toString().trim();
+    if (str.contains('-')) {
+      return str.split('-').last;
+    }
+    return str;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -220,7 +230,7 @@ class SettlementReceiptScreen extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${item['orderCode']} • ${item['renterName']}',
+                                      '${_cleanOrderCode(item['orderCode'])} • ${item['renterName']}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
@@ -314,7 +324,7 @@ class SettlementReceiptScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Biên lai nội bộ, ghi nhận theo xác nhận chuyển khoản của Admin.\nMã tra cứu: $code',
+                      '${reconciliationNotice ?? 'Biên lai nội bộ, ghi nhận theo xác nhận chuyển khoản của Admin.'}\nMã tra cứu: $code',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 10,
@@ -367,7 +377,7 @@ class SettlementReceiptScreen extends StatelessWidget {
                             tableRows: settlementItems
                                 .map(
                                   (item) => [
-                                    '${item['orderCode']} • ${item['renterName']}',
+                                    '${_cleanOrderCode(item['orderCode'])} • ${item['renterName']}',
                                     currencyFormatter.format(item['amount']),
                                     '-${currencyFormatter.format(item['fee'])}',
                                     currencyFormatter.format(item['net']),
@@ -441,20 +451,27 @@ class SettlementReceiptScreen extends StatelessWidget {
     Color valueColor = const Color(0xFF101828),
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3.5),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11.5, color: Color(0xFF667085)),
+          SizedBox(
+            width: 125,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 11.5, color: Color(0xFF667085)),
+            ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.bold,
-              color: valueColor,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.bold,
+                color: valueColor,
+              ),
             ),
           ),
         ],

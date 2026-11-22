@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'transfer_order_code.dart';
 import 'vietnamese_utils.dart';
 
 /// Bộ sinh mã định danh và Document ID chuẩn hóa cho hệ thống HomeShare
@@ -95,19 +96,29 @@ class IdGenerator {
     final dateStr = DateFormat('yyyyMMdd').format(DateTime.now());
     final rCode = (renterCode != null && renterCode.isNotEmpty) ? renterCode : 'NT001';
     final pCode = (roomCode != null && roomCode.isNotEmpty && roomCode != 'P001') ? roomCode : '';
-    return pCode.isNotEmpty ? 'DP_${dateStr}_${pCode}_$rCode' : 'DP_${dateStr}_$rCode';
+    final rand = 1000 + Random().nextInt(9000);
+    return pCode.isNotEmpty ? 'DP_${dateStr}_${pCode}_${rCode}_$rand' : 'DP_${dateStr}_${rCode}_$rand';
   }
 
-  /// Sinh Nội dung chuyển khoản ngân hàng:
-  /// Chỉ gồm [MÃ_NGƯỜI_DÙNG] [MÃ_PHÒNG] (theo yêu cầu)
-  /// Ví dụ: "NT001 P001"
+  /// Sinh nội dung chuyển khoản ngắn: `{hostIndex}-{ABCD}`.
+  /// ABCD = 4 ký tự cuối `orderCode` (hoặc bookingId).
   static String transferContent({
-    required String renterCode,
+    int hostIndex = 1,
+    String? orderCode,
+    String bookingId = '',
+    String? renterCode,
     String? hostCode,
-    required String roomCode,
+    String? roomCode,
   }) {
-    final r = renterCode.trim().toUpperCase();
-    final p = roomCode.trim().toUpperCase();
+    if (orderCode != null || bookingId.isNotEmpty || (renterCode == null && roomCode == null)) {
+      return TransferOrderCode.build(
+        hostIndex: hostIndex,
+        orderCode: orderCode,
+        bookingId: bookingId,
+      );
+    }
+    final r = (renterCode ?? '').trim().toUpperCase();
+    final p = (roomCode ?? '').trim().toUpperCase();
     final parts = <String>[];
     if (r.isNotEmpty) parts.add(r);
     if (p.isNotEmpty) parts.add(p);
@@ -120,6 +131,12 @@ class IdGenerator {
     return 'TB_${DateTime.now().millisecondsSinceEpoch}';
   }
 
+  /// Sinh Document ID báo cáo chủ trọ (reports):
+  /// BC_1729053891000
+  static String hostReport() {
+    return 'BC_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
   /// Sinh Document ID Nhật ký kiểm toán (audit_logs):
   /// LOG_1729053891000
   static String auditLog() {
@@ -130,5 +147,17 @@ class IdGenerator {
   /// P001_TI_WIFI_TOC_DO_CAO
   static String roomAmenity(String roomId, String amenityId) {
     return '${roomId}_$amenityId';
+  }
+
+  /// Sinh Document ID Báo cáo bài đăng chủ trọ (reports):
+  /// BCB_1729837200000
+  static String postReport() {
+    return 'BCB_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// Sinh Document ID Báo cáo sự cố phòng (reports):
+  /// SC_1729837200000
+  static String roomIssue() {
+    return 'SC_${DateTime.now().millisecondsSinceEpoch}';
   }
 }

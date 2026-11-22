@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -48,15 +47,53 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
   bool _isExportingAuditLogs = false;
   late TabController _tabController;
 
+  final Map<String, String> _adminNamesByUid = {};
+  String _defaultAdminName = 'Quỳnh Như';
+  String _defaultAdminUid = 'hO7COgzUemSlkr0zljlTkfbGaNv1';
+  StreamSubscription<QuerySnapshot>? _adminUsersSub;
+
   @override
   void initState() {
     super.initState();
     _selectedDate = DateTime.now();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
+    _initAdminUsers();
+  }
+
+  void _initAdminUsers() {
+    _adminUsersSub = FirebaseFirestore.instance
+        .collection('users')
+        .where('role', isEqualTo: 'admin')
+        .snapshots()
+        .listen((snap) {
+      if (!mounted) return;
+      setState(() {
+        for (final doc in snap.docs) {
+          final d = doc.data();
+          final name = (d['fullName'] ??
+                  d['displayName'] ??
+                  d['hoTen'] ??
+                  d['name'] ??
+                  d['tenNguoiDung'] ??
+                  d['email']?.toString().split('@').first ??
+                  '')
+              .toString()
+              .trim();
+          if (name.isNotEmpty && name.toLowerCase() != 'admin') {
+            _adminNamesByUid[doc.id] = name;
+            _defaultAdminName = name;
+            _defaultAdminUid = doc.id;
+          } else {
+            _adminNamesByUid[doc.id] = 'Admin (${doc.id.substring(0, 4)})';
+          }
+        }
+      });
+    }, onError: (_) {});
   }
 
   @override
   void dispose() {
+    _adminUsersSub?.cancel();
     _searchCtrl.dispose();
     _tabController.dispose();
     super.dispose();
@@ -254,6 +291,25 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
     }
   }
 
+  static String _removeAccents(String s) {
+    var str = s.toLowerCase();
+    const groups = {
+      'a': 'áàảãạăắằẳẵặâấầẩẫậ',
+      'd': 'đ',
+      'e': 'éèẻẽẹêếềểễệ',
+      'i': 'íìỉĩị',
+      'o': 'óòỏõọôốồổỗộơớờởỡợ',
+      'u': 'úùủũụưứừửữự',
+      'y': 'ýỳỷỹỵ',
+    };
+    groups.forEach((base, chars) {
+      for (final c in chars.split('')) {
+        str = str.replaceAll(c, base);
+      }
+    });
+    return str.trim();
+  }
+
   Future<List<Map<String, dynamic>>> _filterAuditLogsByActor(
     List<Map<String, dynamic>> logs,
     String query,
@@ -264,14 +320,29 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
     }
     if (query.isEmpty) return adminLogs;
 
-    final normalizedQuery = query.toLowerCase();
+    final normalizedQuery = _removeAccents(query);
     return adminLogs.where((log) {
-      final title = (log['title'] ?? '').toString().toLowerCase();
-      final subtitle = (log['subtitle'] ?? '').toString().toLowerCase();
-      final cat = (log['category'] ?? '').toString().toLowerCase();
-      return title.contains(normalizedQuery) ||
-          subtitle.contains(normalizedQuery) ||
-          cat.contains(normalizedQuery);
+      final fields = [
+        log['title'],
+        log['subtitle'],
+        log['category'],
+        log['code'],
+        log['target'],
+        log['id'],
+        log['performer'],
+        log['performerId'],
+        log['actorUid'],
+        log['adminEmail'],
+        log['fullDateTime'],
+        log['dateGroup'],
+      ];
+      for (final field in fields) {
+        final val = (field ?? '').toString();
+        if (val.isNotEmpty && _removeAccents(val).contains(normalizedQuery)) {
+          return true;
+        }
+      }
+      return false;
     }).toList();
   }
 
@@ -413,7 +484,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
       final snapshot = await FirebaseFirestore.instance
           .collection('audit_logs')
           .get();
-      final monthLogs = <({DateTime date, List<Object?> row})>[];
+      final monthLogs = <AdminAuditExcelEntry>[];
 
       for (final doc in snapshot.docs) {
         if (_legacySeedLogIds.contains(doc.id)) continue;
@@ -460,23 +531,40 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
             combined.contains('quyết toán') ||
             combined.contains('hoàn cọc') ||
             combined.contains('hoa hồng')) {
-          categoryLabel = 'Tài chính';
+          categoryLabel = 'Quản lý đơn';
         } else {
-          categoryLabel = 'Hệ thống';
+          categoryLabel = 'Khác';
         }
 
         final rawAmount = data['amount'] ?? data['totalAmount'];
-        monthLogs.add((
-          date: date,
-          row: [
-            doc.id,
-            DateFormat('dd/MM/yyyy HH:mm:ss').format(date),
-            title,
-            subtitle,
-            categoryLabel,
-            rawAmount is num ? rawAmount : '',
-          ],
-        ));
+        final performerRaw = (data['performer'] ??
+                data['performedBy'] ??
+                data['actor'] ??
+                data['adminName'] ??
+                '')
+            .toString()
+            .trim();
+        final bookingIds = data['bookingIds'];
+        final targetRaw = (data['target'] ??
+                (bookingIds is List && bookingIds.isNotEmpty
+                    ? bookingIds.join(', ')
+                    : null) ??
+                data['receiptCode'] ??
+                '')
+            .toString()
+            .trim();
+        monthLogs.add(
+          AdminAuditExcelEntry(
+            id: doc.id,
+            time: date,
+            performer: performerRaw.isEmpty ? 'Không rõ' : performerRaw,
+            category: categoryLabel,
+            action: title,
+            target: targetRaw,
+            detail: subtitle,
+            amount: rawAmount is num ? rawAmount : null,
+          ),
+        );
       }
 
       if (monthLogs.isEmpty) {
@@ -486,19 +574,12 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
         return;
       }
 
-      monthLogs.sort((a, b) => b.date.compareTo(a.date));
-      final rows = <List<Object?>>[
-        const [
-          'Mã nhật ký',
-          'Thời gian',
-          'Thao tác',
-          'Chi tiết',
-          'Danh mục',
-          'Số tiền (đ)',
-        ],
-        ...monthLogs.map((entry) => entry.row),
-      ];
-      final bytes = AdminAuditExcelExporter.create(rows);
+      final bytes = AdminAuditExcelExporter.createReport(
+        monthLabel: DateFormat('MM/yyyy').format(selectedMonth),
+        exportedAt: DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()),
+        exportedBy: _defaultAdminName,
+        entries: monthLogs,
+      );
       final fileName =
           'lich_su_admin_${DateFormat('yyyy_MM').format(selectedMonth)}.xlsx';
       final tempFile = File('${Directory.systemTemp.path}/$fileName');
@@ -541,179 +622,6 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
     );
   }
 
-  Future<void> _authenticateAndShowAdminAccessManager() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null || !AdminAccessService.isManager(user)) return;
-
-    final authenticated = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _ManagerAuthenticationDialog(user: user),
-    );
-    if (authenticated == true && mounted) {
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      if (mounted) _showAdminAccessManager();
-    }
-  }
-
-  void _showAdminAccessManager() {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        final screen = MediaQuery.sizeOf(dialogContext);
-        return Dialog(
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 24,
-          ),
-          child: SizedBox(
-            width: screen.width * 0.9,
-            height: screen.height * 0.72,
-            child: Column(
-              children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(20, 18, 20, 12),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Quản lý quyền Admin',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                    stream: FirebaseFirestore.instance
-                        .collection('users')
-                        .where('role', isEqualTo: 'admin')
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(20),
-                            child: Text(
-                              'Không tải được danh sách admin. Kiểm tra mạng hoặc quyền Firestore.',
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        );
-                      }
-                      if (!snapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      final admins = snapshot.data!.docs;
-                      if (admins.isEmpty) {
-                        return const Center(
-                          child: Text('Chưa có tài khoản admin.'),
-                        );
-                      }
-                      return ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: admins.length,
-                        itemBuilder: (context, index) {
-                          final doc = admins[index];
-                          final data = doc.data();
-                          final email = (data['email'] ?? '').toString();
-                          final name =
-                              (data['displayName'] ?? data['hoTen'] ?? email)
-                                  .toString();
-                          final isManagerAccount =
-                              email.trim().toLowerCase() ==
-                              AdminAccessService.managerEmail;
-
-                          return StreamBuilder<
-                            DocumentSnapshot<Map<String, dynamic>>
-                          >(
-                            stream: AdminAccessService.accessStream(doc.id),
-                            builder: (context, accessSnapshot) {
-                              final enabled =
-                                  isManagerAccount ||
-                                  accessSnapshot.data?.data()?['enabled'] ==
-                                      true;
-                              return ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(
-                                  name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                subtitle: Text(
-                                  '$email\nUID: ${doc.id}${isManagerAccount ? ' • Manager' : ''}',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                isThreeLine: true,
-                                trailing:
-                                    accessSnapshot.connectionState ==
-                                            ConnectionState.waiting &&
-                                        !isManagerAccount
-                                    ? const SizedBox(
-                                        width: 22,
-                                        height: 22,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Switch.adaptive(
-                                        value: enabled,
-                                        onChanged:
-                                            isManagerAccount ||
-                                                accessSnapshot.hasError
-                                            ? null
-                                            : (value) async {
-                                                try {
-                                                  await AdminAccessService.setAdminAccess(
-                                                    uid: doc.id,
-                                                    adminName: name,
-                                                    enabled: value,
-                                                  );
-                                                } catch (e) {
-                                                  if (!mounted) return;
-                                                  ScaffoldMessenger.of(
-                                                    context,
-                                                  ).showSnackBar(
-                                                    SnackBar(
-                                                      content: Text(
-                                                        'Không thể cập nhật quyền admin: $e',
-                                                      ),
-                                                    ),
-                                                  );
-                                                }
-                                              },
-                                      ),
-                              );
-                            },
-                          );
-                        },
-                        separatorBuilder: (_, _) => const Divider(height: 1),
-                      );
-                    },
-                  ),
-                ),
-                const Divider(height: 1),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      child: const Text('Đóng'),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   // Cập nhật Tỷ lệ Hoa hồng Sàn lên Firestore
   Future<void> _updateCommissionRate(double currentRate, double newRate) async {
     try {
@@ -731,11 +639,11 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       batch.set(db.collection('commission_rate_history').doc(), {
+        'actor': actorFields['actor'],
+        'actorId': actorFields['actorId'],
+        'createdAt': FieldValue.serverTimestamp(),
         'previousRate': currentRate,
         'rate': newRate,
-        'effectiveAt': FieldValue.serverTimestamp(),
-        'createdAt': FieldValue.serverTimestamp(),
-        ...actorFields,
       });
 
       // Ghi nhật ký kiểm toán và cấu hình theo cùng một batch.
@@ -747,7 +655,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
         'timeStr': timeStr,
         'amount': null,
         'category': 'system',
-        'dateGroup': 'HÔM NAY - ${DateFormat('dd/MM/yyyy').format(now)}',
+        'dateGroup': DateFormat('dd/MM/yyyy').format(now),
         'timestamp': FieldValue.serverTimestamp(),
       });
       await batch.commit();
@@ -824,7 +732,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
         'timeStr': timeStr,
         'amount': null,
         'category': 'system',
-        'dateGroup': 'HÔM NAY - ${DateFormat('dd/MM/yyyy').format(now)}',
+        'dateGroup': DateFormat('dd/MM/yyyy').format(now),
         'timestamp': FieldValue.serverTimestamp(),
       });
 
@@ -1061,11 +969,6 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
     final messageCtrl = TextEditingController(
       text: (currentData['message'] ?? '').toString(),
     );
-    final rolesCtrl = TextEditingController(
-      text:
-          (currentData['allowed_roles'] as List?)?.join(', ') ??
-          'QUAN_TRI_VIEN',
-    );
 
     DateTime? expectedCompletion = _parseDateTimeSafe(
       currentData['expected_completion'],
@@ -1270,70 +1173,12 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-
-                  // Allowed roles
-                  const Text(
-                    'Vai trò được phép truy cập (cách nhau bởi dấu phẩy)',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF344054),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: rolesCtrl,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      color: Color(0xFF101828),
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'VD: QUAN_TRI_VIEN, MOD',
-                      hintStyle: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF98A2B3),
-                      ),
-                      filled: true,
-                      fillColor: const Color(0xFFF4F9FF),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFDCEAF5),
-                          width: 1.2,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFDCEAF5),
-                          width: 1.2,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFF79009),
-                          width: 1.8,
-                        ),
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: 24),
 
                   SizedBox(
                     height: 52,
                     child: ElevatedButton(
                       onPressed: () async {
-                        final roles = rolesCtrl.text
-                            .split(',')
-                            .map((r) => r.trim())
-                            .where((r) => r.isNotEmpty)
-                            .toList();
                         Navigator.pop(ctx2);
 
                         final now = DateTime.now();
@@ -1350,7 +1195,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                                 'message': messageCtrl.text.trim(),
                                 'expected_completion':
                                     expectedCompletion?.toIso8601String() ?? '',
-                                'allowed_roles': roles,
+                                'allowed_roles': const ['ADMIN', 'MANAGER'],
                                 'updated_at': FieldValue.serverTimestamp(),
                                 'updated_by': performer,
                                 'updated_by_id': actorFields['actorUid'],
@@ -1368,7 +1213,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                                 'amount': null,
                                 'category': 'system',
                                 'dateGroup':
-                                    'HÔM NAY - ${DateFormat('dd/MM/yyyy').format(now)}',
+                                    DateFormat('dd/MM/yyyy').format(now),
                                 'timestamp': FieldValue.serverTimestamp(),
                               });
 
@@ -1500,7 +1345,9 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
             ),
             const SizedBox(height: 10),
             Text(
-              subtitle,
+              subtitle
+                  .replaceAll('bạn được hoàn', 'người thuê được hoàn')
+                  .replaceAll('Bạn được hoàn', 'Người thuê được hoàn'),
               style: const TextStyle(
                 fontSize: 15,
                 color: Color(0xFF475467),
@@ -1536,26 +1383,81 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
               ),
             ],
             const SizedBox(height: 16),
-            // Thời gian thao tác: chỉ hiển thị giờ/ngày
-            Row(
-              children: [
-                const Icon(
-                  Icons.access_time_rounded,
-                  size: 18,
-                  color: Color(0xFF398FC0),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Thời gian: $fullDateTime',
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      color: Color(0xFF475467),
-                      fontWeight: FontWeight.w500,
-                    ),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFEAECF0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.shield_outlined,
+                        size: 16,
+                        color: Color(0xFF398FC0),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Người thực hiện: ${(log['performer'] ?? _defaultAdminName)} (Admin)',
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF344054),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  if ((log['performerId'] ?? '').toString().isNotEmpty &&
+                      log['performerId'] != 'N/A') ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.fingerprint_rounded,
+                          size: 16,
+                          color: Color(0xFF98A2B3),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'UID: ${log['performerId']}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontFamily: 'monospace',
+                              color: Color(0xFF667085),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.access_time_rounded,
+                        size: 16,
+                        color: Color(0xFF667085),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Thời gian: $fullDateTime',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFF667085),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -2058,11 +1960,6 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                             .toString();
                     final updatedBy =
                         (mData['updated_by'] ?? 'Chưa có cập nhật').toString();
-                    final allowedRoles =
-                        (mData['allowed_roles'] as List?)
-                            ?.map((e) => e.toString())
-                            .toList() ??
-                        ['QUAN_TRI_VIEN'];
 
                     final updatedAtDt = _parseDateTimeSafe(mData['updated_at']);
                     final updatedAtStr = updatedAtDt != null
@@ -2202,24 +2099,6 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.shield_outlined,
-                                        size: 14,
-                                        color: Color(0xFF667085),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Cho phép: ${allowedRoles.join(', ')}',
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          color: Color(0xFF475467),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
                                 ],
                               ),
                             ),
@@ -2276,145 +2155,40 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                 ),
                 const SizedBox(height: 20),
 
-                // Nút Lọc Theo Ngày
-                Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    InkWell(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: effectiveSelectedDate,
-                          firstDate: DateTime(2025),
-                          lastDate: DateTime(2028),
-                        );
-                        if (picked != null) {
-                          setState(() {
-                            _selectedDate = picked;
-                            _filterByDate = true;
-                          });
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 11,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEAF4FA),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFDCEAF5)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.calendar_month_outlined,
-                              size: 20,
-                              color: Color(0xFF344054),
-                            ),
-                            const SizedBox(width: 8),
-                            RichText(
-                              text: TextSpan(
-                                style: const TextStyle(
-                                  fontSize: 14.5,
-                                  color: Color(0xFF344054),
-                                ),
-                                children: [
-                                  const TextSpan(text: 'Đối soát: '),
-                                  TextSpan(
-                                    text: DateFormat(
-                                      'dd/MM/yyyy',
-                                    ).format(effectiveSelectedDate),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF101828),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                // Nút Xuất Excel theo tháng
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: _isExportingAuditLogs
+                        ? null
+                        : _exportMonthlyAuditLogs,
+                    icon: _isExportingAuditLogs
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.file_download_outlined, size: 18),
+                    label: const Text('Xuất Excel theo tháng'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF398FC0),
+                      side: const BorderSide(color: Color(0xFFDCEAF5)),
                     ),
-                    if (_filterByDate) ...[
-                      const SizedBox(width: 8),
-                      TextButton.icon(
-                        onPressed: () => setState(() => _filterByDate = false),
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          size: 16,
-                          color: Color(0xFF667085),
-                        ),
-                        label: const Text(
-                          'Hiện tất cả',
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            color: Color(0xFF667085),
-                          ),
-                        ),
-                      ),
-                    ],
-                    OutlinedButton.icon(
-                      onPressed: _isExportingAuditLogs
-                          ? null
-                          : _exportMonthlyAuditLogs,
-                      icon: _isExportingAuditLogs
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.file_download_outlined, size: 18),
-                      label: const Text('Xuất Excel theo tháng'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF398FC0),
-                        side: const BorderSide(color: Color(0xFFDCEAF5)),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 16),
 
                 // ====================================================
                 // LỊCH SỬ HOẠT ĐỘNG
                 // ====================================================
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    const Text(
-                      'LỊCH SỬ HOẠT ĐỘNG',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF398FC0),
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    if (AdminAccessService.isManager(
-                      FirebaseAuth.instance.currentUser,
-                    ))
-                      OutlinedButton.icon(
-                        onPressed: _authenticateAndShowAdminAccessManager,
-                        icon: const Icon(
-                          Icons.admin_panel_settings_outlined,
-                          size: 17,
-                        ),
-                        label: const Text('Quản lý admin'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF398FC0),
-                          side: const BorderSide(color: Color(0xFFDCEAF5)),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ),
-                  ],
+                const Text(
+                  'LỊCH SỬ HOẠT ĐỘNG',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF398FC0),
+                    letterSpacing: 0.5,
+                  ),
                 ),
                 const SizedBox(height: 10),
 
@@ -2449,28 +2223,12 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                       fontSize: 13.5,
                       fontWeight: FontWeight.w500,
                     ),
-                    isScrollable: true,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                    isScrollable: false,
                     tabs: const [
-                      Tab(
-                        icon: Icon(Icons.receipt_long_rounded, size: 18),
-                        text: 'Quản lý đơn',
-                        iconMargin: EdgeInsets.only(bottom: 4),
-                      ),
-                      Tab(
-                        icon: Icon(Icons.article_rounded, size: 18),
-                        text: 'Bài đăng',
-                        iconMargin: EdgeInsets.only(bottom: 4),
-                      ),
-                      Tab(
-                        icon: Icon(Icons.people_rounded, size: 18),
-                        text: 'Quản lý Users',
-                        iconMargin: EdgeInsets.only(bottom: 4),
-                      ),
-                      Tab(
-                        icon: Icon(Icons.settings_rounded, size: 18),
-                        text: 'Hệ thống',
-                        iconMargin: EdgeInsets.only(bottom: 4),
-                      ),
+                      Tab(text: 'Quản lý đơn'),
+                      Tab(text: 'Bài đăng'),
+                      Tab(text: 'Quản lý Users'),
                     ],
                   ),
                 ),
@@ -2544,7 +2302,7 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                                     data['action'] ??
                                     'Tác vụ hệ thống')
                                 .toString();
-                        final performer = _auditValue(
+                        var performer = _auditValue(
                           data,
                           const [
                             'actor',
@@ -2574,8 +2332,25 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                             'homeshare system',
                           },
                         );
-                        final performerId =
-                            AdminAuditIdentity.legacyActorUid(data) ?? 'N/A';
+                        var performerId =
+                            AdminAuditIdentity.legacyActorUid(data) ?? '';
+
+                        // Quét role trong users để gắn đúng tên + ID admin
+                        if (performerId.isNotEmpty && _adminNamesByUid.containsKey(performerId)) {
+                          performer = _adminNamesByUid[performerId]!;
+                        } else if (performer.isEmpty || performer.toLowerCase() == 'admin') {
+                          if (performerId.isNotEmpty && _adminNamesByUid.containsKey(performerId)) {
+                            performer = _adminNamesByUid[performerId]!;
+                          } else {
+                            performer = _defaultAdminName;
+                            if (performerId.isEmpty || performerId == 'N/A') {
+                              performerId = _defaultAdminUid;
+                            }
+                          }
+                        }
+                        if (performerId.isEmpty || performerId == 'N/A') {
+                          performerId = _defaultAdminUid;
+                        }
                         final subtitle =
                             (data['subtitle'] ??
                                     data['details'] ??
@@ -2603,19 +2378,17 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                             (dt == null
                                 ? 'Chưa có thời gian'
                                 : DateFormat('HH:mm:ss').format(dt));
-                        String dateGroup = (data['dateGroup'] ?? '').toString();
+                        String dateGroup = (data['dateGroup'] ?? '')
+                            .toString()
+                            .replaceFirst(
+                              RegExp(r'^HÔM NAY\s*-\s*', caseSensitive: false),
+                              '',
+                            )
+                            .trim();
 
                         if (dateGroup.isEmpty) {
                           if (dt != null) {
-                            final now = DateTime.now();
-                            if (dt.year == now.year &&
-                                dt.month == now.month &&
-                                dt.day == now.day) {
-                              dateGroup =
-                                  'HÔM NAY - ${DateFormat('dd/MM/yyyy').format(dt)}';
-                            } else {
-                              dateGroup = DateFormat('dd/MM/yyyy').format(dt);
-                            }
+                            dateGroup = DateFormat('dd/MM/yyyy').format(dt);
                           } else {
                             dateGroup = 'LỊCH SỬ CHUNG';
                           }
@@ -2629,6 +2402,8 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                           'id': doc.id,
                           'title': title,
                           'subtitle': subtitle,
+                          'code': (data['code'] ?? '').toString(),
+                          'target': (data['target'] ?? '').toString(),
                           'amount': amount,
                           'performer': performer,
                           'performerId': performerId,
@@ -2711,6 +2486,20 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                             }
 
                             if (grouped.isEmpty) {
+                              const tabLabels = [
+                                'Quản lý đơn',
+                                'Bài đăng',
+                                'Quản lý Users',
+                              ];
+                              final otherMatchingTabs = <int>[];
+                              if (query.isNotEmpty) {
+                                for (var i = 0; i < 3; i++) {
+                                  if (i != currentTab &&
+                                      groupedLogs[i].isNotEmpty) {
+                                    otherMatchingTabs.add(i);
+                                  }
+                                }
+                              }
                               return Padding(
                                 padding: const EdgeInsets.only(top: 40),
                                 child: Center(
@@ -2725,18 +2514,48 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                                       const SizedBox(height: 12),
                                       Text(
                                         query.isNotEmpty
-                                            ? 'Không tìm thấy nhật ký phù hợp'
+                                            ? 'Không tìm thấy nhật ký khớp "$query" trong mục này'
                                             : const [
                                                 'Chưa có lịch sử quản lý đơn',
                                                 'Chưa có lịch sử bài đăng',
                                                 'Chưa có lịch sử người dùng',
-                                                'Chưa có lịch sử hệ thống',
                                               ][currentTab],
+                                        textAlign: TextAlign.center,
                                         style: const TextStyle(
                                           color: Color(0xFF667085),
                                           fontSize: 15,
                                         ),
                                       ),
+                                      if (otherMatchingTabs.isNotEmpty) ...[
+                                        const SizedBox(height: 12),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          alignment: WrapAlignment.center,
+                                          children: [
+                                            for (final tabIdx
+                                                in otherMatchingTabs)
+                                              ActionChip(
+                                                backgroundColor: const Color(
+                                                  0xFFE9F5FC,
+                                                ),
+                                                side: const BorderSide(
+                                                  color: Color(0xFFB2DDFF),
+                                                ),
+                                                label: Text(
+                                                  'Xem "${tabLabels[tabIdx]}" (${groupedLogs[tabIdx].length})',
+                                                  style: const TextStyle(
+                                                    fontSize: 12.5,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Color(0xFF175CD3),
+                                                  ),
+                                                ),
+                                                onPressed: () => _tabController
+                                                    .animateTo(tabIdx),
+                                              ),
+                                          ],
+                                        ),
+                                      ],
                                       if (_filterByDate ||
                                           query.isNotEmpty) ...[
                                         const SizedBox(height: 8),
@@ -2821,120 +2640,15 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
 
   Widget _buildHistoryCardContent(Map<String, dynamic> log) {
     final title = (log['title'] ?? '').toString();
-    final subtitle = (log['subtitle'] ?? '').toString();
+    final rawSubtitle = (log['subtitle'] ?? '').toString();
+    final subtitle = rawSubtitle
+        .replaceAll('bạn được hoàn', 'người thuê được hoàn')
+        .replaceAll('Bạn được hoàn', 'Người thuê được hoàn');
     final fullDateTime = (log['fullDateTime'] ?? log['timeStr'] ?? '').toString();
     final category = (log['category'] ?? '').toString();
     final amount = log['amount'] is num
         ? (log['amount'] as num).toDouble()
         : null;
-
-    final normalized = category.toLowerCase().replaceAll('_', '').trim();
-    final combined = '$normalized ${title.toLowerCase()} ${subtitle.toLowerCase()}';
-    final isFinanceOrOrder = normalized.contains('finance') ||
-        normalized.contains('taichinh') ||
-        normalized.contains('quanlydon') ||
-        normalized.contains('order') ||
-        normalized.contains('booking') ||
-        normalized.contains('deposit') ||
-        normalized.contains('refund') ||
-        normalized.contains('hoancoc') ||
-        normalized.contains('nhanphong') ||
-        normalized.contains('thanhtoan') ||
-        normalized.contains('quyettoan') ||
-        normalized.contains('tiencoc') ||
-        combined.contains('quản lý đơn') ||
-        combined.contains('tiền cọc') ||
-        combined.contains('hoàn cọc') ||
-        combined.contains('nhận phòng') ||
-        combined.contains('thanh toán') ||
-        combined.contains('quyết toán') ||
-        combined.contains('hoa hồng');
-
-    Widget iconWidget;
-
-    if (isFinanceOrOrder) {
-      iconWidget = Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: const Color(0xFFECFDF3),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: const Icon(
-          Icons.monetization_on_rounded,
-          color: Color(0xFF12B76A),
-          size: 24,
-        ),
-      );
-    } else {
-      switch (normalized) {
-        case 'violation':
-        case 'vipham':
-          iconWidget = Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFEF3F2),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.gavel_rounded,
-              color: Color(0xFFD92D20),
-              size: 24,
-            ),
-          );
-          break;
-        case 'user':
-        case 'users':
-        case 'account':
-        case 'nguoidung':
-          iconWidget = Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE9F5FC),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.manage_accounts_rounded,
-              color: Color(0xFF398FC0),
-              size: 24,
-            ),
-          );
-          break;
-        case 'post':
-        case 'posts':
-        case 'baidang':
-          iconWidget = Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE9F5FC),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.article_rounded,
-              color: Color(0xFF398FC0),
-              size: 24,
-            ),
-          );
-          break;
-        default:
-          iconWidget = Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFEF0C7),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.settings_suggest_rounded,
-              color: Color(0xFFB54708),
-              size: 24,
-            ),
-          );
-      }
-    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -2953,8 +2667,6 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          iconWidget,
-          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2983,26 +2695,57 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
                 ),
                 const SizedBox(height: 6),
                 _buildSubtitleWithHighlightedAmount(subtitle, amount, category),
-                const SizedBox(height: 7),
-                // Chỉ hiển thị giờ/ngày thao tác, không hiển thị tên hay UID admin
+                const SizedBox(height: 8),
+                // Hiển thị người thực hiện + thời gian thao tác
                 Row(
                   children: [
                     const Icon(
-                      Icons.access_time_rounded,
-                      size: 14,
-                      color: Color(0xFF667085),
+                      Icons.person_outline_rounded,
+                      size: 14.5,
+                      color: Color(0xFF398FC0),
                     ),
                     const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        'Bởi: ${(log['performer'] ?? _defaultAdminName).toString()}',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF344054),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(
+                      Icons.access_time_rounded,
+                      size: 13,
+                      color: Color(0xFF667085),
+                    ),
+                    const SizedBox(width: 4),
                     Text(
                       fullDateTime,
                       style: const TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 12,
                         color: Color(0xFF667085),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
+                if ((log['performerId'] ?? '').toString().isNotEmpty &&
+                    log['performerId'] != 'N/A') ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    'UID: ${log['performerId']}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      color: Color(0xFF98A2B3),
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -3048,183 +2791,6 @@ class _AdminHistoryScreenState extends ConsumerState<AdminHistoryScreen>
     return Text(
       subtitle,
       style: const TextStyle(fontSize: 14.5, color: Color(0xFF475467)),
-    );
-  }
-}
-
-class _ManagerAuthenticationDialog extends StatefulWidget {
-  const _ManagerAuthenticationDialog({required this.user});
-
-  final User user;
-
-  @override
-  State<_ManagerAuthenticationDialog> createState() =>
-      _ManagerAuthenticationDialogState();
-}
-
-class _ManagerAuthenticationDialogState
-    extends State<_ManagerAuthenticationDialog> {
-  final _passwordController = TextEditingController();
-  bool _busy = false;
-  String? _message;
-
-  @override
-  void dispose() {
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _authenticate() async {
-    if (_busy) return;
-    final password = _passwordController.text;
-    if (password.isEmpty) {
-      setState(() => _message = 'Vui lòng nhập mật khẩu.');
-      return;
-    }
-
-    setState(() {
-      _busy = true;
-      _message = null;
-    });
-    try {
-      final credential = EmailAuthProvider.credential(
-        email: AdminAccessService.managerEmail,
-        password: password,
-      );
-      await widget.user.reauthenticateWithCredential(credential);
-      if (!mounted) return;
-      FocusScope.of(context).unfocus();
-      Navigator.of(context).pop(true);
-    } on FirebaseAuthException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _message = _authErrorMessage(error);
-      });
-    } catch (error, stackTrace) {
-      debugPrint('Không xác thực được Manager: $error\n$stackTrace');
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _message = 'Không thể xác thực lúc này. Vui lòng thử lại.';
-      });
-    }
-  }
-
-  Future<void> _sendPasswordReset() async {
-    if (_busy) return;
-    setState(() {
-      _busy = true;
-      _message = null;
-    });
-    try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(
-        email: AdminAccessService.managerEmail,
-      );
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _message = 'Đã gửi link đặt lại mật khẩu tới email Manager.';
-      });
-    } on FirebaseAuthException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _message = _authErrorMessage(error);
-      });
-    } catch (error, stackTrace) {
-      debugPrint(
-        'Không gửi được link đặt lại mật khẩu Manager: $error\n$stackTrace',
-      );
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _message = 'Không gửi được email đặt lại mật khẩu. Vui lòng thử lại.';
-      });
-    }
-  }
-
-  String _authErrorMessage(FirebaseAuthException error) {
-    switch (error.code) {
-      case 'wrong-password':
-      case 'invalid-credential':
-        return 'Mật khẩu không đúng.';
-      case 'too-many-requests':
-        return 'Thử quá nhiều lần. Vui lòng chờ rồi thử lại.';
-      case 'network-request-failed':
-        return 'Không có kết nối mạng. Vui lòng thử lại.';
-      case 'user-not-found':
-        return 'Không tìm thấy tài khoản Manager.';
-      default:
-        return error.message ?? 'Xác thực thất bại.';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_busy,
-      child: AlertDialog(
-        scrollable: true,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        actionsAlignment: MainAxisAlignment.end,
-        actionsOverflowAlignment: OverflowBarAlignment.end,
-        actionsOverflowDirection: VerticalDirection.up,
-        actionsOverflowButtonSpacing: 4,
-        actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        title: const Text('Xác thực Manager'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Nhập lại mật khẩu Firebase Auth của ${widget.user.email}.'),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _passwordController,
-              autofocus: true,
-              obscureText: true,
-              keyboardType: TextInputType.visiblePassword,
-              autofillHints: const [AutofillHints.password],
-              decoration: const InputDecoration(
-                labelText: 'Mật khẩu tài khoản',
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (_) => _authenticate(),
-            ),
-            if (_message != null) ...[
-              const SizedBox(height: 10),
-              Text(
-                _message!,
-                style: TextStyle(
-                  color: _message!.startsWith('Đã gửi')
-                      ? const Color(0xFF12B76A)
-                      : const Color(0xFFD92D20),
-                ),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: _busy ? null : _sendPasswordReset,
-            child: const Text('Gửi link đặt lại'),
-          ),
-          TextButton(
-            onPressed: _busy ? null : () => Navigator.of(context).pop(false),
-            child: const Text('Hủy'),
-          ),
-          FilledButton(
-            onPressed: _busy ? null : _authenticate,
-            child: _busy
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Xác thực'),
-          ),
-        ],
-      ),
     );
   }
 }

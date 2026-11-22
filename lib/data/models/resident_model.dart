@@ -16,6 +16,29 @@ class ResidentModel {
   final String statusId; // 'dangO', 'daRoi'
   final DateTime moveInDate;
   final DateTime? moveOutDate;
+  final String cccdNumber;
+  final String cccdFrontImageUrl;
+  final String cccdBackImageUrl;
+  final bool isCccdVerified;
+
+  // Status Helper Getters
+  bool get isMovedOut {
+    final s = statusId.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    return const [
+      'daroi',
+      'movedout',
+      'daketthuc',
+      'cancelled',
+      'dahuy',
+      'checkedout',
+      'checkout',
+      'completed',
+      'ended',
+      'traphong',
+    ].contains(s) || (moveOutDate != null && moveOutDate!.isBefore(DateTime.now()));
+  }
+
+  bool get isActive => !isMovedOut;
 
   // SDS Dual Aliases
   String get residentId => id;
@@ -36,6 +59,11 @@ class ResidentModel {
   DateTime get ngayVao => moveInDate;
   DateTime? get ngayRoi => moveOutDate;
 
+  String get soCccd => cccdNumber;
+  String get anhMatTruoc => cccdFrontImageUrl;
+  String get anhMatSau => cccdBackImageUrl;
+  bool get daXacThucCccd => isCccdVerified;
+
   const ResidentModel({
     required this.id,
     required this.periodId,
@@ -49,6 +77,10 @@ class ResidentModel {
     this.statusId = 'dangO',
     required this.moveInDate,
     this.moveOutDate,
+    this.cccdNumber = '',
+    this.cccdFrontImageUrl = '',
+    this.cccdBackImageUrl = '',
+    this.isCccdVerified = false,
   });
 
   ResidentModel copyWith({
@@ -64,6 +96,10 @@ class ResidentModel {
     String? statusId,
     DateTime? moveInDate,
     DateTime? moveOutDate,
+    String? cccdNumber,
+    String? cccdFrontImageUrl,
+    String? cccdBackImageUrl,
+    bool? isCccdVerified,
   }) {
     return ResidentModel(
       id: id ?? this.id,
@@ -78,6 +114,10 @@ class ResidentModel {
       statusId: statusId ?? this.statusId,
       moveInDate: moveInDate ?? this.moveInDate,
       moveOutDate: moveOutDate ?? this.moveOutDate,
+      cccdNumber: cccdNumber ?? this.cccdNumber,
+      cccdFrontImageUrl: cccdFrontImageUrl ?? this.cccdFrontImageUrl,
+      cccdBackImageUrl: cccdBackImageUrl ?? this.cccdBackImageUrl,
+      isCccdVerified: isCccdVerified ?? this.isCccdVerified,
     );
   }
 
@@ -92,20 +132,24 @@ class ResidentModel {
     return ResidentModel(
       id: id,
       periodId: data['periodId'] ?? data['kyThue_id'] ?? data['kyOId'] ?? '',
-      roomId: data[CuDanDangOSqlFields.phongTroId] ?? data['roomId'] ?? data['phongId'] ?? '',
+      roomId:
+          data[CuDanDangOSqlFields.phongTroId] ??
+          data['roomId'] ??
+          data['phongId'] ??
+          '',
       userId: data['userId'] ?? data['nguoiDungId'] ?? '',
       fullName:
-          data['fullName'] ?? data['hoTen'] ?? data['ten'] ?? data['name'] ?? '',
-      phone:
-          data['phone'] ??
-          data['soDienThoai'] ??
-          data['sdt'] ??
+          data['fullName'] ??
+          data['hoTen'] ??
+          data['ten'] ??
+          data['name'] ??
           '',
+      phone: data['phone'] ?? data['soDienThoai'] ?? data['sdt'] ?? '',
       avatar: data['avatar'] ?? data['anhDaiDien'] ?? '',
       roommateRequestId:
           data['roommateRequestId'] ?? data['yeuCauOGhepId'] ?? '',
       formId: data['formId'] ?? data['hinhThuc_id'] ?? 'chinh',
-      statusId: data['statusId'] ?? data['trangThai_id'] ?? 'dangO',
+      statusId: _resolveResidentStatusId(data),
       moveInDate: (data['moveInDate'] is Timestamp)
           ? (data['moveInDate'] as Timestamp).toDate()
           : (data['ngayVao'] is Timestamp)
@@ -116,16 +160,64 @@ class ResidentModel {
           : (data['ngayRoi'] is Timestamp)
           ? (data['ngayRoi'] as Timestamp).toDate()
           : null,
+      cccdNumber: data['cccdNumber'] ?? data['soCccd'] ?? data['soGiayTo'] ?? '',
+      cccdFrontImageUrl: data['cccdFrontImageUrl'] ??
+          data['anhMatTruoc'] ??
+          data['anh_mat_truoc'] ??
+          data['frontImageUrl'] ??
+          '',
+      cccdBackImageUrl: data['cccdBackImageUrl'] ??
+          data['anhMatSau'] ??
+          data['anh_mat_sau'] ??
+          data['backImageUrl'] ??
+          '',
+      isCccdVerified: data['isCccdVerified'] == true ||
+          data['daXacThucCccd'] == true ||
+          data['trangThaiXacMinh'] == 'daXacThuc',
     );
   }
 
+  static String _resolveResidentStatusId(Map<String, dynamic> data) {
+    final rawStatus = (data['status'] ?? '').toString().trim().toLowerCase();
+    final rawStatusId = (data['statusId'] ?? '').toString().trim().toLowerCase();
+    final rawTrangThai = (data['trangThai'] ?? data['trangThai_id'] ?? '').toString().trim().toLowerCase();
+
+    const movedOutKeywords = [
+      'moved_out',
+      'movedout',
+      'daroi',
+      'da_roi',
+      'checked_out',
+      'checkout',
+      'daketthuc',
+      'da_ket_thuc',
+      'completed',
+      'ended',
+      'traphong',
+      'tra_phong',
+      'cancelled',
+      'dahuy',
+    ];
+
+    if (movedOutKeywords.contains(rawStatus) ||
+        movedOutKeywords.contains(rawStatusId) ||
+        movedOutKeywords.contains(rawTrangThai)) {
+      return 'daRoi';
+    }
+
+    if (rawStatusId.isNotEmpty) return rawStatusId;
+    if (rawStatus.isNotEmpty) return rawStatus;
+    if (rawTrangThai.isNotEmpty) return rawTrangThai;
+    return 'dangO';
+  }
+
   /// Đường dẫn Sub-collection trên Firestore theo quan hệ 1-N:
-  /// Path: rooms/{roomId}/residents
+  /// Path: host_rooms/{roomId}/residents
   static String subCollectionPath(String roomId) =>
       HostFirestorePaths.residents(roomId);
 
   /// Đường dẫn Document trong Sub-collection:
-  /// Path: rooms/{roomId}/residents/{residentId}
+  /// Path: host_rooms/{roomId}/residents/{residentId}
   static String docPath(String roomId, String residentId) =>
       HostFirestorePaths.residentDoc(roomId, residentId);
 
@@ -134,7 +226,7 @@ class ResidentModel {
     String roomId, [
     FirebaseFirestore? firestore,
   ]) => (firestore ?? FirebaseFirestore.instance)
-      .collection(FirestoreCollections.rooms)
+      .collection(FirestoreCollections.hostRooms)
       .doc(roomId)
       .collection(FirestoreCollections.residents);
 
@@ -146,12 +238,16 @@ class ResidentModel {
     CuDanDangOSqlFields.ngayBatDau: Timestamp.fromDate(moveInDate),
     if (moveOutDate != null)
       CuDanDangOSqlFields.ngayKetThuc: Timestamp.fromDate(moveOutDate!),
-    CuDanDangOSqlFields.trangThai:
-        statusId == 'dangO' ? 'DANG_O' : 'DA_CHUYEN_DI',
+    CuDanDangOSqlFields.trangThai: statusId == 'dangO'
+        ? 'DANG_O'
+        : 'DA_CHUYEN_DI',
   };
 
   /// Factory đọc từ dữ liệu bảng cu_dan_dang_o chuẩn SQL
-  factory ResidentModel.fromCuDanDangOSql(Map<String, dynamic> data, String id) {
+  factory ResidentModel.fromCuDanDangOSql(
+    Map<String, dynamic> data,
+    String id,
+  ) {
     return ResidentModel.fromMap(data, id);
   }
 
@@ -170,12 +266,14 @@ class ResidentModel {
       'status': statusId == 'dangO' ? 'active' : 'moved_out',
       'statusId': statusId,
       'moveInDate': Timestamp.fromDate(moveInDate),
-      if (moveOutDate != null)
-        'moveOutDate': Timestamp.fromDate(moveOutDate!),
+      if (moveOutDate != null) 'moveOutDate': Timestamp.fromDate(moveOutDate!),
+      if (cccdNumber.isNotEmpty) 'cccdNumber': cccdNumber,
+      if (cccdFrontImageUrl.isNotEmpty) 'cccdFrontImageUrl': cccdFrontImageUrl,
+      if (cccdBackImageUrl.isNotEmpty) 'cccdBackImageUrl': cccdBackImageUrl,
+      'isCccdVerified': isCccdVerified,
       'createdAt': FieldValue.serverTimestamp(),
     };
   }
 
   Map<String, dynamic> toMap() => toFirestore();
 }
-

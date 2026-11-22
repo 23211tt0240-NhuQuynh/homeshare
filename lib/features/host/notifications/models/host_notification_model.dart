@@ -43,6 +43,15 @@ class HostNotificationModel {
   final String newRoommateName;
   final String actionType;
   final String userNotificationId;
+  final String hostNotificationId;
+  final String postId;
+  final String postTitle;
+  final String rejectReason;
+  final String issueId;
+  final String category;
+  final String severity;
+  final String reporterPhone;
+  final List<String> imageUrls;
 
   const HostNotificationModel({
     required this.id,
@@ -81,6 +90,15 @@ class HostNotificationModel {
     this.newRoommateName = '',
     this.actionType = '',
     this.userNotificationId = '',
+    this.hostNotificationId = '',
+    this.postId = '',
+    this.postTitle = '',
+    this.rejectReason = '',
+    this.issueId = '',
+    this.category = '',
+    this.severity = 'medium',
+    this.reporterPhone = '',
+    this.imageUrls = const [],
   });
 
   bool get isRoommateApproval =>
@@ -88,6 +106,33 @@ class HostNotificationModel {
       newRoommateId.isNotEmpty ||
       title.contains('ở ghép') ||
       message.contains('ở ghép');
+
+  bool get isRoomIssue =>
+      actionType == 'room_issue' ||
+      issueId.isNotEmpty ||
+      title.toLowerCase().contains('sự cố') ||
+      message.toLowerCase().contains('sự cố');
+
+  bool get isPostRejected =>
+      actionType == 'post_rejected' ||
+      title.toLowerCase().contains('bị từ chối') ||
+      message.toLowerCase().contains('bị từ chối');
+
+  // Chủ trọ - Nhận thông báo giải ngân - Admin quyết toán thành công tạo phiếu này.
+  bool get isDisbursementNotification =>
+      actionType == 'disbursement' ||
+      type == HostNotificationType.paymentCompleted &&
+          (title.toLowerCase().contains('giải ngân') ||
+              message.toLowerCase().contains('giải ngân')) ||
+      title.toLowerCase().contains('admin đã giải ngân') ||
+      message.toLowerCase().contains('đã giải ngân');
+
+  /// Thông báo bị mồ côi / mất dữ liệu phòng và khách thuê (thường do booking gốc bị xóa)
+  bool get isOrphaned =>
+      bookingId.isNotEmpty &&
+      (roomTitle.trim().isEmpty || roomTitle == 'Phòng trọ') &&
+      (renterName.trim().isEmpty || renterName == 'Khách thuê') &&
+      amount <= 0;
 
   // Vietnamese Database.docx Alias Getters
   String get notificationId => id;
@@ -129,7 +174,7 @@ class HostNotificationModel {
           : clean.toUpperCase();
       return '#BK$sub';
     }
-    return '#BK12345';
+    return '';
   }
 
   /// Hiển thị số phòng gắn trên huy hiệu đầu card (vd: "101")
@@ -144,7 +189,7 @@ class HostNotificationModel {
     }
     final match = RegExp(r'\d+').firstMatch(roomTitle);
     if (match != null) return match.group(0)!;
-    return '101';
+    return '';
   }
 
   /// Sao chép với các trường mới
@@ -248,11 +293,15 @@ class HostNotificationModel {
                 data[NotificationFields.legacyStatusId] ??
                 data['status'] ??
                 'pending')
-            .toString();
+            .toString()
+            .trim()
+            .toLowerCase();
 
     final actionType =
         data['actionType']?.toString() ??
-        (rawType == 'roommate_approval' ? 'roommate_approval' : '');
+        (rawType == 'post_rejected'
+            ? 'post_rejected'
+            : (rawType == 'roommate_approval' ? 'roommate_approval' : ''));
     final newRoommateId = data['newRoommateId']?.toString() ?? '';
     final title =
         (data[NotificationFields.title] ??
@@ -262,6 +311,7 @@ class HostNotificationModel {
     final message =
         (data[NotificationFields.message] ??
                 data[NotificationFields.legacyMessage] ??
+                data['body'] ??
                 '')
             .toString();
 
@@ -270,6 +320,14 @@ class HostNotificationModel {
         newRoommateId.isNotEmpty ||
         title.contains('ở ghép') ||
         message.contains('ở ghép');
+
+    final paymentOption = (data['paymentOption'] ?? data['paymentType'] ?? '')
+        .toString()
+        .toLowerCase();
+    final isFullPayment = paymentOption == 'full' ||
+        paymentOption == 'toanbo' ||
+        paymentOption == 'trahet' ||
+        data['isFullPayment'] == true;
 
     final baseType = HostNotificationTypeX.fromString(rawType?.toString());
     HostNotificationType parsedType;
@@ -284,7 +342,51 @@ class HostNotificationModel {
         parsedType = HostNotificationType.pendingAction;
       }
     } else {
-      parsedType = baseType;
+      // Thông báo đặt phòng / đặt cọc thông thường:
+      final rawStatus = (data['status'] ?? '').toString().trim().toLowerCase();
+      final isStaying = statusId == 'dango' ||
+          statusId == 'active' ||
+          statusId == 'danhanphong' ||
+          statusId == 'living' ||
+          rawStatus == 'dango' ||
+          rawStatus == 'active' ||
+          rawStatus == 'danhanphong' ||
+          data['isCheckIn'] == true ||
+          data['daNhanPhong'] == true ||
+          baseType == HostNotificationType.staying;
+
+      final isApproved = statusId == 'approved' ||
+          statusId == 'accepted' ||
+          statusId == 'deposited' ||
+          statusId == 'dacoc' ||
+          statusId == 'da_coc' ||
+          statusId == 'deposit_paid' ||
+          statusId == 'daduyet' ||
+          statusId == 'da_duyet' ||
+          statusId == 'paid' ||
+          statusId == 'completed' ||
+          statusId == 'dathanhtoan' ||
+          statusId == 'dathanhtoanhet' ||
+          statusId == 'da_thanh_toan_het' ||
+          data['adminVerified'] == true ||
+          data['isPaid'] == true;
+
+      if (isStaying) {
+        parsedType = HostNotificationType.staying;
+      } else if (isApproved) {
+        if (isFullPayment ||
+            statusId == 'paid' ||
+            statusId == 'completed' ||
+            statusId == 'dathanhtoanhet' ||
+            statusId == 'da_thanh_toan_het' ||
+            baseType == HostNotificationType.paymentCompleted) {
+          parsedType = HostNotificationType.paymentCompleted;
+        } else {
+          parsedType = HostNotificationType.deposit;
+        }
+      } else {
+        parsedType = baseType;
+      }
     }
 
     final amtVal =
@@ -300,6 +402,7 @@ class HostNotificationModel {
           data[NotificationFields.legacyReceiverId] ??
           data['chuNhaId'] ??
           data['hostId'] ??
+          data['userId'] ??
           '',
       senderId:
           data[NotificationFields.senderId] ??
@@ -331,9 +434,9 @@ class HostNotificationModel {
           ? amtVal.toDouble()
           : (double.tryParse(amtVal?.toString() ?? '') ?? 0.0),
       statusId:
+          data['status'] ??
           data[NotificationFields.statusId] ??
           data[NotificationFields.legacyStatusId] ??
-          data['status'] ??
           'pending',
       isRead:
           (data[NotificationFields.isRead] ??
@@ -398,10 +501,21 @@ class HostNotificationModel {
       newRoommateName: data['newRoommateName']?.toString() ?? '',
       actionType:
           data['actionType']?.toString() ??
-          (data['notificationType'] == 'roommate_approval'
-              ? 'roommate_approval'
-              : ''),
+          (rawType == 'post_rejected'
+              ? 'post_rejected'
+              : (data['notificationType'] == 'roommate_approval'
+                  ? 'roommate_approval'
+                  : '')),
       userNotificationId: data['userNotificationId']?.toString() ?? '',
+      hostNotificationId: data['hostNotificationId']?.toString() ?? '',
+      postId: (data['postId'] ?? data['baiDangId'] ?? '').toString(),
+      postTitle: (data['postTitle'] ?? data['tieuDe'] ?? '').toString(),
+      rejectReason: (data['reason'] ?? data['rejectReason'] ?? data['lyDoTuChoi'] ?? '').toString(),
+      issueId: (data['issueId'] ?? data['reportId'] ?? '').toString(),
+      category: (data['category'] ?? data['danhMuc'] ?? '').toString(),
+      severity: (data['severity'] ?? data['mucDo'] ?? 'medium').toString(),
+      reporterPhone: (data['reporterPhone'] ?? data['soDienThoai'] ?? data['phone'] ?? '').toString(),
+      imageUrls: (data['imageUrls'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
     );
   }
 
@@ -453,6 +567,11 @@ class HostNotificationModel {
       if (actionType.isNotEmpty) 'actionType': actionType,
       if (userNotificationId.isNotEmpty)
         'userNotificationId': userNotificationId,
+      if (issueId.isNotEmpty) 'issueId': issueId,
+      if (category.isNotEmpty) 'category': category,
+      if (severity.isNotEmpty) 'severity': severity,
+      if (reporterPhone.isNotEmpty) 'reporterPhone': reporterPhone,
+      if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
     };
   }
 }

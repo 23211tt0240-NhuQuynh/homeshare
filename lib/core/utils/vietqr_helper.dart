@@ -34,18 +34,22 @@ class VietQRHelper {
     String bankBin = defaultBankBin,
     String accountName = defaultAccountName,
   }) {
+    final cleanAccountNo = accountNo.replaceAll(RegExp(r'[^0-9A-Za-z]'), '');
+    final cleanBankBin = bankBin.trim();
+    final intAmount = amount.toInt();
+
     // 00: Payload Format Indicator (01)
     final f00 = _formatTlv('00', '01');
 
-    // 01: Point of Initiation Method (12: Dynamic QR code with amount)
-    final f01 = _formatTlv('01', '12');
+    // 01: Point of Initiation Method (12: Dynamic QR with amount, 11: Static QR)
+    final f01 = _formatTlv('01', intAmount > 0 ? '12' : '11');
 
     // 38: Merchant Account Information (Napas standard)
     // 38.00: GUID Napas: A000000727
     final sub00 = _formatTlv('00', 'A000000727');
     // 38.01: Beneficiary Bank Info (Bin + Account Number)
-    final sub0100 = _formatTlv('00', bankBin);
-    final sub0101 = _formatTlv('01', accountNo);
+    final sub0100 = _formatTlv('00', cleanBankBin);
+    final sub0101 = _formatTlv('01', cleanAccountNo);
     final sub01 = _formatTlv('01', sub0100 + sub0101);
     // 38.02: Service code: QRIBFTTA (Quick Transfer to Account)
     final sub02 = _formatTlv('02', 'QRIBFTTA');
@@ -54,14 +58,15 @@ class VietQRHelper {
     // 53: Transaction Currency (704 = VND)
     final f53 = _formatTlv('53', '704');
 
-    // 54: Transaction Amount
-    final f54 = _formatTlv('54', amount.toInt().toString());
+    // 54: Transaction Amount (chỉ thêm khi > 0 theo chuẩn EMVCo)
+    final f54 = intAmount > 0 ? _formatTlv('54', intAmount.toString()) : '';
 
     // 58: Country Code (VN)
     final f58 = _formatTlv('58', 'VN');
 
     // 59: Merchant Name (Tên chủ tài khoản - Bắt buộc theo EMVCo/Napas, tối đa 25 ký tự)
-    final cleanMerchantName = _removeDiacritics(accountName).toUpperCase();
+    final rawMerchant = _removeDiacritics(accountName).trim().toUpperCase();
+    final cleanMerchantName = rawMerchant.isEmpty ? 'NGUOI NHAN' : rawMerchant;
     final f59 = _formatTlv(
       '59',
       cleanMerchantName.length > 25

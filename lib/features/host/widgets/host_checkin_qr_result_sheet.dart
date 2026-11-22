@@ -96,7 +96,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
 
     if ((_liveRoomPrice == null || _liveRoomPrice == 0) && rId.isNotEmpty) {
       try {
-        final rDoc = await FirebaseFirestore.instance.collection('rooms').doc(rId).get();
+        final rDoc = await FirebaseFirestore.instance.collection('host_rooms').doc(rId).get();
         if (rDoc.exists && rDoc.data() != null) {
           final data = rDoc.data()!;
           final price = (data['price'] ?? data['giaPhong'] ?? data['giaThue']) as num?;
@@ -193,6 +193,20 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
 
   // 1. Chuyển sang màn hình Bàn giao thiết bị & Chốt điện nước
   void _openHandoverScreen() {
+    final bookingHostId = (widget.qrData['hostId'] ?? '').toString().trim();
+    if (bookingHostId.isNotEmpty &&
+        widget.hostId.isNotEmpty &&
+        bookingHostId != widget.hostId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Không thể bàn giao: Bạn không phải là chủ trọ quản lý phòng này!',
+          ),
+          backgroundColor: Color(0xFFD92D20),
+        ),
+      );
+      return;
+    }
     Navigator.pop(context);
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -209,6 +223,20 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
 
   // 2. Xác nhận nhận phòng nhanh (Chuyển đơn sang Đang ở ngay)
   Future<void> _quickConfirmCheckin() async {
+    final bookingHostId = (widget.qrData['hostId'] ?? '').toString().trim();
+    if (bookingHostId.isNotEmpty &&
+        widget.hostId.isNotEmpty &&
+        bookingHostId != widget.hostId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Không thể xác nhận: Bạn không phải là chủ trọ quản lý phòng này!',
+          ),
+          backgroundColor: Color(0xFFD92D20),
+        ),
+      );
+      return;
+    }
     setState(() => _isLoading = true);
     try {
       final service = BookingService();
@@ -427,7 +455,7 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Badge Mã đơn & Trạng thái
+                  // Badge Trạng thái nhận phòng (Đã xóa mã đơn)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
@@ -438,13 +466,13 @@ class _HostCheckinQrResultSheetState extends State<HostCheckinQrResultSheet> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
+                        const Row(
                           children: [
-                            const Icon(Icons.receipt_long_outlined, size: 18, color: Color(0xFF155EEF)),
-                            const SizedBox(width: 6),
+                            Icon(Icons.qr_code_scanner_rounded, size: 18, color: Color(0xFF155EEF)),
+                            SizedBox(width: 6),
                             Text(
-                              'Mã đơn: $_bookingId',
-                              style: const TextStyle(
+                              'Xác thực nhận phòng',
+                              style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFF101828),

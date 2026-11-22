@@ -81,13 +81,33 @@ class PostReviewService {
     if (approved && isRejected && !isResubmitted) {
       throw StateError('Chủ trọ cần chỉnh sửa và gửi lại bài trước khi duyệt.');
     }
-    final hostId =
-        (data['hostId'] ?? data['landlordId'] ?? data['userId'] ?? '')
-            .toString();
+    var hostId =
+        (data['hostId'] ??
+                data['chuNhaId'] ??
+                data['chu_tro_id'] ??
+                data['host_id'] ??
+                data['landlordId'] ??
+                data['userId'] ??
+                data['ownerId'] ??
+                '')
+            .toString()
+            .trim();
     final hostName = (data['hostName'] ?? data['landlordName'] ?? 'Chủ trọ')
         .toString();
     final title = (data['title'] ?? 'Bài đăng').toString();
-    final roomId = (data['roomId'] ?? '').toString();
+    final roomId = (data['roomId'] ?? data['phongId'] ?? '').toString().trim();
+    if (hostId.isEmpty && roomId.isNotEmpty) {
+      for (final col in ['host_rooms', 'rooms']) {
+        final roomSnap = await _db.collection(col).doc(roomId).get();
+        if (roomSnap.exists) {
+          final rData = roomSnap.data() ?? {};
+          hostId = (rData['hostId'] ?? rData['chuNhaId'] ?? '')
+              .toString()
+              .trim();
+          if (hostId.isNotEmpty) break;
+        }
+      }
+    }
     final roomCode = (data['roomCode'] ?? data['maPhong'] ?? roomId).toString();
     final code =
         '#TD-${postId.substring(0, postId.length > 5 ? 5 : postId.length).toUpperCase()}';
@@ -102,7 +122,7 @@ class PostReviewService {
         !approved &&
         penaltyType == 'warning' &&
         hostId.isNotEmpty &&
-        (data['status'] ?? '').toString().toLowerCase() != 'rejected';
+        (!isRejected || isResubmitted);
 
     if (shouldRecordWarning) {
       final hostRef = _db.collection('users').doc(hostId);

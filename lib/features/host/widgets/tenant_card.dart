@@ -1,64 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../repositories/tenant_repository.dart';
 
 class TenantCard extends StatelessWidget {
   final TenantItem tenant;
   final VoidCallback? onTap;
+  final VoidCallback? onMessage;
 
   const TenantCard({
     super.key,
     required this.tenant,
     this.onTap,
+    this.onMessage,
   });
-
-  Future<void> _makeCall(BuildContext context, String phone) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'\s+'), '');
-    if (cleanPhone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Khách thuê chưa cập nhật số điện thoại')),
-      );
-      return;
-    }
-    final uri = Uri.parse('tel:$cleanPhone');
-    try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      } else {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể gọi đến số $cleanPhone')),
-        );
-      }
-    }
-  }
-
-  Future<void> _sendSms(BuildContext context, String phone) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'\s+'), '');
-    if (cleanPhone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Khách thuê chưa cập nhật số điện thoại')),
-      );
-      return;
-    }
-    final uri = Uri.parse('sms:$cleanPhone');
-    try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      } else {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể gửi tin nhắn đến số $cleanPhone')),
-        );
-      }
-    }
-  }
 
   Color _getAvatarBg(String name) {
     if (name.isEmpty) return const Color(0xFFE0E7FF);
@@ -142,11 +95,7 @@ class TenantCard extends StatelessWidget {
       backgroundColor: bg,
       child: Text(
         initial,
-        style: TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w700,
-          color: fg,
-        ),
+        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: fg),
       ),
     );
   }
@@ -201,6 +150,14 @@ class TenantCard extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              if (tenant.isCccdVerified) ...[
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.verified,
+                                  size: 15,
+                                  color: Color(0xFF16A34A),
+                                ),
+                              ],
                               if (tenant.isGroup) ...[
                                 const SizedBox(width: 8),
                                 Container(
@@ -243,7 +200,7 @@ class TenantCard extends StatelessWidget {
                 const SizedBox(height: 14),
                 const Divider(height: 1, color: Color(0xFFF1F5F9)),
                 const SizedBox(height: 12),
-                // Hàng 2: Phòng & Nhà trọ + Nút Gọi & SMS
+                // Hàng 2: Phòng & Nhà trọ + Nút nhắn tin trong ứng dụng
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -272,44 +229,9 @@ class TenantCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Nút gọi
-                    InkWell(
-                      onTap: () => _makeCall(context, tenant.phone),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.phone,
-                              size: 15,
-                              color: Color(0xFF2563EB),
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              'Gọi',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF2563EB),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
                     // Nút SMS
                     InkWell(
-                      onTap: () => _sendSms(context, tenant.phone),
+                      onTap: onMessage,
                       borderRadius: BorderRadius.circular(10),
                       child: Container(
                         padding: const EdgeInsets.symmetric(

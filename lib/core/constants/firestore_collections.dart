@@ -10,7 +10,9 @@ abstract final class FirestoreCollections {
   static const users = 'users';
   static const bankAccounts = 'bank_accounts';
   static const properties = 'properties';
-  static const rooms = 'rooms';
+  // Tên subcollection phòng bên dưới properties/users. Kho phòng gốc dùng
+  // `host_rooms`; không còn collection gốc `rooms`.
+  static const propertyRooms = 'rooms';
   static const amenities = 'amenities';
   static const locations = 'locations';
   static const posts = 'posts';
@@ -39,6 +41,7 @@ abstract final class FirestoreCollections {
 
   // Thông báo & Thanh toán
   static const notifications = 'notifications';
+  static const notificationUser = 'notification_user';
   static const payments = 'payments';
 
   // Bảng liên kết & thực thể theo ERD Database (Tiện ích phòng, Ảnh phòng, Ảnh trọ)
@@ -46,6 +49,12 @@ abstract final class FirestoreCollections {
   static const tienIchPhong = 'TienIch_Phong';
   static const roomImages = 'room_images';
   static const anhPhong = 'AnhPhong';
+  static const roommatePosts = 'roommate_posts';
+  static const roommatePostImages = 'roommate_post_images';
+  static const hostReviews = 'host_reviews';
+  static const reports = 'reports';
+  static const repost = 'repost';
+  static const reposts = 'reposts';
   static const propertyImages = 'property_images';
   static const anhTro = 'AnhTro';
   static const rentalTypes = 'rental_types';
@@ -82,8 +91,6 @@ abstract final class FirestoreCollections {
   static const quyetToanChuTro = 'quyet_toan_chu_tro';
   static const nhatKyKiemToanHeThong = 'nhat_ky_kiem_toan_he_thong';
 
-  // Backward compatibility alias: publicRooms & hostRooms
-  static const publicRooms = 'rooms';
   static const hostRooms = 'host_rooms';
   static const hostProperties = 'properties';
 }
@@ -543,6 +550,56 @@ abstract final class RoomAmenityFields {
   static const legacyAmenityId = 'tienIch_Id';
   static const legacyInUse = 'suDung';
   static const legacyAmenityName = 'tenTienIch';
+}
+
+/// Schema các trường cho collection `roommate_post_images` (Ảnh tin ở ghép).
+/// Mỗi ảnh là một document riêng, không nhúng mảng `images` vào `roommate_posts`.
+abstract final class RoommatePostImageFields {
+  static const id = 'id';
+  static const postId = 'postId';
+  static const imageUrl = 'imageUrl';
+  static const url = 'url';
+  static const caption = 'caption';
+  static const sortOrder = 'sortOrder';
+  static const isCover = 'isCover';
+  static const createdAt = 'createdAt';
+
+  static const legacyPostId = 'baiDangId';
+  static const legacyUrl = 'duongDan';
+  static const legacyCaption = 'ghiChuAnh';
+  static const legacySortOrder = 'thuTu';
+}
+
+/// Schema collection `reports`. Báo cáo chủ trọ gửi tới Admin, status = pending.
+abstract final class HostReportFields {
+  static const String postId = 'postId';
+  static const String postTitle = 'postTitle';
+  static const id = 'id';
+  static const targetType = 'targetType';
+  static const hostId = 'hostId';
+  static const hostName = 'hostName';
+  static const hostPhone = 'hostPhone';
+  static const roomId = 'roomId';
+  static const roomTitle = 'roomTitle';
+  static const reporterId = 'reporterId';
+  static const reporterName = 'reporterName';
+  static const reason = 'reason';
+  static const reasons = 'reasons';
+  static const detail = 'detail';
+  static const evidenceUrls = 'evidenceUrls';
+  static const status = 'status';
+  static const createdAt = 'createdAt';
+}
+
+/// Schema collection `host_reviews`. Document ID = bookingId.
+abstract final class HostReviewFields {
+  static const hostId = 'hostId';
+  static const reviewerId = 'reviewerId';
+  static const reviewerName = 'reviewerName';
+  static const rating = 'rating';
+  static const comment = 'comment';
+  static const bookingId = 'bookingId';
+  static const createdAt = 'createdAt';
 }
 
 /// Schema các trường cho collection `room_images` / `AnhPhong` (Bảng Ảnh phòng)
@@ -1050,17 +1107,17 @@ abstract final class HostFirestorePaths {
   static String nestedRooms(String hostId, String propertyId) =>
       'users/$hostId/properties/$propertyId/rooms';
 
-  /// [1-N] Room Images: Sub-collection of rooms
-  /// Path: rooms/{roomId}/room_images/{imageId}
-  static String roomImages(String roomId) => 'rooms/$roomId/room_images';
+  /// [1-N] Room Images: Sub-collection of host_rooms
+  /// Path: host_rooms/{roomId}/room_images/{imageId}
+  static String roomImages(String roomId) => 'host_rooms/$roomId/room_images';
   static String roomImageDoc(String roomId, String imageId) =>
-      'rooms/$roomId/room_images/$imageId';
+      'host_rooms/$roomId/room_images/$imageId';
 
-  /// [1-N] Rental Posts: Sub-collection of rooms
-  /// Path: rooms/{roomId}/rental_posts/{postId}
-  static String rentalPosts(String roomId) => 'rooms/$roomId/rental_posts';
+  /// [1-N] Rental Posts: Sub-collection of host_rooms
+  /// Path: host_rooms/{roomId}/rental_posts/{postId}
+  static String rentalPosts(String roomId) => 'host_rooms/$roomId/rental_posts';
   static String rentalPostDoc(String roomId, String postId) =>
-      'rooms/$roomId/rental_posts/$postId';
+      'host_rooms/$roomId/rental_posts/$postId';
 
   /// [1-N] Post Reports: Sub-collection of rental_posts
   /// Path: rental_posts/{postId}/post_reports/{reportId}
@@ -1068,11 +1125,11 @@ abstract final class HostFirestorePaths {
   static String postReportDoc(String postId, String reportId) =>
       'rental_posts/$postId/post_reports/$reportId';
 
-  /// [1-N] Bookings: Sub-collection of rooms
-  /// Path: rooms/{roomId}/bookings/{bookingId}
-  static String bookings(String roomId) => 'rooms/$roomId/bookings';
+  /// [1-N] Bookings: Sub-collection of host_rooms
+  /// Path: host_rooms/{roomId}/bookings/{bookingId}
+  static String bookings(String roomId) => 'host_rooms/$roomId/bookings';
   static String bookingDoc(String roomId, String bookingId) =>
-      'rooms/$roomId/bookings/$bookingId';
+      'host_rooms/$roomId/bookings/$bookingId';
 
   /// [1-1] Escrow Deposits: Sub-collection of bookings
   /// Path: bookings/{bookingId}/escrow_deposits/{depositId}
@@ -1086,11 +1143,11 @@ abstract final class HostFirestorePaths {
   static String checkinRecordDoc(String bookingId, String checkinId) =>
       'bookings/$bookingId/checkin_records/$checkinId';
 
-  /// [1-N] Residents: Sub-collection of rooms
-  /// Path: rooms/{roomId}/residents/{residentId}
-  static String residents(String roomId) => 'rooms/$roomId/residents';
+  /// [1-N] Residents: Sub-collection of host_rooms
+  /// Path: host_rooms/{roomId}/residents/{residentId}
+  static String residents(String roomId) => 'host_rooms/$roomId/residents';
   static String residentDoc(String roomId, String residentId) =>
-      'rooms/$roomId/residents/$residentId';
+      'host_rooms/$roomId/residents/$residentId';
 
   /// [1-N] Resident Vehicles: Sub-collection of residents
   /// Path: residents/{residentId}/resident_vehicles/{vehicleId}

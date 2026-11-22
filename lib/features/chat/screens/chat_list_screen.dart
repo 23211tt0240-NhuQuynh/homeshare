@@ -9,6 +9,7 @@ import '../../../data/models/room_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
 import 'chat_detail_screen.dart';
+import '../../renter/screens/user_notifications_screen.dart';
 
 /// Màn hình Danh sách Cuộc trò chuyện & Trao đổi (Feature #10 theo SRS & Tc_CHAT)
 class ChatListScreen extends ConsumerStatefulWidget {
@@ -59,80 +60,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         ? ref.watch(userConversationsStreamProvider(user.uid))
         : const AsyncValue<List<ConversationModel>>.data([]);
 
-    // Danh sách cuộc trò chuyện mẫu thực tế để luôn sẵn sàng hiển thị và trải nghiệm
-    final sampleConversations = [
-      ConversationModel(
-        id: 'host_chu_ba_101',
-        partnerId: 'host_chu_ba_101',
-        partnerName: 'Chú Ba Linh Trung (Chủ trọ)',
-        partnerPhone: '0903888999',
-        isLandlord: true,
-        lastMessage: 'Phòng 101 còn trống nha cháu, cháu qua xem lúc mấy giờ?',
-        lastMessageTime: DateTime.now().subtract(const Duration(minutes: 15)),
-        unreadCount: 1,
-        roomCode: '#LT-802',
-        roomTitle: 'Phòng trọ cao cấp gần ĐH Sư Phạm Kỹ Thuật',
-        roomPrice: 3500000,
-        roomImage: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600',
-      ),
-      ConversationModel(
-        id: 'host_linhtrung_99',
-        partnerId: 'host_linhtrung_99',
-        partnerName: 'Cô Lan Nhà Trọ',
-        partnerPhone: '0912345678',
-        isLandlord: true,
-        lastMessage: 'Dạ cô đã nhận được thông tin hẹn xem phòng rồi nhé.',
-        lastMessageTime: DateTime.now().subtract(const Duration(hours: 3)),
-        unreadCount: 0,
-        roomCode: '#LT-104',
-        roomTitle: 'Phòng ban công thoáng mát ĐH Nông Lâm',
-        roomPrice: 2800000,
-        roomImage: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600',
-      ),
-      ConversationModel(
-        id: 'user_nam_99',
-        partnerId: 'user_nam_99',
-        partnerName: 'Nguyễn Văn Nam (Tìm ở ghép)',
-        partnerPhone: '0987654321',
-        isLandlord: false,
-        lastMessage: 'Chào bạn, bạn đã tìm được ai ở ghép cùng chưa?',
-        lastMessageTime: DateTime.now().subtract(const Duration(days: 1)),
-        unreadCount: 0,
-        roomCode: '#OG-302',
-        roomTitle: 'Căn hộ mini 2 phòng ngủ ghép đôi',
-        roomPrice: 1800000,
-      ),
-      ConversationModel(
-        id: 'host_hoang_quan',
-        partnerId: 'host_hoang_quan',
-        partnerName: 'Anh Hoàng Quản Lý Trọ',
-        partnerPhone: '0933221100',
-        isLandlord: true,
-        lastMessage: 'Bạn có thể xem phòng vào sáng mai lúc 9h nhé.',
-        lastMessageTime: DateTime.now().subtract(const Duration(days: 2)),
-        unreadCount: 0,
-        roomCode: '#HQ-201',
-        roomTitle: 'Phòng trọ đầy đủ nội thất gần KTX Khu B',
-        roomPrice: 3200000,
-      ),
-    ];
-
-    // Kết hợp dữ liệu từ Firestore và danh sách mẫu
+    final waitingForChats = user != null &&
+        firestoreConversationsAsync.isLoading &&
+        !firestoreConversationsAsync.hasValue;
     final liveConversations = firestoreConversationsAsync.value ?? [];
-    final Map<String, ConversationModel> mergedMap = {};
-
-    // 1. Nạp từ Firestore trước (nếu có cuộc trò chuyện mới)
-    for (final c in liveConversations) {
-      mergedMap[c.id] = c;
-    }
-    // 2. Bổ sung các cuộc trò chuyện mẫu nếu chưa có
-    for (final s in sampleConversations) {
-      if (!mergedMap.containsKey(s.id)) {
-        mergedMap[s.id] = s;
-      }
-    }
-
-    final allConversations = mergedMap.values
+    final allConversations = liveConversations
         .where((c) => !_deletedIds.contains(c.id))
         .toList()
       ..sort((a, b) {
@@ -169,14 +101,61 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
       appBar: AppBar(
         title: const Text('Tin nhắn & Trao đổi'),
         actions: [
-          IconButton(
-            icon: const Badge(
-              smallSize: 8,
-              backgroundColor: AppColors.danger,
-              child: Icon(Icons.notifications_none_outlined),
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: Center(
+              child: Consumer(
+                builder: (context, ref, _) {
+                  final unreadNotifs = ref.watch(userUnreadNotificationCountProvider);
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const UserNotificationsScreen(),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            const Icon(
+                              Icons.notifications_none_rounded,
+                              size: 22,
+                              color: Color(0xFF1E293B),
+                            ),
+                            if (unreadNotifs > 0)
+                              Positioned(
+                                top: 7,
+                                right: 7,
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFEF4444),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-            tooltip: 'Thông báo',
-            onPressed: () => _showNotificationSheet(context),
           ),
         ],
       ),
@@ -238,34 +217,42 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
 
           // 3. Danh sách cuộc trò chuyện
           Expanded(
-            child: filteredConversations.isEmpty
+            child: waitingForChats
+                ? const Center(child: CircularProgressIndicator())
+                : filteredConversations.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.mark_chat_read_outlined, size: 64, color: Colors.grey.shade300),
                         const SizedBox(height: 12),
-                        const Text(
-                          'Không tìm thấy cuộc trò chuyện nào phù hợp',
-                          style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold, fontSize: 14),
+                        Text(
+                          _searchQuery.isEmpty && _selectedFilter == 'all'
+                              ? 'Chưa có cuộc trò chuyện'
+                              : 'Không tìm thấy cuộc trò chuyện nào phù hợp',
+                          style: const TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold, fontSize: 14),
                         ),
                         const SizedBox(height: 6),
-                        const Text(
-                          'Hãy thử thay đổi từ khóa hoặc bộ lọc danh mục.',
-                          style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                        Text(
+                          _searchQuery.isEmpty && _selectedFilter == 'all'
+                              ? 'Chỉ hiện tin nhắn với người dùng thật trên hệ thống.'
+                              : 'Hãy thử thay đổi từ khóa hoặc bộ lọc danh mục.',
+                          style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                         ),
-                        const SizedBox(height: 16),
-                        OutlinedButton(
-                          onPressed: () {
-                            setState(() {
-                              _searchDebounce?.cancel();
-                              _searchController.clear();
-                              _searchQuery = '';
-                              _selectedFilter = 'all';
-                            });
-                          },
-                          child: const Text('Đặt lại bộ lọc'),
-                        ),
+                        if (_searchQuery.isNotEmpty || _selectedFilter != 'all') ...[
+                          const SizedBox(height: 16),
+                          OutlinedButton(
+                            onPressed: () {
+                              setState(() {
+                                _searchDebounce?.cancel();
+                                _searchController.clear();
+                                _searchQuery = '';
+                                _selectedFilter = 'all';
+                              });
+                            },
+                            child: const Text('Đặt lại bộ lọc'),
+                          ),
+                        ],
                       ],
                     ),
                   )
@@ -629,216 +616,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     );
   }
 
-  // --- MODAL BOTTOM SHEET: TRUNG TÂM THÔNG BÁO ---
-  void _showNotificationSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 10, bottom: 8),
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFCBD5E1),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 16, 12),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primarySurface,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.notifications_outlined, color: AppColors.primary, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Thông báo',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                        ),
-                        Text(
-                          'Cập nhật tin nhắn & lịch xem phòng mới nhất',
-                          style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFEE2E2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text(
-                      '3 mới',
-                      style: TextStyle(color: Color(0xFFEF4444), fontSize: 11, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                children: [
-                  _buildNotificationItem(
-                    icon: Icons.calendar_month_rounded,
-                    iconBg: const Color(0xFFDCFCE7),
-                    iconColor: const Color(0xFF16A34A),
-                    title: 'Xác nhận lịch hẹn xem phòng',
-                    content: 'Cô Lan Nhà Trọ đã đồng ý lịch hẹn xem phòng #LT-104 vào lúc 15:00 ngày mai.',
-                    time: '15 phút trước',
-                    isUnread: true,
-                  ),
-                  _buildNotificationItem(
-                    icon: Icons.chat_bubble_outline_rounded,
-                    iconBg: const Color(0xFFDBEAFE),
-                    iconColor: const Color(0xFF2563EB),
-                    title: 'Tin nhắn mới từ Chú Ba Linh Trung',
-                    content: 'Phòng 101 còn trống nha cháu, cháu qua xem lúc mấy giờ?',
-                    time: '45 phút trước',
-                    isUnread: true,
-                  ),
-                  _buildNotificationItem(
-                    icon: Icons.verified_user_outlined,
-                    iconBg: AppColors.primarySurface,
-                    iconColor: AppColors.primary,
-                    title: 'Bảo vệ tiền cọc an toàn',
-                    content: 'Giao dịch đặt cọc giữ phòng của bạn được bảo vệ 100% qua HomeShare Escrow.',
-                    time: '2 giờ trước',
-                    isUnread: true,
-                  ),
-                  _buildNotificationItem(
-                    icon: Icons.people_outline_rounded,
-                    iconBg: const Color(0xFFF3E8FF),
-                    iconColor: const Color(0xFF7C3AED),
-                    title: 'Gợi ý bạn ở ghép phù hợp',
-                    content: 'Nguyễn Văn Nam có lối sống và ngân sách tương thích 95% vừa gửi lời kết nối.',
-                    time: '1 ngày trước',
-                    isUnread: false,
-                  ),
-                ],
-              ),
-            ),
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Đã đánh dấu đọc tất cả thông báo')),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: const BorderSide(color: Color(0xFFE2E8F0)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: const Text('Đánh dấu đọc tất cả', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildNotificationItem({
-    required IconData icon,
-    required Color iconBg,
-    required Color iconColor,
-    required String title,
-    required String content,
-    required String time,
-    required bool isUnread,
-  }) {
-    return Container(
-      color: isUnread ? const Color(0xFFF8FAFC) : Colors.transparent,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: iconBg,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 18, color: iconColor),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
-                          color: const Color(0xFF0F172A),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(time, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  content,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.35),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          if (isUnread) ...[
-            const SizedBox(width: 8),
-            Container(
-              margin: const EdgeInsets.only(top: 4),
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
 }
 
 /// Widget hỗ trợ trượt sang trái (Swipe Left) để lộ các nút tính năng: Ghim, Tắt TB, Xóa

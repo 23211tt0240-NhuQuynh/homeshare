@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_safe_image.dart';
 import '../../../core/utils/room_amenities.dart';
 import '../../../core/utils/room_deposit.dart';
 import '../../../core/utils/vnd_input.dart';
@@ -11,7 +12,7 @@ import '../../../data/models/room_model.dart';
 import '../data/host_property.dart';
 import '../providers/host_management_provider.dart';
 import '../widgets/host_room_widgets.dart';
-import '../widgets/host_range_input.dart';
+import '../widgets/host_area_input.dart';
 import '../widgets/host_form_theme.dart';
 import 'host_create_screen.dart';
 import 'host_room_detail_screen.dart';
@@ -38,7 +39,7 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
   late List<String> _images;
   late Set<String> _amenities;
   late int _floor;
-  late RangeValues _area;
+  late double _area;
   int? _depositPercentage;
   bool _busy = false, _picking = false, _expanded = true;
   final _operationId = List.generate(
@@ -60,7 +61,7 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
       r.deposit,
       r.depositPercentage,
     );
-    _area = RangeValues(r.minArea ?? r.area, r.maxArea ?? r.area);
+    _area = r.area;
     final values = <String, String>{
       'roomCode': r.roomCode.isNotEmpty ? r.roomCode : r.maPhong,
       'title': r.title,
@@ -174,9 +175,7 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
     },
     'floor': _floor,
     'capacity': int.parse(_fields['capacity']!.text.trim()),
-    'area': _area.start,
-    'minArea': _area.start,
-    'maxArea': _area.end,
+    'area': _area,
     'price': double.parse(vndDigits(_fields['price']!.text.trim())),
     'depositPercentage': _depositPercentage,
     'deposit': roomDeposit(
@@ -323,13 +322,11 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                       ),
                       for (var i = 0; i < _images.length; i++)
                         _photo(
-                          Image.network(
-                            webHtmlElementStrategy:
-                                WebHtmlElementStrategy.fallback,
-                            _images[i],
+                          AppSafeImage(
+                            imageUrl: _images[i],
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) =>
-                                const Icon(Icons.broken_image_outlined),
+                            fallbackIcon: Icons.broken_image_outlined,
+                            iconSize: 24,
                           ),
                           () => setState(() => _images.removeAt(i)),
                         ),
@@ -382,12 +379,8 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
                     // và ID liên kết; chủ trọ chỉ sửa tên hiển thị của phòng.
                     _field('title', 'Tên phòng *', numeric: false),
                     const SizedBox(height: 16),
-                    HostRangeInput(
-                      label: 'Khoảng diện tích phòng',
-                      unit: 'm²',
-                      values: _area,
-                      minimum: 1,
-                      sliderMax: 100,
+                    HostAreaInput(
+                      value: _area,
                       onChanged: (value) => setState(() => _area = value),
                     ),
                     _field('capacity', 'Số người ở tối đa *', suffix: 'người'),
@@ -590,7 +583,8 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
     String? suffix,
     int maxLines = 1,
   }) {
-    final isMoney = key == 'price' ||
+    final isMoney =
+        key == 'price' ||
         key == 'deposit' ||
         key == 'electricityRate' ||
         key == 'waterRate' ||
@@ -601,16 +595,15 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
       readOnly: key == 'roomCode',
       maxLines: maxLines,
       keyboardType: numeric || isMoney
-          ? (isMoney ? TextInputType.number : const TextInputType.numberWithOptions(decimal: true))
+          ? (isMoney
+                ? TextInputType.number
+                : const TextInputType.numberWithOptions(decimal: true))
           : TextInputType.text,
       inputFormatters: isMoney ? [VndInputFormatter()] : null,
       decoration: InputDecoration(
         labelText: label,
         suffixText: suffix,
         suffixIcon: key == 'roomCode' ? const Icon(Icons.lock_outline) : null,
-        helperText: key == 'roomCode'
-            ? 'ID phòng được giữ nguyên khi sửa.'
-            : null,
         filled: true,
         fillColor: const Color(0xFFF0F4FF),
       ),
@@ -641,6 +634,7 @@ class _HostRoomEditScreenState extends ConsumerState<HostRoomEditScreen> {
       },
     );
   }
+
   Widget _photo(Widget image, VoidCallback remove) => Container(
     width: 100,
     margin: const EdgeInsets.only(right: 8),

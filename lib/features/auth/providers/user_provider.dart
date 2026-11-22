@@ -1,9 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/role_resolver.dart';
+import '../../../core/constants/firestore_collections.dart';
+import '../../../core/services/host_index_service.dart';
 import '../../../core/services/image_storage_service.dart';
+import '../../../core/services/user_uniqueness_service.dart';
+import '../../../core/utils/host_reputation.dart';
 import '../../../core/utils/id_generator.dart';
 import 'auth_provider.dart';
 
@@ -22,9 +28,14 @@ class UserProfile {
   final String address; // diaChi
   final String hometown; // queQuan
   final int reputationScore;
+
+  /// Số thứ tự chủ trọ cố định trên Firebase (`users.hostIndex`). 0 = chưa cấp.
+  final int hostIndex;
   final int statusId;
   final bool isBanned;
   final bool accountDeleted;
+  final bool isEmailVerified;
+  final bool emailVerificationRequired;
   final DateTime? suspendedUntil;
   final String suspensionType;
   final String occupation; // ngheNghiep
@@ -41,8 +52,20 @@ class UserProfile {
   final DateTime? cccdVerifiedAt; // ngayXacMinh
   final String cccdFrontImageUrl; // anhMatTruoc / anhGiayTo_id
   final String cccdBackImageUrl; // anhMatSau
+  final String cccdVerificationStatus; // 'pending' | 'approved' | 'rejected' | 'unverified'
+  final String cccdRejectReason;
+  final bool requiredInfoCompleted; // daCapNhatThongTin
 
   // Vietnamese DrawIO Alias Getters
+  bool get hasCompletedRequiredInfo => requiredInfoCompleted;
+  bool get isCccdPending =>
+      cccdVerificationStatus == 'choDuyet' ||
+      cccdVerificationStatus == 'pending';
+  bool get isCccdRejected =>
+      cccdVerificationStatus == 'rejected' ||
+      cccdVerificationStatus == 'tuChoi';
+  bool get isCccdForcedFlow =>
+      isCccdRejected || (isCccdPending && cccdRejectReason.trim().isNotEmpty);
   bool get isAccessBlocked {
     return accountDeleted || isBanned || statusId == 2;
   }
@@ -117,9 +140,12 @@ class UserProfile {
     this.address = '',
     this.hometown = '',
     this.reputationScore = 100,
+    this.hostIndex = 0,
     this.statusId = 0,
     this.isBanned = false,
     this.accountDeleted = false,
+    this.isEmailVerified = false,
+    this.emailVerificationRequired = false,
     this.suspendedUntil,
     this.suspensionType = '',
     this.occupation = 'Sinh viên',
@@ -136,6 +162,9 @@ class UserProfile {
     this.cccdVerifiedAt,
     this.cccdFrontImageUrl = '',
     this.cccdBackImageUrl = '',
+    this.cccdVerificationStatus = 'unverified',
+    this.cccdRejectReason = '',
+    this.requiredInfoCompleted = false,
   }) : _userCode = (userCode != null && isValidUserCode(userCode))
            ? userCode.trim().toUpperCase()
            : generateUserCode(seed: uid, role: role);
@@ -192,9 +221,13 @@ class UserProfile {
       reputationScore:
           ((data['reputationScore'] ?? data['diemUyTin']) as num?)?.toInt() ??
           100,
+      hostIndex:
+          ((data['hostIndex'] ?? data['soChuTro']) as num?)?.toInt() ?? 0,
       statusId: parsedStatusId,
       isBanned: data['isBanned'] == true,
       accountDeleted: data['accountDeleted'] == true,
+      isEmailVerified: data['isEmailVerified'] == true,
+      emailVerificationRequired: data['emailVerificationRequired'] == true,
       suspendedUntil: parseModerationDate(data['suspendedUntil']),
       suspensionType: (data['suspensionType'] ?? '').toString(),
       occupation: data['occupation'] ?? data['ngheNghiep'] ?? 'Sinh viên',
@@ -211,12 +244,12 @@ class UserProfile {
           : (data['ngayTao'] is Timestamp)
           ? (data['ngayTao'] as Timestamp).toDate()
           : null,
-      isCccdVerified:
-          (data['isCccdVerified'] ??
-              data['daXacThucCccd'] ??
-              (data['trangThaiXacMinh'] == 'daXacThuc') ??
-              (data['trangThaiXacMinh_id'] == 'daXacThuc')) ??
-          false,
+      isCccdVerified: data['cccdVerificationStatus'] != null
+          ? data['cccdVerificationStatus'] == 'approved'
+          : (data['isCccdVerified'] == true ||
+              data['daXacThucCccd'] == true ||
+              data['trangThaiXacMinh'] == 'daXacThuc' ||
+              data['trangThaiXacMinh_id'] == 'daXacThuc'),
       cccdNumber:
           data['cccdNumber'] ?? data['soCccd'] ?? data['soGiayTo'] ?? '',
       cccdFullName: data['cccdFullName'] ?? data['hoTenCccd'] ?? '',
@@ -229,6 +262,29 @@ class UserProfile {
           : null,
       cccdFrontImageUrl: data['cccdFrontImageUrl'] ?? data['anhMatTruoc'] ?? '',
       cccdBackImageUrl: data['cccdBackImageUrl'] ?? data['anhMatSau'] ?? '',
+      cccdVerificationStatus: (data['cccdVerificationStatus'] ??
+              data['trangThaiXacMinh'] ??
+              data['trangThaiXacMinh_id'] ??
+              (((data['isCccdVerified'] == true) ||
+                      (data['daXacThucCccd'] == true) ||
+                      (data['trangThaiXacMinh'] == 'daXacThuc') ||
+                      (data['trangThaiXacMinh_id'] == 'daXacThuc'))
+                  ? 'approved'
+                  : ((data['cccdSubmittedAt'] != null ||
+                          data['ngayGuiXacMinh'] != null ||
+                          '${data['cccdNumber'] ?? data['soCccd'] ?? data['soGiayTo'] ?? ''}'
+                              .trim()
+                              .isNotEmpty)
+                      ? 'pending'
+                      : 'unverified')))
+          .toString(),
+      cccdRejectReason:
+          (data['cccdRejectReason'] ?? data['cccdRejectedReason'] ?? '')
+              .toString()
+              .trim(),
+      requiredInfoCompleted: data['requiredInfoCompleted'] == true ||
+          data['daCapNhatThongTin'] == true ||
+          data['hasCompletedRequiredInfo'] == true,
     );
   }
 
@@ -244,7 +300,12 @@ class UserProfile {
       'gender': gender,
       'address': address,
       'hometown': hometown,
-      'reputationScore': reputationScore,
+      if (isHost && isCccdVerified) 'reputationScore': reputationScore,
+      'isEmailVerified': isEmailVerified,
+      if (emailVerificationRequired)
+        'emailVerificationRequired': emailVerificationRequired,
+      'requiredInfoCompleted': requiredInfoCompleted,
+      if (hostIndex > 0) 'hostIndex': hostIndex,
 
       'occupation': occupation,
       'workplace': workplace,
@@ -257,6 +318,7 @@ class UserProfile {
       'cccdHometown': cccdHometown,
       'cccdFrontImageUrl': cccdFrontImageUrl,
       'cccdBackImageUrl': cccdBackImageUrl,
+      'cccdVerificationStatus': cccdVerificationStatus,
       if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate!),
       if (cccdVerifiedAt != null)
         'cccdVerifiedAt': Timestamp.fromDate(cccdVerifiedAt!),
@@ -278,9 +340,12 @@ class UserProfile {
     String? address,
     String? hometown,
     int? reputationScore,
+    int? hostIndex,
     int? statusId,
     bool? isBanned,
     bool? accountDeleted,
+    bool? isEmailVerified,
+    bool? emailVerificationRequired,
     DateTime? suspendedUntil,
     String? suspensionType,
     String? occupation,
@@ -297,6 +362,9 @@ class UserProfile {
     DateTime? cccdVerifiedAt,
     String? cccdFrontImageUrl,
     String? cccdBackImageUrl,
+    String? cccdVerificationStatus,
+    String? cccdRejectReason,
+    bool? requiredInfoCompleted,
   }) {
     return UserProfile(
       uid: uid ?? this.uid,
@@ -310,9 +378,15 @@ class UserProfile {
       address: address ?? this.address,
       hometown: hometown ?? this.hometown,
       reputationScore: reputationScore ?? this.reputationScore,
+      hostIndex: hostIndex ?? this.hostIndex,
       statusId: statusId ?? this.statusId,
       isBanned: isBanned ?? this.isBanned,
       accountDeleted: accountDeleted ?? this.accountDeleted,
+      isEmailVerified: isEmailVerified ?? this.isEmailVerified,
+      emailVerificationRequired:
+          emailVerificationRequired ?? this.emailVerificationRequired,
+      requiredInfoCompleted:
+          requiredInfoCompleted ?? this.requiredInfoCompleted,
       suspendedUntil: suspendedUntil ?? this.suspendedUntil,
       suspensionType: suspensionType ?? this.suspensionType,
       occupation: occupation ?? this.occupation,
@@ -329,8 +403,200 @@ class UserProfile {
       cccdVerifiedAt: cccdVerifiedAt ?? this.cccdVerifiedAt,
       cccdFrontImageUrl: cccdFrontImageUrl ?? this.cccdFrontImageUrl,
       cccdBackImageUrl: cccdBackImageUrl ?? this.cccdBackImageUrl,
+      cccdVerificationStatus:
+          cccdVerificationStatus ?? this.cccdVerificationStatus,
+      cccdRejectReason: cccdRejectReason ?? this.cccdRejectReason,
     );
   }
+}
+
+/// Gửi yêu cầu xác thực CCCD sang Quản trị viên xem xét (không duyệt ngay)
+/// 1. Tải ảnh mặt trước & mặt sau thẻ CCCD lên Firebase Storage
+/// 2. Firestore `users/$uid` chỉ lưu download URL dẫn sang Storage, kèm trạng thái 'choDuyet'
+/// 3. Gửi thông báo đến Quản trị viên (recipientRole: 'admin')
+/// 4. Tạo cờ thông báo trên user tương ứng theo role (Chủ trọ / Người thuê):
+///    "Đã gửi sang quản trị viên xem xét, đang chờ xác thực tài khoản"
+Future<void> submitCccdVerificationRequest({
+  required String uid,
+  required String cccdNumber,
+  required String cccdFullName,
+  required String cccdIssueDate,
+  required String cccdHometown,
+  required String gender,
+  DateTime? birthDate,
+  required String frontImagePath,
+  required String backImagePath,
+  String role = 'renter',
+  FirebaseFirestore? firestore,
+  FirebaseStorage? storage,
+}) async {
+  final fs = firestore ?? FirebaseFirestore.instance;
+  final effectiveUid = (uid.isNotEmpty && uid != 'guest_uid')
+      ? uid
+      : (FirebaseAuth.instance.currentUser?.uid ?? uid);
+  final normalizedCccd = UserUniquenessService.normalizeCccd(cccdNumber);
+  if (!RegExp(r'^\d{12}$').hasMatch(normalizedCccd)) {
+    throw 'Số CCCD phải gồm đúng 12 chữ số.';
+  }
+
+  // 1. Kiểm tra tính độc nhất của CCCD
+  final uniqueness = UserUniquenessService(firestore: fs);
+  final cccdError = await uniqueness.checkCccdUnique(
+    normalizedCccd,
+    excludeUid: effectiveUid,
+  );
+  if (cccdError != null) {
+    throw cccdError;
+  }
+  await uniqueness.claimCccd(normalizedCccd, uid: effectiveUid);
+
+  // 2. Tải ảnh mặt trước & mặt sau lên Firebase Storage
+  final storageService = ImageStorageService(storage: storage);
+  final frontUrl = await storageService.uploadCccdImage(
+    filePath: frontImagePath,
+    uid: effectiveUid,
+    isFront: true,
+  );
+  final backUrl = await storageService.uploadCccdImage(
+    filePath: backImagePath,
+    uid: effectiveUid,
+    isFront: false,
+  );
+
+  // 3. Bảo toàn tên hiển thị (displayName) và ghi nhận nếu đang gửi lại sau khi bị từ chối
+  String? existingDisplayName;
+  bool wasRejectedBefore = false;
+  String existingRejectReason = '';
+  if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
+    try {
+      final doc = await fs.collection('users').doc(effectiveUid).get();
+      if (doc.exists && doc.data() != null) {
+        final docData = doc.data()!;
+        final dName = (docData['displayName'] ?? docData['hoTen'])
+            ?.toString()
+            .trim();
+        if (dName != null && dName.isNotEmpty) {
+          existingDisplayName = dName;
+        }
+        final prevStatus =
+            (docData['cccdVerificationStatus'] ?? '').toString().trim();
+        existingRejectReason =
+            (docData['cccdRejectReason'] ?? docData['cccdRejectedReason'] ?? '')
+                .toString()
+                .trim();
+        if (prevStatus == 'rejected' ||
+            prevStatus == 'tuChoi' ||
+            existingRejectReason.isNotEmpty) {
+          wasRejectedBefore = true;
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (existingDisplayName == null || existingDisplayName.isEmpty) {
+    final authName = FirebaseAuth.instance.currentUser?.displayName?.trim();
+    if (authName != null && authName.isNotEmpty) {
+      existingDisplayName = authName;
+    }
+  }
+
+  final isHost = role == 'host' || role == 'landlord' || role == 'chutro';
+
+  // 4. Lưu thông tin và URL Storage vào Firestore users/$effectiveUid
+  // (Chưa cấp reputationScore ở bước pending, chỉ cấp khi được approved)
+  final updateData = <String, dynamic>{
+    'isCccdVerified': false,
+    'cccdVerificationStatus': 'pending',
+    if (wasRejectedBefore && existingRejectReason.isEmpty)
+      'cccdRejectReason':
+          'Ảnh chụp không đạt tiêu chuẩn hoặc thông tin không trùng khớp',
+    'reputationScore': FieldValue.delete(),
+    'diemUyTin': FieldValue.delete(),
+    'cccdNumber': normalizedCccd,
+    'cccdFullName': cccdFullName,
+    if (existingDisplayName == null || existingDisplayName.isEmpty)
+      'displayName': cccdFullName,
+    'cccdIssueDate': cccdIssueDate,
+    'cccdHometown': cccdHometown,
+    'gender': gender,
+    if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate),
+    'cccdFrontImageUrl': frontUrl,
+    'cccdBackImageUrl': backUrl,
+    'cccdSubmittedAt': FieldValue.serverTimestamp(),
+    'ngayGuiXacMinh': FieldValue.delete(),
+  };
+
+  if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
+    await fs
+        .collection('users')
+        .doc(effectiveUid)
+        .set(updateData, SetOptions(merge: true));
+
+    // 5. Gửi thông báo đến Admin trong collection `notifications`
+    try {
+      final adminNotifRef = fs.collection('notifications').doc();
+      await adminNotifRef.set({
+        'id': adminNotifRef.id,
+        'recipientRole': 'admin',
+        'type': 'cccd_verification',
+        'notificationType': 'cccd_verification',
+        'title': isHost ? 'Yêu cầu duyệt CCCD Chủ trọ' : 'Yêu cầu duyệt CCCD Người tìm phòng',
+        'body': 'Người dùng $cccdFullName (${isHost ? "Chủ trọ" : "Người thuê"}) đã gửi ảnh CCCD 2 mặt và mã QR để xác thực tài khoản.',
+        'userId': effectiveUid,
+        'userName': cccdFullName,
+        'userRole': role,
+        'cccdNumber': normalizedCccd,
+        'cccdFrontImageUrl': frontUrl,
+        'cccdBackImageUrl': backUrl,
+        'status': 'pending',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {}
+
+    // 6. Tạo thông báo trên User tương ứng với vai trò (Host -> notifications, Renter -> notification_user)
+    try {
+      final targetCol =
+          isHost ? 'notifications' : FirestoreCollections.notificationUser;
+      final userNotifRef = fs.collection(targetCol).doc();
+      final userNotifData = {
+        'id': userNotifRef.id,
+        'userId': effectiveUid,
+        'recipientId': effectiveUid,
+        'receiverId': effectiveUid,
+        'role': role,
+        'type': 'cccd_verification_pending',
+        'notificationType': 'cccd_verification_pending',
+        'title': isHost
+            ? 'Đã gửi yêu cầu xác thực CCCD Chủ trọ'
+            : 'Đã gửi yêu cầu xác thực CCCD',
+        'body': isHost
+            ? 'Hồ sơ xác thực CCCD chủ trọ của bạn đã được gửi sang Quản trị viên xem xét, đang chờ xác thực tài khoản để kích hoạt đầy đủ quyền tạo phòng và đăng bài.'
+            : 'Hồ sơ xác thực CCCD của bạn đã được gửi sang Quản trị viên xem xét, đang chờ xác thực tài khoản.',
+        'status': 'pending',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+      await userNotifRef.set(userNotifData);
+    } catch (_) {}
+  }
+
+  // 7. Cập nhật SharedPreferences
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final cacheKey = effectiveUid.isNotEmpty ? effectiveUid : 'current';
+    await prefs.setBool('cccd_verified_$cacheKey', false);
+    await prefs.setBool('cccd_pending_$cacheKey', true);
+    await prefs.setString('cccd_status_$cacheKey', 'choDuyet');
+    await prefs.setString('cccd_number_$cacheKey', normalizedCccd);
+    await prefs.setString('cccd_name_$cacheKey', cccdFullName);
+    if (frontUrl.isNotEmpty) {
+      await prefs.setString('cccd_front_$cacheKey', frontUrl);
+    }
+    if (backUrl.isNotEmpty) {
+      await prefs.setString('cccd_back_$cacheKey', backUrl);
+    }
+  } catch (_) {}
 }
 
 /// Hàm lưu kết quả xác thực CCCD eKYC vào Firestore và SharedPreferences
@@ -346,54 +612,205 @@ Future<void> saveCccdVerificationToBackend({
   String cccdBackImageUrl = '',
 }) async {
   final firestore = FirebaseFirestore.instance;
+  final effectiveUid = (uid.isNotEmpty && uid != 'guest_uid')
+      ? uid
+      : (FirebaseAuth.instance.currentUser?.uid ?? uid);
+  final normalizedCccd = UserUniquenessService.normalizeCccd(cccdNumber);
+  if (!RegExp(r'^\d{12}$').hasMatch(normalizedCccd)) {
+    throw 'Số CCCD phải gồm đúng 12 chữ số.';
+  }
+
+  // Đảm bảo ảnh CCCD được tải lên Storage nếu là đường dẫn file cục bộ
+  var frontUrl = cccdFrontImageUrl;
+  var backUrl = cccdBackImageUrl;
+  if (frontUrl.isNotEmpty && !frontUrl.startsWith('http') && !frontUrl.startsWith('data:')) {
+    frontUrl = await ImageStorageService().uploadCccdImage(
+      filePath: frontUrl,
+      uid: effectiveUid,
+      isFront: true,
+    );
+  }
+  if (backUrl.isNotEmpty && !backUrl.startsWith('http') && !backUrl.startsWith('data:')) {
+    backUrl = await ImageStorageService().uploadCccdImage(
+      filePath: backUrl,
+      uid: effectiveUid,
+      isFront: false,
+    );
+  }
+
+  // Kiểm tra tính độc nhất của CCCD: mỗi số CCCD là duy nhất trên toàn hệ thống
+  final uniqueness = UserUniquenessService(firestore: firestore);
+  final cccdError = await uniqueness.checkCccdUnique(
+    normalizedCccd,
+    excludeUid: effectiveUid,
+  );
+  if (cccdError != null) {
+    throw cccdError;
+  }
+  await uniqueness.claimCccd(normalizedCccd, uid: effectiveUid);
+
+  // Bảo toàn tên hiển thị (displayName) của tài khoản:
+  // CCCD chỉ ghi nhận họ tên pháp lý (cccdFullName / hoTenCccd).
+  // TUYỆT ĐỐI KHÔNG ghi đè displayName của chủ trọ/người dùng (ví dụ: QA vẫn là QA).
+  String? existingDisplayName;
+  int? existingReputationScore;
+  String existingRole = 'renter';
+  if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
+    try {
+      final doc = await firestore.collection('users').doc(effectiveUid).get();
+      if (doc.exists && doc.data() != null) {
+        final dName = (doc.data()?['displayName'] ?? doc.data()?['hoTen'])
+            ?.toString()
+            .trim();
+        if (dName != null && dName.isNotEmpty) {
+          existingDisplayName = dName;
+        }
+        final rep = doc.data()?['reputationScore'] ?? doc.data()?['diemUyTin'];
+        if (rep is num) {
+          existingReputationScore = rep.toInt();
+        }
+        existingRole =
+            RoleResolver.extractRoleFromMap(doc.data()!) ?? 'renter';
+      }
+    } catch (_) {}
+  }
+
+  if (existingDisplayName == null || existingDisplayName.isEmpty) {
+    final authName = FirebaseAuth.instance.currentUser?.displayName?.trim();
+    if (authName != null && authName.isNotEmpty) {
+      existingDisplayName = authName;
+    }
+  }
+
+  final isHost = HostReputation.isHostRole(existingRole);
+
   final updateData = <String, dynamic>{
     'isCccdVerified': true,
-    'cccdNumber': cccdNumber,
+    'cccdVerificationStatus': 'approved',
+    if (isHost) 'reputationScore': existingReputationScore ?? 100,
+    'cccdNumber': normalizedCccd,
     'cccdFullName': cccdFullName,
-    'displayName': cccdFullName,
+    // Chỉ gán displayName nếu tài khoản chưa có bất kỳ tên nào, không ghi đè tên đã có
+    if (existingDisplayName == null || existingDisplayName.isEmpty)
+      'displayName': cccdFullName,
     'cccdIssueDate': cccdIssueDate,
     'cccdHometown': cccdHometown,
     'gender': gender,
     if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate),
-    if (cccdFrontImageUrl.isNotEmpty) 'cccdFrontImageUrl': cccdFrontImageUrl,
-    if (cccdBackImageUrl.isNotEmpty) 'cccdBackImageUrl': cccdBackImageUrl,
+    if (frontUrl.isNotEmpty) 'cccdFrontImageUrl': frontUrl,
+    if (backUrl.isNotEmpty) 'cccdBackImageUrl': backUrl,
     'cccdVerifiedAt': FieldValue.serverTimestamp(),
-    'hoTen': FieldValue.delete(),
-    'gioiTinh': FieldValue.delete(),
-    'ngaySinh': FieldValue.delete(),
-    'daXacThucCccd': FieldValue.delete(),
-    'trangThaiXacMinh': FieldValue.delete(),
-    'trangThaiXacMinh_id': FieldValue.delete(),
-    'soCccd': FieldValue.delete(),
-    'soGiayTo': FieldValue.delete(),
-    'hoTenCccd': FieldValue.delete(),
-    'ngayCap': FieldValue.delete(),
-    'queQuanCccd': FieldValue.delete(),
-    'anhMatTruoc': FieldValue.delete(),
-    'anhMatSau': FieldValue.delete(),
-    'ngayXacMinh': FieldValue.delete(),
+    'cccdRejectReason': FieldValue.delete(),
   };
 
-  try {
+  if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
     await firestore
         .collection('users')
-        .doc(uid)
+        .doc(effectiveUid)
         .set(updateData, SetOptions(merge: true));
-  } catch (e) {
-    // Offline / fallback fallback
+    debugPrint(
+      'Đã lưu CCCD eKYC vào Firestore users/$effectiveUid thành công ✓',
+    );
+
+    // Đã lưu trực tiếp toàn bộ thông tin CCCD vào users/$effectiveUid,
+    // Xóa subcollection id_verifications cũ nếu còn tồn tại để tránh dữ liệu phân mảnh
+    try {
+      await firestore
+          .collection('users')
+          .doc(effectiveUid)
+          .collection('id_verifications')
+          .doc('cccd')
+          .delete();
+    } catch (_) {}
   }
 
   try {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('cccd_verified_$uid', true);
-    await prefs.setString('cccd_number_$uid', cccdNumber);
-    await prefs.setString('cccd_name_$uid', cccdFullName);
+    final cacheKey = effectiveUid.isNotEmpty ? effectiveUid : 'current';
+    await prefs.setBool('cccd_verified_$cacheKey', true);
+    await prefs.setString('cccd_number_$cacheKey', normalizedCccd);
+    await prefs.setString('cccd_name_$cacheKey', cccdFullName);
+    await prefs.setString('cccd_hometown_$cacheKey', cccdHometown);
+    await prefs.setString('cccd_gender_$cacheKey', gender);
+    if (birthDate != null) {
+      await prefs.setString(
+        'cccd_birth_$cacheKey',
+        birthDate.toIso8601String(),
+      );
+    }
     if (cccdFrontImageUrl.isNotEmpty) {
-      await prefs.setString('cccd_front_$uid', cccdFrontImageUrl);
+      await prefs.setString('cccd_front_$cacheKey', cccdFrontImageUrl);
     }
     if (cccdBackImageUrl.isNotEmpty) {
-      await prefs.setString('cccd_back_$uid', cccdBackImageUrl);
+      await prefs.setString('cccd_back_$cacheKey', cccdBackImageUrl);
     }
+  } catch (_) {}
+}
+
+/// Xóa toàn bộ thông tin xác thực CCCD trên Firestore và SharedPreferences để phục vụ kiểm thử
+Future<void> resetCccdVerificationForTesting({
+  required String uid,
+  FirebaseFirestore? firestore,
+}) async {
+  final effectiveUid = (uid.isNotEmpty && uid != 'guest_uid')
+      ? uid
+      : (FirebaseAuth.instance.currentUser?.uid ?? uid);
+
+  final resetData = <String, dynamic>{
+    'isCccdVerified': false,
+    'cccdVerificationStatus': 'unverified',
+    'cccdNumber': FieldValue.delete(),
+    'soCccd': FieldValue.delete(),
+    'soGiayTo': FieldValue.delete(),
+    'cccdFullName': FieldValue.delete(),
+    'hoTenCccd': FieldValue.delete(),
+    'cccdIssueDate': FieldValue.delete(),
+    'ngayCap': FieldValue.delete(),
+    'cccdHometown': FieldValue.delete(),
+    'queQuanCccd': FieldValue.delete(),
+    'cccdFrontImageUrl': FieldValue.delete(),
+    'cccdBackImageUrl': FieldValue.delete(),
+    'cccdVerifiedAt': FieldValue.delete(),
+    'cccdRejectReason': FieldValue.delete(),
+    'ngayXacMinh': FieldValue.delete(),
+  };
+
+  if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
+    try {
+      final db = firestore ?? FirebaseFirestore.instance;
+      await db
+          .collection('users')
+          .doc(effectiveUid)
+          .set(resetData, SetOptions(merge: true));
+      await db
+          .collection('users')
+          .doc(effectiveUid)
+          .collection('id_verifications')
+          .doc('cccd')
+          .delete();
+      debugPrint(
+        'Đã xóa dữ liệu xác thực CCCD users/$effectiveUid thành công ✓',
+      );
+    } catch (e) {
+      debugPrint('Lỗi xóa CCCD Firestore: $e');
+    }
+  }
+
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final cacheKey = effectiveUid.isNotEmpty ? effectiveUid : 'current';
+    await prefs.remove('cccd_verified_$cacheKey');
+    await prefs.remove('cccd_number_$cacheKey');
+    await prefs.remove('cccd_name_$cacheKey');
+    await prefs.remove('cccd_hometown_$cacheKey');
+    await prefs.remove('cccd_gender_$cacheKey');
+    await prefs.remove('cccd_birth_$cacheKey');
+    await prefs.remove('cccd_front_$cacheKey');
+    await prefs.remove('cccd_back_$cacheKey');
+    await prefs.remove('draft_cccd_front_image');
+    await prefs.remove('draft_cccd_back_image');
+    await prefs.remove('draft_cccd_data_json');
+    await prefs.remove('draft_cccd_qr_payload');
   } catch (_) {}
 }
 
@@ -422,7 +839,7 @@ Map<String, dynamic> englishUserFieldPatch(Map<String, dynamic> data) {
   }
 
   move('displayName', ['hoTen']);
-  move('phoneNumber', ['soDienThoai']);
+  move('phoneNumber', ['soDienThoai', 'phoneNumberNormalized']);
   move('userCode', ['maNguoiDung', 'idNguoiDung']);
   move('createdAt', ['ngayTao']);
   move('reputationScore', ['diemUyTin']);
@@ -440,6 +857,8 @@ Map<String, dynamic> englishUserFieldPatch(Map<String, dynamic> data) {
   move('cccdFrontImageUrl', ['anhMatTruoc']);
   move('cccdBackImageUrl', ['anhMatSau']);
   move('cccdVerifiedAt', ['ngayXacMinh']);
+  move('cccdSubmittedAt', ['ngayGuiXacMinh']);
+  move('cccdRejectReason', ['cccdRejectedReason']);
 
   if (_userFieldMissing(data['role'])) {
     final named = data['vaiTro'];
@@ -462,6 +881,71 @@ Map<String, dynamic> englishUserFieldPatch(Map<String, dynamic> data) {
   ]) {
     if (data.containsKey(key)) patch[key] = FieldValue.delete();
   }
+  if (data['emailVerificationRequired'] == false ||
+      (data['isEmailVerified'] == true &&
+          data.containsKey('emailVerificationRequired'))) {
+    patch['emailVerificationRequired'] = FieldValue.delete();
+  }
+
+  // Đối với renter: không lưu trường reputationScore.
+  // Đối với chủ trọ (role = host): chỉ cấp reputationScore: 100 sau khi CCCD đã được duyệt (approved).
+  final resolvedRole = RoleResolver.extractRoleFromMap(data) ?? 'renter';
+  final isHost = HostReputation.isHostRole(resolvedRole);
+  final cccdStatus = (data['cccdVerificationStatus'] ??
+          data['trangThaiXacMinh'] ??
+          data['trangThaiXacMinh_id'] ??
+          '')
+      .toString()
+      .trim();
+  final hasApprovedCccd = cccdStatus.isNotEmpty
+      ? (cccdStatus == 'approved' || cccdStatus == 'daXacThuc')
+      : (data['isCccdVerified'] == true || data['daXacThucCccd'] == true);
+
+  final existingRepRaw =
+      patch['reputationScore'] ?? data['reputationScore'] ?? data['diemUyTin'];
+  final existingRepScore = existingRepRaw is num
+      ? existingRepRaw.toInt()
+      : int.tryParse(existingRepRaw?.toString() ?? '');
+  final hasAdminPenalty = existingRepScore != null && existingRepScore < 100;
+
+  if ((!isHost || !hasApprovedCccd) && !hasAdminPenalty) {
+    if (data.containsKey('reputationScore') ||
+        patch.containsKey('reputationScore')) {
+      patch['reputationScore'] = FieldValue.delete();
+      data.remove('reputationScore');
+    }
+    if (data.containsKey('diemUyTin')) {
+      patch['diemUyTin'] = FieldValue.delete();
+      data.remove('diemUyTin');
+    }
+  } else if (isHost &&
+      hasApprovedCccd &&
+      data['reputationScore'] == null &&
+      data['diemUyTin'] == null) {
+    patch['reputationScore'] = 100;
+    data['reputationScore'] = 100;
+  }
+
+  if (hasApprovedCccd) {
+    for (final key in [
+      'cccdRejectReason',
+      'cccdRejectedReason',
+      'cccdRejectedAt',
+    ]) {
+      if (data.containsKey(key)) {
+        patch[key] = FieldValue.delete();
+        data.remove(key);
+      }
+    }
+  } else if ((cccdStatus == 'rejected' || cccdStatus == 'tuChoi') &&
+      _userFieldMissing(data['cccdRejectReason']) &&
+      _userFieldMissing(patch['cccdRejectReason'])) {
+    const defaultReason =
+        'Ảnh chụp không đạt tiêu chuẩn hoặc thông tin không trùng khớp';
+    patch['cccdRejectReason'] = defaultReason;
+    data['cccdRejectReason'] = defaultReason;
+  }
+
   return patch;
 }
 
@@ -490,11 +974,13 @@ Stream<UserProfile?> _userProfileEvents(
       displayName: user.displayName ?? 'Người dùng HomeShare',
       phoneNumber: '',
       role: 'renter',
+      isEmailVerified: user.emailVerified,
+      emailVerificationRequired: !user.emailVerified,
     );
     return;
   }
 
-  final data = snapshot.data()!;
+  final data = Map<String, dynamic>.from(snapshot.data()!);
   final resolvedRole = RoleResolver.extractRoleFromMap(data) ?? 'renter';
   final patch = englishUserFieldPatch(data);
   if (data['userCode'] == null &&
@@ -505,6 +991,23 @@ Stream<UserProfile?> _userProfileEvents(
       role: resolvedRole,
     );
   }
+
+  // Tự động khôi phục tên tài khoản (như "QA") nếu từng bị ghi đè trùng với cccdFullName:
+  final authDisplayName = user.displayName?.trim() ?? '';
+  final firestoreDisplayName =
+      (data['displayName'] ?? data['hoTen'])?.toString().trim() ?? '';
+  final cccdFullName =
+      (data['cccdFullName'] ?? data['hoTenCccd'])?.toString().trim() ?? '';
+
+  if (authDisplayName.isNotEmpty &&
+      firestoreDisplayName.isNotEmpty &&
+      cccdFullName.isNotEmpty &&
+      firestoreDisplayName.toLowerCase() == cccdFullName.toLowerCase() &&
+      authDisplayName.toLowerCase() != cccdFullName.toLowerCase()) {
+    patch['displayName'] = authDisplayName;
+    data['displayName'] = authDisplayName;
+  }
+
   if (patch.isNotEmpty) {
     FirebaseFirestore.instance
         .collection('users')
@@ -512,7 +1015,20 @@ Stream<UserProfile?> _userProfileEvents(
         .set(patch, SetOptions(merge: true));
   }
 
-  final profile = UserProfile.fromMap(data, user.uid);
+  var profile = UserProfile.fromMap(data, user.uid);
+
+  // Chủ trọ đăng nhập: bảo đảm đã có hostIndex cố định trên Firebase.
+  if (!profile.emailVerificationRequired &&
+      HostReputation.isHostRole(profile.role) &&
+      profile.hostIndex <= 0) {
+    try {
+      final index = await HostIndexService().ensureHostIndex(user.uid);
+      profile = profile.copyWith(hostIndex: index);
+    } catch (e) {
+      debugPrint('Không cấp được hostIndex cho ${user.uid}: $e');
+    }
+  }
+
   // Render the signed-in shell as soon as Firestore returns the profile. Avatar
   // Storage lookup is secondary and must not hold up login/navigation.
   yield profile;
@@ -541,6 +1057,9 @@ Future<void> updateUserRole({
     'vaiTro': FieldValue.delete(),
     'vaiTro_id': FieldValue.delete(),
   }, SetOptions(merge: true));
+  if (HostReputation.isHostRole(normalized)) {
+    await HostIndexService().ensureHostIndex(uid);
+  }
 }
 
 // Notifier quản lý Role hoạt động

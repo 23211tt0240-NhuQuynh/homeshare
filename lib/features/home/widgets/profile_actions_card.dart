@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 /// Thiết kế an toàn chống overflow trên màn hình 320px
 class ProfileActionsCard extends StatelessWidget {
   final bool isCccdVerified;
+  final bool isCccdPending;
   final VoidCallback? onOpenBookings;
   final VoidCallback? onOpenCccdVerification;
   final VoidCallback? onOpenAccountSettings;
@@ -13,6 +14,7 @@ class ProfileActionsCard extends StatelessWidget {
   const ProfileActionsCard({
     super.key,
     required this.isCccdVerified,
+    this.isCccdPending = false,
     this.onOpenBookings,
     this.onOpenCccdVerification,
     this.onOpenAccountSettings,
@@ -239,8 +241,12 @@ class ProfileActionsCard extends StatelessWidget {
                 title: 'Xác thực danh tính (CCCD)',
                 subtitle: isCccdVerified
                     ? 'Hồ sơ đã hoàn tất xác thực eKYC'
-                    : 'Quét CCCD để tăng độ uy tín tài khoản',
-                trailingBadge: isCccdVerified ? 'ĐÃ XÁC THỰC' : 'CHƯA XÁC THỰC',
+                    : (isCccdPending
+                        ? 'Đã gửi hồ sơ, đang chờ Quản trị viên duyệt'
+                        : 'Quét CCCD để tăng độ uy tín tài khoản'),
+                trailingBadge: isCccdVerified
+                    ? 'ĐÃ XÁC THỰC'
+                    : (isCccdPending ? 'CHỜ DUYỆT' : 'CHƯA XÁC THỰC'),
                 isBadgeSuccess: isCccdVerified,
                 onTap: onOpenCccdVerification,
                 semanticsLabel:

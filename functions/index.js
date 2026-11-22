@@ -122,6 +122,21 @@ async function requireAdmin(request) {
   };
 }
 
+exports.prepareManagerEmailVerification = onCall(
+  { region: "asia-southeast1" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Vui lòng đăng nhập.");
+    }
+    const email = String(request.auth.token.email || "").trim().toLowerCase();
+    if (email !== "qnhu00181@gmail.com") {
+      throw new HttpsError("permission-denied", "Chỉ tài khoản Manager mới được thực hiện thao tác này.");
+    }
+    await admin.auth().updateUser(request.auth.uid, { emailVerified: false });
+    return { ok: true };
+  },
+);
+
 exports.adjustUserReputation = onCall(
   { region: "asia-southeast1" },
   async (request) => {

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/services/call_push_service.dart';
-import '../../chat/screens/call_screen.dart';
+import '../../../core/localization/app_translations.dart';
+import '../../../core/providers/app_settings_provider.dart';
 import '../../home/screens/home_screen.dart';
 import '../../chat/screens/chat_list_screen.dart';
 import 'renter_dashboard_screen.dart';
@@ -26,14 +26,6 @@ class RenterMainScreen extends ConsumerStatefulWidget {
 }
 
 class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
-  final List<Widget> _screens = const [
-    RenterDashboardScreen(),
-    ChatListScreen(),
-    CreateRoommatePostScreen(),
-    RoommateCommunityScreen(),
-    HomeScreen(),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -44,66 +36,79 @@ class _RenterMainScreenState extends ConsumerState<RenterMainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // App đang mở: Firestore báo cuộc gọi đến thì hiện màn hình nhận.
-    // IncomingCallRouter dùng chung với lúc bấm thông báo, nên không mở hai lần.
-    ref.listen(incomingCallProvider, (prev, next) {
-      final call = next.value;
-      if (call == null) return;
-      IncomingCallRouter.show(call);
-    });
-
+    AppColors.bind();
     final currentIndex = ref.watch(renterBottomNavIndexProvider);
+    final currentLang = ref.watch(appLanguageProvider);
+    final colors = AppColors.of(context);
+    // Không const — IndexedStack bỏ qua widget identical khi đổi theme.
+    final screens = [
+      RenterDashboardScreen(),
+      ChatListScreen(),
+      CreateRoommatePostScreen(),
+      RoommateCommunityScreen(),
+      HomeScreen(),
+    ];
 
     return Scaffold(
       body: IndexedStack(
         index: currentIndex,
-        children: _screens,
+        children: screens,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: currentIndex,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textMuted,
-        selectedFontSize: 11,
-        unselectedFontSize: 11,
-        onTap: (index) {
-          ref.read(renterBottomNavIndexProvider.notifier).setIndex(index);
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Trang chủ',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          border: Border(
+            top: BorderSide(color: colors.border, width: 1),
           ),
-          BottomNavigationBarItem(
-            icon: Badge(
-              smallSize: 8,
-              backgroundColor: AppColors.danger,
-              child: Icon(Icons.chat_bubble_outline),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: currentIndex,
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: colors.surface,
+          elevation: 0,
+          selectedItemColor: colors.primary,
+          unselectedItemColor: colors.textMuted,
+          selectedFontSize: 11,
+          unselectedFontSize: 11,
+          onTap: (index) {
+            ref.read(renterBottomNavIndexProvider.notifier).setIndex(index);
+          },
+          items: [
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.home_outlined),
+              activeIcon: const Icon(Icons.home),
+              label: AppTranslations.tr('nav_home', currentLang),
             ),
-            activeIcon: Badge(
-              smallSize: 8,
-              backgroundColor: AppColors.danger,
-              child: Icon(Icons.chat_bubble),
+            BottomNavigationBarItem(
+              icon: Badge(
+                smallSize: 8,
+                backgroundColor: AppColors.danger,
+                child: const Icon(Icons.chat_bubble_outline),
+              ),
+              activeIcon: Badge(
+                smallSize: 8,
+                backgroundColor: AppColors.danger,
+                child: const Icon(Icons.chat_bubble),
+              ),
+              label: AppTranslations.tr('nav_messages', currentLang),
             ),
-            label: 'Tin nhắn',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle, color: Color(0xFF155EEF), size: 28),
-            activeIcon: Icon(Icons.add_circle, color: Color(0xFF155EEF), size: 28),
-            label: 'Đăng bài',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.group_outlined),
-            activeIcon: Icon(Icons.group),
-            label: 'Tìm ở ghép',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Cá nhân',
-          ),
-        ],
+            BottomNavigationBarItem(
+              icon: Icon(Icons.add_circle, color: colors.primary, size: 28),
+              activeIcon: Icon(Icons.add_circle, color: colors.primary, size: 28),
+              label: AppTranslations.tr('nav_post', currentLang),
+            ),
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.group_outlined),
+              activeIcon: const Icon(Icons.group),
+              label: AppTranslations.tr('nav_roommate', currentLang),
+            ),
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.person_outline),
+              activeIcon: const Icon(Icons.person),
+              label: AppTranslations.tr('nav_profile', currentLang),
+            ),
+          ],
+        ),
       ),
     );
   }

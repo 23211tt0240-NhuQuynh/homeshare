@@ -1,16 +1,26 @@
+import 'host_main_screen.dart';
+import '../widgets/host_management_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_safe_image.dart';
 import '../../../data/models/room_model.dart';
 import '../providers/host_management_provider.dart';
 import '../widgets/host_room_widgets.dart';
 import 'host_create_screen.dart';
 import 'host_room_detail_screen.dart';
+import '../../auth/providers/user_provider.dart';
+import '../../profile/widgets/cccd_required_modal.dart';
 
 // Chủ trọ - Danh sách phòng cơ sở - Luồng đi: Quản lý phòng từ thẻ
 // nhà mở route này; lọc trạng thái, chọn phòng để mở chi tiết trực tiếp.
 class HostRoomListScreen extends ConsumerStatefulWidget {
-  const HostRoomListScreen({super.key, required this.propertyId});
+  const HostRoomListScreen({
+    super.key,
+    required this.propertyId,
+    this.onManagementSelected,
+  });
+  final ValueChanged<int>? onManagementSelected;
   final String propertyId;
   @override
   ConsumerState<HostRoomListScreen> createState() => _HostRoomListScreenState();
@@ -22,6 +32,15 @@ class _HostRoomListScreenState extends ConsumerState<HostRoomListScreen> {
   // Chủ trọ - Tạo phòng tại cơ sở - Luồng đi: Dấu cộng mở form tạo
   // chọn sẵn nhà; lưu xong trở lại danh sách đang giữ bộ lọc.
   Future<void> _createRoom() async {
+    final profile = ref.read(userProfileProvider).value;
+    if (profile?.isCccdVerified != true) {
+      await showCccdRequiredModal(
+        context,
+        isHost: true,
+        actionName: 'tạo phòng',
+      );
+      return;
+    }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => HostCreateScreen(
@@ -304,22 +323,13 @@ class _HostRoomListScreenState extends ConsumerState<HostRoomListScreen> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: SizedBox(
+                child: AppSafeImage(
+                  imageUrl: room.images.isNotEmpty ? room.images.first : '',
                   width: 64,
                   height: 64,
-                  child: room.images.isEmpty
-                      ? const Icon(Icons.image_outlined)
-                      : Image.network(
-                          room.images.first,
-                          webHtmlElementStrategy:
-                              WebHtmlElementStrategy.fallback,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const Tooltip(
-                            message:
-                                'Không tải được ảnh phòng. Kiểm tra kết nối hoặc cập nhật ảnh.',
-                            child: Icon(Icons.broken_image_outlined),
-                          ),
-                        ),
+                  fit: BoxFit.cover,
+                  fallbackIcon: Icons.image_outlined,
+                  iconSize: 28,
                 ),
               ),
               const SizedBox(width: 12),
@@ -395,87 +405,42 @@ class _HostRoomListScreenState extends ConsumerState<HostRoomListScreen> {
   );
 
   // Chủ trọ - Bottom nav cơ sở - Luồng đi: Dấu cộng tạo phòng thuộc
-  // nhà hiện tại; Quay lại/Thông tin chung về quản lý nhà, tab khác báo tạm.
-  Widget _navigation(bool canCreate) => Container(
-    color: Colors.white,
-    child: SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            _navButton(
-              Icons.home_outlined,
-              'Thông tin chung',
-              () => Navigator.of(context).pop(),
-              active: true,
-            ),
-            _navButton(
-              Icons.people_outline,
-              'QL người thuê',
-              () => _placeholder('Quản lý người thuê'),
-            ),
-            Expanded(
-              child: Center(
-                heightFactor: 1,
-                child: IconButton.filled(
-                  tooltip: 'Thêm phòng',
-                  style: IconButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    minimumSize: const Size(48, 48),
-                  ),
-                  onPressed: canCreate ? _createRoom : null,
-                  icon: const Icon(Icons.add, size: 28),
-                ),
-              ),
-            ),
-            _navButton(
-              Icons.account_balance_wallet_outlined,
-              'QL Tiền',
-              () => _placeholder('Quản lý tiền'),
-            ),
-            _navButton(
-              Icons.arrow_back,
-              'Quay lại',
-              () => Navigator.of(context).pop(),
-            ),
-          ],
-        ),
-      ),
-    ),
+  // nhà hiện tại; mở tab người thuê/tiền tệ trong khung quản lý.
+  Widget _navigation(bool canCreate) => HostManagementNavigation(
+    canCreate: canCreate,
+    createTooltip: 'Thêm phòng',
+    onSelected: (index) {
+      switch (index) {
+        case 0:
+        case 4:
+          Navigator.of(context).pop();
+          break;
+        case 1:
+          _openManagementTab(1);
+          break;
+        case 2:
+          _createRoom();
+          break;
+        case 3:
+          _openManagementTab(3);
+          break;
+      }
+    },
   );
-  Widget _navButton(
-    IconData icon,
-    String label,
-    VoidCallback onTap, {
-    bool active = false,
-  }) => Expanded(
-    child: InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: active ? AppColors.primary : AppColors.textSecondary,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 9,
-                color: active ? AppColors.primary : AppColors.textSecondary,
-              ),
-            ),
-          ],
+  void _openManagementTab(int index) {
+    final onSelected = widget.onManagementSelected;
+    if (onSelected != null) {
+      Navigator.of(context).pop();
+      onSelected(index);
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => HostMainScreen(initialManagementIndex: index),
         ),
-      ),
-    ),
-  );
+      );
+    }
+  }
+
   void _placeholder(String label) => ScaffoldMessenger.of(
     context,
   ).showSnackBar(SnackBar(content: Text('$label sẽ được bổ sung sau.')));

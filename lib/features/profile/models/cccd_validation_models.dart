@@ -64,6 +64,29 @@ class CccdImageEvidence {
     this.isDemo = false,
   });
 
+  CccdImageEvidence copyWith({
+    CccdImageSide? side,
+    String? normalizedOcrText,
+    String? qrPayload,
+    String? imageByteHash,
+    int? width,
+    int? height,
+    int? byteLength,
+    String? filePath,
+    bool? isDemo,
+  }) =>
+      CccdImageEvidence(
+        side: side ?? this.side,
+        normalizedOcrText: normalizedOcrText ?? this.normalizedOcrText,
+        qrPayload: qrPayload ?? this.qrPayload,
+        imageByteHash: imageByteHash ?? this.imageByteHash,
+        width: width ?? this.width,
+        height: height ?? this.height,
+        byteLength: byteLength ?? this.byteLength,
+        filePath: filePath ?? this.filePath,
+        isDemo: isDemo ?? this.isDemo,
+      );
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

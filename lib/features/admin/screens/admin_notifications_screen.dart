@@ -2,7 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class AdminNotificationsBottomSheet extends StatelessWidget {
-  final Function(String type, String? targetId)? onNavigateTarget;
+  final Function(String category, String type, String? targetId)?
+      onNavigateTarget;
 
   const AdminNotificationsBottomSheet({
     super.key,
@@ -16,7 +17,8 @@ class AdminNotificationsBottomSheet extends StatelessWidget {
 }
 
 class _AdminNotificationsContent extends StatefulWidget {
-  final Function(String type, String? targetId)? onNavigateTarget;
+  final Function(String category, String type, String? targetId)?
+      onNavigateTarget;
 
   const _AdminNotificationsContent({this.onNavigateTarget});
 
@@ -110,12 +112,15 @@ class _AdminNotificationsContentState
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.75,
+      width: double.infinity,
+      height: MediaQuery.of(context).size.height * 0.78,
       decoration: const BoxDecoration(
         color: Color(0xFFF7FAFC),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Column(
+      child: SafeArea(
+        top: false,
+        child: Column(
         children: [
           Container(
             width: 38,
@@ -254,6 +259,7 @@ class _AdminNotificationsContentState
                         unselectedLabelColor: const Color(0xFF667085),
                         indicatorColor: _primary,
                         indicatorWeight: 3,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 6),
                         tabs: categories.map((category) {
                           final count = allDocs.where((doc) {
                             return _category(doc.data() as Map<String, dynamic>) ==
@@ -261,20 +267,23 @@ class _AdminNotificationsContentState
                           }).length;
                           return Tab(
                             height: 48,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(icons[category], size: 16),
-                                const SizedBox(width: 5),
-                                Text(labels[category]!),
-                                if (count > 0) ...[
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    '$count',
-                                    style: const TextStyle(fontSize: 10),
-                                  ),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(icons[category], size: 16),
+                                  const SizedBox(width: 4),
+                                  Text(labels[category]!),
+                                  if (count > 0) ...[
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '$count',
+                                      style: const TextStyle(fontSize: 10),
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           );
                         }).toList(),
@@ -312,6 +321,7 @@ class _AdminNotificationsContentState
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -348,6 +358,7 @@ class _AdminNotificationsContentState
     final title = (data['title'] ?? 'Thông báo').toString();
     final body = (data['body'] ?? data['message'] ?? '').toString();
     final type = (data['notificationType'] ?? data['type'] ?? 'general').toString();
+    final category = _category(data);
     final targetId = (data['targetId'] ?? data['bookingId'])?.toString();
     final timestamp = data['createdAt'] as Timestamp?;
 
@@ -356,7 +367,7 @@ class _AdminNotificationsContentState
         if (!isRead) await _markAsRead(doc.id);
         if (!context.mounted) return;
         Navigator.pop(context);
-        widget.onNavigateTarget?.call(type, targetId);
+        widget.onNavigateTarget?.call(category, type, targetId);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

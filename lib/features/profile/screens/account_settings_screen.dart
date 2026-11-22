@@ -4,7 +4,6 @@ import 'package:home_share/features/profile/screens/personal_profile_screen.dart
 import '../../../core/constants/app_colors.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
-import '../../admin/screens/admin_main_screen.dart';
 import 'cccd_verification_screen.dart';
 
 class AccountSettingsScreen extends ConsumerWidget {
@@ -219,13 +218,6 @@ class AccountSettingsScreen extends ConsumerWidget {
             ),
             _buildDivider(),
             _buildSettingsItem(
-              icon: Icons.wb_sunny_outlined,
-              title: 'Giao diện',
-              trailingText: 'Sáng',
-              onTap: () {},
-            ),
-            _buildDivider(),
-            _buildSettingsItem(
               icon: Icons.help_outline,
               title: 'Trung tâm trợ giúp & FAQ',
               onTap: () {},
@@ -236,40 +228,7 @@ class AccountSettingsScreen extends ConsumerWidget {
               onTap: () {},
             ),
           ]),
-          const SizedBox(height: 20),
 
-          // Mục 4: QUẢN TRỊ HỆ THỐNG
-          _buildSectionHeader('QUẢN TRỊ HỆ THỐNG'),
-          _buildCardGroup([
-            _buildSettingsItem(
-              icon: Icons.admin_panel_settings_outlined,
-              title: 'Cổng Quản Trị Hệ Thống (Admin)',
-              subtitle: 'Tổng quan doanh thu, duyệt bài, giải ngân cọc',
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF155EEF),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Text(
-                  'Admin',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AdminMainScreen(),
-                  ),
-                );
-              },
-            ),
-          ]),
 
           const SizedBox(height: 24),
 

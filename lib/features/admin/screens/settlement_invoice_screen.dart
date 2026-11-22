@@ -35,10 +35,6 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
   Map<String, dynamic>? _hostProfile;
   bool _hostLoaded = false;
 
-  // Cho phép Admin nhập / đổi STK trực tiếp ngay trên màn hình hóa đơn
-  String? _customBankName;
-  String? _customAccountNo;
-
   @override
   void initState() {
     super.initState();
@@ -153,89 +149,111 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
         if (_hostProfile == null && !hasBank) {
           final hostName = (canonicalData['hostName'] ?? '').toString().trim();
           if (hostName.isNotEmpty) {
-            final query = await db
-                .collection('users')
-                .where('fullName', isEqualTo: hostName)
-                .limit(1)
-                .get();
-            if (query.docs.isNotEmpty) {
-              _hostProfile = query.docs.first.data();
-            } else {
-              final query2 = await db
+            for (final field in const [
+              'displayName',
+              'cccdFullName',
+              'fullName',
+              'name',
+            ]) {
+              final query = await db
                   .collection('users')
-                  .where('name', isEqualTo: hostName)
+                  .where(field, isEqualTo: hostName)
                   .limit(1)
                   .get();
-              if (query2.docs.isNotEmpty) {
-                _hostProfile = query2.docs.first.data();
+              if (query.docs.isNotEmpty) {
+                _hostProfile = query.docs.first.data();
+                hostIds.add(query.docs.first.id);
+                break;
               }
             }
           }
         }
 
         // bank_accounts là nguồn chuẩn và mới nhất cho tài khoản nhận tiền.
-        // Ưu tiên document id == userId, sau đó tra theo userId/hostId.
-        if (hostId.isNotEmpty) {
-          try {
-            final bankCollection = db.collection('bank_accounts');
-            Map<String, dynamic>? bankData;
-            for (final candidateId in hostIds) {
-              final bankById = await bankCollection.doc(candidateId).get();
-              if (bankById.exists) {
-                bankData = bankById.data();
+        // Ưu tiên document id == userId, sau đó tra theo userId/hostId hoặc accountHolder.
+        try {
+          final bankCollection = db.collection('bank_accounts');
+          Map<String, dynamic>? bankData;
+          for (final candidateId in hostIds) {
+            final bankById = await bankCollection.doc(candidateId).get();
+            if (bankById.exists) {
+              bankData = bankById.data();
+            } else {
+              final byUserId = await bankCollection
+                  .where('userId', isEqualTo: candidateId)
+                  .limit(1)
+                  .get();
+              if (byUserId.docs.isNotEmpty) {
+                bankData = byUserId.docs.first.data();
               } else {
-                final byUserId = await bankCollection
-                    .where('userId', isEqualTo: candidateId)
+                final byHostId = await bankCollection
+                    .where('hostId', isEqualTo: candidateId)
                     .limit(1)
                     .get();
-                if (byUserId.docs.isNotEmpty) {
-                  bankData = byUserId.docs.first.data();
-                } else {
-                  final byHostId = await bankCollection
-                      .where('hostId', isEqualTo: candidateId)
-                      .limit(1)
-                      .get();
-                  if (byHostId.docs.isNotEmpty) {
-                    bankData = byHostId.docs.first.data();
-                  }
+                if (byHostId.docs.isNotEmpty) {
+                  bankData = byHostId.docs.first.data();
                 }
               }
-              final hasAccountNumber = _pick(
-                [bankData],
-                ['accountNumber', 'bankAccountNumber'],
-              ).isNotEmpty;
-              if (hasAccountNumber) break;
             }
-            if (bankData != null) {
-              _hostProfile = {
-                ...(_hostProfile ?? {}),
-                'accountNumber': _pick(
-                  [bankData, _hostProfile],
-                  [
-                    'accountNumber',
-                    'bankAccountNumber',
-                    'hostAccountNumber',
-                    'soTaiKhoan',
-                    'stk',
-                  ],
-                ),
-                'bankName': _pick(
-                  [bankData, _hostProfile],
-                  ['bankName', 'hostBankName', 'nganHang', 'tenNganHang'],
-                ),
-                'bankCode': _pick(
-                  [bankData, _hostProfile],
-                  ['bankCode', 'hostBankCode'],
-                ),
-                'accountHolder': _pick(
-                  [bankData, _hostProfile],
-                  ['accountHolder', 'accountName', 'hostAccountHolder'],
-                ),
-              };
-            }
-          } catch (e) {
-            debugPrint('Fallback bank_accounts read error: $e');
+            final hasAccountNumber = _pick(
+              [bankData],
+              ['accountNumber', 'bankAccountNumber'],
+            ).isNotEmpty;
+            if (hasAccountNumber) break;
           }
+          if (bankData == null) {
+            final hostName = _pick(
+              [_hostProfile, canonicalData],
+              ['displayName', 'cccdFullName', 'fullName', 'name', 'hostName'],
+            );
+            if (hostName.isNotEmpty) {
+              final byHolder = await bankCollection
+                  .where('accountHolder', isEqualTo: hostName)
+                  .limit(1)
+                  .get();
+              if (byHolder.docs.isNotEmpty) {
+                bankData = byHolder.docs.first.data();
+              }
+            }
+          }
+          if (bankData != null) {
+            final resolvedAcc = _pick(
+              [bankData, _hostProfile],
+              [
+                'accountNumber',
+                'bankAccountNumber',
+                'hostAccountNumber',
+                'soTaiKhoan',
+                'stk',
+              ],
+            );
+            final resolvedBank = _pick(
+              [bankData, _hostProfile],
+              ['bankName', 'hostBankName', 'nganHang', 'tenNganHang'],
+            );
+            final resolvedCode = _pick(
+              [bankData, _hostProfile],
+              ['bankCode', 'hostBankCode'],
+            );
+            final resolvedHolder = _pick(
+              [bankData, _hostProfile],
+              ['accountHolder', 'accountName', 'hostAccountHolder'],
+            );
+            _hostProfile = {
+              ...(_hostProfile ?? {}),
+              'accountNumber': resolvedAcc,
+              'bankAccountNumber': resolvedAcc,
+              'hostAccountNumber': resolvedAcc,
+              'bankName': resolvedBank,
+              'hostBankName': resolvedBank,
+              'bankCode': resolvedCode,
+              'hostBankCode': resolvedCode,
+              'accountHolder': resolvedHolder,
+              'hostAccountHolder': resolvedHolder,
+            };
+          }
+        } catch (e) {
+          debugPrint('Fallback bank_accounts read error: $e');
         }
       }
     } catch (e) {
@@ -256,20 +274,6 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
     }
     return '';
   }
-
-  // Danh sách ngân hàng phổ biến để Admin chọn nhanh bằng Chip
-  static const List<Map<String, String>> _popularBanks = [
-    {'code': 'MB', 'name': 'MBBank'},
-    {'code': 'VCB', 'name': 'Vietcombank'},
-    {'code': 'TCB', 'name': 'Techcombank'},
-    {'code': 'ACB', 'name': 'ACB'},
-    {'code': 'BIDV', 'name': 'BIDV'},
-    {'code': 'ICB', 'name': 'VietinBank'},
-    {'code': 'VPB', 'name': 'VPBank'},
-    {'code': 'TPB', 'name': 'TPBank'},
-    {'code': 'STB', 'name': 'Sacombank'},
-    {'code': 'VBA', 'name': 'Agribank'},
-  ];
 
   // Mã ngân hàng cho VietQR. Không nhận diện được -> null (KHÔNG đoán, tránh QR sai ngân hàng).
   static const Map<String, List<String>> _bankAliases = {
@@ -293,6 +297,11 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
     'LPB': ['lpb', 'lpbank', 'lienvietpostbank', 'buu dien lien viet'],
     'TIMO': ['timo'],
     'CAKE': ['cake'],
+    'SEAB': ['seab', 'seabank', 'dong nam a'],
+    'NAB': ['nab', 'nam a', 'namabank'],
+    'BVB': ['bvb', 'bao viet', 'ban viet', 'vietcapital'],
+    'ABB': ['abb', 'abbank', 'an binh'],
+    'BAB': ['bab', 'bac a', 'bacabank'],
   };
 
   static const Map<String, String> _bankBins = {
@@ -314,6 +323,13 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
     'EIB': '970431',
     'SCB': '970429',
     'LPB': '970449',
+    'SEAB': '970440',
+    'NAB': '970428',
+    'BVB': '970438',
+    'ABB': '970425',
+    'BAB': '970409',
+    'TIMO': '963388',
+    'CAKE': '546034',
   };
 
   String? _vietQrBankCode(String bankName) {
@@ -322,7 +338,12 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
     for (final e in _bankAliases.entries) {
       if (n == e.key.toLowerCase()) return e.key;
       for (final a in e.value) {
-        if (n == a || n == '${a}bank') return e.key;
+        final cleanAlias = a.replaceAll(RegExp(r'[^a-z0-9]'), '');
+        if (n == cleanAlias ||
+            n == '${cleanAlias}bank' ||
+            (cleanAlias.length >= 3 && n.contains(cleanAlias))) {
+          return e.key;
+        }
       }
     }
     return null;
@@ -341,246 +362,6 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
       buf.write(idx >= 0 ? to[idx] : ch);
     }
     return buf.toString();
-  }
-
-  void _openEditBankDialog({
-    required String currentBankName,
-    required String currentAccountNo,
-    required String hostId,
-  }) {
-    final bankCtrl = TextEditingController(text: currentBankName);
-    final accountCtrl = TextEditingController(text: currentAccountNo);
-    String? selectedCode = _vietQrBankCode(currentBankName);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (modalCtx, setModalState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 20,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Cập nhật tài khoản nhận tiền',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF101828),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.close_rounded,
-                            size: 20,
-                            color: Color(0xFF667085),
-                          ),
-                          onPressed: () => Navigator.pop(ctx),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Nhập ngân hàng và số tài khoản để tạo VietQR. Không cần nhập tên; app ngân hàng sẽ hiện người nhận khi quét.',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: Color(0xFF667085),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Quick Bank Selection Chips
-                    const Text(
-                      'Chọn ngân hàng phổ biến:',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF344054),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _popularBanks.map((b) {
-                        final isSelected = selectedCode == b['code'];
-                        return ChoiceChip(
-                          label: Text(
-                            b['name']!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              color: isSelected
-                                  ? Colors.white
-                                  : const Color(0xFF344054),
-                            ),
-                          ),
-                          selected: isSelected,
-                          selectedColor: const Color(0xFF398FC0),
-                          backgroundColor: const Color(0xFFEAF4FA),
-                          showCheckmark: false,
-                          onSelected: (val) {
-                            if (val) {
-                              setModalState(() {
-                                selectedCode = b['code']!;
-                                bankCtrl.text = b['name']!;
-                              });
-                            }
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Bank Name Field
-                    TextField(
-                      controller: bankCtrl,
-                      decoration: InputDecoration(
-                        labelText: 'Tên ngân hàng / Mã NH',
-                        hintText: 'VD: MBBank, Vietcombank, Techcombank...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                      ),
-                      onChanged: (v) {
-                        final code = _vietQrBankCode(v);
-                        setModalState(() => selectedCode = code);
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Account No Field
-                    TextField(
-                      controller: accountCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: 'Số tài khoản (STK)',
-                        hintText: 'Nhập số tài khoản ngân hàng',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    const SizedBox(height: 8),
-
-                    // Save Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.qr_code_2_rounded, size: 20),
-                        label: const Text(
-                          'LƯU & TẠO MÃ VIETQR NGAY',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF398FC0),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        onPressed: () async {
-                          final bank = bankCtrl.text.trim();
-                          final acc = accountCtrl.text.trim();
-
-                          if (bank.isEmpty ||
-                              acc.isEmpty ||
-                              selectedCode == null) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Chọn đúng ngân hàng trong danh sách và nhập số tài khoản',
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-
-                          setState(() {
-                            _customBankName = bank;
-                            _customAccountNo = acc;
-                          });
-
-                          // Lưu vào Firestore trong nền để các lần sau không cần nhập lại
-                          try {
-                            final db = FirebaseFirestore.instance;
-                            if (hostId.isNotEmpty) {
-                              await db.collection('users').doc(hostId).set({
-                                'bankName': bank,
-                                'bankCode': selectedCode,
-                                'bankAccountNumber': acc,
-                                'accountNumber': acc,
-                                'updatedAt': FieldValue.serverTimestamp(),
-                              }, SetOptions(merge: true));
-                            }
-                            // Cập nhật cả trên các booking đã chọn
-                            for (final bId in widget.selectedBookingIds) {
-                              await db.collection('bookings').doc(bId).set({
-                                'hostBankName': bank,
-                                'hostBankCode': selectedCode,
-                                'hostAccountNumber': acc,
-                              }, SetOptions(merge: true));
-                            }
-                          } catch (e) {
-                            debugPrint('Failed to persist bank info: $e');
-                          }
-
-                          if (ctx.mounted) {
-                            Navigator.pop(ctx);
-                          }
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                backgroundColor: Color(0xFF12B76A),
-                                content: Text(
-                                  'Đã cập nhật STK và tạo mã QR thành công!',
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
   }
 
   // Hỏi xác nhận trước khi ghi sổ (không thể hoàn tác)
@@ -639,6 +420,17 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
     );
   }
 
+  bool _isTransientFirestoreError(Object error) {
+    if (error is FirebaseException) {
+      final code = error.code.toLowerCase();
+      if (code == 'unavailable' || code == 'deadline-exceeded') return true;
+    }
+    final msg = error.toString().toLowerCase();
+    return msg.contains('unavailable') ||
+        msg.contains('shutdownnow') ||
+        msg.contains('channel shutdown');
+  }
+
   // Ghi sổ giải ngân (transaction: chặn giải ngân trùng nếu đơn đã được xử lý ở nơi khác)
   Future<void> _processDisbursement({
     required List<Map<String, dynamic>> items,
@@ -665,94 +457,126 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
           '#REC-${DateFormat('yyyyMMdd-HHmmss').format(now)}-${disbursementRef.id.substring(0, 4).toUpperCase()}';
       final actorFields = await AdminAuditIdentity.currentActorFields();
 
-      await db.runTransaction((tx) async {
-        // Đọc & kiểm tra tất cả đơn trước khi ghi
-        for (final item in items) {
-          final ref = db.collection('bookings').doc(item['docId'] as String);
-          final snap = await tx.get(ref);
-          if (!snap.exists) {
-            throw Exception('Đơn ${item['orderCode']} không còn tồn tại');
-          }
-          final booking = BookingUtils.canonical(snap.data() ?? {});
-          final st = BookingUtils.uiStatus(booking);
-          final isDisbursed = BookingUtils.isDisbursed(booking);
-          if (isDisbursed ||
-              booking['isCheckIn'] != true ||
-              (st != BookingUtils.statusDepositPaid &&
-                  st != BookingUtils.statusCompleted)) {
-            throw Exception(
-              'Đơn ${item['orderCode']} đã giải ngân hoặc chưa đủ điều kiện',
-            );
-          }
-        }
+      final disbursementPayload = {
+        'receiptCode': receiptCode,
+        'hostId': hostId,
+        'hostName': hostName,
+        if (_hostProfile?['hostIndex'] != null)
+          'hostIndex': _hostProfile!['hostIndex'],
+        'hostBankName': bankName,
+        'hostBankCode': bankCode,
+        'hostAccountHolder': accountHolder,
+        'hostAccountNumber': accountNo,
+        'totalDeposit': totalDeposit,
+        'platformFee': platformFee,
+        'platformFeeRate': totalDeposit == 0
+            ? commissionRate * 100
+            : platformFee / totalDeposit * 100,
+        'totalAmount': netSettlement,
+        'netAmount': netSettlement,
+        'itemCount': items.length,
+        'bookingIds': items.map((e) => e['docId']).toList(),
+        'bookingDetails': items
+            .map(
+              (item) => {
+                'bookingId': item['docId'],
+                'orderCode': item['orderCode'] ?? item['rawOrderCode'],
+                if (item['hostIndex'] != null)
+                  'hostIndex': item['hostIndex'],
+                'amount': (item['amount'] as num).round(),
+                'platformFee': (item['fee'] as num).round(),
+                'platformFeeRate':
+                    ((item['commissionRate'] as num).toDouble()) * 100,
+                'netAmount': (item['net'] as num).round(),
+              },
+            )
+            .toList(),
+        'status': 'completed',
+        'disbursedAt': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+      };
 
+      final auditPayload = {
+        ...actorFields,
+        'action': 'Duyệt giải ngân cọc',
+        'details':
+            'Admin xác nhận đã chuyển ${currencyFormatter.format(netSettlement)} đ '
+            'cho chủ trọ $hostName ($bankName - $accountNo), ${items.length} đơn. Mã $receiptCode',
+        'target': 'Giải ngân ${disbursementRef.id}',
+        'category': 'taiChinh',
+        'createdAt': FieldValue.serverTimestamp(),
+        'title': 'Duyệt Giải Ngân Cọc $receiptCode',
+        'subtitle':
+            'Chuyển ${currencyFormatter.format(netSettlement)} đ ➔ Chủ trọ $hostName',
+        'amount': netSettlement,
+        'code': receiptCode,
+        'timestamp': FieldValue.serverTimestamp(),
+      };
+
+      try {
+        await db.runTransaction((tx) async {
+          // Đọc & kiểm tra tất cả đơn trước khi ghi
+          for (final item in items) {
+            final ref = db.collection('bookings').doc(item['docId'] as String);
+            final snap = await tx.get(ref);
+            if (!snap.exists) {
+              throw Exception('Đơn ${item['orderCode']} không còn tồn tại');
+            }
+            final booking = BookingUtils.canonical(snap.data() ?? {});
+            final st = BookingUtils.uiStatus(booking);
+            final isDisbursed = BookingUtils.isDisbursed(booking);
+            if (isDisbursed ||
+                booking['isCheckIn'] != true ||
+                (st != BookingUtils.statusDepositPaid &&
+                    st != BookingUtils.statusCompleted)) {
+              throw Exception(
+                'Đơn ${item['orderCode']} đã giải ngân hoặc chưa đủ điều kiện',
+              );
+            }
+          }
+
+          for (final item in items) {
+            final ref = db.collection('bookings').doc(item['docId'] as String);
+            tx.update(ref, {
+              'isDisbursed': true,
+              'disbursedAt': FieldValue.serverTimestamp(),
+              'disbursementId': disbursementRef.id,
+              'subTag': 'Đã giải ngân',
+              'platformFee': (item['fee'] as num).round(),
+              'platformFeeRate':
+                  ((item['commissionRate'] as num).toDouble()) * 100,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+          }
+
+          tx.set(disbursementRef, disbursementPayload);
+          tx.set(auditLogRef, auditPayload);
+        });
+      } catch (txError) {
+        if (!_isTransientFirestoreError(txError)) rethrow;
+        try {
+          await db.enableNetwork();
+        } catch (_) {}
+        await Future<void>.delayed(const Duration(milliseconds: 450));
+
+        final batch = db.batch();
         for (final item in items) {
           final ref = db.collection('bookings').doc(item['docId'] as String);
-          tx.update(ref, {
+          batch.update(ref, {
             'isDisbursed': true,
             'disbursedAt': FieldValue.serverTimestamp(),
             'disbursementId': disbursementRef.id,
+            'subTag': 'Đã giải ngân',
             'platformFee': (item['fee'] as num).round(),
             'platformFeeRate':
                 ((item['commissionRate'] as num).toDouble()) * 100,
             'updatedAt': FieldValue.serverTimestamp(),
           });
         }
-
-        tx.set(disbursementRef, {
-          'receiptCode': receiptCode,
-          'hostId': hostId,
-          'hostName': hostName,
-          'hostBankName': bankName,
-          'hostBankCode': bankCode,
-          'hostAccountHolder': accountHolder,
-          'hostAccountNumber': accountNo,
-          'totalDeposit': totalDeposit,
-          'platformFee': platformFee,
-          'platformFeeRate': totalDeposit == 0
-              ? commissionRate * 100
-              : platformFee / totalDeposit * 100,
-          'totalAmount': netSettlement,
-          'netAmount': netSettlement,
-          'itemCount': items.length,
-          'bookingIds': items.map((e) => e['docId']).toList(),
-          'bookingDetails': items
-              .map(
-                (item) => {
-                  'bookingId': item['docId'],
-                  'orderCode': item['rawOrderCode'] ?? item['orderCode'],
-                  'amount': (item['amount'] as num).round(),
-                  'platformFee': (item['fee'] as num).round(),
-                  'platformFeeRate':
-                      ((item['commissionRate'] as num).toDouble()) * 100,
-                  'netAmount': (item['net'] as num).round(),
-                },
-              )
-              .toList(),
-          'status': 'completed',
-          'disbursedAt': FieldValue.serverTimestamp(),
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-
-        // Nhật ký kiểm toán — ghi đủ cả hai bộ trường đang dùng trong app
-        // (xem ghi chú: cần thống nhất khi có admin_history_screen.dart)
-        tx.set(auditLogRef, {
-          ...actorFields,
-          'action': 'Duyệt giải ngân cọc',
-          'details':
-              'Admin xác nhận đã chuyển ${currencyFormatter.format(netSettlement)} đ '
-              'cho chủ trọ $hostName ($bankName - $accountNo), ${items.length} đơn. Mã $receiptCode',
-          'target': 'Giải ngân ${disbursementRef.id}',
-          'category': 'taiChinh',
-          'createdAt': FieldValue.serverTimestamp(),
-          'title': 'Duyệt Giải Ngân Cọc $receiptCode',
-          'subtitle':
-              'Chuyển ${currencyFormatter.format(netSettlement)} đ ➔ Chủ trọ $hostName',
-          'amount': netSettlement,
-          'code': receiptCode,
-          'timestamp': FieldValue.serverTimestamp(),
-        });
-      });
+        batch.set(disbursementRef, disbursementPayload);
+        batch.set(auditLogRef, auditPayload);
+        await batch.commit();
+      }
 
       if (mounted) {
         setState(() => _isProcessing = false);
@@ -863,30 +687,14 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
               totalDeposit += amount;
               platformFee += fee;
 
-              String displayCode = (data['userCode'] ?? '').toString().trim();
-              if (displayCode.isEmpty) {
-                final raw =
-                    (data['orderCode'] ?? data['transferNote'] ?? doc.id)
-                        .toString()
-                        .trim();
-                if (raw.contains('_')) {
-                  displayCode = '#${raw.split('_').last}';
-                } else if (raw.length > 8) {
-                  displayCode =
-                      '#${raw.substring(raw.length - 6).toUpperCase()}';
-                } else {
-                  displayCode = raw.startsWith('#') ? raw : '#$raw';
-                }
-              } else {
-                displayCode = displayCode.startsWith('#')
-                    ? displayCode
-                    : '#$displayCode';
-              }
+              // Lấy trực tiếp 4 ký tự đuôi định danh đơn (ví dụ: "KbE1") từ mã đơn/phòng
+              final String displayCode = BookingUtils.shortCode(data, doc.id);
 
               settlementItems.add({
                 'docId': doc.id,
                 'orderCode': displayCode,
-                'rawOrderCode': (data['orderCode'] ?? '').toString(),
+                'rawOrderCode': displayCode,
+                'hostIndex': data['hostIndex'] ?? _hostProfile?['hostIndex'],
                 'renterName': (data['renterName'] ?? 'Khách thuê').toString(),
                 'roomCode': (data['roomTitle'] ?? 'Phòng trọ').toString(),
                 'itemType': (data['note'] ?? 'Tiền cọc • Đặt cọc giữ phòng')
@@ -951,22 +759,12 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
               );
             }
 
-            // Thông tin chủ trọ & tài khoản nhận tiền (ưu tiên dữ liệu nhập tay của admin, dữ liệu trên đơn, sau đó hồ sơ users)
+            // Thông tin chủ trọ & tài khoản nhận tiền (lấy từ hồ sơ chủ trọ & dữ liệu đơn)
             final sources = <Map<String, dynamic>?>[
-              if (_customBankName != null || _customAccountNo != null)
-                {
-                  'bankName': _customBankName,
-                  'accountNumber': _customAccountNo,
-                },
               firstBooking,
               _hostProfile,
             ];
             final bankSources = <Map<String, dynamic>?>[
-              if (_customBankName != null || _customAccountNo != null)
-                {
-                  'bankName': _customBankName,
-                  'accountNumber': _customAccountNo,
-                },
               _hostProfile,
               firstBooking,
             ];
@@ -1048,7 +846,10 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
             }
 
             String shortItemCode(Map<String, dynamic> item, {int maxLen = 4}) {
-              final rawOrder = (item['rawOrderCode'] ?? '').toString().trim();
+              var rawOrder = (item['rawOrderCode'] ?? item['orderCode'] ?? '').toString().trim();
+              if (rawOrder.contains('-')) {
+                rawOrder = rawOrder.split('-').last.trim();
+              }
               final docId = (item['docId'] ?? '').toString().trim();
               final raw = (rawOrder.isNotEmpty ? rawOrder : docId).toUpperCase();
               if (raw.contains('_')) {
@@ -1203,41 +1004,6 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                                   color: hasAccount
                                       ? const Color(0xFF667085)
                                       : const Color(0xFFB42318),
-                                ),
-                              ),
-                            ),
-                            InkWell(
-                              onTap: () => _openEditBankDialog(
-                                currentBankName: bankName,
-                                currentAccountNo: accountNo,
-                                hostId: hostId,
-                              ),
-                              borderRadius: BorderRadius.circular(6),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      hasAccount
-                                          ? Icons.edit_rounded
-                                          : Icons.add_rounded,
-                                      size: 14,
-                                      color: const Color(0xFF398FC0),
-                                    ),
-                                    const SizedBox(width: 2),
-                                    Text(
-                                      hasAccount ? 'Đổi STK' : 'Nhập STK',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF398FC0),
-                                      ),
-                                    ),
-                                  ],
                                 ),
                               ),
                             ),
@@ -1660,51 +1426,13 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                                         const SizedBox(height: 6),
                                         Text(
                                           !hasAccount
-                                              ? 'Chưa có số tài khoản của chủ trọ'
-                                              : 'Chưa nhận diện được ngân hàng. Hãy chọn ngân hàng đúng để tạo VietQR.',
+                                              ? 'Chủ trọ chưa cập nhật số tài khoản nhận tiền'
+                                              : 'Chưa nhận diện được ngân hàng của chủ trọ để tạo VietQR.',
                                           textAlign: TextAlign.center,
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.bold,
                                             color: Color(0xFFB42318),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        ElevatedButton.icon(
-                                          onPressed: () => _openEditBankDialog(
-                                            currentBankName: bankName,
-                                            currentAccountNo: accountNo,
-                                            hostId: hostId,
-                                          ),
-                                          icon: const Icon(
-                                            Icons.edit_rounded,
-                                            size: 14,
-                                          ),
-                                          label: Text(
-                                            hasAccount
-                                                ? 'Chọn ngân hàng / sửa STK'
-                                                : 'Nhập STK tạo QR ngay',
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(
-                                              0xFF398FC0,
-                                            ),
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 6,
-                                            ),
-                                            minimumSize: Size.zero,
-                                            tapTargetSize: MaterialTapTargetSize
-                                                .shrinkWrap,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
                                           ),
                                         ),
                                       ],
@@ -1742,34 +1470,6 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          TextButton.icon(
-                            onPressed: () => _openEditBankDialog(
-                              currentBankName: bankName,
-                              currentAccountNo: accountNo,
-                              hostId: hostId,
-                            ),
-                            icon: const Icon(
-                              Icons.edit_note_rounded,
-                              size: 16,
-                              color: Color(0xFF667085),
-                            ),
-                            label: const Text(
-                              'Đổi tài khoản nhận tiền khác',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                color: Color(0xFF667085),
-                              ),
-                            ),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                          ),
                         ],
                       ],
                     ),
@@ -1789,11 +1489,11 @@ class _SettlementInvoiceScreenState extends State<SettlementInvoiceScreen> {
                     ),
                   if (!hasAccount || bankBin == null)
                     Padding(
-                      padding: EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.only(bottom: 10),
                       child: Text(
                         !hasAccount
-                            ? 'Chủ trọ chưa có số tài khoản nhận tiền, chưa thể xác nhận chuyển khoản.'
-                            : 'Ngân hàng chưa được nhận diện; hãy cập nhật và chọn ngân hàng đúng trước khi xác nhận.',
+                            ? 'Chủ trọ chưa có số tài khoản nhận tiền, chưa thể tạo mã QR và xác nhận chuyển khoản.'
+                            : 'Ngân hàng của chủ trọ chưa hợp lệ để tạo mã QR chuyển khoản.',
                         style: const TextStyle(
                           fontSize: 11.5,
                           color: Color(0xFFB42318),

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// Bảng tra cứu 63 mã Tỉnh / Thành phố trên thẻ CCCD Việt Nam
 const Map<String, String> kCccdProvinceCodes = {
   '001': 'TP. Hà Nội',
@@ -136,17 +138,125 @@ class CccdData {
     return null;
   }
 
+  /// Bảng ánh xạ ngược các ký tự Windows-1252 (0x80..0x9F) về byte gốc
+  static const Map<int, int> _cp1252ToByte = {
+    0x20AC: 0x80,
+    0x201A: 0x82,
+    0x0192: 0x83,
+    0x201E: 0x84,
+    0x2026: 0x85,
+    0x2020: 0x86,
+    0x2021: 0x87,
+    0x02C6: 0x88,
+    0x2030: 0x89,
+    0x0160: 0x8A,
+    0x2039: 0x8B,
+    0x0152: 0x8C,
+    0x017D: 0x8E,
+    0x2018: 0x91,
+    0x2019: 0x92,
+    0x201C: 0x93,
+    0x201D: 0x94,
+    0x2022: 0x95,
+    0x2013: 0x96,
+    0x2014: 0x97,
+    0x02DC: 0x98,
+    0x2122: 0x99,
+    0x0161: 0x9A,
+    0x203A: 0x9B,
+    0x0153: 0x9C,
+    0x017E: 0x9E,
+    0x0178: 0x9F,
+  };
+
+  /// Khôi phục chuỗi tiếng Việt UTF-8 bị lỗi font (mojibake) do giải mã nhầm theo chuẩn Latin-1 / Windows-1252
+  /// Ví dụ: "LÃª VÄƒn Tháº¿" -> "Lê Văn Thế"
+  static String fixMojibake(String input) {
+    if (input.isEmpty) return input;
+    var current = input;
+
+    for (var pass = 0; pass < 2; pass++) {
+      final bytes = <int>[];
+      var canConvert = true;
+      var hasHighByte = false;
+
+      for (final rune in current.runes) {
+        if (rune <= 0xFF) {
+          bytes.add(rune);
+          if (rune >= 0x80) hasHighByte = true;
+        } else {
+          final mapped = _cp1252ToByte[rune];
+          if (mapped != null) {
+            bytes.add(mapped);
+            hasHighByte = true;
+          } else {
+            canConvert = false;
+            break;
+          }
+        }
+      }
+
+      if (!canConvert || !hasHighByte) break;
+
+      try {
+        final decoded = utf8.decode(bytes, allowMalformed: false);
+        if (decoded == current) break;
+        current = decoded;
+      } catch (_) {
+        break;
+      }
+    }
+
+    return current;
+  }
+
+  /// Giải mã chuỗi QR từ Barcode (kết hợp rawBytes và rawValue, tự động sửa lỗi mojibake tiếng Việt)
+  static String decodeBarcodeString({
+    String? rawValue,
+    List<int>? rawBytes,
+  }) {
+    String candidate = '';
+
+    if (rawBytes != null && rawBytes.isNotEmpty) {
+      try {
+        final decoded = utf8.decode(rawBytes, allowMalformed: false);
+        if (decoded.trim().isNotEmpty) {
+          candidate = fixMojibake(decoded);
+        }
+      } catch (_) {
+        try {
+          final decoded = utf8.decode(rawBytes, allowMalformed: true);
+          if (decoded.trim().isNotEmpty) {
+            candidate = fixMojibake(decoded);
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (candidate.trim().isEmpty && rawValue != null && rawValue.isNotEmpty) {
+      candidate = fixMojibake(rawValue);
+    } else if (rawValue != null && rawValue.isNotEmpty) {
+      final fixedRawValue = fixMojibake(rawValue);
+      if (candidate.contains('\uFFFD') && !fixedRawValue.contains('\uFFFD')) {
+        candidate = fixedRawValue;
+      }
+    }
+
+    return candidate.trim().replaceAll('\uFEFF', '');
+  }
+
   /// Phân tích cú pháp chuẩn mã QR CCCD gắn chip Bộ Công An:
   /// Chuỗi: Số_CCCD|Số_CMND_cũ|Họ_và_tên|Ngày_sinh(ddMMyyyy)|Giới_tính|Địa_chỉ|Ngày_cấp(ddMMyyyy)
   factory CccdData.fromQrString(String raw) {
-    final parts = raw.split('|');
+    final normalizedRaw = fixMojibake(raw).trim().replaceAll('\uFEFF', '');
+    final parts = normalizedRaw.split('|');
     if (parts.length >= 6) {
       final idNum = parts[0].trim();
       final oldId = parts[1].trim();
-      final name = parts[2].trim();
+      final name = fixMojibake(parts[2].trim());
       final rawDob = parts[3].trim();
-      final genderVal = parts[4].trim();
-      final addr = parts[5].trim();
+      final genderVal = fixMojibake(parts[4].trim());
+      final addr = fixMojibake(parts[5].trim());
       final rawIssue = parts.length > 6 ? parts[6].trim() : '';
 
       String formatDate(String rawDate) {
@@ -192,14 +302,40 @@ class CccdData {
     }
 
     return const CccdData(
-      idNumber: '079201012345',
-      fullName: 'CHỦ THẺ CCCD',
-      birthDate: '15/08/2001',
-      gender: 'Nam',
-      address: 'TP. Hồ Chí Minh',
-      issueDate: '25/12/2021',
+      idNumber: '',
+      fullName: '',
+      birthDate: '',
+      gender: '',
+      address: '',
+      issueDate: '',
     );
   }
+
+  /// Chuyển thành chuỗi QR định dạng 7 trường chuẩn CCCD gắn chip
+  String toQrString() {
+    String stripSlash(String d) => d.replaceAll('/', '');
+    return '$idNumber|$oldCmnd|$fullName|${stripSlash(birthDate)}|$gender|$address|${stripSlash(issueDate)}';
+  }
+
+  Map<String, dynamic> toMap() => {
+        'idNumber': idNumber,
+        'oldCmnd': oldCmnd,
+        'fullName': fullName,
+        'birthDate': birthDate,
+        'gender': gender,
+        'address': address,
+        'issueDate': issueDate,
+      };
+
+  factory CccdData.fromMap(Map<String, dynamic> map) => CccdData(
+        idNumber: (map['idNumber'] ?? '').toString(),
+        oldCmnd: (map['oldCmnd'] ?? '').toString(),
+        fullName: fixMojibake((map['fullName'] ?? '').toString()),
+        birthDate: (map['birthDate'] ?? '').toString(),
+        gender: fixMojibake((map['gender'] ?? '').toString()),
+        address: fixMojibake((map['address'] ?? '').toString()),
+        issueDate: (map['issueDate'] ?? '').toString(),
+      );
 
   @override
   bool operator ==(Object other) =>

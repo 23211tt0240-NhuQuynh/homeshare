@@ -264,24 +264,90 @@ class BookingUtils {
     return 0.0;
   }
 
+  static double _firstPositive(List<dynamic> values) {
+    for (final v in values) {
+      final d = _toDouble(v);
+      if (d > 0) return d;
+    }
+    return 0.0;
+  }
+
+  /// Lấy 4 ký tự đuôi định danh đơn từ transferNote ("3-YUKL" -> "YUKL") hoặc mã đơn/phòng ("DP_..._...KbE1_NT836" -> "KbE1")
+  /// Không cần lưu trường `orderCode` riêng trên Firestore.
+  static String shortCode(Map<String, dynamic> data, [String? fallbackDocId]) {
+    // 1. Nếu đơn mới đã có transferNote dạng "<hostIndex>-<4 ký tự>" (ví dụ: "3-YUKL") do bên tạo đơn lưu
+    final transferNote = (data['transferNote'] ?? data['ghiChuChuyenKhoan'] ?? '')
+        .toString()
+        .trim();
+    final tnMatch = RegExp(r'^\d+\s*-\s*([A-Za-z0-9]{3,6})$').firstMatch(transferNote);
+    if (tnMatch != null) {
+      final code = tnMatch.group(1)!;
+      return code.length > 4 ? code.substring(code.length - 4) : code;
+    }
+
+    // 2. Lấy 4 ký tự đuôi từ ID đơn chuẩn: DP_<YYYYMMDD>_<mã phòng/đơn>_<NTxxx>
+    final docId = (fallbackDocId ??
+            data['id'] ??
+            data['bookingId'] ??
+            data['bookingCode'] ??
+            '')
+        .toString()
+        .trim();
+
+    if (docId.contains('_')) {
+      final parts = docId.split('_');
+      for (var i = 2; i < parts.length - 1; i++) {
+        final p = parts[i].trim();
+        if (p.length >= 4 && !RegExp(r'^20\d{6}$').hasMatch(p)) {
+          return p.substring(p.length - 4);
+        }
+      }
+      for (final p in parts.reversed) {
+        final clean = p.trim();
+        if (clean.length >= 4 &&
+            clean.toUpperCase() != 'DP' &&
+            !RegExp(r'^20\d{6}$').hasMatch(clean) &&
+            !RegExp(r'^(NT|CT)\d+$', caseSensitive: false).hasMatch(clean)) {
+          return clean.substring(clean.length - 4);
+        }
+      }
+    }
+
+    final roomId = (data['roomId'] ?? data['phongId'] ?? '').toString().trim();
+    if (roomId.length >= 4) {
+      return roomId.substring(roomId.length - 4);
+    }
+
+    if (docId.length >= 4) {
+      return docId.substring(docId.length - 4);
+    }
+    return docId;
+  }
+
   /// Số tiền đã thanh toán của đơn; đơn trả hết dùng tổng thanh toán,
-  /// đơn cọc dùng tiền cọc.
+  /// đơn cọc dùng tiền cọc (bỏ qua giá trị 0 để fallback sang trường có số tiền thực).
   static double amount(Map<String, dynamic> data) {
     final c = canonical(data);
     if (c['isFullPayment'] == true) {
-      return _toDouble(
-        c['paymentAmount'] ??
-            c['totalPayable'] ??
-            c['rentPrice'] ??
-            c['depositAmount'],
-      );
+      return _firstPositive([
+        c['paymentAmount'],
+        c['totalPayable'],
+        c['totalAmount'],
+        c['paidAmount'],
+        c['rentalPrice'],
+        c['rentPrice'],
+        c['depositAmount'],
+      ]);
     }
-    return _toDouble(
-      c['depositAmount'] ??
-          c['paymentAmount'] ??
-          c['totalPayable'] ??
-          c['rentPrice'],
-    );
+    return _firstPositive([
+      c['depositAmount'],
+      c['paymentAmount'],
+      c['totalPayable'],
+      c['totalAmount'],
+      c['paidAmount'],
+      c['rentalPrice'],
+      c['rentPrice'],
+    ]);
   }
 
   /// Ngày tạo đơn; null nếu document không có ngày.

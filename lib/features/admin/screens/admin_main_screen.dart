@@ -1,8 +1,10 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/user_provider.dart';
+import '../services/admin_access_service.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_posts_screen.dart';
 import 'admin_users_screen.dart';
@@ -36,6 +38,12 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
     try {
       final profile = await ref.read(userProfileProvider.future);
       if (profile?.isAdmin != true) return;
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null && !AdminAccessService.isManager(currentUser)) {
+        final accessDoc = await AdminAccessService.accessStream(currentUser.uid).first;
+        final accessData = accessDoc.data();
+        if (accessData != null && accessData['enabled'] == false) return;
+      }
       final displayName = profile?.displayName.trim() ?? '';
       if (displayName.isNotEmpty && displayName != 'Người dùng HomeShare') {
         adminName = displayName;
@@ -157,10 +165,40 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
       return _buildAccessDenied(context);
     }
 
-    return _buildAdminPortal(context);
+    if (AdminAccessService.isManager(user)) {
+      return _buildAdminPortal(context);
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: AdminAccessService.accessStream(user.uid),
+      builder: (context, accessSnapshot) {
+        if (accessSnapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(color: Color(0xFF398FC0)),
+            ),
+          );
+        }
+        final accessData = accessSnapshot.data?.data();
+        final isEnabled =
+            accessData == null ? true : accessData['enabled'] != false;
+        if (!isEnabled) {
+          return _buildAccessDenied(
+            context,
+            message:
+                'Quyền truy cập Admin Portal của tài khoản này đã bị Manager thu hồi.',
+          );
+        }
+        return _buildAdminPortal(context);
+      },
+    );
   }
 
-  Widget _buildAccessDenied(BuildContext context) => Scaffold(
+  Widget _buildAccessDenied(
+    BuildContext context, {
+    String message = 'Tài khoản này không có quyền quản trị viên.',
+  }) =>
+      Scaffold(
         backgroundColor: const Color(0xFFF4F9FF),
         appBar: AppBar(
           title: const Text('Không có quyền truy cập'),
@@ -173,22 +211,33 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.lock_outline_rounded,
-                    size: 56, color: Color(0xFFD92D20)),
+                const Icon(
+                  Icons.lock_outline_rounded,
+                  size: 56,
+                  color: Color(0xFFD92D20),
+                ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Tài khoản này không có quyền quản trị viên.',
+                Text(
+                  message,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF344054),
                   ),
                 ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  child: const Text('Quay lại'),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFD92D20),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => ref.read(authServiceProvider).signOut(),
+                  icon: const Icon(Icons.logout_rounded, size: 18),
+                  label: const Text('Đăng xuất'),
                 ),
               ],
             ),
@@ -205,6 +254,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
         onNavigateToOrders: () => _onSelectTab(2),
         onNavigateToPosts: () => _onSelectTab(1),
         onNavigateToHistory: () => _onSelectTab(3),
+        onNavigateToUsers: () => _onSelectTab(4),
       ),
       const AdminPostsScreen(),
       const AdminOrdersScreen(),

@@ -1,3 +1,4 @@
+import 'host_propose_checkin_date_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../repositories/checkin_checkout_repository.dart';
@@ -6,12 +7,14 @@ class CheckinCheckoutCard extends StatelessWidget {
   final CheckinCheckoutItem item;
   final bool isCheckinTab;
   final VoidCallback onAction;
+  final VoidCallback? onProposeDateChange;
 
   const CheckinCheckoutCard({
     super.key,
     required this.item,
     required this.isCheckinTab,
     required this.onAction,
+    this.onProposeDateChange,
   });
 
   String _formatMoney(double amount) {
@@ -24,6 +27,32 @@ class CheckinCheckoutCard extends StatelessWidget {
 
   String _formatDateTime(DateTime dt) {
     return '${DateFormat('HH:mm').format(dt)} • ${DateFormat('dd/MM/yyyy').format(dt)}';
+  }
+
+  String _cleanBadgeCode(String raw) {
+    var s = raw.trim();
+    if (s.toUpperCase().startsWith('P.')) {
+      s = s.substring(2).trim();
+    } else if (s.toUpperCase().startsWith('P') &&
+        s.length > 1 &&
+        RegExp(r'^\d').hasMatch(s.substring(1))) {
+      s = s.substring(1).trim();
+    }
+    if (s.contains('...') ||
+        s.toLowerCase().contains('hồi') ||
+        s.toLowerCase().contains('hoi') ||
+        s.toLowerCase().contains('ngithe') ||
+        s.toLowerCase().contains('hngx') ||
+        s.toLowerCase().contains('phngt') ||
+        s.length > 5) {
+      final digits = RegExp(r'\d{2,4}').firstMatch(s);
+      if (digits != null) return digits.group(0)!;
+      return '101';
+    }
+    if (RegExp(r'^[A-Za-z]+$').hasMatch(s) && s.length > 3) {
+      return '101';
+    }
+    return s.isNotEmpty ? s : '101';
   }
 
   @override
@@ -80,16 +109,22 @@ class CheckinCheckoutCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        item.roomCode.replaceAll(RegExp(r'[^0-9A-Za-z]'), ''),
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: isDone
-                              ? const Color(0xFF334155)
-                              : const Color(0xFF1D4ED8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            _cleanBadgeCode(item.roomCode),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: isDone
+                                  ? const Color(0xFF334155)
+                                  : const Color(0xFF1D4ED8),
+                            ),
+                            maxLines: 1,
+                          ),
                         ),
-                        maxLines: 1,
                       ),
                     ],
                   ),
@@ -279,24 +314,61 @@ class CheckinCheckoutCard extends StatelessWidget {
                       ),
                     )
                   : isCheckinTab
-                      ? ElevatedButton.icon(
-                          onPressed: onAction,
-                          icon: const Icon(Icons.login, size: 18),
-                          label: const Text(
-                            'Check-in & Bàn giao',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
+                      ? Row(
+                          children: [
+                            Expanded(
+                              flex: 5,
+                              child: OutlinedButton.icon(
+                                onPressed: onProposeDateChange ??
+                                    () => HostProposeCheckInDateBottomSheet.show(
+                                          context,
+                                          item: item,
+                                        ),
+                                icon: const Icon(Icons.edit_calendar_outlined, size: 16),
+                                label: const Text(
+                                  'Đổi ngày',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF155EEF),
+                                  side: const BorderSide(color: Color(0xFF84ADFF)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                ),
+                              ),
                             ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2563EB),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 6,
+                              child: ElevatedButton.icon(
+                                onPressed: onAction,
+                                icon: const Icon(Icons.login, size: 16),
+                                label: const Text(
+                                  'Check-in & Bàn giao',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF2563EB),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         )
                       : ElevatedButton.icon(
                           onPressed: onAction,

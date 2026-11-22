@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../auth/providers/auth_provider.dart';
+import '../../providers/host_management_provider.dart';
 import '../models/host_notification_model.dart';
 import '../providers/host_notification_provider.dart';
 
@@ -94,6 +96,7 @@ class _HostUpdateDepositBottomSheetState
     setState(() => _isLoading = true);
     try {
       final repo = ref.read(hostNotificationRepositoryProvider);
+      final currentHostUid = ref.read(currentUserProvider)?.uid ?? '';
       await repo.updateDepositAdjustment(
         notificationId: widget.notification.id,
         bookingId: widget.notification.bookingId,
@@ -101,6 +104,10 @@ class _HostUpdateDepositBottomSheetState
         newRoomTitle: _selectedRoomTitle,
         newCheckInDate: _selectedCheckInDate,
         adjustmentReason: _reasonController.text.trim(),
+        hostId: widget.notification.receiverId.isNotEmpty
+            ? widget.notification.receiverId
+            : currentHostUid,
+        renterId: widget.notification.senderId,
       );
 
       if (mounted) {
@@ -133,6 +140,21 @@ class _HostUpdateDepositBottomSheetState
   Widget build(BuildContext context) {
     final notif = widget.notification;
     final dateFmt = DateFormat('dd/MM/yyyy');
+    final roomsAsync = ref.watch(hostRoomsProvider);
+    final hostRooms = roomsAsync.value ?? [];
+
+    final activeOptions = <Map<String, String>>[..._roomOptions];
+    for (final r in hostRooms) {
+      if (r.id.isNotEmpty && !activeOptions.any((opt) => opt['id'] == r.id)) {
+        final roomName = r.roomCode.isNotEmpty
+            ? 'Phòng ${r.roomCode} - ${r.title}'
+            : (r.title.isNotEmpty ? r.title : 'Phòng ${r.id}');
+        activeOptions.add({
+          'id': r.id,
+          'title': roomName,
+        });
+      }
+    }
 
     return Container(
       decoration: const BoxDecoration(
@@ -334,15 +356,15 @@ class _HostUpdateDepositBottomSheetState
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value:
-                            _roomOptions.any((r) => r['id'] == _selectedRoomId)
+                            activeOptions.any((r) => r['id'] == _selectedRoomId)
                             ? _selectedRoomId
-                            : _roomOptions.first['id'],
+                            : activeOptions.first['id'],
                         isExpanded: true,
                         icon: const Icon(
                           Icons.keyboard_arrow_down_rounded,
                           color: Color(0xFF667085),
                         ),
-                        items: _roomOptions.map((room) {
+                        items: activeOptions.map((room) {
                           return DropdownMenuItem<String>(
                             value: room['id'],
                             child: Text(
@@ -359,7 +381,7 @@ class _HostUpdateDepositBottomSheetState
                           if (val != null) {
                             setState(() {
                               _selectedRoomId = val;
-                              _selectedRoomTitle = _roomOptions.firstWhere(
+                              _selectedRoomTitle = activeOptions.firstWhere(
                                 (r) => r['id'] == val,
                               )['title']!;
                             });

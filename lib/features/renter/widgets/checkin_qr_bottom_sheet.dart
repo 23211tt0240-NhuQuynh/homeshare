@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../data/models/booking_model.dart';
@@ -12,6 +11,16 @@ class CheckinQrBottomSheet extends StatelessWidget {
   const CheckinQrBottomSheet({super.key, required this.booking});
 
   static void show(BuildContext context, BookingRequestModel booking) {
+    if (!booking.canShowCheckinQr) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Chưa có mã QR nhận phòng. Vui lòng chờ Admin xác nhận tiền trước.',
+          ),
+        ),
+      );
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -135,62 +144,20 @@ class CheckinQrBottomSheet extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: Column(
-                      children: [
-                        QrImageView(
-                          data: qrData,
-                          version: QrVersions.auto,
-                          size: 210,
-                          eyeStyle: const QrEyeStyle(
-                            eyeShape: QrEyeShape.square,
-                            color: Color(0xFF155EEF),
-                          ),
-                          dataModuleStyle: const QrDataModuleStyle(
-                            dataModuleShape: QrDataModuleShape.square,
-                            color: Color(0xFF101828),
-                          ),
+                    child: Center(
+                      child: QrImageView(
+                        data: qrData,
+                        version: QrVersions.auto,
+                        size: 210,
+                        eyeStyle: const QrEyeStyle(
+                          eyeShape: QrEyeShape.square,
+                          color: Color(0xFF155EEF),
                         ),
-                        const SizedBox(height: 12),
-                        // Mã Đơn & Nút copy
-                        InkWell(
-                          onTap: () {
-                            Clipboard.setData(ClipboardData(text: booking.id));
-                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Đã sao chép mã đơn: ${booking.id}'),
-                                duration: const Duration(seconds: 1),
-                                backgroundColor: const Color(0xFF155EEF),
-                              ),
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(20),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Mã: ${booking.id}',
-                                  style: const TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF344054),
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                const Icon(Icons.copy_rounded, size: 14, color: Color(0xFF155EEF)),
-                              ],
-                            ),
-                          ),
+                        dataModuleStyle: const QrDataModuleStyle(
+                          dataModuleShape: QrDataModuleShape.square,
+                          color: Color(0xFF101828),
                         ),
-                      ],
+                      ),
                     ),
                   ),
 

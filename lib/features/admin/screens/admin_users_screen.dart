@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/admin_audit_identity.dart';
 import '../widgets/admin_branded_title.dart';
 
-/// 3 chế độ xem của trang Quản lý người dùng.
-enum _UsersView { pendingReports, handledReports, allUsers }
+/// 4 chế độ xem của trang Quản lý người dùng.
+enum _UsersView { pendingReports, handledReports, allUsers, userApprovals }
 
 /// Trang quản lý người dùng: duyệt báo cáo vi phạm / đánh giá xấu, cảnh cáo,
 /// điều chỉnh & khôi phục điểm uy tín, khóa / mở khóa tài khoản.
@@ -178,6 +181,21 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     return true;
   }
 
+  bool _isUserVerified(Map<String, dynamic> u) {
+    if (u['isCccdVerified'] == true || u['daXacThucCccd'] == true) {
+      return true;
+    }
+    final status =
+        _s(u, ['trangThaiXacMinh', 'trangThaiXacMinh_id']).toLowerCase();
+    return status == 'daxacthuc' ||
+        status == 'verified' ||
+        status == 'approved';
+  }
+
+  bool _isCccdRejected(Map<String, dynamic> u) {
+    return _s(u, ['cccdVerificationStatus']).toLowerCase() == 'rejected';
+  }
+
   String _roleLabel(String role) {
     switch (role.toLowerCase().trim()) {
       case 'host':
@@ -271,8 +289,21 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         'fullName',
         'name',
         'displayName',
+        'cccdFullName',
         'userName',
         'email',
+      ]);
+      data['resolvedAvatarUrl'] = _s(data, [
+        'avatarUrl',
+        'anhDaiDien',
+        'photoUrl',
+        'photoURL',
+        'avatar',
+        'imageUrl',
+        'profileImage',
+        'profilePicture',
+        'picture',
+        'avatarBase64',
       ]);
       final isBanned = data['isBanned'] == true || _int(data['statusId'], 1) == 2;
       data['isBanned'] = isBanned;
@@ -379,7 +410,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       if (isLowStar || existingMod != null) {
         final merged = <String, dynamic>{
           ...rev,
-          if (existingMod != null) ...existingMod,
+          ...?existingMod,
           'id': d.id,
           'isHostReview': true,
           'bookingId': bookingId.isNotEmpty ? bookingId : d.id,
@@ -516,6 +547,21 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ? _s(r, ['reportedRole', 'role'])
           : (u?['role'] ?? (r['isHostReview'] == true ? 'host' : '')).toString();
       r['reportedBanned'] = u?['isBanned'] == true;
+      r['reportedAvatarUrl'] = _s(u ?? {}, [
+        'resolvedAvatarUrl',
+        'avatarUrl',
+        'anhDaiDien',
+        'photoUrl',
+        'avatar',
+      ]).isNotEmpty
+          ? _s(u ?? {}, [
+              'resolvedAvatarUrl',
+              'avatarUrl',
+              'anhDaiDien',
+              'photoUrl',
+              'avatar',
+            ])
+          : _s(r, ['reportedAvatarUrl', 'avatarUrl', 'anhDaiDien']);
       r['reportedReputationScore'] =
           u?['reputationScore'] ?? u?['diemUyTin'] ?? r['reportedReputationScore'];
       r['totalReports'] = uid.isNotEmpty ? (reportCount[uid] ?? 1) : 1;
@@ -693,7 +739,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       'status': status,
       'resolution': resolution,
       'adminNote': adminNote,
-      if (penaltyPoints != null) 'penaltyPoints': penaltyPoints,
+      'penaltyPoints': ?penaltyPoints,
       'reportedUserId': _s(r, ['reportedUserId', 'hostId']),
       'reportedUserName': _s(r, ['reportedName', 'reportedUserName']),
       'reportedRole': _s(r, ['reportedRole', 'role']),
@@ -885,30 +931,28 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                       color: _textGrey,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
+                  const SizedBox(height: 8),
+                  Column(
                     children: [
-                      _penaltyOptionChip(
+                      _penaltyCheckTile(
                         label: 'Nhắc nhở (-5đ)',
                         selected: penalty == 5,
                         color: _primary,
                         onTap: () => selectPenalty(5),
                       ),
-                      _penaltyOptionChip(
+                      _penaltyCheckTile(
                         label: 'Cảnh cáo (-10đ)',
                         selected: penalty == 10,
                         color: _orange,
                         onTap: () => selectPenalty(10),
                       ),
-                      _penaltyOptionChip(
+                      _penaltyCheckTile(
                         label: 'Vi phạm nặng (-20đ)',
                         selected: penalty == 20,
                         color: _red,
                         onTap: () => selectPenalty(20),
                       ),
-                      _penaltyOptionChip(
+                      _penaltyCheckTile(
                         label: 'Chỉ gửi nhắc nhở (0đ)',
                         selected: penalty == 0,
                         color: _textGrey,
@@ -1098,7 +1142,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           'recipientId': uid,
           'recipientRole': (report['reportedRole'] ?? '').toString(),
           'title': deducted > 0
-              ? 'Cảnh báo vi phạm (-${deducted}đ uy tín)'
+              ? 'Cảnh báo vi phạm (-$deductedđ uy tín)'
               : 'Nhắc nhở từ Admin',
           'body': '$note (Điểm uy tín hiện tại: $nextScore/100)',
           'notificationType': 'warning',
@@ -1111,12 +1155,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       await batch.commit();
       await _audit(
         lockNow ? 'Cảnh cáo & Khóa TK' : 'Cảnh cáo người dùng',
-        'Admin cảnh cáo "$name" (-${deducted}đ, còn $nextScore/100). Nội dung: $note',
+        'Admin cảnh cáo "$name" (-$deductedđ, còn $nextScore/100). Nội dung: $note',
         'User $uid',
       );
       _snack(
         deducted > 0
-            ? 'Đã cảnh cáo $name (-${deducted}đ, còn $nextScore/100)'
+            ? 'Đã cảnh cáo $name (-$deductedđ, còn $nextScore/100)'
             : 'Đã gửi nhắc nhở tới $name',
       );
     } catch (e) {
@@ -1425,8 +1469,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         'recipientId': uid,
         'recipientRole': (user['role'] ?? '').toString(),
         'title': isRestore
-            ? 'Khôi phục điểm uy tín (+${effectiveDelta}đ)'
-            : 'Điều chỉnh điểm uy tín (${effectiveDelta}đ)',
+            ? 'Khôi phục điểm uy tín (+$effectiveDeltađ)'
+            : 'Điều chỉnh điểm uy tín ($effectiveDeltađ)',
         'body': '$reason (Điểm uy tín mới: $nextScore/100)',
         'notificationType': isRestore ? 'reputation_restored' : 'warning',
         'isRead': false,
@@ -1449,6 +1493,54 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
   }
 
+  Widget _penaltyCheckTile({
+    required String label,
+    required bool selected,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? color.withValues(alpha: 0.08) : Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected ? color : const Color(0xFFE4E7EC),
+              width: selected ? 1.4 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                selected
+                    ? Icons.check_box_rounded
+                    : Icons.check_box_outline_blank_rounded,
+                size: 20,
+                color: selected ? color : const Color(0xFF98A2B3),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected ? color : _textDark,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _penaltyOptionChip({
     required String label,
     required bool selected,
@@ -1468,13 +1560,22 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             width: selected ? 1.4 : 1,
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-            color: selected ? color : _textDark,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (selected) ...[
+              Icon(Icons.check_rounded, size: 14, color: color),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                color: selected ? color : _textDark,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1592,7 +1693,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   ),
                   child: Row(
                     children: [
-                      _avatar(name, banned: banned),
+                      _avatar(
+                        name,
+                        banned: banned,
+                        avatarUrl: (u['resolvedAvatarUrl'] ?? '').toString(),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -1732,6 +1837,36 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                       ],
                     ],
                   ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Giấy tờ tùy thân (CCCD)',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: _textDark,
+                      ),
+                    ),
+                    _chip(
+                      _isUserVerified(u) ? 'Đã xác thực' : 'Chưa xác thực',
+                      _isUserVerified(u) ? _green : _orange,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _buildCccdRowButton(
+                  label: 'Căn cước mặt trước',
+                  icon: Icons.credit_card_rounded,
+                  onTap: () => _showCccdImageDialog(u, isFront: true),
+                ),
+                const SizedBox(height: 8),
+                _buildCccdRowButton(
+                  label: 'Căn cước mặt sau',
+                  icon: Icons.contact_mail_outlined,
+                  onTap: () => _showCccdImageDialog(u, isFront: false),
                 ),
                 // Idea 4: Lịch sử đánh giá & phản ánh gần đây
                 if (historyItems.isNotEmpty) ...[
@@ -1959,7 +2094,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   Widget build(BuildContext context) {
     final cPending = _reports.where((r) => r['status'] == 'pending').length;
     final cHandled = _reports.length - cPending;
-    final nonAdminUsersCount = _users.where((u) => !_isAdminRole(u)).length;
+    final nonAdminUsers = _users.where((u) => !_isAdminRole(u)).toList();
+    final verifiedUsersCount = nonAdminUsers.where(_isUserVerified).length;
+    final unverifiedUsersCount = nonAdminUsers
+        .where((u) => !_isUserVerified(u) && !_isCccdRejected(u))
+        .length;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -1985,8 +2124,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               controller: _searchCtrl,
               style: const TextStyle(fontSize: 12.5),
               decoration: InputDecoration(
-                hintText: _view == _UsersView.allUsers
-                    ? 'Tìm theo tên, mã CT/NT, email, SĐT...'
+                hintText: _view == _UsersView.allUsers ||
+                        _view == _UsersView.userApprovals
+                    ? 'Tìm theo tên, UID, mã CT/NT, số CCCD, email, SĐT...'
                     : 'Tìm theo người bị phản ánh, người gửi, mã đơn, lý do...',
                 hintStyle: const TextStyle(
                   fontSize: 12,
@@ -2016,34 +2156,46 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             ),
           ),
           Container(
+            width: double.infinity,
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
-            child: Row(
-              children: [
-                _pill(
-                  'Chờ xử lý',
-                  cPending,
-                  _UsersView.pendingReports,
-                  _orange,
-                  Icons.pending_actions_rounded,
-                ),
-                const SizedBox(width: 8),
-                _pill(
-                  'Đã xử lý',
-                  cHandled,
-                  _UsersView.handledReports,
-                  _teal,
-                  Icons.task_alt_rounded,
-                ),
-                const SizedBox(width: 8),
-                _pill(
-                  'Người dùng',
-                  nonAdminUsersCount,
-                  _UsersView.allUsers,
-                  _primary,
-                  Icons.people_alt_outlined,
-                ),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _pill(
+                    'Duyệt người dùng',
+                    unverifiedUsersCount,
+                    _UsersView.userApprovals,
+                    _primaryDark,
+                    Icons.badge_outlined,
+                  ),
+                  const SizedBox(width: 8),
+                  _pill(
+                    'Chờ xử lý',
+                    cPending,
+                    _UsersView.pendingReports,
+                    _orange,
+                    Icons.pending_actions_rounded,
+                  ),
+                  const SizedBox(width: 8),
+                  _pill(
+                    'Đã xử lý',
+                    cHandled,
+                    _UsersView.handledReports,
+                    _teal,
+                    Icons.task_alt_rounded,
+                  ),
+                  const SizedBox(width: 8),
+                  _pill(
+                    'Người dùng',
+                    verifiedUsersCount,
+                    _UsersView.allUsers,
+                    _primary,
+                    Icons.people_alt_outlined,
+                  ),
+                ],
+              ),
             ),
           ),
           const Divider(height: 1, color: _pastelBorder),
@@ -2070,68 +2222,98 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     IconData icon,
   ) {
     final selected = _view == view;
-    return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => setState(() => _view = view),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-          decoration: BoxDecoration(
-            color: selected ? color.withValues(alpha: 0.11) : _pastelBg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? color : _pastelBorder,
-              width: selected ? 1.4 : 1,
-            ),
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => setState(() => _view = view),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        constraints: const BoxConstraints(minWidth: 92),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        decoration: BoxDecoration(
+          color: selected ? color.withValues(alpha: 0.11) : _pastelBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? color : _pastelBorder,
+            width: selected ? 1.4 : 1,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    icon,
-                    size: 14,
-                    color: selected ? color : _textGrey,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '$count',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: selected ? color : _textDark,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  maxLines: 1,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 14,
+                  color: selected ? color : _textGrey,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '$count',
                   style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: selected ? color : _textGrey,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: selected ? color : _textDark,
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? color : _textGrey,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildList(String query) {
-    if (_view == _UsersView.allUsers) {
+    if (_view == _UsersView.userApprovals) {
       var items = _users.where((u) {
         if (_isAdminRole(u)) return false;
+        if (_isUserVerified(u) || _isCccdRejected(u)) return false;
+        return _matches(query, [
+          u['displayName'] as String,
+          (u['id'] ?? '').toString(),
+          (u['resolvedUserCode'] ?? '').toString(),
+          _s(u, ['cccdFullName', 'hoTenCccd']),
+          _s(u, ['cccdNumber', 'soCccd', 'soGiayTo']),
+          _s(u, ['email']),
+          _s(u, ['phone', 'phoneNumber']),
+        ]);
+      }).toList();
+
+      items.sort((a, b) {
+        final da = _date(a['createdAt'] ?? a['ngayTao'] ?? a['updatedAt']);
+        final db = _date(b['createdAt'] ?? b['ngayTao'] ?? b['updatedAt']);
+        if (da == null && db == null) return 0;
+        if (da == null) return 1;
+        if (db == null) return -1;
+        return db.compareTo(da);
+      });
+
+      return items.isEmpty
+          ? _empty('Không có người dùng chưa xác thực nào')
+          : ListView.separated(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+              itemCount: items.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (_, i) => _userApprovalCard(items[i]),
+            );
+    }
+
+    if (_view == _UsersView.allUsers) {
+      var items = _users.where((u) {
+        if (_isAdminRole(u) || !_isUserVerified(u)) return false;
         return _matches(query, [
           u['displayName'] as String,
           (u['resolvedUserCode'] ?? '').toString(),
@@ -2218,7 +2400,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 
   Widget _buildUserMetricsRow() {
-    final nonAdmins = _users.where((u) => !_isAdminRole(u)).toList();
+    final nonAdmins =
+        _users.where((u) => !_isAdminRole(u) && _isUserVerified(u)).toList();
     final total = nonAdmins.length;
     final hosts = nonAdmins.where((u) => _isHostRole(u)).length;
     final renters = nonAdmins.where((u) => _isRenterRole(u)).length;
@@ -2430,27 +2613,296 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     ),
   );
 
-  Widget _avatar(String name, {bool banned = false}) {
+  final Map<String, Future<Uint8List?>> _storageBytesFutures = {};
+
+  Future<Uint8List?> _fetchFirebaseStorageBytes(String url) {
+    return _storageBytesFutures.putIfAbsent(url, () async {
+      try {
+        return await FirebaseStorage.instance
+            .refFromURL(url)
+            .getData(5 * 1024 * 1024)
+            .timeout(const Duration(seconds: 10));
+      } catch (_) {
+        return null;
+      }
+    });
+  }
+
+  Widget _avatar(
+    String name, {
+    bool banned = false,
+    String? avatarUrl,
+    double radius = 20,
+  }) {
     final letter = name.isEmpty ? '?' : name.characters.first.toUpperCase();
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: banned ? const Color(0xFFFEE4E2) : _pastelBlueSoft,
+    final url = (avatarUrl ?? '').trim();
+    final bgColor = banned ? const Color(0xFFFEE4E2) : _pastelBlueSoft;
+
+    Widget fallbackLetter() => Center(
       child: Text(
         letter,
         style: TextStyle(
+          fontSize: radius * 0.78,
           fontWeight: FontWeight.w800,
           color: banned ? _red : _primaryDark,
         ),
       ),
     );
+
+    Widget storageSdkFallback(String storageUrl) => FutureBuilder<Uint8List?>(
+      future: _fetchFirebaseStorageBytes(storageUrl),
+      builder: (context, snap) {
+        final bytes = snap.data;
+        if (bytes != null && bytes.isNotEmpty) {
+          return Image.memory(
+            bytes,
+            width: radius * 2,
+            height: radius * 2,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => fallbackLetter(),
+          );
+        }
+        return fallbackLetter();
+      },
+    );
+
+    Widget networkCircle(String resolvedUrl) => CircleAvatar(
+      radius: radius,
+      backgroundColor: bgColor,
+      child: ClipOval(
+        child: Image.network(
+          resolvedUrl,
+          width: radius * 2,
+          height: radius * 2,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return fallbackLetter();
+          },
+          errorBuilder: (context, error, stackTrace) {
+            if (resolvedUrl.contains('firebasestorage.googleapis.com')) {
+              return storageSdkFallback(resolvedUrl);
+            }
+            return fallbackLetter();
+          },
+        ),
+      ),
+    );
+
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return networkCircle(url);
+    }
+
+    if (url.startsWith('data:image')) {
+      try {
+        final commaIdx = url.indexOf(',');
+        if (commaIdx != -1) {
+          final bytes = base64Decode(url.substring(commaIdx + 1));
+          return CircleAvatar(
+            radius: radius,
+            backgroundColor: bgColor,
+            child: ClipOval(
+              child: Image.memory(
+                bytes,
+                width: radius * 2,
+                height: radius * 2,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => fallbackLetter(),
+              ),
+            ),
+          );
+        }
+      } catch (_) {}
+    }
+
+    if (url.startsWith('gs://')) {
+      return FutureBuilder<String>(
+        future: FirebaseStorage.instance.refFromURL(url).getDownloadURL(),
+        builder: (context, snapshot) {
+          final resolved = snapshot.data;
+          if (resolved != null && resolved.isNotEmpty) {
+            return networkCircle(resolved);
+          }
+          return CircleAvatar(
+            radius: radius,
+            backgroundColor: bgColor,
+            child: fallbackLetter(),
+          );
+        },
+      );
+    }
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: bgColor,
+      child: fallbackLetter(),
+    );
+  }
+
+  Widget _buildEvidenceImage(
+    String rawUrl, {
+    double? width,
+    double? height,
+    BoxFit fit = BoxFit.cover,
+    bool isFullView = false,
+  }) {
+    final url = rawUrl.trim();
+
+    Widget fallbackBox() => Container(
+      width: width,
+      height: height ?? (isFullView ? 220 : 54),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(12),
+      color: _pastelBg,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.broken_image_outlined,
+            size: isFullView ? 36 : 20,
+            color: _textGrey,
+          ),
+          if (isFullView) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Không tải được ảnh minh chứng trên Firebase.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: _textDark,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    if (url.startsWith('data:image')) {
+      try {
+        final commaIdx = url.indexOf(',');
+        if (commaIdx != -1) {
+          final bytes = base64Decode(url.substring(commaIdx + 1));
+          return Image.memory(
+            bytes,
+            width: width,
+            height: height,
+            fit: fit,
+            errorBuilder: (context, error, stackTrace) => fallbackBox(),
+          );
+        }
+      } catch (_) {}
+      return fallbackBox();
+    }
+
+    if (url.startsWith('gs://')) {
+      return FutureBuilder<String>(
+        future: FirebaseStorage.instance.refFromURL(url).getDownloadURL(),
+        builder: (context, snapshot) {
+          final resolved = snapshot.data;
+          if (resolved != null && resolved.isNotEmpty) {
+            return Image.network(
+              resolved,
+              width: width,
+              height: height,
+              fit: fit,
+              errorBuilder: (context, error, stackTrace) => fallbackBox(),
+            );
+          }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Container(
+              width: width,
+              height: height ?? (isFullView ? 220 : 54),
+              color: _pastelBg,
+              alignment: Alignment.center,
+              child: const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: _primary,
+                ),
+              ),
+            );
+          }
+          return fallbackBox();
+        },
+      );
+    }
+
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return Image.network(
+        url,
+        width: width,
+        height: height,
+        fit: fit,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            width: width,
+            height: height ?? (isFullView ? 220 : 54),
+            color: _pastelBg,
+            alignment: Alignment.center,
+            child: const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: _primary,
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          if (url.contains('firebasestorage.googleapis.com')) {
+            return FutureBuilder<Uint8List?>(
+              future: _fetchFirebaseStorageBytes(url),
+              builder: (context, snap) {
+                final bytes = snap.data;
+                if (bytes != null && bytes.isNotEmpty) {
+                  return Image.memory(
+                    bytes,
+                    width: width,
+                    height: height,
+                    fit: fit,
+                    errorBuilder: (context, error, stackTrace) => fallbackBox(),
+                  );
+                }
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return Container(
+                    width: width,
+                    height: height ?? (isFullView ? 220 : 54),
+                    color: _pastelBg,
+                    alignment: Alignment.center,
+                    child: const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: _primary,
+                      ),
+                    ),
+                  );
+                }
+                return fallbackBox();
+              },
+            );
+          }
+          return fallbackBox();
+        },
+      );
+    }
+
+    return fallbackBox();
   }
 
   Widget _buildEvidencePreview(List<dynamic> evidenceUrls) {
     final list = evidenceUrls
-        .map((e) => e.toString())
+        .map((e) => e.toString().trim())
         .where(
           (e) =>
               e.startsWith('http') ||
+              e.startsWith('gs://') ||
               e.startsWith('blob:') ||
               e.startsWith('data:'),
         )
@@ -2480,21 +2932,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               onTap: () => _showFullImageDialog(list[i]),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
+                child: _buildEvidenceImage(
                   list[i],
                   width: 54,
                   height: 54,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    width: 54,
-                    height: 54,
-                    color: _pastelBg,
-                    child: const Icon(
-                      Icons.broken_image_outlined,
-                      size: 20,
-                      color: _textGrey,
-                    ),
-                  ),
                 ),
               ),
             ),
@@ -2505,24 +2947,62 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 
   void _showFullImageDialog(String url) {
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Stack(
-          alignment: Alignment.topRight,
-          children: [
-            InteractiveViewer(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(url, fit: BoxFit.contain),
+      builder: (dialogCtx) => Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 10, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Ảnh minh chứng',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: _textDark,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: _textDark,
+                      size: 22,
+                    ),
+                    onPressed: () => Navigator.pop(dialogCtx),
+                  ),
+                ],
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.close, color: Colors.white, size: 28),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ],
+              const Divider(height: 10, color: _pastelBorder),
+              const SizedBox(height: 6),
+              ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: 200,
+                  maxHeight: 420,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: InteractiveViewer(
+                    minScale: 1.0,
+                    maxScale: 3.5,
+                    child: _buildEvidenceImage(
+                      url,
+                      fit: BoxFit.contain,
+                      isFullView: true,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2540,7 +3020,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     final resolutionLabel = {
       'banned': 'Đã khóa tài khoản',
       'warned': penaltyPoints != null && penaltyPoints > 0
-          ? 'Đã cảnh cáo (-${penaltyPoints}đ UT)'
+          ? 'Đã cảnh cáo (-$penaltyPointsđ UT)'
           : 'Đã nhắc nhở',
       'dismissed': 'Đã bỏ qua',
     }[resolution];
@@ -2564,7 +3044,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 _openUserDetailById((r['reportedUserId'] ?? '').toString()),
             child: Row(
               children: [
-                _avatar(name, banned: banned),
+                _avatar(
+                  name,
+                  banned: banned,
+                  avatarUrl: (r['reportedAvatarUrl'] ?? '').toString(),
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -2636,8 +3120,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                           if (_s(r, ['postTitle', 'roomTitle']).isNotEmpty)
                             _chip(
                               _s(r, ['targetType']) == 'post'
-                                  ? 'Bài đăng: ' + _s(r, ['postTitle', 'roomTitle'])
-                                  : 'Phòng: ' + _s(r, ['postTitle', 'roomTitle']),
+                                  ? 'Bài đăng: ${_s(r, ['postTitle', 'roomTitle'])}'
+                                  : 'Phòng: ${_s(r, ['postTitle', 'roomTitle'])}',
                               _primaryDark,
                             ),
                           if (hostScore != null)
@@ -2808,7 +3292,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         decoration: _cardDeco,
         child: Row(
           children: [
-            _avatar(name, banned: banned),
+            _avatar(
+              name,
+              banned: banned,
+              avatarUrl: (u['resolvedAvatarUrl'] ?? '').toString(),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -2938,6 +3426,873 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                       ),
                       child: const Text('Khóa', style: TextStyle(fontSize: 12)),
                     ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Thẻ trong tab "Duyệt người dùng":
+  /// - Hàng 1 (trên cùng): Tên người dùng (kèm Avatar thật)
+  /// - Hàng 2: UID
+  /// - Hàng 3: Căn cước mặt trước (bấm vào mở dialog)
+  /// - Hàng 4: Căn cước mặt sau (bấm vào mở dialog)
+  Widget _userApprovalCard(Map<String, dynamic> u) {
+    final banned = u['isBanned'] == true;
+    final uid = (u['id'] ?? u['uid'] ?? '').toString();
+    final cccdName = _s(u, ['cccdFullName', 'hoTenCccd', 'ho_ten_cccd']);
+    final displayName = _s(u, ['displayName', 'fullName', 'name']);
+    final name = cccdName.isNotEmpty
+        ? cccdName
+        : (displayName.isNotEmpty ? displayName : 'Chưa đặt tên');
+    final role = (u['role'] ?? '').toString();
+    final isHost = _isHostRole(u);
+    final userCode = (u['resolvedUserCode'] ?? _resolveUserCode(u)).toString();
+    final avatarUrl = (u['resolvedAvatarUrl'] ?? '').toString();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _cardDeco,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Hàng 1 (trên cùng): Avatar + Tên + Mã + Badge (không tràn trên mobile)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _avatar(name, banned: banned, avatarUrl: avatarUrl, radius: 21),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: _textDark,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _pastelBg,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: _pastelBorder),
+                          ),
+                          child: Text(
+                            '#$userCode',
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: _primaryDark,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        _chip(_roleLabel(role), isHost ? _teal : _primary),
+                        _chip('Chưa xác thực', _orange),
+                        if ((u['cccdVerificationStatus'] ?? '') == 'rejected')
+                          _chip('Đã từ chối', _red),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Hàng 2: UID
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: _pastelBg,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _pastelBorder),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.fingerprint_rounded,
+                  size: 15,
+                  color: _primaryDark,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'UID: $uid',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w700,
+                      color: _textDark,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Hàng 3: Căn cước mặt trước
+          _buildCccdRowButton(
+            label: 'Căn cước mặt trước',
+            icon: Icons.credit_card_rounded,
+            onTap: () => _showCccdImageDialog(u, isFront: true),
+          ),
+          const SizedBox(height: 8),
+
+          // Hàng 4: Căn cước mặt sau
+          _buildCccdRowButton(
+            label: 'Căn cước mặt sau',
+            icon: Icons.contact_mail_outlined,
+            onTap: () => _showCccdImageDialog(u, isFront: false),
+          ),
+          const SizedBox(height: 12),
+
+          // Hàng 5: Nút Duyệt / Từ chối (đồng bộ style bên Quản lý bài đăng)
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: uid.isEmpty ? null : () => _approveUserVerification(u),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF398FC0),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    '✓ Duyệt',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: uid.isEmpty ? null : () => _rejectUserVerification(u),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFFDA29B)),
+                    foregroundColor: const Color(0xFFD92D20),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    '✕ Từ chối',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _queueCccdNotification({
+    required WriteBatch batch,
+    required FirebaseFirestore db,
+    required Map<String, dynamic> user,
+    required String uid,
+    required String displayTarget,
+    required String title,
+    required String body,
+    required bool isApproved,
+    String reason = '',
+  }) {
+    final isHost = _isHostRole(user);
+    final status = isApproved ? 'approved' : 'rejected';
+
+    if (isHost) {
+      batch.set(db.collection('notifications').doc(), {
+        'hostId': uid,
+        'hostName': displayTarget,
+        'title': title,
+        'body': body,
+        'type': 'cccd_verification',
+        'status': status,
+        'reason': !isApproved && reason.isNotEmpty ? reason : null,
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      return;
+    }
+
+    batch.set(db.collection('notification_user').doc(), {
+      'userId': uid,
+      'recipientRole': 'renter',
+      'title': title,
+      'body': body,
+      'type': 'cccd_verification',
+      'status': status,
+      if (!isApproved && reason.isNotEmpty) 'reason': reason,
+      'isRead': false,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> _approveUserVerification(Map<String, dynamic> u) async {
+    final uid = (u['id'] ?? u['uid'] ?? '').toString().trim();
+    if (uid.isEmpty) return;
+    final name = _s(u, ['cccdFullName', 'hoTenCccd', 'displayName', 'name']);
+    final displayTarget = name.isNotEmpty ? name : uid;
+
+    try {
+      final db = FirebaseFirestore.instance;
+      final batch = db.batch();
+      final isHost = _isHostRole(u);
+      final hasReputation =
+          u['reputationScore'] != null || u['diemUyTin'] != null;
+      batch.set(
+        db.collection('users').doc(uid),
+        {
+          'isCccdVerified': true,
+          'cccdVerificationStatus': 'approved',
+          'cccdVerifiedAt': FieldValue.serverTimestamp(),
+          'cccdRejectReason': FieldValue.delete(),
+          'cccdRejectedReason': FieldValue.delete(),
+          'cccdRejectedAt': FieldValue.delete(),
+          if (isHost && !hasReputation) 'reputationScore': 100,
+        },
+        SetOptions(merge: true),
+      );
+      _queueCccdNotification(
+        batch: batch,
+        db: db,
+        user: u,
+        uid: uid,
+        displayTarget: displayTarget,
+        title: 'Xác thực danh tính thành công',
+        body: 'Admin đã phê duyệt hồ sơ xác thực CCCD của bạn.',
+        isApproved: true,
+      );
+      await batch.commit();
+      await _audit(
+        'Duyệt người dùng',
+        'Đã phê duyệt xác thực CCCD cho $displayTarget',
+        uid,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã duyệt người dùng $displayTarget!'),
+            backgroundColor: _primary,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi duyệt người dùng: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _rejectUserVerification(Map<String, dynamic> u) async {
+    final uid = (u['id'] ?? u['uid'] ?? '').toString().trim();
+    if (uid.isEmpty) return;
+    final name = _s(u, ['cccdFullName', 'hoTenCccd', 'displayName', 'name']);
+    final displayTarget = name.isNotEmpty ? name : uid;
+
+    var reasonInput = 'Ảnh CCCD chưa rõ hoặc thông tin chưa khớp';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Từ chối duyệt $displayTarget',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: _textDark,
+          ),
+        ),
+        content: TextFormField(
+          initialValue: reasonInput,
+          maxLines: 3,
+          onChanged: (value) => reasonInput = value,
+          decoration: InputDecoration(
+            labelText: 'Lý do từ chối',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xác nhận từ chối'),
+          ),
+        ],
+      ),
+    );
+    final reason = reasonInput.trim().isEmpty
+        ? 'Ảnh CCCD chưa rõ hoặc thông tin chưa khớp'
+        : reasonInput.trim();
+    if (confirmed != true) return;
+
+    try {
+      final db = FirebaseFirestore.instance;
+      final batch = db.batch();
+      batch.set(
+        db.collection('users').doc(uid),
+        {
+          'isCccdVerified': false,
+          'cccdVerificationStatus': 'rejected',
+          'cccdRejectReason': reason,
+          'cccdRejectedReason': reason,
+          'cccdRejectedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      _queueCccdNotification(
+        batch: batch,
+        db: db,
+        user: u,
+        uid: uid,
+        displayTarget: displayTarget,
+        title: 'Xác thực CCCD bị từ chối',
+        body: 'Hồ sơ xác thực CCCD chưa được duyệt. Lý do: $reason',
+        isApproved: false,
+        reason: reason,
+      );
+      await batch.commit();
+      await _audit(
+        'Từ chối người dùng',
+        'Từ chối xác thực CCCD cho $displayTarget: $reason',
+        uid,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã từ chối hồ sơ của $displayTarget'),
+            backgroundColor: _red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi từ chối người dùng: $e')),
+        );
+      }
+    }
+  }
+
+  Widget _buildCccdRowButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _pastelBorder, width: 1.2),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: _pastelBlueSoft,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 17, color: _primaryDark),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: _textDark,
+                  ),
+                ),
+              ),
+              const Text(
+                'Xem ảnh',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _primary,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.open_in_new_rounded,
+                size: 16,
+                color: _primary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Dialog hiển thị ảnh Căn cước mặt trước / mặt sau:
+  /// - Trên cùng: Thông tin (Tên) + dấu X đóng dialog
+  /// - Ở giữa: Ảnh căn cước (Image View)
+  /// - Dưới cùng: Button Close
+  void _showCccdImageDialog(Map<String, dynamic> u, {required bool isFront}) {
+    final cccdName = _s(u, ['cccdFullName', 'hoTenCccd', 'ho_ten_cccd']);
+    final displayName = _s(u, ['displayName', 'fullName', 'name']);
+    final name = cccdName.isNotEmpty
+        ? cccdName
+        : (displayName.isNotEmpty ? displayName : 'Người dùng');
+    final sideTitle = isFront ? 'Căn cước mặt trước' : 'Căn cước mặt sau';
+    final imagePath = isFront
+        ? _s(u, [
+            'cccdFrontImageUrl',
+            'anhMatTruoc',
+            'anh_mat_truoc',
+            'frontImageUrl',
+          ])
+        : _s(u, [
+            'cccdBackImageUrl',
+            'anhMatSau',
+            'anh_mat_sau',
+            'backImageUrl',
+          ]);
+
+    final uid = _s(u, ['uid', 'id']);
+    final cccdNumber = _s(u, ['cccdNumber', 'soCccd', 'soGiayTo']);
+    final cccdFullName = _s(u, ['cccdFullName', 'hoTenCccd', 'displayName', 'name']);
+    final hometown = _s(u, ['cccdHometown', 'hometown', 'queQuanCccd', 'address', 'diaChi']);
+    final issueDate = _s(u, ['cccdIssueDate', 'ngayCap']);
+    final gender = _s(u, ['gender', 'gioiTinh']);
+    final phone = _s(u, ['phoneNumber', 'soDienThoai', 'phone']);
+    final email = _s(u, ['email']);
+    final roleLabel = _roleLabel(_s(u, ['role', 'vaiTro']));
+    final birthDateDt = _date(u['birthDate'] ?? u['ngaySinh']);
+    final birthDateStr = birthDateDt != null
+        ? DateFormat('dd/MM/yyyy').format(birthDateDt)
+        : _s(u, ['birthDate', 'ngaySinh']);
+
+    Future<String> resolvePhotoFuture() async {
+      final direct = imagePath.trim();
+      if (_isRemoteOrDataImage(direct)) return direct;
+      if (uid.isNotEmpty) {
+        try {
+          final snap = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .collection('id_verifications')
+              .orderBy('createdAt', descending: true)
+              .limit(1)
+              .get();
+          if (snap.docs.isNotEmpty) {
+            final d = snap.docs.first.data();
+            final subUrl = isFront
+                ? _s(d, [
+                    'cccdFrontImageUrl',
+                    'frontImageUrl',
+                    'anhMatTruoc',
+                    'frontUrl',
+                  ])
+                : _s(d, [
+                    'cccdBackImageUrl',
+                    'backImageUrl',
+                    'anhMatSau',
+                    'backUrl',
+                  ]);
+            if (_isRemoteOrDataImage(subUrl)) return subUrl;
+          }
+        } catch (_) {}
+      }
+      return direct;
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 12, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 1. Header: Thông tin (Tên) + dấu X đóng dialog
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: _textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          sideTitle,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: _primaryDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(dialogCtx),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: _textDark,
+                      size: 22,
+                    ),
+                    tooltip: 'Đóng',
+                  ),
+                ],
+              ),
+              const Divider(height: 12, color: _pastelBorder),
+
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(right: 4, top: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // 2. Image View (Ảnh căn cước thật từ Firebase)
+                      FutureBuilder<String>(
+                        future: resolvePhotoFuture(),
+                        builder: (context, snapshot) {
+                          final resolvedPath = snapshot.data ?? imagePath;
+                          final isLoadingSub =
+                              snapshot.connectionState == ConnectionState.waiting &&
+                              !_isRemoteOrDataImage(imagePath);
+                          return Container(
+                            constraints: const BoxConstraints(
+                              minHeight: 190,
+                              maxHeight: 280,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _pastelBg,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: _pastelBorder,
+                                width: 1.2,
+                              ),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: isLoadingSub
+                                ? const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(24),
+                                      child: CircularProgressIndicator(
+                                        color: _primary,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    ),
+                                  )
+                                : InteractiveViewer(
+                                    minScale: 1.0,
+                                    maxScale: 3.5,
+                                    child: _buildCccdImageViewContent(
+                                      u,
+                                      imagePath: resolvedPath,
+                                      isFront: isFront,
+                                    ),
+                                  ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+
+                      // 3. Thông tin đầy đủ của người dùng & CCCD
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _pastelBg,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: _pastelBorder),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Thông tin xác thực đầy đủ',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                                color: _primaryDark,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _cccdDetailLine(
+                              'Họ và tên CCCD',
+                              cccdFullName.isNotEmpty ? cccdFullName : name,
+                            ),
+                            _cccdDetailLine(
+                              'Số CCCD',
+                              cccdNumber.isNotEmpty ? cccdNumber : 'Chưa cập nhật',
+                            ),
+                            _cccdDetailLine(
+                              'Ngày sinh',
+                              birthDateStr.isNotEmpty ? birthDateStr : 'Chưa cập nhật',
+                            ),
+                            _cccdDetailLine(
+                              'Giới tính',
+                              gender.isNotEmpty ? gender : 'Chưa cập nhật',
+                            ),
+                            _cccdDetailLine(
+                              'Quê quán / Địa chỉ',
+                              hometown.isNotEmpty ? hometown : 'Chưa cập nhật',
+                            ),
+                            _cccdDetailLine(
+                              'Ngày cấp CCCD',
+                              issueDate.isNotEmpty ? issueDate : 'Chưa cập nhật',
+                            ),
+                            _cccdDetailLine(
+                              'Số điện thoại',
+                              phone.isNotEmpty ? phone : 'Chưa cập nhật',
+                            ),
+                            _cccdDetailLine(
+                              'Email',
+                              email.isNotEmpty ? email : 'Chưa cập nhật',
+                            ),
+                            _cccdDetailLine('Vai trò', roleLabel),
+                            _cccdDetailLine(
+                              'UID',
+                              uid.isNotEmpty ? uid : '—',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // 4. Button Close dưới cùng
+              Center(
+                child: SizedBox(
+                  width: 140,
+                  height: 42,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () => Navigator.pop(dialogCtx),
+                    child: const Text(
+                      'Close',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _isRemoteOrDataImage(String path) {
+    final p = path.trim();
+    return p.startsWith('http://') ||
+        p.startsWith('https://') ||
+        p.startsWith('data:image');
+  }
+
+  Widget _cccdDetailLine(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 118,
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: _textGrey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: _textDark,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCccdImageViewContent(
+    Map<String, dynamic> u, {
+    required String imagePath,
+    required bool isFront,
+  }) {
+    final path = imagePath.trim();
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return Image.network(
+        path,
+        fit: BoxFit.contain,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(
+                color: _primary,
+                strokeWidth: 2.5,
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) =>
+            _buildMissingFirebasePhotoPlaceholder(
+          message: 'Không tải được ảnh từ Firebase Storage.',
+          storedValue: path,
+        ),
+      );
+    }
+
+    if (path.startsWith('data:image')) {
+      try {
+        final commaIdx = path.indexOf(',');
+        if (commaIdx != -1) {
+          final bytes = base64Decode(path.substring(commaIdx + 1));
+          return Image.memory(
+            bytes,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) =>
+                _buildMissingFirebasePhotoPlaceholder(
+              message: 'Ảnh Base64 trên Firestore không hợp lệ.',
+            ),
+          );
+        }
+      } catch (_) {}
+    }
+
+    if (path.isNotEmpty) {
+      return _buildMissingFirebasePhotoPlaceholder(
+        message:
+            'Chưa có dữ liệu ảnh trên Firestore (hiện chỉ lưu đường dẫn nội bộ trên máy người dùng).',
+        storedValue: path,
+      );
+    }
+
+    return _buildMissingFirebasePhotoPlaceholder(
+      message: 'Người dùng chưa có ảnh căn cước trên Firestore.',
+    );
+  }
+
+  Widget _buildMissingFirebasePhotoPlaceholder({
+    required String message,
+    String? storedValue,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.image_not_supported_outlined,
+              size: 40,
+              color: _textGrey,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: _textDark,
+                height: 1.35,
+              ),
+            ),
+            if (storedValue != null && storedValue.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                storedValue,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  color: _textGrey,
+                ),
+              ),
+            ],
           ],
         ),
       ),
