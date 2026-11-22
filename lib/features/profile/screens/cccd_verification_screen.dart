@@ -27,7 +27,12 @@ enum CccdSideValidationStatus {
 /// 3. Quét lấy thông tin từ mã QR CCCD
 /// Nút xác thực chỉ được kích hoạt khi cả 3 mục đều hợp lệ.
 class CccdVerificationScreen extends ConsumerStatefulWidget {
-  const CccdVerificationScreen({super.key});
+  final bool isForcedFlow;
+
+  const CccdVerificationScreen({
+    super.key,
+    this.isForcedFlow = false,
+  });
 
   @override
   ConsumerState<CccdVerificationScreen> createState() => _CccdVerificationScreenState();
@@ -51,6 +56,12 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
   CccdData? _cccdData;
   String? _qrRawPayload;
   bool _isSubmitting = false;
+
+  bool _forcedRejectDialogOpen = false;
+  bool _initialForcedPromptShown = false;
+  bool _hasSubmittedInForcedFlow = false;
+  bool _wasPendingInForcedFlow = false;
+  bool _acknowledgedForcedDialog = false;
 
   static const String _kDraftFront = 'draft_cccd_front_image';
   static const String _kDraftBack = 'draft_cccd_back_image';
@@ -555,6 +566,12 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
       );
 
       await _clearDraft();
+      if (widget.isForcedFlow) {
+        setState(() {
+          _hasSubmittedInForcedFlow = true;
+          _wasPendingInForcedFlow = true;
+        });
+      }
       ref.invalidate(userProfileProvider);
 
       if (mounted) {
@@ -607,9 +624,11 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          isHost
-                              ? 'Tài khoản chủ trọ đang chờ Admin phê duyệt. Sau khi được duyệt, bạn sẽ mở khóa đầy đủ quyền tạo cơ sở, phòng trọ và đăng tin.'
-                              : 'Tài khoản đang chờ Admin phê duyệt. Sau khi được duyệt, bạn có thể thực hiện đặt phòng nhanh chóng.',
+                          widget.isForcedFlow
+                              ? 'Hồ sơ bổ sung đã được gửi! Vui lòng đợi Quản trị viên xét duyệt. Ngay khi được duyệt, hệ thống sẽ tự động chuyển bạn vào Trang chủ.'
+                              : (isHost
+                                  ? 'Tài khoản chủ trọ đang chờ Admin phê duyệt. Sau khi được duyệt, bạn sẽ mở khóa đầy đủ quyền tạo cơ sở, phòng trọ và đăng tin.'
+                                  : 'Tài khoản đang chờ Admin phê duyệt. Sau khi được duyệt, bạn có thể thực hiện đặt phòng nhanh chóng.'),
                           style: const TextStyle(fontSize: 12, color: Color(0xFF92400E), height: 1.35),
                         ),
                       ),
@@ -627,9 +646,13 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
                 ),
                 onPressed: () {
                   Navigator.pop(ctx);
-                  Navigator.pop(context, true);
+                  if (!widget.isForcedFlow) {
+                    Navigator.pop(context, true);
+                  }
                 },
-                child: const Text('Đã hiểu & Hoàn tất'),
+                child: Text(
+                  widget.isForcedFlow ? 'Đã hiểu & Chờ Admin duyệt' : 'Đã hiểu & Hoàn tất',
+                ),
               ),
             ],
           ),
@@ -651,56 +674,366 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Xác thực CCCD (eKYC)'),
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Thanh tiến độ 3 mục
-            _buildProgressCard(),
+  Future<void> _handleForcedBackToLogin() async {
+    final email = ref.read(userProfileProvider).value?.email ?? '';
+    if (email.trim().isNotEmpty) {
+      ref.read(authServiceProvider);
+    }
+    await ref.read(authServiceProvider).signOut();
+  }
 
-            const SizedBox(height: 16),
+  Future<void> _showForcedRejectionDialog({
+    required String reason,
+    required bool isRepeat,
+  }) async {
+    if (!mounted || _forcedRejectDialogOpen) return;
+    _forcedRejectDialogOpen = true;
+    final effectiveReason = reason.trim().isNotEmpty
+        ? reason.trim()
+        : 'Ảnh chụp không đạt tiêu chuẩn hoặc thông tin không trùng khớp';
 
-            // Mục 1: Ảnh mặt trước CCCD
-            _buildImageUploadCard(
-              title: 'Mục 1: Lưu ảnh mặt trước CCCD',
-              subtitle: 'Chụp rõ nét mặt trước (ảnh chân dung, Quốc huy, số CCCD, họ tên)',
-              image: _frontImage,
-              isFront: true,
-              status: _frontStatus,
-              message: _frontMessage,
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFEE2E2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.gpp_bad_rounded,
+                  color: Color(0xFFDC2626),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isRepeat
+                      ? 'Yêu cầu xác thực vẫn bị từ chối'
+                      : 'Xác thực CCCD bị từ chối',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16.5,
+                    color: Color(0xFF991B1B),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isRepeat
+                    ? 'Hồ sơ bổ sung CCCD của bạn vẫn chưa được Quản trị viên phê duyệt.'
+                    : 'Yêu cầu xác thực định danh CCCD trước đó của bạn đã bị Quản trị viên từ chối.',
+                style: const TextStyle(fontSize: 13.5, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFECACA)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Lý do từ chối:',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF991B1B),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      effectiveReason,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF7F1D1D),
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Vui lòng chụp lại rõ nét ảnh 2 mặt CCCD và quét lại mã QR ngay tại màn hình này để bổ sung hồ sơ.',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: AppColors.textMuted,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  if (mounted) {
+                    setState(() {
+                      _acknowledgedForcedDialog = true;
+                    });
+                  }
+                },
+                icon: const Icon(Icons.edit_document, size: 18),
+                label: Text(
+                  isRepeat ? 'Yêu cầu bổ sung lại' : 'Yêu cầu bổ sung hồ sơ',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
             ),
-
-            const SizedBox(height: 16),
-
-            // Mục 2: Ảnh mặt sau CCCD
-            _buildImageUploadCard(
-              title: 'Mục 2: Lưu ảnh mặt sau CCCD',
-              subtitle: 'Chụp rõ nét mặt sau (chip điện tử, phôi Bộ Công An, mã MRZ)',
-              image: _backImage,
-              isFront: false,
-              status: _backStatus,
-              message: _backMessage,
-            ),
-
-            const SizedBox(height: 16),
-
-            // Mục 3: Quét lấy thông tin mã CCCD
-            _buildQrScanCard(),
-
-            const SizedBox(height: 24),
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomActionBar(),
+    );
+    _forcedRejectDialogOpen = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = ref.watch(userProfileProvider).value;
+
+    if (widget.isForcedFlow) {
+      ref.listen<AsyncValue<UserProfile?>>(userProfileProvider, (prev, next) {
+        final prevP = prev?.value;
+        final nextP = next.value;
+        if (nextP == null || !mounted) return;
+
+        if (nextP.isCccdPending) {
+          _wasPendingInForcedFlow = true;
+        }
+
+        final transitionedToRejected =
+            (prevP?.isCccdPending == true ||
+                _wasPendingInForcedFlow ||
+                _hasSubmittedInForcedFlow) &&
+            nextP.isCccdRejected;
+
+        if (transitionedToRejected) {
+          _wasPendingInForcedFlow = false;
+          setState(() {
+            _acknowledgedForcedDialog = false;
+            _frontImage = null;
+            _frontStatus = CccdSideValidationStatus.idle;
+            _frontMessage = null;
+            _frontEvidence = null;
+            _backImage = null;
+            _backStatus = CccdSideValidationStatus.idle;
+            _backMessage = null;
+            _backEvidence = null;
+            _cccdData = null;
+            _qrRawPayload = null;
+          });
+          _clearDraft();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _showForcedRejectionDialog(
+                reason: nextP.cccdRejectReason,
+                isRepeat: true,
+              );
+            }
+          });
+        }
+      });
+
+      if (profile != null) {
+        if (profile.isCccdPending) {
+          _wasPendingInForcedFlow = true;
+          _acknowledgedForcedDialog = true;
+        } else if (profile.isCccdRejected && !_initialForcedPromptShown) {
+          _initialForcedPromptShown = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _showForcedRejectionDialog(
+                reason: profile.cccdRejectReason,
+                isRepeat: _hasSubmittedInForcedFlow,
+              );
+            }
+          });
+        }
+      }
+    }
+
+    final isWaitingAdminInForcedFlow = widget.isForcedFlow &&
+        ((profile?.isCccdPending == true) ||
+            (_wasPendingInForcedFlow && profile?.isCccdRejected != true));
+
+    // Khi mới đăng nhập lại ở Bước 2: chỉ hiển thị nền chờ + Dialog "Xác thực bị từ chối".
+    // Sau khi người dùng nhấn nút "Yêu cầu bổ sung hồ sơ" trên Dialog thì mới hiển thị màn hình gửi CCCD.
+    if (widget.isForcedFlow &&
+        !_acknowledgedForcedDialog &&
+        !isWaitingAdminInForcedFlow) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) {
+            _handleForcedBackToLogin();
+          }
+        },
+        child: Scaffold(
+          backgroundColor: AppColors.background,
+          body: const Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    return PopScope(
+      canPop: !widget.isForcedFlow,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && widget.isForcedFlow) {
+          _handleForcedBackToLogin();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          leading: widget.isForcedFlow
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  tooltip: 'Quay về màn hình đăng nhập',
+                  onPressed: _handleForcedBackToLogin,
+                )
+              : null,
+          title: const Text('Xác thực CCCD (eKYC)'),
+          elevation: 0,
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (isWaitingAdminInForcedFlow) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFF59E0B), width: 1.4),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.hourglass_top_rounded,
+                        color: Color(0xFFD97706),
+                        size: 24,
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Đang chờ Quản trị viên xét duyệt hồ sơ bổ sung ⏳',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF92400E),
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Hồ sơ CCCD bổ sung của bạn đã được gửi đi. Hệ thống sẽ tự động đưa bạn vào Trang chủ ngay khi Quản trị viên phê duyệt. Nếu nhấn nút Quay lại, bạn sẽ ra màn hình Đăng nhập.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFFB45309),
+                                height: 1.38,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Thanh tiến độ 3 mục
+              _buildProgressCard(),
+
+              const SizedBox(height: 16),
+
+              // Mục 1: Ảnh mặt trước CCCD
+              IgnorePointer(
+                ignoring: isWaitingAdminInForcedFlow,
+                child: Opacity(
+                  opacity: isWaitingAdminInForcedFlow ? 0.65 : 1.0,
+                  child: _buildImageUploadCard(
+                    title: 'Mục 1: Lưu ảnh mặt trước CCCD',
+                    subtitle: 'Chụp rõ nét mặt trước (ảnh chân dung, Quốc huy, số CCCD, họ tên)',
+                    image: _frontImage,
+                    isFront: true,
+                    status: _frontStatus,
+                    message: _frontMessage,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Mục 2: Ảnh mặt sau CCCD
+              IgnorePointer(
+                ignoring: isWaitingAdminInForcedFlow,
+                child: Opacity(
+                  opacity: isWaitingAdminInForcedFlow ? 0.65 : 1.0,
+                  child: _buildImageUploadCard(
+                    title: 'Mục 2: Lưu ảnh mặt sau CCCD',
+                    subtitle: 'Chụp rõ nét mặt sau (chip điện tử, phôi Bộ Công An, mã MRZ)',
+                    image: _backImage,
+                    isFront: false,
+                    status: _backStatus,
+                    message: _backMessage,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Mục 3: Quét lấy thông tin mã CCCD
+              IgnorePointer(
+                ignoring: isWaitingAdminInForcedFlow,
+                child: Opacity(
+                  opacity: isWaitingAdminInForcedFlow ? 0.65 : 1.0,
+                  child: _buildQrScanCard(),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+        bottomNavigationBar: _buildBottomActionBar(
+          isWaitingAdminInForcedFlow: isWaitingAdminInForcedFlow,
+        ),
+      ),
     );
   }
 
@@ -1306,7 +1639,54 @@ class _CccdVerificationScreenState extends ConsumerState<CccdVerificationScreen>
   }
 
   /// Thanh hành động dưới cùng (Khóa nút nếu chưa đủ 3 mục hoặc ảnh không hợp lệ)
-  Widget _buildBottomActionBar() {
+  Widget _buildBottomActionBar({bool isWaitingAdminInForcedFlow = false}) {
+    if (isWaitingAdminInForcedFlow) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, -3),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFEF3C7),
+              foregroundColor: const Color(0xFFB45309),
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFF59E0B)),
+              ),
+            ),
+            onPressed: null,
+            icon: const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFFD97706),
+              ),
+            ),
+            label: const Text(
+              'ĐANG CHỜ ADMIN XÉT DUYỆT HỒ SƠ...',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13.5,
+                color: Color(0xFFB45309),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
       decoration: BoxDecoration(

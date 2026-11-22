@@ -53,6 +53,7 @@ class UserProfile {
   final String cccdFrontImageUrl; // anhMatTruoc / anhGiayTo_id
   final String cccdBackImageUrl; // anhMatSau
   final String cccdVerificationStatus; // 'pending' | 'approved' | 'rejected' | 'unverified'
+  final String cccdRejectReason;
   final bool requiredInfoCompleted; // daCapNhatThongTin
 
   // Vietnamese DrawIO Alias Getters
@@ -60,6 +61,11 @@ class UserProfile {
   bool get isCccdPending =>
       cccdVerificationStatus == 'choDuyet' ||
       cccdVerificationStatus == 'pending';
+  bool get isCccdRejected =>
+      cccdVerificationStatus == 'rejected' ||
+      cccdVerificationStatus == 'tuChoi';
+  bool get isCccdForcedFlow =>
+      isCccdRejected || (isCccdPending && cccdRejectReason.trim().isNotEmpty);
   bool get isAccessBlocked {
     return accountDeleted || isBanned || statusId == 2;
   }
@@ -157,6 +163,7 @@ class UserProfile {
     this.cccdFrontImageUrl = '',
     this.cccdBackImageUrl = '',
     this.cccdVerificationStatus = 'unverified',
+    this.cccdRejectReason = '',
     this.requiredInfoCompleted = false,
   }) : _userCode = (userCode != null && isValidUserCode(userCode))
            ? userCode.trim().toUpperCase()
@@ -271,6 +278,10 @@ class UserProfile {
                       ? 'pending'
                       : 'unverified')))
           .toString(),
+      cccdRejectReason:
+          (data['cccdRejectReason'] ?? data['cccdRejectedReason'] ?? '')
+              .toString()
+              .trim(),
       requiredInfoCompleted: data['requiredInfoCompleted'] == true ||
           data['daCapNhatThongTin'] == true ||
           data['hasCompletedRequiredInfo'] == true,
@@ -352,6 +363,7 @@ class UserProfile {
     String? cccdFrontImageUrl,
     String? cccdBackImageUrl,
     String? cccdVerificationStatus,
+    String? cccdRejectReason,
     bool? requiredInfoCompleted,
   }) {
     return UserProfile(
@@ -393,6 +405,7 @@ class UserProfile {
       cccdBackImageUrl: cccdBackImageUrl ?? this.cccdBackImageUrl,
       cccdVerificationStatus:
           cccdVerificationStatus ?? this.cccdVerificationStatus,
+      cccdRejectReason: cccdRejectReason ?? this.cccdRejectReason,
     );
   }
 }
@@ -450,17 +463,31 @@ Future<void> submitCccdVerificationRequest({
     isFront: false,
   );
 
-  // 3. Bảo toàn tên hiển thị (displayName)
+  // 3. Bảo toàn tên hiển thị (displayName) và ghi nhận nếu đang gửi lại sau khi bị từ chối
   String? existingDisplayName;
+  bool wasRejectedBefore = false;
+  String existingRejectReason = '';
   if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
     try {
       final doc = await fs.collection('users').doc(effectiveUid).get();
       if (doc.exists && doc.data() != null) {
-        final dName = (doc.data()?['displayName'] ?? doc.data()?['hoTen'])
+        final docData = doc.data()!;
+        final dName = (docData['displayName'] ?? docData['hoTen'])
             ?.toString()
             .trim();
         if (dName != null && dName.isNotEmpty) {
           existingDisplayName = dName;
+        }
+        final prevStatus =
+            (docData['cccdVerificationStatus'] ?? '').toString().trim();
+        existingRejectReason =
+            (docData['cccdRejectReason'] ?? docData['cccdRejectedReason'] ?? '')
+                .toString()
+                .trim();
+        if (prevStatus == 'rejected' ||
+            prevStatus == 'tuChoi' ||
+            existingRejectReason.isNotEmpty) {
+          wasRejectedBefore = true;
         }
       }
     } catch (_) {}
@@ -480,6 +507,9 @@ Future<void> submitCccdVerificationRequest({
   final updateData = <String, dynamic>{
     'isCccdVerified': false,
     'cccdVerificationStatus': 'pending',
+    if (wasRejectedBefore && existingRejectReason.isEmpty)
+      'cccdRejectReason':
+          'Ảnh chụp không đạt tiêu chuẩn hoặc thông tin không trùng khớp',
     'reputationScore': FieldValue.delete(),
     'diemUyTin': FieldValue.delete(),
     'cccdNumber': normalizedCccd,
@@ -670,6 +700,7 @@ Future<void> saveCccdVerificationToBackend({
     if (frontUrl.isNotEmpty) 'cccdFrontImageUrl': frontUrl,
     if (backUrl.isNotEmpty) 'cccdBackImageUrl': backUrl,
     'cccdVerifiedAt': FieldValue.serverTimestamp(),
+    'cccdRejectReason': FieldValue.delete(),
   };
 
   if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
@@ -740,6 +771,7 @@ Future<void> resetCccdVerificationForTesting({
     'cccdFrontImageUrl': FieldValue.delete(),
     'cccdBackImageUrl': FieldValue.delete(),
     'cccdVerifiedAt': FieldValue.delete(),
+    'cccdRejectReason': FieldValue.delete(),
     'ngayXacMinh': FieldValue.delete(),
   };
 
@@ -826,6 +858,7 @@ Map<String, dynamic> englishUserFieldPatch(Map<String, dynamic> data) {
   move('cccdBackImageUrl', ['anhMatSau']);
   move('cccdVerifiedAt', ['ngayXacMinh']);
   move('cccdSubmittedAt', ['ngayGuiXacMinh']);
+  move('cccdRejectReason', ['cccdRejectedReason']);
 
   if (_userFieldMissing(data['role'])) {
     final named = data['vaiTro'];
@@ -884,6 +917,26 @@ Map<String, dynamic> englishUserFieldPatch(Map<String, dynamic> data) {
       data['diemUyTin'] == null) {
     patch['reputationScore'] = 100;
     data['reputationScore'] = 100;
+  }
+
+  if (hasApprovedCccd) {
+    for (final key in [
+      'cccdRejectReason',
+      'cccdRejectedReason',
+      'cccdRejectedAt',
+    ]) {
+      if (data.containsKey(key)) {
+        patch[key] = FieldValue.delete();
+        data.remove(key);
+      }
+    }
+  } else if ((cccdStatus == 'rejected' || cccdStatus == 'tuChoi') &&
+      _userFieldMissing(data['cccdRejectReason']) &&
+      _userFieldMissing(patch['cccdRejectReason'])) {
+    const defaultReason =
+        'Ảnh chụp không đạt tiêu chuẩn hoặc thông tin không trùng khớp';
+    patch['cccdRejectReason'] = defaultReason;
+    data['cccdRejectReason'] = defaultReason;
   }
 
   return patch;

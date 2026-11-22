@@ -178,7 +178,10 @@ class _HostCreatePostScreenState extends ConsumerState<HostCreatePostScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final p = ref.read(userProfileProvider).value;
-      if (p != null && !p.isCccdVerified && !p.isCccdPending) {
+      if (p != null &&
+          !p.isCccdVerified &&
+          !p.isCccdPending &&
+          !p.isCccdRejected) {
         showCccdRequiredModal(
           context,
           isHost: true,
