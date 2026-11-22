@@ -78,6 +78,26 @@ class AdminAuditExcelExporter {
     'Người dùng',
   ];
 
+  /// Tạo nhanh workbook XLSX 1 sheet từ danh sách các dòng dữ liệu thô.
+  static Uint8List create(List<List<Object?>> rows) {
+    final columnCount = rows.isEmpty
+        ? 1
+        : rows.fold<int>(1, (max, r) => r.length > max ? r.length : max);
+    final xlRows = <List<_XlCell>>[];
+    for (var r = 0; r < rows.length; r++) {
+      final style = r == 0 ? _XlStyle.header : _XlStyle.normal;
+      xlRows.add(rows[r].map((v) => _XlCell(v, style)).toList());
+    }
+    final sheet = _XlSheet(
+      name: 'Sheet1',
+      rows: xlRows,
+      columnWidths: List<double>.filled(columnCount, 24),
+      headerRow: rows.isNotEmpty ? 1 : null,
+      filterLastRow: rows.length > 1 ? rows.length : null,
+    );
+    return _buildWorkbook([sheet]);
+  }
+
   static Uint8List createReport({
     required String monthLabel,
     required String exportedAt,
@@ -401,13 +421,14 @@ $merges
   static String _cellXml(String column, int row, _XlCell cell) {
     final reference = '$column$row';
     final style = cell.style.index;
+    final styleAttr = style == 0 ? '' : ' s="$style"';
     final value = cell.value;
     if (value is num && value.isFinite) {
-      return '<c r="$reference" s="$style" t="n"><v>$value</v></c>';
+      return '<c r="$reference"$styleAttr t="n"><v>$value</v></c>';
     }
 
     final text = _escapeXml(value?.toString() ?? '');
-    return '<c r="$reference" s="$style" t="inlineStr"><is><t xml:space="preserve">$text</t></is></c>';
+    return '<c r="$reference"$styleAttr t="inlineStr"><is><t xml:space="preserve">$text</t></is></c>';
   }
 
   // Thứ tự cellXfs phải khớp với thứ tự của enum _XlStyle.

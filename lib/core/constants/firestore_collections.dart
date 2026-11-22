@@ -13,6 +13,7 @@ abstract final class FirestoreCollections {
   // Tên subcollection phòng bên dưới properties/users. Kho phòng gốc dùng
   // `host_rooms`; không còn collection gốc `rooms`.
   static const propertyRooms = 'rooms';
+  static const publicRooms = 'rooms';
   static const amenities = 'amenities';
   static const locations = 'locations';
   static const posts = 'posts';
