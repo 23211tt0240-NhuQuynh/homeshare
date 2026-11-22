@@ -117,22 +117,18 @@ class HostReviewsSection extends ConsumerWidget {
             children: [
               const Icon(Icons.star_rounded, color: Color(0xFFFFA000), size: 22),
               const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  stats.displayAverage,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textDark,
-                  ),
+              Text(
+                stats.displayAverage,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textDark,
                 ),
               ),
-              const SizedBox(width: 8),
+              const Spacer(),
               Text(
                 stats.count == 0 ? '0 lượt đánh giá' : '${stats.count} lượt đánh giá',
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
               ),
             ],
           ),

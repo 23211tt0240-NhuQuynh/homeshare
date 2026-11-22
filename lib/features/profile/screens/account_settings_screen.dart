@@ -111,9 +111,6 @@ class AccountSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(userProfileProvider).value;
     final isVerified = profile?.isCccdVerified == true;
-    final isPending = profile?.isCccdPending == true;
-    final isRejected = profile?.isCccdRejected == true;
-    final rejectedReason = (profile?.cccdRejectedReason ?? '').trim();
 
     return Scaffold(
       appBar: AppBar(
@@ -142,46 +139,20 @@ class AccountSettingsScreen extends ConsumerWidget {
               title: 'Xác thực CCCD (eKYC)',
               subtitle: isVerified && profile?.cccdNumber.trim().isNotEmpty == true
                   ? 'Số: ${profile!.maskedCccdNumber}'
-                  : isPending
-                      ? 'Hồ sơ đã gửi, đang chờ Admin xét duyệt'
-                      : isRejected
-                          ? (rejectedReason.isNotEmpty
-                              ? 'Bị từ chối: $rejectedReason'
-                              : 'Hồ sơ bị từ chối — nhấn để chụp & gửi lại')
-                          : 'Quét mã QR trên thẻ chip để định danh',
+                  : 'Quét mã QR trên thẻ chip để định danh',
               trailing: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isVerified
-                      ? AppColors.primaryContainer
-                      : isRejected
-                          ? const Color(0xFFFEF3F2)
-                          : const Color(0xFFFEF3C7),
+                  color: isVerified ? AppColors.primaryContainer : const Color(0xFFFEF3C7),
                   borderRadius: BorderRadius.circular(6),
-                  border: isVerified
-                      ? null
-                      : Border.all(
-                          color: isRejected
-                              ? const Color(0xFFFDA29B)
-                              : const Color(0xFFF59E0B),
-                        ),
+                  border: isVerified ? null : Border.all(color: const Color(0xFFF59E0B)),
                 ),
                 child: Text(
-                  isVerified
-                      ? 'Đã duyệt ✓'
-                      : isPending
-                          ? 'Chờ duyệt ⏳'
-                          : isRejected
-                              ? 'Bị từ chối >'
-                              : 'Chưa xác thực >',
+                  isVerified ? 'Đã duyệt ✓' : 'Chưa xác thực >',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: isVerified
-                        ? AppColors.primary
-                        : isRejected
-                            ? const Color(0xFFB42318)
-                            : const Color(0xFFB45309),
+                    color: isVerified ? AppColors.primary : const Color(0xFFB45309),
                   ),
                 ),
               ),

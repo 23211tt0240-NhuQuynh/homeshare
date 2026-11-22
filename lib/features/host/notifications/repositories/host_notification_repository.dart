@@ -118,12 +118,6 @@ class HostNotificationRepository {
     final list = <HostNotificationModel>[];
     for (final doc in snapshot.docs) {
       final data = Map<String, dynamic>.from(doc.data());
-      final recipientRole =
-          (data['recipientRole'] ?? '').toString().trim().toLowerCase();
-      if (recipientRole == 'admin') {
-        continue;
-      }
-
       final bId =
           (data[NotificationFields.bookingId] ??
                   data['bookingId'] ??
@@ -133,31 +127,15 @@ class HostNotificationRepository {
               .trim();
 
       final actionType = (data['actionType'] ?? data['type'] ?? data['notificationType'] ?? '').toString();
-      final lowerActionType = actionType.toLowerCase();
-      final lowerTitle = (data[NotificationFields.title] ?? data['title'] ?? '')
-          .toString()
-          .toLowerCase();
-      final isCccd = lowerActionType.startsWith('cccd') ||
-          lowerTitle.contains('cccd');
+      final isRoomIssue = actionType == 'room_issue' ||
+          data['issueId'] != null && data['issueId'].toString().isNotEmpty ||
+          (data['title']?.toString().toLowerCase().contains('sự cố') ?? false);
 
-      final isRoomIssue = !isCccd &&
-          (actionType == 'room_issue' ||
-              data['issueId'] != null && data['issueId'].toString().isNotEmpty ||
-              lowerTitle.contains('sự cố'));
+      final isDisbursement = actionType == 'disbursement' ||
+          (data[NotificationFields.title]?.toString().toLowerCase().contains('admin đã giải ngân') ?? false) ||
+          (data['title']?.toString().toLowerCase().contains('admin đã giải ngân') ?? false);
 
-      final isDisbursement = !isCccd &&
-          (actionType == 'disbursement' ||
-              lowerTitle.contains('admin đã giải ngân'));
-
-      if (isCccd) {
-        // Thông báo xác thực CCCD luôn nằm trong tab "Đang xử lý" của Chủ trọ
-        data[NotificationFields.notificationType] =
-            HostNotificationType.pendingAction.code;
-        if ((data['actionType'] ?? '').toString().trim().isEmpty) {
-          data['actionType'] =
-              lowerActionType.isNotEmpty ? lowerActionType : 'cccd_verification';
-        }
-      } else if (isDisbursement) {
+      if (isDisbursement) {
         // Thông báo giải ngân luôn nằm ở tab "Đã thanh toán".
         data[NotificationFields.notificationType] =
             HostNotificationType.paymentCompleted.code;

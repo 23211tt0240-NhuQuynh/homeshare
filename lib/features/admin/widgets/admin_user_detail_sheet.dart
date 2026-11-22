@@ -277,6 +277,7 @@ class _AdminUserDetailSheetState extends State<AdminUserDetailSheet>
         'isCccdVerified': true,
         'cccdVerificationStatus': 'approved',
         'cccdVerifiedAt': FieldValue.serverTimestamp(),
+        'cccdRejectReason': FieldValue.delete(),
         if (isHost && existingRep == null) 'reputationScore': 100,
       }, SetOptions(merge: true));
 

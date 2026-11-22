@@ -53,24 +53,19 @@ class UserProfile {
   final String cccdFrontImageUrl; // anhMatTruoc / anhGiayTo_id
   final String cccdBackImageUrl; // anhMatSau
   final String cccdVerificationStatus; // 'pending' | 'approved' | 'rejected' | 'unverified'
-  final String cccdRejectedReason;
-  final DateTime? cccdRejectedAt;
-  final DateTime? cccdSubmittedAt;
+  final String cccdRejectReason;
   final bool requiredInfoCompleted; // daCapNhatThongTin
 
   // Vietnamese DrawIO Alias Getters
   bool get hasCompletedRequiredInfo => requiredInfoCompleted;
-  String get normalizedCccdStatus => cccdVerificationStatus.trim().toLowerCase();
   bool get isCccdPending =>
-      normalizedCccdStatus == 'choduyet' || normalizedCccdStatus == 'pending';
+      cccdVerificationStatus == 'choDuyet' ||
+      cccdVerificationStatus == 'pending';
   bool get isCccdRejected =>
-      normalizedCccdStatus == 'rejected' ||
-      normalizedCccdStatus == 'tuchoi' ||
-      normalizedCccdStatus == 'bi_tu_choi';
-  bool get isCccdApproved =>
-      isCccdVerified ||
-      normalizedCccdStatus == 'approved' ||
-      normalizedCccdStatus == 'daxacthuc';
+      cccdVerificationStatus == 'rejected' ||
+      cccdVerificationStatus == 'tuChoi';
+  bool get isCccdForcedFlow =>
+      isCccdRejected || (isCccdPending && cccdRejectReason.trim().isNotEmpty);
   bool get isAccessBlocked {
     return accountDeleted || isBanned || statusId == 2;
   }
@@ -168,9 +163,7 @@ class UserProfile {
     this.cccdFrontImageUrl = '',
     this.cccdBackImageUrl = '',
     this.cccdVerificationStatus = 'unverified',
-    this.cccdRejectedReason = '',
-    this.cccdRejectedAt,
-    this.cccdSubmittedAt,
+    this.cccdRejectReason = '',
     this.requiredInfoCompleted = false,
   }) : _userCode = (userCode != null && isValidUserCode(userCode))
            ? userCode.trim().toUpperCase()
@@ -252,10 +245,7 @@ class UserProfile {
           ? (data['ngayTao'] as Timestamp).toDate()
           : null,
       isCccdVerified: data['cccdVerificationStatus'] != null
-          ? (data['cccdVerificationStatus'].toString().trim().toLowerCase() ==
-                    'approved' ||
-                data['cccdVerificationStatus'].toString().trim().toLowerCase() ==
-                    'daxacthuc')
+          ? data['cccdVerificationStatus'] == 'approved'
           : (data['isCccdVerified'] == true ||
               data['daXacThucCccd'] == true ||
               data['trangThaiXacMinh'] == 'daXacThuc' ||
@@ -288,14 +278,10 @@ class UserProfile {
                       ? 'pending'
                       : 'unverified')))
           .toString(),
-      cccdRejectedReason:
-          (data['cccdRejectedReason'] ?? data['cccdRejectReason'] ?? '')
+      cccdRejectReason:
+          (data['cccdRejectReason'] ?? data['cccdRejectedReason'] ?? '')
               .toString()
               .trim(),
-      cccdRejectedAt: parseModerationDate(data['cccdRejectedAt']),
-      cccdSubmittedAt: parseModerationDate(
-        data['cccdSubmittedAt'] ?? data['ngayGuiXacMinh'],
-      ),
       requiredInfoCompleted: data['requiredInfoCompleted'] == true ||
           data['daCapNhatThongTin'] == true ||
           data['hasCompletedRequiredInfo'] == true,
@@ -333,12 +319,6 @@ class UserProfile {
       'cccdFrontImageUrl': cccdFrontImageUrl,
       'cccdBackImageUrl': cccdBackImageUrl,
       'cccdVerificationStatus': cccdVerificationStatus,
-      if (cccdRejectedReason.isNotEmpty)
-        'cccdRejectedReason': cccdRejectedReason,
-      if (cccdRejectedAt != null)
-        'cccdRejectedAt': Timestamp.fromDate(cccdRejectedAt!),
-      if (cccdSubmittedAt != null)
-        'cccdSubmittedAt': Timestamp.fromDate(cccdSubmittedAt!),
       if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate!),
       if (cccdVerifiedAt != null)
         'cccdVerifiedAt': Timestamp.fromDate(cccdVerifiedAt!),
@@ -383,9 +363,7 @@ class UserProfile {
     String? cccdFrontImageUrl,
     String? cccdBackImageUrl,
     String? cccdVerificationStatus,
-    String? cccdRejectedReason,
-    DateTime? cccdRejectedAt,
-    DateTime? cccdSubmittedAt,
+    String? cccdRejectReason,
     bool? requiredInfoCompleted,
   }) {
     return UserProfile(
@@ -427,9 +405,7 @@ class UserProfile {
       cccdBackImageUrl: cccdBackImageUrl ?? this.cccdBackImageUrl,
       cccdVerificationStatus:
           cccdVerificationStatus ?? this.cccdVerificationStatus,
-      cccdRejectedReason: cccdRejectedReason ?? this.cccdRejectedReason,
-      cccdRejectedAt: cccdRejectedAt ?? this.cccdRejectedAt,
-      cccdSubmittedAt: cccdSubmittedAt ?? this.cccdSubmittedAt,
+      cccdRejectReason: cccdRejectReason ?? this.cccdRejectReason,
     );
   }
 }
@@ -487,17 +463,31 @@ Future<void> submitCccdVerificationRequest({
     isFront: false,
   );
 
-  // 3. Bảo toàn tên hiển thị (displayName)
+  // 3. Bảo toàn tên hiển thị (displayName) và ghi nhận nếu đang gửi lại sau khi bị từ chối
   String? existingDisplayName;
+  bool wasRejectedBefore = false;
+  String existingRejectReason = '';
   if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
     try {
       final doc = await fs.collection('users').doc(effectiveUid).get();
       if (doc.exists && doc.data() != null) {
-        final dName = (doc.data()?['displayName'] ?? doc.data()?['hoTen'])
+        final docData = doc.data()!;
+        final dName = (docData['displayName'] ?? docData['hoTen'])
             ?.toString()
             .trim();
         if (dName != null && dName.isNotEmpty) {
           existingDisplayName = dName;
+        }
+        final prevStatus =
+            (docData['cccdVerificationStatus'] ?? '').toString().trim();
+        existingRejectReason =
+            (docData['cccdRejectReason'] ?? docData['cccdRejectedReason'] ?? '')
+                .toString()
+                .trim();
+        if (prevStatus == 'rejected' ||
+            prevStatus == 'tuChoi' ||
+            existingRejectReason.isNotEmpty) {
+          wasRejectedBefore = true;
         }
       }
     } catch (_) {}
@@ -517,6 +507,9 @@ Future<void> submitCccdVerificationRequest({
   final updateData = <String, dynamic>{
     'isCccdVerified': false,
     'cccdVerificationStatus': 'pending',
+    if (wasRejectedBefore && existingRejectReason.isEmpty)
+      'cccdRejectReason':
+          'Ảnh chụp không đạt tiêu chuẩn hoặc thông tin không trùng khớp',
     'reputationScore': FieldValue.delete(),
     'diemUyTin': FieldValue.delete(),
     'cccdNumber': normalizedCccd,
@@ -530,9 +523,6 @@ Future<void> submitCccdVerificationRequest({
     'cccdFrontImageUrl': frontUrl,
     'cccdBackImageUrl': backUrl,
     'cccdSubmittedAt': FieldValue.serverTimestamp(),
-    'cccdRejectedReason': FieldValue.delete(),
-    'cccdRejectReason': FieldValue.delete(),
-    'cccdRejectedAt': FieldValue.delete(),
     'ngayGuiXacMinh': FieldValue.delete(),
   };
 
@@ -569,26 +559,21 @@ Future<void> submitCccdVerificationRequest({
       final targetCol =
           isHost ? 'notifications' : FirestoreCollections.notificationUser;
       final userNotifRef = fs.collection(targetCol).doc();
-      final userNotifBody = isHost
-          ? 'Hồ sơ xác thực CCCD chủ trọ của bạn đã được gửi sang Quản trị viên xem xét, đang chờ xác thực tài khoản để kích hoạt đầy đủ quyền tạo phòng và đăng bài.'
-          : 'Hồ sơ xác thực CCCD của bạn đã được gửi sang Quản trị viên xem xét, đang chờ xác thực tài khoản.';
       final userNotifData = {
         'id': userNotifRef.id,
         'userId': effectiveUid,
         'recipientId': effectiveUid,
         'receiverId': effectiveUid,
-        'recipientRole': isHost ? 'host' : 'renter',
         'role': role,
         'type': 'cccd_verification_pending',
         'notificationType': 'cccd_verification_pending',
-        'actionType': 'cccd_verification_pending',
         'title': isHost
             ? 'Đã gửi yêu cầu xác thực CCCD Chủ trọ'
             : 'Đã gửi yêu cầu xác thực CCCD',
-        'body': userNotifBody,
-        'message': userNotifBody,
+        'body': isHost
+            ? 'Hồ sơ xác thực CCCD chủ trọ của bạn đã được gửi sang Quản trị viên xem xét, đang chờ xác thực tài khoản để kích hoạt đầy đủ quyền tạo phòng và đăng bài.'
+            : 'Hồ sơ xác thực CCCD của bạn đã được gửi sang Quản trị viên xem xét, đang chờ xác thực tài khoản.',
         'status': 'pending',
-        'statusId': 'pending',
         'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
       };
@@ -715,6 +700,7 @@ Future<void> saveCccdVerificationToBackend({
     if (frontUrl.isNotEmpty) 'cccdFrontImageUrl': frontUrl,
     if (backUrl.isNotEmpty) 'cccdBackImageUrl': backUrl,
     'cccdVerifiedAt': FieldValue.serverTimestamp(),
+    'cccdRejectReason': FieldValue.delete(),
   };
 
   if (effectiveUid.isNotEmpty && effectiveUid != 'guest_uid') {
@@ -785,6 +771,7 @@ Future<void> resetCccdVerificationForTesting({
     'cccdFrontImageUrl': FieldValue.delete(),
     'cccdBackImageUrl': FieldValue.delete(),
     'cccdVerifiedAt': FieldValue.delete(),
+    'cccdRejectReason': FieldValue.delete(),
     'ngayXacMinh': FieldValue.delete(),
   };
 
@@ -871,6 +858,7 @@ Map<String, dynamic> englishUserFieldPatch(Map<String, dynamic> data) {
   move('cccdBackImageUrl', ['anhMatSau']);
   move('cccdVerifiedAt', ['ngayXacMinh']);
   move('cccdSubmittedAt', ['ngayGuiXacMinh']);
+  move('cccdRejectReason', ['cccdRejectedReason']);
 
   if (_userFieldMissing(data['role'])) {
     final named = data['vaiTro'];
@@ -929,6 +917,26 @@ Map<String, dynamic> englishUserFieldPatch(Map<String, dynamic> data) {
       data['diemUyTin'] == null) {
     patch['reputationScore'] = 100;
     data['reputationScore'] = 100;
+  }
+
+  if (hasApprovedCccd) {
+    for (final key in [
+      'cccdRejectReason',
+      'cccdRejectedReason',
+      'cccdRejectedAt',
+    ]) {
+      if (data.containsKey(key)) {
+        patch[key] = FieldValue.delete();
+        data.remove(key);
+      }
+    }
+  } else if ((cccdStatus == 'rejected' || cccdStatus == 'tuChoi') &&
+      _userFieldMissing(data['cccdRejectReason']) &&
+      _userFieldMissing(patch['cccdRejectReason'])) {
+    const defaultReason =
+        'Ảnh chụp không đạt tiêu chuẩn hoặc thông tin không trùng khớp';
+    patch['cccdRejectReason'] = defaultReason;
+    data['cccdRejectReason'] = defaultReason;
   }
 
   return patch;

@@ -70,7 +70,6 @@ class ProfileHeaderCard extends StatelessWidget {
 
     final isCccdVerified = profile?.isCccdVerified ?? false;
     final isCccdPending = profile?.isCccdPending ?? false;
-    final isCccdRejected = profile?.isCccdRejected ?? false;
 
     // Vai trò hiển thị
     String roleBadgeText = 'Người thuê';
@@ -300,55 +299,8 @@ class ProfileHeaderCard extends StatelessWidget {
                                           ],
                                         ),
                                       )
-                                    : isCccdRejected
-                                        ? InkWell(
-                                            onTap: onOpenCccdVerification,
-                                            borderRadius: BorderRadius.circular(6),
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 6,
-                                                vertical: 2.5,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFFEF3F2),
-                                                borderRadius: BorderRadius.circular(6),
-                                                border: Border.all(
-                                                  color: const Color(0xFFFDA29B),
-                                                ),
-                                              ),
-                                              child: const Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(
-                                                    Icons.gpp_bad_outlined,
-                                                    size: 12,
-                                                    color: Color(0xFFD92D20),
-                                                  ),
-                                                  SizedBox(width: 3),
-                                                  Flexible(
-                                                    child: Text(
-                                                      'CCCD bị từ chối (Gửi lại)',
-                                                      style: TextStyle(
-                                                        fontSize: 10,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: Color(0xFFB42318),
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                  SizedBox(width: 2),
-                                                  Icon(
-                                                    Icons.chevron_right,
-                                                    size: 12,
-                                                    color: Color(0xFFD92D20),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          )
-                                        : InkWell(
-                                            onTap: onOpenCccdVerification,
+                                    : InkWell(
+                                        onTap: onOpenCccdVerification,
                                         borderRadius: BorderRadius.circular(6),
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(

@@ -41,8 +41,6 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
   String? _genderError;
   bool _verified = false;
   bool _cccdPending = false;
-  bool _cccdRejected = false;
-  String _cccdRejectedReason = '';
   bool _hydrated = false;
   bool _bankLoaded = false;
   bool _bankLoadFailed = false;
@@ -446,8 +444,6 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
     if (profile != null && !viewingOther) {
       _verified = profile.isCccdVerified;
       _cccdPending = profile.isCccdPending;
-      _cccdRejected = profile.isCccdRejected;
-      _cccdRejectedReason = profile.cccdRejectedReason;
       if (!_hydrated) {
         _hydrated = true;
         _hydrate(profile);
@@ -609,8 +605,6 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
 
   Widget _buildCccdVerificationBanner() {
     final isPending = _cccdPending;
-    final isRejected = _cccdRejected;
-    final rejectedReason = _cccdRejectedReason.trim();
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -626,11 +620,7 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
           Row(
             children: [
               Icon(
-                isPending
-                    ? Icons.hourglass_top_rounded
-                    : (isRejected
-                        ? Icons.gpp_bad_rounded
-                        : Icons.shield_outlined),
+                isPending ? Icons.hourglass_top_rounded : Icons.shield_outlined,
                 size: 20,
                 color: isPending ? const Color(0xFFD97706) : const Color(0xFFDC2626),
               ),
@@ -639,9 +629,7 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
                 child: Text(
                   isPending
                       ? 'Hồ sơ CCCD đang chờ Admin xét duyệt'
-                      : (isRejected
-                          ? 'Hồ sơ CCCD bị Admin từ chối'
-                          : 'Tài khoản chưa xác thực CCCD (eKYC)'),
+                      : 'Tài khoản chưa xác thực CCCD (eKYC)',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -655,11 +643,7 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
           Text(
             isPending
                 ? 'Hồ sơ của bạn đã được gửi tới Quản trị viên. Điểm uy tín và tính năng đăng phòng sẽ được kích hoạt ngay sau khi được duyệt.'
-                : (isRejected
-                    ? (rejectedReason.isNotEmpty
-                        ? 'Lý do từ chối: $rejectedReason. Vui lòng chụp lại ảnh CCCD rõ nét và gửi lại để Admin xét duyệt.'
-                        : 'Hồ sơ CCCD trước đó chưa đạt yêu cầu. Vui lòng chụp lại ảnh rõ nét và gửi lại để Admin xét duyệt.')
-                    : 'Chủ trọ cần xác thực CCCD để kích hoạt Điểm uy tín, tạo cơ sở, phòng và đăng tin cho thuê.'),
+                : 'Chủ trọ cần xác thực CCCD để kích hoạt Điểm uy tín, tạo cơ sở, phòng và đăng tin cho thuê.',
             style: TextStyle(
               fontSize: 12.5,
               height: 1.4,
@@ -687,21 +671,14 @@ class _HostProfileScreenState extends ConsumerState<HostProfileScreen> {
                         _hydrate(updated);
                         _verified = updated.isCccdVerified;
                         _cccdPending = updated.isCccdPending;
-                        _cccdRejected = updated.isCccdRejected;
-                        _cccdRejectedReason = updated.cccdRejectedReason;
                       });
                     }
                   }
                 },
-                icon: Icon(
-                  isRejected
-                      ? Icons.camera_alt_outlined
-                      : Icons.badge_outlined,
-                  size: 16,
-                ),
-                label: Text(
-                  isRejected ? 'Chụp & gửi lại CCCD' : 'Xác thực CCCD ngay',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                icon: const Icon(Icons.badge_outlined, size: 16),
+                label: const Text(
+                  'Xác thực CCCD ngay',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFDC2626),

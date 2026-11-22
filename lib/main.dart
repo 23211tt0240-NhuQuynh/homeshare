@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
 import 'core/constants/app_colors.dart';
+import 'core/services/auth_service.dart';
 import 'core/services/call_push_service.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/services/user_profile_service.dart';
@@ -15,6 +16,7 @@ import 'features/auth/screens/login_screen.dart';
 import 'features/auth/screens/email_verification_screen.dart';
 import 'features/auth/services/email_verification_policy.dart';
 import 'features/host/screens/host_main_screen.dart';
+import 'features/profile/screens/cccd_verification_screen.dart';
 import 'features/profile/services/required_account_info_policy.dart';
 import 'features/profile/widgets/cccd_required_modal.dart';
 import 'features/profile/widgets/required_info_notice_modal.dart';
@@ -101,6 +103,8 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
   bool _servicesBound = false;
   bool _requiredInfoPromptOpen = false;
   bool _cccdPromptOpen = false;
+  bool _rejectionKickOutOpen = false;
+  bool? _startedInForcedFlow;
   String? _bankAccountUid;
   String? _lastRequiredInfoSignature;
   String? _lastCccdPromptSignature;
@@ -140,6 +144,41 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
 
         final resolvedProfile = profile;
         if (resolvedProfile == null) {
+          return Scaffold(
+            backgroundColor: AppColors.background,
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        // Nếu đang hiển thị dialog Bước 1 (bị từ chối lần đầu -> chuẩn bị văng ra màn hình đăng nhập),
+        // giữ nguyên màn hình chờ, tuyệt đối không dựng CccdVerificationScreen để tránh hiện 2 dialog chồng nhau.
+        if (_rejectionKickOutOpen) {
+          return Scaffold(
+            backgroundColor: AppColors.background,
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        // Ghi nhận trạng thái CCCD ngay thời điểm vừa đăng nhập vào phiên hiện tại:
+        // - Nếu lúc mới vào app chưa bị từ chối (_startedInForcedFlow == false), mà sau đó bị Admin từ chối -> Chạy Bước 1 (hiện dialog báo từ chối rồi văng ra Login).
+        // - Nếu lúc đăng nhập vào từ LoginScreen mà tài khoản đã ở trạng thái bị từ chối (_startedInForcedFlow == true) -> Chạy Bước 2 & 3 (hiện dialog Yêu cầu bổ sung -> mở màn hình gửi lại CCCD).
+        _startedInForcedFlow ??= resolvedProfile.isCccdForcedFlow;
+
+        // Nếu tài khoản đã được Admin duyệt (approved) hoặc chưa bị từ chối -> reset về luồng bình thường
+        if (!resolvedProfile.isCccdForcedFlow) {
+          _startedInForcedFlow = false;
+          AuthService.cccdResubmitSessionUids.remove(resolvedProfile.uid);
+        }
+
+        // Bước 2 & Bước 3: Chỉ chạy khi người dùng ĐĂNG NHẬP LẠI vào tài khoản đã bị từ chối (_startedInForcedFlow == true)
+        if (_startedInForcedFlow == true && resolvedProfile.isCccdForcedFlow) {
+          return const CccdVerificationScreen(isForcedFlow: true);
+        }
+
+        // Bước 1: Đang ở trong app (_startedInForcedFlow == false) mà bị Admin từ chối lần đầu
+        // -> Chỉ hiện duy nhất 1 dialog thông báo bị từ chối rồi văng thẳng ra màn hình đăng nhập.
+        if (resolvedProfile.isCccdRejected) {
+          _triggerRejectedKickOut(resolvedProfile);
           return Scaffold(
             backgroundColor: AppColors.background,
             body: const Center(child: CircularProgressIndicator()),
@@ -259,6 +298,138 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
     return const RenterMainScreen();
   }
 
+  void _triggerRejectedKickOut(UserProfile profile) {
+    if (_rejectionKickOutOpen) return;
+    _rejectionKickOutOpen = true;
+    final reason = profile.cccdRejectReason.trim().isNotEmpty
+        ? profile.cccdRejectReason.trim()
+        : 'Ảnh chụp không đạt tiêu chuẩn hoặc thông tin không trùng khớp';
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => PopScope(
+          canPop: false,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFEE2E2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.gpp_bad_rounded,
+                    color: Color(0xFFDC2626),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Yêu cầu xác thực bị từ chối',
+                    style: TextStyle(
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF991B1B),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Yêu cầu xác thực CCCD của bạn đã bị Quản trị viên từ chối.',
+                  style: TextStyle(fontSize: 13.5, height: 1.4),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFECACA)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Lý do từ chối:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF991B1B),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        reason,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF7F1D1D),
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Hệ thống sẽ chuyển bạn về màn hình đăng nhập. Vui lòng đăng nhập lại để cập nhật bổ sung hồ sơ CCCD.',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.textMuted,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFDC2626),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                  },
+                  child: const Text(
+                    'Đã hiểu & Về màn hình đăng nhập',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+      AuthService.pendingLoginEmail = profile.email.trim().toLowerCase();
+      AuthService.cccdResubmitSessionUids.add(profile.uid);
+      Navigator.of(context, rootNavigator: true)
+          .popUntil((route) => route.isFirst);
+      await ref.read(authServiceProvider).signOut();
+    });
+  }
+
   void _promptForRequiredInfo(
     UserProfile profile,
     BankAccount bankAccount, {
@@ -272,8 +443,10 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
       accountHolder: bankAccount.accountHolder,
     );
 
-    // 2. Kiểm tra CCCD (hiện khi chưa xác thực và không trong trạng thái chờ duyệt)
-    final needsCccd = !profile.isCccdVerified && !profile.isCccdPending;
+    // 2. Kiểm tra CCCD (hiện khi chưa xác thực, không chờ duyệt và không ở trạng thái bị từ chối)
+    final needsCccd = !profile.isCccdVerified &&
+        !profile.isCccdPending &&
+        !profile.isCccdRejected;
 
     final isHost = profile.isHost ||
         profile.role == 'host' ||
@@ -290,7 +463,7 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
     ].join('|');
 
     final cccdSignature =
-        '${profile.uid}|${profile.cccdVerificationStatus}|${profile.isCccdVerified}|${profile.isCccdPending}|${profile.cccdRejectedReason}';
+        '${profile.uid}|${profile.isCccdVerified}|${profile.isCccdPending}';
 
     // A. Nếu thiếu SĐT hoặc STK ngân hàng -> Hiện dialog STK, SĐT trước
     if (needsPhoneOrBank) {
@@ -333,9 +506,7 @@ class _SignedInShellState extends ConsumerState<_SignedInShell> {
         await showCccdRequiredModal(
           context,
           isHost: isHost,
-          isPending: profile.isCccdPending,
-          isRejected: profile.isCccdRejected,
-          rejectedReason: profile.cccdRejectedReason,
+          isPending: false,
         );
         _cccdPromptOpen = false;
       });

@@ -20,6 +20,12 @@ class AuthService {
   /// Gmail vừa đăng ký thành công để màn hình đăng nhập tự điền lại.
   static String? pendingLoginEmail;
 
+  /// Đánh dấu UID đã đăng nhập lại từ LoginScreen để vào thẳng luồng bổ sung CCCD (Bước 2 & 3).
+  static final Set<String> cccdResubmitSessionUids = <String>{};
+
+  /// Cờ đồng bộ báo hiệu đang thực hiện đăng nhập từ LoginScreen (tránh race condition khi authStateChanges bắn trước khi signInWithEmail kết thúc).
+  static bool isSigningInFromLogin = false;
+
   static const int statusLockedId = 2;
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -36,6 +42,7 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    isSigningInFromLogin = true;
     try {
       final credential = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
@@ -43,6 +50,7 @@ class AuthService {
       );
       final user = credential.user;
       if (user != null) {
+        cccdResubmitSessionUids.add(user.uid);
         final profileRef = _firestore.collection('users').doc(user.uid);
         final snap = await profileRef.get();
         final profile = snap.data();
@@ -77,6 +85,23 @@ class AuthService {
             await activateVerifiedEmail();
           }
         }
+        final cccdStatus =
+            (profile?['cccdVerificationStatus'] ?? '').toString().trim();
+        final cccdRejectReason =
+            (profile?['cccdRejectReason'] ??
+                    profile?['cccdRejectedReason'] ??
+                    '')
+                .toString()
+                .trim();
+        final isRejectedOrResubmitting = cccdStatus == 'rejected' ||
+            cccdStatus == 'tuChoi' ||
+            ((cccdStatus == 'pending' || cccdStatus == 'choDuyet') &&
+                cccdRejectReason.isNotEmpty);
+        if (isRejectedOrResubmitting) {
+          cccdResubmitSessionUids.add(user.uid);
+        } else {
+          cccdResubmitSessionUids.remove(user.uid);
+        }
       }
       return credential;
     } on FirebaseAuthException catch (e) {
@@ -84,6 +109,8 @@ class AuthService {
     } catch (e) {
       if (e == lockedAccountMessage) rethrow;
       throw 'Đã có lỗi xảy ra: $e';
+    } finally {
+      isSigningInFromLogin = false;
     }
   }
 

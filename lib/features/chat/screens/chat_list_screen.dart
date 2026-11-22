@@ -13,12 +13,7 @@ import '../../renter/screens/user_notifications_screen.dart';
 
 /// Màn hình Danh sách Cuộc trò chuyện & Trao đổi (Feature #10 theo SRS & Tc_CHAT)
 class ChatListScreen extends ConsumerStatefulWidget {
-  final bool showNotificationButton;
-
-  const ChatListScreen({
-    super.key,
-    this.showNotificationButton = true,
-  });
+  const ChatListScreen({super.key});
 
   @override
   ConsumerState<ChatListScreen> createState() => _ChatListScreenState();
@@ -106,64 +101,62 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
       appBar: AppBar(
         title: const Text('Tin nhắn & Trao đổi'),
         actions: [
-          if (widget.showNotificationButton && !(profile?.isHost ?? false))
-            Padding(
-              padding: const EdgeInsets.only(right: 14),
-              child: Center(
-                child: Consumer(
-                  builder: (context, ref, _) {
-                    final unreadNotifs =
-                        ref.watch(userUnreadNotificationCountProvider);
-                    return Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const UserNotificationsScreen(),
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: Center(
+              child: Consumer(
+                builder: (context, ref, _) {
+                  final unreadNotifs = ref.watch(userUnreadNotificationCountProvider);
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const UserNotificationsScreen(),
                           ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              const Icon(
-                                Icons.notifications_none_rounded,
-                                size: 22,
-                                color: Color(0xFF1E293B),
-                              ),
-                              if (unreadNotifs > 0)
-                                Positioned(
-                                  top: 7,
-                                  right: 7,
-                                  child: Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFFEF4444),
-                                      shape: BoxShape.circle,
-                                    ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            const Icon(
+                              Icons.notifications_none_rounded,
+                              size: 22,
+                              color: Color(0xFF1E293B),
+                            ),
+                            if (unreadNotifs > 0)
+                              Positioned(
+                                top: 7,
+                                right: 7,
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFEF4444),
+                                    shape: BoxShape.circle,
                                   ),
                                 ),
-                            ],
-                          ),
+                              ),
+                          ],
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
             ),
+          ),
         ],
       ),
       body: Column(
