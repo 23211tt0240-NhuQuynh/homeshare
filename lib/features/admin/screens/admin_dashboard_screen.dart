@@ -33,6 +33,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return "${amount.toStringAsFixed(0).replaceAll(RegExp(r'\B(?=(\d{3})+(?!\d))'), '.')} đ";
   }
 
+  bool _isAdminRole(Map<String, dynamic> u) {
+    final r = (u['role'] ?? '').toString().toLowerCase().trim();
+    return r == 'admin' || r == 'quantri' || r == 'quan tri vien';
+  }
+
+  bool _isHostRole(Map<String, dynamic> u) {
+    final r = (u['role'] ?? '').toString().toLowerCase().trim();
+    return r == 'host' || r == 'landlord' || r == 'chutro' || r == 'chu tro';
+  }
+
+  bool _isUserVerified(Map<String, dynamic> u) {
+    if (u['isCccdVerified'] == true || u['daXacThucCccd'] == true) {
+      return true;
+    }
+    final status =
+        (u['trangThaiXacMinh'] ?? u['trangThaiXacMinh_id'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+    return status == 'daxacthuc' ||
+        status == 'verified' ||
+        status == 'approved';
+  }
+
   void _openNotificationsBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -355,18 +379,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
               for (var u in userDocs) {
                 final uData = u.data() as Map<String, dynamic>? ?? {};
-                final role = (uData['role'] ?? '').toString().toLowerCase();
+                // Chỉ đếm người dùng đã xác thực CCCD và không phải Admin
+                if (_isAdminRole(uData) || !_isUserVerified(uData)) {
+                  continue;
+                }
                 final Timestamp? uTime = uData['createdAt'] as Timestamp?;
                 final bool isThisMonth =
                     uTime != null &&
                     uTime.toDate().month == now.month &&
                     uTime.toDate().year == now.year;
 
-                if (role == 'host' || role == 'landlord' || role == 'chutro') {
+                if (_isHostRole(uData)) {
                   hostCount++;
                   if (isThisMonth) newHostsCount++;
-                } else if (role != 'admin') {
-                  // Chỉ tính renter/tenant, bỏ qua admin
+                } else {
                   renterCount++;
                   if (isThisMonth) newRentersCount++;
                 }
